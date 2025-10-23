@@ -59,7 +59,7 @@
                                             <MudListItem T="TaskLog" Item="log" Icon="@(log.Status == SubmissionStatus.Accepted ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)" IconColor="@(log.Status == SubmissionStatus.Accepted ? Color.Success : Color.Error)">
                                                 <div class="d-flex flex-column">
                                                     <MudText Typo="Typo.body2"><i>"@log.Comment"</i></MudText>
-                                                    <MudText Typo="Typo.caption">@log.Admin?.Name (@log.SubmissionDate.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo("ru-RU"))</MudText>
+                                                    <MudText Typo="Typo.caption">@log.Admin?.Name (@log.SubmissionDate.ToLocalTime().ToString("g", CultureInfo.GetCultureInfo("ru-RU")))</MudText>
                                                 </div>
                                             </MudListItem>
                                         }
