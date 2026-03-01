@@ -25,14 +25,27 @@
 
                 <MudGrid Spacing="2">
                     <MudItem xs="6">
-                        <MudTextField @bind-Value="_regDto.FirstName" Label="Имя" Required="true" Variant="Variant.Outlined" />
+                        <MudTextField 
+                            @bind-Value="_regDto.FirstName" 
+                            Label="Имя" Required="true" 
+                            Variant="Variant.Outlined" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudTextField @bind-Value="_regDto.LastName" Label="Фамилия" Required="true" Variant="Variant.Outlined" />
+                        <MudTextField 
+                            @bind-Value="_regDto.LastName" 
+                            Label="Фамилия" 
+                            Required="true" 
+                            Variant="Variant.Outlined" />
                     </MudItem>
                 </MudGrid>
                 
-                <MudTextField @bind-Value="_regDto.Email" Label="Email" InputType="InputType.Email" Variant="Variant.Outlined" Class="mt-3" />
+                <MudTextField 
+                    @bind-Value="_regDto.Email" 
+                    Label="Email" 
+                    InputType="InputType.Email"
+                    Required="true" 
+                    Variant="Variant.Outlined" 
+                    Class="mt-3" />
                 
                 <MudTextField @bind-Value="_regDto.Password" 
                               Label="Пароль" 
@@ -45,8 +58,22 @@
                               OnAdornmentClick="TogglePasswordVisibility"
                               AdornmentAriaLabel="Показать/скрыть пароль" />
                 
+                <MudTextField @bind-Value="_confirmPassword" 
+                              Label="Повторите пароль" 
+                              Required="true" 
+                              Variant="Variant.Outlined" 
+                              Class="mt-3"
+                              InputType="@(_isPasswordVisible ? InputType.Text : InputType.Password)" 
+                              Validation="@(new Func<string, string>(CheckPasswordsMatch))" />
                 
-                <MudSelect T="int?" @bind-Value="_regDto.GroupId" Label="Выберите вашу группу" Required="true" Variant="Variant.Outlined" Class="mt-3" AnchorOrigin="Origin.BottomCenter">
+                
+                <MudSelect T="int?" 
+                           @bind-Value="_regDto.GroupId" 
+                           Label="Выберите вашу группу" 
+                           Required="true" 
+                           Variant="Variant.Outlined" 
+                           Class="mt-3" 
+                           AnchorOrigin="Origin.BottomCenter">
                     @if (_groups == null)
                     {
                         <MudSelectItem T="int?" Value="null" Disabled="true">Загрузка групп...</MudSelectItem>
@@ -60,7 +87,15 @@
                     }
                 </MudSelect>
 
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" FullWidth="true" Class="mt-6 py-2" OnClick="HandleRegister" Disabled="_isProcessing">
+                <MudButton
+                    Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    Size="Size.Large"
+                    FullWidth="true"
+                    Class="mt-6 py-2"
+                    OnClick="HandleRegister"
+                    Disabled="_isProcessing">
+                    
                     @if (_isProcessing)
                     {
                         <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
@@ -89,10 +124,16 @@
     private List<GroupDto> _groups;
     private bool _isProcessing = false;
     private bool _isPasswordVisible = false;
+    private string _confirmPassword; 
 
     private void TogglePasswordVisibility()
     {
         _isPasswordVisible = !_isPasswordVisible;
+    }
+    
+    private string CheckPasswordsMatch(string arg)
+    {
+        return _regDto.Password != arg ? "Пароли не совпадают" : null!;
     }
     
     protected override async Task OnInitializedAsync()
@@ -120,7 +161,7 @@
 
         try
         {
-            var response = await Http.PostAsJsonAsync("/api/Auth/register", _regDto);
+            HttpResponseMessage response = await Http.PostAsJsonAsync("/api/Auth/register", _regDto);
             
             if (response.IsSuccessStatusCode)
             {
