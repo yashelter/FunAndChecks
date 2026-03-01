@@ -9,10 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.dockerignore = .dockerignore
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiTests", "ApiTests\ApiTests.csproj", "{C0F8794C-319F-413C-8814-DF08EAE2E947}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelegramBot", "TelegramBot\TelegramBot.csproj", "{5F12DC63-7A6B-4107-B601-97B3B8A33F61}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AdminUI", "AdminUI\AdminUI.csproj", "{7115879F-116F-4F17-8D66-186676FAF956}"
 EndProject
 Global
@@ -25,14 +21,6 @@ Global
 		{B0B98596-CF4D-4843-9EAE-402CE7F1029B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B0B98596-CF4D-4843-9EAE-402CE7F1029B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B0B98596-CF4D-4843-9EAE-402CE7F1029B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C0F8794C-319F-413C-8814-DF08EAE2E947}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C0F8794C-319F-413C-8814-DF08EAE2E947}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C0F8794C-319F-413C-8814-DF08EAE2E947}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C0F8794C-319F-413C-8814-DF08EAE2E947}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5F12DC63-7A6B-4107-B601-97B3B8A33F61}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5F12DC63-7A6B-4107-B601-97B3B8A33F61}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5F12DC63-7A6B-4107-B601-97B3B8A33F61}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5F12DC63-7A6B-4107-B601-97B3B8A33F61}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7115879F-116F-4F17-8D66-186676FAF956}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7115879F-116F-4F17-8D66-186676FAF956}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7115879F-116F-4F17-8D66-186676FAF956}.Release|Any CPU.ActiveCfg = Release|Any CPU

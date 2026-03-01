@@ -64,22 +64,6 @@
       - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
       - ./config/initialAdmins.json:/app/config/initialAdmins.json:ro
 
-  user-bot:
-    container_name: user-bot
-    image: user-bot
-    build:
-      context: .
-      dockerfile: TelegramBot/Dockerfile
-    restart: on-failure
-    depends_on:
-      funandchecks-api:
-        condition: service_healthy
-    environment:
-      - DOTNET_ENVIRONMENT=Production
-      - BotConfiguration__BotToken=${USER_BOT_TOKEN}
-      - ApiConfiguration__BaseUrl=http://funandchecks-api:${API_INTERNAL_PORT}
-      - ApiConfiguration__SharedSecret=${SHARED_SECRET}
-
 
 volumes:
   pgdata:

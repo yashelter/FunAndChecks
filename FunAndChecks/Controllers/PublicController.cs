@@ -48,7 +48,7 @@ public class PublicController(ApplicationDbContext context) : ControllerBase
                         p.User.LastName,
                         p.User.Group!.Name,
                         p.User.Submissions
-                            .Where(s => s.Status == SubmissionStatus.Accepted)
+                            .Where(s => s.Status == SubmissionStatus.Accepted && s.Task.SubjectId == qe.SubjectId)
                             .Select(s => s.Task)
                             .Distinct()
                             .Sum(t => t.MaxPoints),
