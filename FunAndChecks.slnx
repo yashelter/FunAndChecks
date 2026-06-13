@@ -4,7 +4,10 @@
     <File Path="compose.yaml" />
     <File Path="Dockerfile" />
   </Folder>
-  <Project Path="AdminUI/AdminUI.csproj" />
+  <Project Path="Frontend.Shared/Frontend.Shared.csproj" />
+  <Project Path="Frontend.Admin/Frontend.Admin.csproj" />
+  <Project Path="Frontend.Student/Frontend.Student.csproj" />
+  <Project Path="Frontend/Frontend.csproj" />
   <Project Path="FunAndChecks.Domain/FunAndChecks.Domain.csproj" />
   <Project Path="FunAndChecks.Application/FunAndChecks.Application.csproj" />
   <Project Path="FunAndChecks.Infrastructure/FunAndChecks.Infrastructure.csproj" />

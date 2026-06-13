@@ -1,0 +1,84 @@
+@page "/student/logs"
+@layout StudentLayout
+@attribute [Authorize(Roles = Roles.Student)]
+
+<PageTitle>История сдач</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Мои результаты и история сдач</MudText>
+
+<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+           Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+    @foreach (var subject in _subjects)
+    {
+        <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+    }
+</MudSelect>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_results is not null)
+{
+    <MudPaper Class="pa-4 mb-4">
+        <MudText Typo="Typo.h5">Итог по предмету: <b>@_results.SubjectName</b></MudText>
+        <MudText Typo="Typo.h6" Class="mt-1">
+            Всего баллов:
+            <MudChip T="string" Color="Color.Primary">@_results.TotalPointsEarned / @_results.MaxPointsPossible</MudChip>
+        </MudText>
+    </MudPaper>
+
+    @if (_results.Grades.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">Оценки</MudText>
+        <MudStack Spacing="2" Class="mb-4">
+            @foreach (var grade in _results.Grades)
+            {
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudText Typo="Typo.body1"><b>@grade.Name</b>: @grade.Points / @grade.MaxPoints</MudText>
+                    @if (!string.IsNullOrWhiteSpace(grade.Comment))
+                    {
+                        <MudText Typo="Typo.body2"><i>@grade.Comment</i></MudText>
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    }
+
+    <MudText Typo="Typo.h6" Class="mb-2">Задачи</MudText>
+    <MudStack Spacing="3">
+        @foreach (var task in _results.TaskResults.OrderBy(t => t.TaskName))
+        {
+            <MudPaper Outlined="true" Class="pa-3">
+                <MudText Typo="Typo.body1"><b>@task.TaskName</b> (@task.MaxPoints б.)</MudText>
+                <MudText Typo="Typo.body2">
+                    Текущий статус:
+                    <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.CurrentStatus)">
+                        @StatusText(task.CurrentStatus)
+                    </MudChip>
+                </MudText>
+
+                @if (task.SubmissionHistory is { Count: > 0 })
+                {
+                    <MudExpansionPanels Class="mt-2">
+                        <MudExpansionPanel Text="Показать историю проверок">
+                            <MudList T="SubmissionLogDto" Dense="true">
+                                @foreach (var log in task.SubmissionHistory.OrderByDescending(l => l.SubmittedAt))
+                                {
+                                    <MudListItem T="SubmissionLogDto"
+                                                 Icon="@(log.Status == SubmissionStatus.Accepted ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                                 IconColor="@(log.Status == SubmissionStatus.Accepted ? Color.Success : Color.Error)">
+                                        <MudText Typo="Typo.body2"><i>@log.Comment</i></MudText>
+                                        <MudText Typo="Typo.caption">
+                                            Проверил: @log.Admin.FullName (@log.SubmittedAt.ToLocalTime().ToString("g"))
+                                        </MudText>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+            </MudPaper>
+        }
+    </MudStack>
+}

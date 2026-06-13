@@ -1,0 +1,53 @@
+@page "/admin/queues/{EventId:int}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+@implements IAsyncDisposable
+
+<PageTitle>Очередь</PageTitle>
+
+@if (_loading)
+{
+    <div class="d-flex justify-center align-center" style="height: 50vh;">
+        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+    </div>
+}
+else if (_details is not null)
+{
+    <div class="d-flex align-center mb-2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/queues" Edge="Edge.Start" />
+        <MudText Typo="Typo.h4" Class="ml-2">@_details.EventName</MudText>
+    </div>
+    <MudText Typo="Typo.subtitle1" GutterBottom="true">Предмет: @_details.SubjectName</MudText>
+
+    @if (_participants.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">В очереди нет участников.</MudAlert>
+    }
+    else
+    {
+        <MudList T="QueueParticipantDto" Class="mt-2">
+            @foreach (var p in _participants)
+            {
+                <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))">
+                    <div class="d-flex justify-space-between align-center flex-grow-1">
+                        <div class="d-flex align-center gap-2">
+                            <MudText><b>@p.LastName @p.FirstName</b></MudText>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@p.GroupName</MudChip>
+                        </div>
+                        <div class="d-flex align-center gap-2">
+                            <MudText>Баллы: <b>@p.TotalPoints</b></MudText>
+                            <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
+                                @StatusText(p.Status, p.CheckingByAdminName)
+                            </MudChip>
+                        </div>
+                    </div>
+                </MudListItem>
+                <MudDivider />
+            }
+        </MudList>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Error">Не удалось загрузить данные очереди.</MudAlert>
+}

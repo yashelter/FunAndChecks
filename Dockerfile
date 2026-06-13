@@ -7,7 +7,10 @@ COPY ["FunAndChecks/FunAndChecks.csproj", "FunAndChecks/"]
 COPY ["FunAndChecks.Domain/FunAndChecks.Domain.csproj", "FunAndChecks.Domain/"]
 COPY ["FunAndChecks.Application/FunAndChecks.Application.csproj", "FunAndChecks.Application/"]
 COPY ["FunAndChecks.Infrastructure/FunAndChecks.Infrastructure.csproj", "FunAndChecks.Infrastructure/"]
-COPY ["AdminUI/AdminUI.csproj", "AdminUI/"]
+COPY ["Frontend/Frontend.csproj", "Frontend/"]
+COPY ["Frontend.Shared/Frontend.Shared.csproj", "Frontend.Shared/"]
+COPY ["Frontend.Admin/Frontend.Admin.csproj", "Frontend.Admin/"]
+COPY ["Frontend.Student/Frontend.Student.csproj", "Frontend.Student/"]
 
 # Восстанавливаем NuGet-пакеты
 RUN dotnet restore "FunAndChecks/FunAndChecks.csproj"
@@ -17,7 +20,10 @@ COPY ["FunAndChecks/", "FunAndChecks/"]
 COPY ["FunAndChecks.Domain/", "FunAndChecks.Domain/"]
 COPY ["FunAndChecks.Application/", "FunAndChecks.Application/"]
 COPY ["FunAndChecks.Infrastructure/", "FunAndChecks.Infrastructure/"]
-COPY ["AdminUI/", "AdminUI/"]
+COPY ["Frontend/", "Frontend/"]
+COPY ["Frontend.Shared/", "Frontend.Shared/"]
+COPY ["Frontend.Admin/", "Frontend.Admin/"]
+COPY ["Frontend.Student/", "Frontend.Student/"]
 
 # Публикуем основной API проект
 RUN dotnet publish "FunAndChecks/FunAndChecks.csproj" -c Release -o /app/publish /p:UseAppHost=false

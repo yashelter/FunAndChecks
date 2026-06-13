@@ -1,0 +1,50 @@
+@page "/register"
+@layout AuthLayout
+
+<PageTitle>Регистрация</PageTitle>
+
+<MudPaper Class="pa-8 mx-auto mt-8" MaxWidth="480px" Elevation="4">
+    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">Регистрация студента</MudText>
+
+    <MudForm @ref="_form">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_firstName" Label="Имя" Required="true" RequiredError="Укажите имя" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_lastName" Label="Фамилия" Required="true" RequiredError="Укажите фамилию" />
+            </MudItem>
+        </MudGrid>
+
+        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+                      Required="true" RequiredError="Укажите email" Class="mt-2" />
+        <MudTextField @bind-Value="_password" Label="Пароль" InputType="InputType.Password"
+                      Required="true" RequiredError="Укажите пароль" Class="mt-2" />
+
+        <MudSelect T="int" @bind-Value="_groupId" Label="Группа" Required="true"
+                   RequiredError="Выберите группу" Class="mt-2">
+            @foreach (var group in _groups)
+            {
+                <MudSelectItem T="int" Value="group.Id">@group.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="_gitHubUrl" Label="GitHub (необязательно)" Class="mt-2" />
+        <MudTextField @bind-Value="_color" Label="Цвет, #RRGGBB (необязательно)" Class="mt-2" />
+    </MudForm>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+               OnClick="SubmitAsync" Disabled="_busy">
+        @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+        Зарегистрироваться
+    </MudButton>
+
+    <div class="d-flex justify-center mt-4">
+        <MudLink Href="/login">Уже есть аккаунт? Войти</MudLink>
+    </div>
+</MudPaper>

@@ -1,0 +1,66 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Student.LastName @Student.FirstName (@Student.GroupName)</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTabs Elevation="2" Rounded="true" Centered="true">
+            <MudTabPanel Text="Статус в очереди">
+                <MudPaper Class="pa-4 mt-2">
+                    <MudStack>
+                        @if (_status != QueueEntryStatus.Checking)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Checking))">Принять в работу</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                       OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">Завершил</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                                       OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">Пропущен</MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Info"
+                                       OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">Вернуть в очередь</MudButton>
+                        }
+                    </MudStack>
+                </MudPaper>
+            </MudTabPanel>
+
+            <MudTabPanel Text="Задачи">
+                @if (_loadingTasks)
+                {
+                    <div class="d-flex justify-center pa-4"><MudProgressCircular Indeterminate="true" /></div>
+                }
+                else
+                {
+                    <MudList T="TaskWithStatusDto" ReadOnly="true">
+                        @foreach (var task in _tasks)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mb-3">
+                                <div class="d-flex justify-space-between align-start">
+                                    <div>
+                                        <MudText Typo="Typo.body1"><b>@task.Name</b> (@task.MaxPoints б.)</MudText>
+                                        <MudText Typo="Typo.body2">
+                                            Статус:
+                                            <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.Status)">
+                                                @StatusText(task.Status)
+                                            </MudChip>
+                                        </MudText>
+                                    </div>
+                                    <MudStack Spacing="1" AlignItems="AlignItems.End">
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                                   OnClick="@(() => SubmitAsync(task.Id, SubmissionStatus.Accepted))">Зачтено</MudButton>
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                                                   OnClick="@(() => ReworkAsync(task.Id))">На доработку</MudButton>
+                                    </MudStack>
+                                </div>
+                            </MudPaper>
+                        }
+                    </MudList>
+                }
+            </MudTabPanel>
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Закрыть</MudButton>
+    </DialogActions>
+</MudDialog>

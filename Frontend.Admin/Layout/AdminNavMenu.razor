@@ -1,0 +1,22 @@
+<MudNavMenu>
+    <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Результаты
+    </MudNavLink>
+    <MudNavLink Href="/admin/management" Icon="@Icons.Material.Filled.LibraryBooks">
+        Создание
+    </MudNavLink>
+    <MudNavLink Href="/admin/queues" Icon="@Icons.Material.Filled.Groups">
+        Очереди
+    </MudNavLink>
+    <MudNavLink Href="/admin/students" Icon="@Icons.Material.Filled.School">
+        Студенты и оценки
+    </MudNavLink>
+    <AuthorizeView Roles="@Roles.SuperAdmin">
+        <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Filled.AdminPanelSettings">
+            Администраторы
+        </MudNavLink>
+        <MudNavLink Href="/admin/maintenance" Icon="@Icons.Material.Filled.Warning">
+            Обслуживание
+        </MudNavLink>
+    </AuthorizeView>
+</MudNavMenu>

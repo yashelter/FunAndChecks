@@ -1,0 +1,14 @@
+@inherits LayoutComponentBase
+
+@* Базовый layout для служебных страниц (редирект с «/», 404).
+   Провайдеры MudBlazor нужны в дереве — у области-специфичных layout-ов свои. *@
+<MudThemeProvider IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>

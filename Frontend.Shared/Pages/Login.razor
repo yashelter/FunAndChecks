@@ -1,0 +1,37 @@
+@page "/login"
+@layout AuthLayout
+
+<PageTitle>Вход</PageTitle>
+
+<MudPaper Class="pa-8 mx-auto mt-16" MaxWidth="420px" Elevation="4">
+    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">Вход в FunAndChecks</MudText>
+
+    <MudForm @ref="_form">
+        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+                      Required="true" RequiredError="Укажите email" Class="mb-3" />
+        <MudTextField @bind-Value="_password" Label="Пароль" InputType="InputType.Password"
+                      Required="true" RequiredError="Укажите пароль"
+                      OnKeyDown="@(e => { if (e.Key == "Enter") _ = SubmitAsync(); })" />
+    </MudForm>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        @if (_emailNotConfirmed)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mt-2"
+                       OnClick="GoToConfirm">Подтвердить почту</MudButton>
+        }
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+               OnClick="SubmitAsync" Disabled="_busy">
+        @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+        Войти
+    </MudButton>
+
+    <div class="d-flex justify-space-between mt-4">
+        <MudLink Href="/register">Регистрация</MudLink>
+        <MudLink Href="/forgot-password">Забыли пароль?</MudLink>
+    </div>
+</MudPaper>

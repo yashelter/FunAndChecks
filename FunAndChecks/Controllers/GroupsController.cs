@@ -1,5 +1,6 @@
 using FunAndChecks.Application.Groups;
 using FunAndChecks.Application.Students;
+using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,7 +40,7 @@ public class GroupsController(IGroupService groupService) : ControllerBase
 
     /// <summary>Удаляет группу; студенты группы остаются без группы.</summary>
     [HttpDelete("{groupId:int}")]
-    [Authorize(Policy = "RequireSuperAdminRole")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int groupId, CancellationToken cancellationToken)
     {

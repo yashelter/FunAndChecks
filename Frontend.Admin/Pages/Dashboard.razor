@@ -1,0 +1,64 @@
+@page "/admin"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>Админ · результаты</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Результаты</MudText>
+
+<MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="my-4">
+    <MudItem xs="12" sm="6" md="4">
+        <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+                   Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+            @foreach (var subject in _subjects)
+            {
+                <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudDownload"
+                   OnClick="ExportCsvAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
+            Скачать CSV
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_results is not null)
+{
+    <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
+                 Sortable="true" Filterable="true" Dense="true" Hover="true">
+        <Columns>
+            <PropertyColumn Property="x => x.FullName" Title="ФИО" />
+            <PropertyColumn Property="x => x.GroupName" Title="Группа" />
+
+            @foreach (var task in _results.TaskHeaders)
+            {
+                <TemplateColumn Title="@task.TaskName" Sortable="false">
+                    <CellTemplate>
+                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                        <div style="@CellStyle(cell)">@CellText(cell)</div>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            @foreach (var column in _results.GradeColumns)
+            {
+                <TemplateColumn Title="@column.Name" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                        {
+                            <span>@points / @column.MaxPoints</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+        </Columns>
+    </MudDataGrid>
+}

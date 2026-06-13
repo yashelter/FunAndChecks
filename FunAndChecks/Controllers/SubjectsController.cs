@@ -36,7 +36,7 @@ public class SubjectsController(
 
     /// <summary>Удаляет предмет каскадно вместе с заданиями и историей сдач.</summary>
     [HttpDelete("{subjectId:int}")]
-    [Authorize(Policy = "RequireSuperAdminRole")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int subjectId, CancellationToken cancellationToken)
     {

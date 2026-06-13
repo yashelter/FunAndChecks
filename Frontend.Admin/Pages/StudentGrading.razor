@@ -1,0 +1,81 @@
+@page "/admin/students"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>Студенты и оценки</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Студенты и оценки</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.h6" GutterBottom="true">Выбор</MudText>
+            <MudSelect T="SubjectDto" ValueChanged="OnSubjectChangedAsync" Label="Предмет"
+                       Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+                @foreach (var s in _subjects) { <MudSelectItem T="SubjectDto" Value="s">@s.Name</MudSelectItem> }
+            </MudSelect>
+
+            <MudAutocomplete T="StudentDetailsDto" Value="_student" ValueChanged="OnStudentChangedAsync"
+                             Label="Студент" SearchFunc="SearchStudents" Variant="Variant.Outlined" Class="mt-4"
+                             ToStringFunc="@(s => s is null ? string.Empty : $"{s.LastName} {s.FirstName}")"
+                             Disabled="@(_students.Count == 0)" ResetValueOnEmptyText="true" CoerceText="true" />
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        @if (_student is not null)
+        {
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">@_student.LastName @_student.FirstName</MudText>
+
+                <MudText Typo="Typo.subtitle1" Class="mt-2">Задачи</MudText>
+                <MudList T="TaskWithStatusDto" ReadOnly="true">
+                    @foreach (var task in _tasks)
+                    {
+                        <MudPaper Outlined="true" Class="pa-3 mb-2">
+                            <div class="d-flex justify-space-between align-center">
+                                <div>
+                                    <MudText><b>@task.Name</b> (@task.MaxPoints б.)</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@TaskColor(task.Status)">@TaskText(task.Status)</MudChip>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                               OnClick="@(() => SubmitAsync(task.Id, SubmissionStatus.Accepted))">Зачтено</MudButton>
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                                               OnClick="@(() => ReworkAsync(task.Id))">На доработку</MudButton>
+                                </div>
+                            </div>
+                        </MudPaper>
+                    }
+                </MudList>
+
+                @if (_components.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle1" Class="mt-4">Оценки</MudText>
+                    <MudList T="GradeComponentDto" ReadOnly="true">
+                        @foreach (var component in _components)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3 mb-2">
+                                <div class="d-flex justify-space-between align-center gap-2">
+                                    <MudText><b>@component.Name</b> (макс. @component.MaxPoints)</MudText>
+                                    <div class="d-flex align-center gap-2">
+                                        <MudNumericField T="int" @bind-Value="_gradeInputs[component.Id]" Min="0"
+                                                         Max="@component.MaxPoints" Variant="Variant.Outlined" Style="width: 110px;" />
+                                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                                   OnClick="@(() => SetGradeAsync(component.Id))">Сохранить</MudButton>
+                                    </div>
+                                </div>
+                            </MudPaper>
+                        }
+                    </MudList>
+                }
+            </MudPaper>
+        }
+        else
+        {
+            <div class="d-flex align-center justify-center" style="height:100%">
+                <MudText Typo="Typo.h6"><i>Студент не выбран</i></MudText>
+            </div>
+        }
+    </MudItem>
+</MudGrid>

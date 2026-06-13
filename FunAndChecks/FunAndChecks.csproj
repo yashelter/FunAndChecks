@@ -25,7 +25,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\AdminUI\AdminUI.csproj" />
+        <ProjectReference Include="..\Frontend\Frontend.csproj" />
         <ProjectReference Include="..\FunAndChecks.Application\FunAndChecks.Application.csproj" />
         <ProjectReference Include="..\FunAndChecks.Infrastructure\FunAndChecks.Infrastructure.csproj" />
     </ItemGroup>

@@ -1,0 +1,34 @@
+@page "/admin/queues"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>Активные очереди</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Активные очереди</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_queues.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Активных очередей не найдено.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var queue in _queues)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="cursor: pointer;" @onclick="@(() => Open(queue.Id))">
+                    <MudCardHeader>
+                        <CardHeaderContent><MudText Typo="Typo.h6">@queue.Name</MudText></CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText>@queue.EventDateTime.ToLocalTime().ToString("g")</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}

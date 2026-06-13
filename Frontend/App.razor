@@ -1,0 +1,32 @@
+@using System.Reflection
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="_additionalAssemblies">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <RedirectToLogin />
+                </NotAuthorized>
+                <Authorizing>
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudText Typo="Typo.h6" Class="ma-8">Страница не найдена.</MudText>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    // Маршруты собираются из общих (вход/регистрация), админских и студенческих страниц.
+    private readonly Assembly[] _additionalAssemblies =
+    [
+        typeof(Frontend.Shared.Pages.Login).Assembly,
+        typeof(Frontend.Admin.AdminAssemblyMarker).Assembly,
+        typeof(Frontend.Student.StudentAssemblyMarker).Assembly,
+    ];
+}

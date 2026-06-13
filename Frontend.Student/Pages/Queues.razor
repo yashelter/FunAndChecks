@@ -1,0 +1,92 @@
+@page "/student/queues"
+@layout StudentLayout
+@attribute [Authorize(Roles = Roles.Student)]
+@implements IAsyncDisposable
+
+<PageTitle>Очереди</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_details is not null)
+{
+    <div class="d-flex align-center mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="BackToList" Edge="Edge.Start" />
+        <MudText Typo="Typo.h5" Class="ml-2">Очередь: <b>@_details.EventName</b></MudText>
+    </div>
+
+    <MudList T="QueueParticipantDto" ReadOnly="true">
+        @foreach (var p in _participants)
+        {
+            <MudListItem T="QueueParticipantDto">
+                <div class="d-flex justify-space-between align-center flex-grow-1">
+                    <MudText>@p.LastName @p.FirstName</MudText>
+                    <div class="d-flex align-center gap-2">
+                        <MudText Class="mr-2">Баллы: <b>@p.TotalPoints</b></MudText>
+                        <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
+                            @StatusText(p.Status, p.CheckingByAdminName)
+                        </MudChip>
+                    </div>
+                </div>
+            </MudListItem>
+            <MudDivider />
+        }
+    </MudList>
+}
+else
+{
+    <MudStack Spacing="4">
+        <div>
+            <MudText Typo="Typo.h5" GutterBottom="true">Мои очереди</MudText>
+            @if (_myEvents.Count > 0)
+            {
+                <MudStack Spacing="2">
+                    @foreach (var ev in _myEvents)
+                    {
+                        <MudPaper Class="pa-3 d-flex justify-space-between align-center" Outlined="true">
+                            <div>
+                                <MudText Typo="Typo.body1"><b>@ev.Name</b></MudText>
+                                <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
+                            </div>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                       OnClick="@(() => ViewQueueAsync(ev.Id))">Открыть</MudButton>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudText>Вы пока не записаны ни в одну очередь.</MudText>
+            }
+        </div>
+
+        <MudDivider />
+
+        <div>
+            <MudText Typo="Typo.h5" GutterBottom="true">Доступные для записи</MudText>
+            @if (_availableEvents.Count > 0)
+            {
+                <MudStack Spacing="2">
+                    @foreach (var ev in _availableEvents)
+                    {
+                        <MudPaper Class="pa-3 d-flex justify-space-between align-center" Outlined="true">
+                            <div>
+                                <MudText Typo="Typo.body1"><b>@ev.Name</b></MudText>
+                                <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
+                            </div>
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="@(() => JoinAsync(ev.Id))">Записаться</MudButton>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+            else
+            {
+                <MudText>Сейчас нет очередей, в которые можно записаться.</MudText>
+            }
+        </div>
+    </MudStack>
+}

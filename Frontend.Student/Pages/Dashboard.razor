@@ -1,0 +1,54 @@
+@page "/student"
+@layout StudentLayout
+@attribute [Authorize(Roles = Roles.Student)]
+
+<PageTitle>Результаты</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Результаты по предмету</MudText>
+
+<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+           Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+    @foreach (var subject in _subjects)
+    {
+        <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+    }
+</MudSelect>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_results is not null)
+{
+    <MudDataGrid T="StudentResultRowDto" Items="@_results.UserResults" Dense="true"
+                 Sortable="true" Filterable="true" Hover="true">
+        <Columns>
+            <PropertyColumn Property="x => x.FullName" Title="ФИО" />
+            <PropertyColumn Property="x => x.GroupName" Title="Группа" />
+
+            @foreach (var task in _results.TaskHeaders)
+            {
+                <TemplateColumn Title="@task.TaskName" Sortable="false">
+                    <CellTemplate>
+                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                        <div style="@CellStyle(cell)">@CellText(cell)</div>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            @foreach (var column in _results.GradeColumns)
+            {
+                <TemplateColumn Title="@column.Name" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                        {
+                            <span>@points / @column.MaxPoints</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+        </Columns>
+    </MudDataGrid>
+}
