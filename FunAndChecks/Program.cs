@@ -1,61 +1,62 @@
 using System.Text;
-using FunAndChecks.Data;
-using FunAndChecks.Data.Seeding;
-using FunAndChecks.Hub;
-using FunAndChecks.Models;
-using FunAndChecks.Services;
-using FunAndChecks.Workers;
+using System.Threading.RateLimiting;
+using FunAndChecks.Application;
+using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Common;
+using FunAndChecks.Domain.Constants;
+using FunAndChecks.Hubs;
+using FunAndChecks.Infrastructure;
+using FunAndChecks.Infrastructure.Identity;
+using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Infrastructure.Persistence.Seeding;
+using FunAndChecks.Middleware;
+using FunAndChecks.OpenApi;
+using FunAndChecks.Realtime;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
 
-Console.OutputEncoding = System.Text.Encoding.UTF8;
- 
+Console.OutputEncoding = Encoding.UTF8;
+
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(LogEventLevel.Warning)
     .CreateBootstrapLogger();
 
-
 builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext());
 
+// Секреты (ConnectionStrings, Jwt:Key, Smtp, InitialAdmins) — реальный файл не в репозитории,
+// шаблон рядом: secrets.template.json. Можно заменить user-secrets/переменными окружения.
 builder.Configuration.AddJsonFile(
-    "config/initialAdmins.json",
+    "secrets.json",
     optional: true,
-    reloadOnChange: true
-);
+    reloadOnChange: true);
 
+// Слои приложения
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
+
+// SignalR-нотификаторы — реализация прикладных интерфейсов на уровне Presentation
 builder.Services.AddSignalR();
+builder.Services.AddScoped<IQueueNotifier, QueueNotifier>();
+builder.Services.AddScoped<IResultsNotifier, ResultsNotifier>();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(connectionString));
-
-builder.Services.AddIdentity<User, Role>(options =>
-{
-    options.Password.RequireDigit = false;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequiredLength = 6;
-})
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddUserStore<UserStore<User, Role, ApplicationDbContext, Guid, IdentityUserClaim<Guid>, UserRole, IdentityUserLogin<Guid>, IdentityUserToken<Guid>, IdentityRoleClaim<Guid>>>() // <-- Более явная регистрация
-    .AddRoleStore<RoleStore<Role, ApplicationDbContext, Guid, UserRole, IdentityRoleClaim<Guid>>>()
-    .AddDefaultTokenProviders();
-
+// Настройки JWT из appsettings (секция "Jwt")
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+                 ?? throw new InvalidOperationException("Jwt configuration section is missing.");
+if (string.IsNullOrEmpty(jwtOptions.Key))
+    throw new InvalidOperationException("Jwt:Key is not configured.");
 
 builder.Services.AddAuthentication(options =>
     {
@@ -70,136 +71,131 @@ builder.Services.AddAuthentication(options =>
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Key)),
+        };
+
+        // SignalR передаёт токен в query-string — достаём его для хабов.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/apiHub"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            },
         };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("RequireSuperAdminRole",
-        policy => policy.RequireRole("SuperAdmin"));
+    options.AddPolicy(AuthorizationPolicies.SuperAdmin,
+        policy => policy.RequireRole(Roles.SuperAdmin));
+});
+
+// Защита эндпоинтов аутентификации от перебора: лимит по IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
 });
 
 builder.Services.AddControllers();
 
-builder.Services.AddScoped<ITokenService, TokenService>();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+// OpenAPI-документ (отдаётся на /openapi/v1.json), просматривается через Scalar.
+builder.Services.AddOpenApi(options =>
 {
-    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        In = ParameterLocation.Header,
-        Description = "Please enter a valid token",
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        BearerFormat = "JWT",
-        Scheme = "Bearer"
-    });
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-            },
-            new string[]{}
-        }
-    });
-});
-
-builder.Services.AddScoped<DataSeeder>();
-builder.Services.AddRazorPages();
-builder.Services.AddSingleton<IResultsCacheService, ResultsCacheService>();
-builder.Services.AddHostedService<ResultsUpdateWorker>();
-
-
-builder.Services.AddHttpClient("ApiV1", client =>
-{
-    var apiBaseUrl = builder.Configuration["ApiConfiguration:BaseUrl"];
-    client.BaseAddress = new Uri(apiBaseUrl);
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("DefaultConnection")!,
         name: "PostgreSQL",
-        failureStatus: HealthStatus.Unhealthy
-    );
+        failureStatus: HealthStatus.Unhealthy);
 
-
+// CORS: в проде — только origins из конфигурации (Cors:AllowedOrigins),
+// в Development — любой origin (чтобы фронт можно было запускать локально
+// из IDE отдельно от бэкенда, а не только через общий compose).
+const string corsPolicy = "AppCors";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: "myAllowSpecificOrigins",
-        policy =>
-        {
-            policy.WithOrigins("https://funandchecks.ru",
-                    "https://localhost:7207",
-                    "http://localhost:5207")
-                .AllowAnyHeader()
-                .AllowAnyMethod();
-        });
-    
-    options.AddPolicy(name:  "DevelopmentCorsPolicy",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                .AllowAnyHeader()
-                .AllowAnyMethod();
-        });
+    options.AddPolicy(corsPolicy, policy =>
+    {
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+
+        if (builder.Environment.IsDevelopment())
+            policy.SetIsOriginAllowed(_ => true);
+        else
+            policy.WithOrigins(allowedOrigins);
+    });
 });
-
-
 
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+// OpenAPI + Scalar UI доступны всегда (документация по API на /scalar).
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
+{
+    options.WithTitle("FunAndChecks API")
+        .WithTheme(ScalarTheme.Mars)
+        .WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl);
+});
 
 if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
     app.UseWebAssemblyDebugging();
-}
-
 
 app.UseHttpsRedirection();
-app.UseBlazorFrameworkFiles();
 
+// Хостинг Blazor WASM (AdminUI) — статические файлы и SPA-fallback.
+app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
+
 app.UseRouting();
 
-app.UseCors("myAllowSpecificOrigins");
+app.UseCors(corsPolicy);
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapRazorPages();
 
 app.MapHub<QueueHub>("/apiHub/queueHub");
 app.MapHub<ResultsHub>("/apiHub/resultsHub");
 
-using (var scope = app.Services.CreateScope())
+// Миграции и сидинг при старте (в тестовой среде БД готовит сам тест-хост).
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        
+
         if (context.Database.GetPendingMigrations().Any())
         {
             logger.LogInformation("Applying database migrations...");
             context.Database.Migrate();
             logger.LogInformation("Database migrations applied successfully.");
         }
-        
+
         var seeder = services.GetRequiredService<DataSeeder>();
         await seeder.SeedAsync();
         logger.LogInformation("Database seeding completed.");
@@ -210,15 +206,12 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
-
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
-    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
 });
 
 app.MapFallbackToFile("index.html");
-
 
 try
 {
@@ -234,8 +227,7 @@ finally
     Log.CloseAndFlush();
 }
 
-
 /// <summary>
 /// Для интеграционных тестов
 /// </summary>
-public partial class Program { }
+public partial class Program;

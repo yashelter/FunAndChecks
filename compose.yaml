@@ -1,6 +1,6 @@
-﻿services:
+services:
   db:
-    image: postgres:latest
+    image: postgres:17
     container_name: funandchecks-db
     restart: always
     environment:
@@ -17,7 +17,24 @@
       timeout: 5s
       retries: 5
       start_period: 30s
-      
+
+  # Собственный почтовый сервер (send-only). Письма с подтверждением/сбросом
+  # пароля уходят через него — без внешних сервисов и лимитов.
+  mail:
+    image: boky/postfix:latest
+    container_name: funandchecks-mail
+    restart: always
+    environment:
+      # Домен, от чьего имени разрешена отправка (должен совпадать с Smtp__FromEmail).
+      ALLOWED_SENDER_DOMAINS: ${MAIL_DOMAIN}
+      HOSTNAME: mail.${MAIL_DOMAIN}
+      # Автогенерация DKIM-ключа (публичную часть нужно добавить в DNS — см. DEPLOY.md).
+      DKIM_AUTOGENERATE: "1"
+    volumes:
+      - maildkim:/etc/opendkim/keys
+    expose:
+      - "587"
+
   caddy:
     image: caddy:latest
     container_name: caddy-proxy
@@ -43,15 +60,25 @@
     depends_on:
       db:
         condition: service_healthy
+      mail:
+        condition: service_started
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:${API_INTERNAL_PORT}
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
-      - BotAuth__SharedSecret=${SHARED_SECRET}
       - Jwt__Key=${JWT_KEY}
       - Jwt__Issuer=${JWT_ISSUER}
       - Jwt__Audience=${JWT_AUDIENCE}
-      - ApiConfiguration__BaseUrl=http://localhost:${API_INTERNAL_PORT}
+      # Почта: отправляем через контейнер mail по внутренней сети (без TLS/авторизации).
+      - Smtp__Host=mail
+      - Smtp__Port=587
+      - Smtp__UseStartTls=false
+      - Smtp__FromEmail=noreply@${MAIL_DOMAIN}
+      - Smtp__FromName=FunAndChecks
+      # Каталог бэкапов внутри контейнера (смонтирован на том backups).
+      - Backup__Directory=/app/backups
+      # Разрешённые источники для CORS в проде (через запятую отображаются как массив).
+      - Cors__AllowedOrigins__0=https://${APP_DOMAIN}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${API_INTERNAL_PORT}/health || exit 1"]
       interval: 10s
@@ -62,7 +89,10 @@
       - "${API_INTERNAL_PORT}"
     volumes:
       - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
-      - ./config/initialAdmins.json:/app/config/initialAdmins.json:ro
+      # Секреты приложения (как минимум InitialAdmins). Создаётся из secrets.template.json.
+      - ./secrets.json:/app/secrets.json:ro
+      # Том для дампов БД (ручка POST /api/admin/backup).
+      - backups:/app/backups
 
 
 volumes:
@@ -70,3 +100,5 @@ volumes:
   dataprotection-keys:
   caddy_data:
   caddy_config:
+  maildkim:
+  backups:

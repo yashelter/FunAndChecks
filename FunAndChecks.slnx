@@ -5,5 +5,9 @@
     <File Path="Dockerfile" />
   </Folder>
   <Project Path="AdminUI/AdminUI.csproj" />
+  <Project Path="FunAndChecks.Domain/FunAndChecks.Domain.csproj" />
+  <Project Path="FunAndChecks.Application/FunAndChecks.Application.csproj" />
+  <Project Path="FunAndChecks.Infrastructure/FunAndChecks.Infrastructure.csproj" />
+  <Project Path="FunAndChecks.Tests/FunAndChecks.Tests.csproj" />
   <Project Path="FunAndChecks/FunAndChecks.csproj" />
 </Solution>

@@ -1,94 +1,67 @@
-using System.Text;
-using FunAndChecks.DTO;
-using FunAndChecks.Models;
-using FunAndChecks.Services;
-using Microsoft.AspNetCore.Identity;
+using FunAndChecks.Application.Auth;
+using FunAndChecks.Common;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FunAndChecks.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class AuthController : ControllerBase
+[Route("api/auth")]
+[EnableRateLimiting(RateLimitPolicies.Auth)]
+public class AuthController(IAuthService authService) : ControllerBase
 {
-    private readonly UserManager<User> _userManager;
-    private readonly ITokenService _tokenService;
-    private readonly IConfiguration _configuration;
-
-    public AuthController(UserManager<User> userManager, ITokenService tokenService, IConfiguration configuration)
-    {
-        _userManager = userManager;
-        _tokenService = tokenService;
-        _configuration = configuration;
-    }
-
+    /// <summary>Регистрация студента. На указанную почту отправляется код подтверждения.</summary>
     [HttpPost("register")]
-    public async Task<ActionResult<AuthResponseDto>> Register(RegisterUserDto dto)
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Register(RegisterStudentRequest request, CancellationToken cancellationToken)
     {
-        var user = new User
-        {
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            UserName = dto.TelegramUsername,
-            Email = dto.Email,
-            GroupId = dto.GroupId,
-            GitHubUrl = dto.GitHubUrl,
-            TelegramUserId = dto.TelegramUserId,
-        };
-
-        var result = await _userManager.CreateAsync(user, dto.Password);
-
-        if (!result.Succeeded)
-            return BadRequest(result.Errors);
-        
-        await _userManager.AddToRoleAsync(user, "User");
-        
-        return StatusCode(201, new { message = "User registered successfully." });
+        var studentId = await authService.RegisterStudentAsync(request, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, new { id = studentId });
     }
 
+    /// <summary>Подтверждение почты по коду из письма.</summary>
+    [HttpPost("confirm-email")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ConfirmEmail(ConfirmEmailRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ConfirmEmailAsync(request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Повторно отправить код подтверждения почты.</summary>
+    [HttpPost("resend-confirmation")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ResendConfirmation(ResendConfirmationRequest request, CancellationToken cancellationToken)
+    {
+        await authService.ResendConfirmationAsync(request, cancellationToken);
+        return Accepted();
+    }
+
+    /// <summary>Вход по email и паролю. Требует подтверждённую почту.</summary>
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponseDto>> Login(LoginUserDto dto)
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken cancellationToken) =>
+        Ok(await authService.LoginAsync(request, cancellationToken));
+
+    /// <summary>Запросить код для сброса пароля (отправляется на почту).</summary>
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
-        var user = await _userManager.FindByNameAsync(dto.TelegramUsername);
-        if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password))
-        {
-            return Unauthorized("Invalid credentials.");
-        }
-
-        var roles = await _userManager.GetRolesAsync(user);
-        var token = _tokenService.CreateToken(user, roles);
-
-        return Ok(new AuthResponseDto(token));
-    }
-    
-    [HttpPost("telegram-login")]
-    public async Task<ActionResult<AuthResponseDto>> TelegramLogin(TelegramLoginDto dto)
-    {
-        var secret = _configuration["BotAuth:SharedSecret"];
-    
-        if (!IsHashValid(dto.TelegramId, secret, dto.AuthHash))
-        {
-            return Unauthorized("Invalid auth hash.");
-        }
-        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.TelegramUserId == dto.TelegramId);
-
-        if (user == null)
-        {
-            return NotFound("No user is linked to this Telegram account.");
-        }
-    
-        var roles = await _userManager.GetRolesAsync(user);
-        var token = _tokenService.CreateToken(user, roles);
-
-        return Ok(new AuthResponseDto(token));
+        await authService.ForgotPasswordAsync(request, cancellationToken);
+        return Accepted();
     }
 
-    private bool IsHashValid(long telegramId, string secret, string providedHash)
+    /// <summary>Сбросить пароль по коду из письма.</summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
     {
-        using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(secret));
-        var computedHashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(telegramId.ToString()));
-        var computedHashString = Convert.ToBase64String(computedHashBytes);
-        return computedHashString == providedHash;
+        await authService.ResetPasswordAsync(request, cancellationToken);
+        return NoContent();
     }
 }

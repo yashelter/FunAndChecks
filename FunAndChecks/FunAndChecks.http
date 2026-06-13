@@ -1,6 +1,192 @@
-@FunAndChecks_HostAddress = http://localhost:5107
+@host = http://localhost:5107
+@token = <jwt>
 
-GET {{FunAndChecks_HostAddress}}/weatherforecast/
-Accept: application/json
+### ---------- Auth ----------
+
+### Регистрация студента
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Иван",
+  "lastName": "Иванов",
+  "email": "ivan@example.com",
+  "password": "secret1",
+  "groupId": 1,
+  "telegramUsername": "ivan_ivanov",
+  "telegramUserId": null,
+  "gitHubUrl": null
+}
+
+### Вход
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "telegramUsername": "ivan_ivanov",
+  "password": "secret1"
+}
+
+### Вход через телеграм-бота
+POST {{host}}/api/auth/telegram-login
+Content-Type: application/json
+
+{
+  "telegramId": 123456789,
+  "authHash": "<hmac>"
+}
+
+### ---------- Subjects / Tasks ----------
+
+GET {{host}}/api/subjects
 
 ###
+GET {{host}}/api/subjects/1
+
+### [Admin]
+POST {{host}}/api/subjects
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "ОС" }
+
+### [SuperAdmin] каскадное удаление
+DELETE {{host}}/api/subjects/1
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/subjects/1/tasks
+
+### [Admin]
+POST {{host}}/api/subjects/1/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Лаба 1", "description": "Сделать", "maxPoints": 10 }
+
+### [SuperAdmin]
+DELETE {{host}}/api/tasks/1
+Authorization: Bearer {{token}}
+
+### ---------- Groups ----------
+
+GET {{host}}/api/groups
+
+###
+GET {{host}}/api/groups/1
+
+### [Admin]
+POST {{host}}/api/groups
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "М8О-101-24", "startYear": 24, "groupNumber": 1 }
+
+### [SuperAdmin]
+DELETE {{host}}/api/groups/1
+Authorization: Bearer {{token}}
+
+### [Admin] доступ группы к предмету (идемпотентно)
+PUT {{host}}/api/groups/1/subjects/1
+Authorization: Bearer {{token}}
+
+### [Admin] отзыв доступа
+DELETE {{host}}/api/groups/1/subjects/1
+Authorization: Bearer {{token}}
+
+### Студенты группы (публично)
+GET {{host}}/api/groups/1/students
+
+### [Admin] студенты группы с контактами
+GET {{host}}/api/groups/1/students/details
+Authorization: Bearer {{token}}
+
+### ---------- Queues ----------
+
+### Активные события (дата не истекла больше чем на 2 дня)
+GET {{host}}/api/queues
+
+### Все события
+GET {{host}}/api/queues/all
+
+### Состав очереди
+GET {{host}}/api/queues/1
+
+### [Admin] создать событие
+POST {{host}}/api/queues
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Сдача лаб", "eventDateTime": "2026-06-20T10:00:00Z", "subjectId": 1 }
+
+### [Student] встать в очередь
+POST {{host}}/api/queues/1/join
+Authorization: Bearer {{token}}
+
+### [Admin] сменить статус участника (0 Checking, 1 Waiting, 2 Skipped, 3 Finished)
+PUT {{host}}/api/queues/1/students/00000000-0000-0000-0000-000000000000/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": 0 }
+
+### ---------- Submissions ----------
+
+### [Admin] зафиксировать попытку сдачи (1 Accepted, 2 Rejected)
+POST {{host}}/api/submissions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "studentId": "00000000-0000-0000-0000-000000000000", "taskId": 1, "status": 1, "comment": null }
+
+### [Admin] история сдач задания студентом
+GET {{host}}/api/submissions/students/00000000-0000-0000-0000-000000000000/tasks/1
+Authorization: Bearer {{token}}
+
+### ---------- Students ----------
+
+GET {{host}}/api/students/00000000-0000-0000-0000-000000000000
+
+### [Admin]
+GET {{host}}/api/students/00000000-0000-0000-0000-000000000000/details
+Authorization: Bearer {{token}}
+
+### Задания предмета со статусами студента
+GET {{host}}/api/students/00000000-0000-0000-0000-000000000000/subjects/1/tasks
+
+### ---------- Me ----------
+
+GET {{host}}/api/me
+Authorization: Bearer {{token}}
+
+###
+PUT {{host}}/api/me/telegram
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "telegramId": 123456789 }
+
+###
+GET {{host}}/api/me/subjects
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/me/group
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/me/queue-events
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/me/available-queue-events
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/me/results/subjects/1
+Authorization: Bearer {{token}}
+
+### ---------- Results ----------
+
+### Таблица результатов из кэша (202 — кэш ещё не прогрет)
+GET {{host}}/api/results/subjects/1

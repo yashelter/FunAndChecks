@@ -1,4 +1,7 @@
 TGBot/config.json
+
+# Секреты приложения, включая InitialAdmins — реальный файл (шаблон рядом: secrets.template.json)
+**/secrets.json
 logs/
 bin/
 obj/
