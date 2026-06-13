@@ -7,6 +7,9 @@ namespace Frontend.Admin.Dialogs;
 
 public partial class StudentInteractionDialog
 {
+    private const string GreenColor = "#43A047";
+    private const string BrownColor = "#8D6E63";
+
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
 
     [Parameter] public QueueParticipantDto Student { get; set; } = null!;
@@ -14,19 +17,25 @@ public partial class StudentInteractionDialog
     [Parameter] public int SubjectId { get; set; }
 
     [Inject] private StudentsApi Students { get; set; } = null!;
+    [Inject] private SubjectsApi Subjects { get; set; } = null!;
     [Inject] private SubmissionsApi Submissions { get; set; } = null!;
+    [Inject] private GradesApi Grades { get; set; } = null!;
     [Inject] private QueuesApi Queues { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
 
     private List<TaskWithStatusDto> _tasks = [];
+    private List<GradeComponentDto> _components = [];
+    private readonly Dictionary<int, int> _gradeInputs = [];
     private QueueEntryStatus _status;
     private bool _loadingTasks = true;
+    private string? _pickerColor;
 
     protected override async Task OnInitializedAsync()
     {
         _status = Student.Status;
         await LoadTasksAsync();
+        await LoadGradesAsync();
     }
 
     private async Task LoadTasksAsync()
@@ -46,6 +55,22 @@ public partial class StudentInteractionDialog
         }
     }
 
+    private async Task LoadGradesAsync()
+    {
+        try
+        {
+            _components = await Subjects.GetGradeComponentsAsync(SubjectId);
+            var grades = await Students.GetGradesAsync(Student.StudentId, SubjectId);
+            _gradeInputs.Clear();
+            foreach (var c in _components)
+                _gradeInputs[c.Id] = grades.FirstOrDefault(g => g.ComponentId == c.Id)?.Points ?? c.MinPoints;
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add($"Не удалось загрузить оценки: {ex.Message}", Severity.Error);
+        }
+    }
+
     private async Task ChangeStatusAsync(QueueEntryStatus status)
     {
         try
@@ -54,7 +79,6 @@ public partial class StudentInteractionDialog
             _status = status;
             Snackbar.Add("Статус обновлён.", Severity.Success);
 
-            // Завершение работы со студентом закрывает диалог и обновляет очередь.
             if (status != QueueEntryStatus.Checking)
                 MudDialog.Close(DialogResult.Ok(true));
         }
@@ -79,6 +103,32 @@ public partial class StudentInteractionDialog
             await Submissions.CreateAsync(new CreateSubmissionRequest(Student.StudentId, taskId, status, comment));
             Snackbar.Add("Статус задачи обновлён.", Severity.Success);
             await LoadTasksAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SetGradeAsync(int componentId)
+    {
+        try
+        {
+            await Grades.SetGradeAsync(componentId, Student.StudentId, new SetGradeRequest(_gradeInputs[componentId], null));
+            Snackbar.Add("Оценка сохранена.", Severity.Success);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ApplyColorAsync(string? color)
+    {
+        try
+        {
+            await Students.SetColorAsync(Student.StudentId, new SetStudentColorRequest(color));
+            Snackbar.Add(color is null ? "Заливка убрана." : "Цвет применён.", Severity.Success);
         }
         catch (ApiException ex)
         {

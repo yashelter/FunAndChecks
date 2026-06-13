@@ -34,6 +34,13 @@ public class SubjectsController(
         return CreatedAtAction(nameof(Get), new { subjectId = subject.Id }, subject);
     }
 
+    /// <summary>Переименовать предмет.</summary>
+    [HttpPut("{subjectId:int}")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(SubjectDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SubjectDto>> Update(int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken) =>
+        Ok(await subjectService.UpdateAsync(subjectId, request, cancellationToken));
+
     /// <summary>Удаляет предмет каскадно вместе с заданиями и историей сдач.</summary>
     [HttpDelete("{subjectId:int}")]
     [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]

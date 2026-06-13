@@ -23,6 +23,12 @@ public interface IStudentService
     /// <summary>Все студенты, чьи группы имеют доступ к предмету (для админа).</summary>
     Task<List<StudentDetailsDto>> GetStudentsBySubjectAsync(int subjectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Поиск студентов по фамилии/имени (для админа).</summary>
+    Task<List<StudentDetailsDto>> SearchStudentsAsync(string query, CancellationToken cancellationToken = default);
+
+    /// <summary>Админ задаёт цвет заливки ячейки студента (null — убрать заливку).</summary>
+    Task SetColorAsync(Guid studentId, SetStudentColorRequest request, CancellationToken cancellationToken = default);
+
     /// <summary>Активные события, на которые студент уже записан.</summary>
     Task<List<QueueEventDto>> GetMyQueueEventsAsync(Guid studentId, CancellationToken cancellationToken = default);
 

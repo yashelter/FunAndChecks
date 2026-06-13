@@ -19,14 +19,27 @@ else if (_details is not null)
     </div>
     <MudText Typo="Typo.subtitle1" GutterBottom="true">Предмет: @_details.SubjectName</MudText>
 
-    @if (_participants.Count == 0)
+    <div class="d-flex flex-wrap gap-3 align-center mt-2">
+        <MudTextField @bind-Value="_filter" Label="Фильтр (ФИО/группа)" Variant="Variant.Outlined"
+                      Margin="Margin.Dense" Clearable="true" Style="max-width: 280px;"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="Сортировка" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Style="max-width: 220px;">
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Status">По статусу</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">По группе</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">По баллам</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.JoinedAt">По времени записи</MudSelectItem>
+        </MudSelect>
+    </div>
+
+    @if (Visible.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Class="mt-4">В очереди нет участников.</MudAlert>
+        <MudAlert Severity="Severity.Info" Class="mt-4">Участники не найдены.</MudAlert>
     }
     else
     {
         <MudList T="QueueParticipantDto" Class="mt-2">
-            @foreach (var p in _participants)
+            @foreach (var p in Visible)
             {
                 <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))">
                     <div class="d-flex justify-space-between align-center flex-grow-1">

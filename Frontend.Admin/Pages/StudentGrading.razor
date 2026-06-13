@@ -16,9 +16,10 @@
             </MudSelect>
 
             <MudAutocomplete T="StudentDetailsDto" Value="_student" ValueChanged="OnStudentChangedAsync"
-                             Label="Студент" SearchFunc="SearchStudents" Variant="Variant.Outlined" Class="mt-4"
+                             Label="Поиск студента по фамилии" SearchFunc="SearchStudents" Variant="Variant.Outlined" Class="mt-4"
                              ToStringFunc="@(s => s is null ? string.Empty : $"{s.LastName} {s.FirstName}")"
-                             Disabled="@(_students.Count == 0)" ResetValueOnEmptyText="true" CoerceText="true" />
+                             MinCharacters="2" ResetValueOnEmptyText="true" CoerceText="true" />
+            <MudText Typo="Typo.caption" Class="mt-1">Поиск по всем группам. Выберите предмет, чтобы выставлять задачи/оценки.</MudText>
         </MudPaper>
     </MudItem>
 

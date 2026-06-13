@@ -1,0 +1,63 @@
+@namespace Frontend.Shared.UI
+@using Frontend.Shared.Models
+
+@if (Results is not null)
+{
+    <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true"
+                 Sortable="true" Filterable="true" Hover="true">
+        <Columns>
+            <TemplateColumn Title="ФИО" SortBy="@(x => x.FullName)">
+                <CellTemplate>
+                    <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.GroupName" Title="Группа" />
+
+            @foreach (var task in Results.TaskHeaders)
+            {
+                <TemplateColumn Title="@task.TaskName" Sortable="false">
+                    <CellTemplate>
+                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                        <div style="@CellStyle(cell)">@CellText(cell)</div>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            @foreach (var column in Results.GradeColumns)
+            {
+                <TemplateColumn Title="@column.Name" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                        {
+                            <span>@points / @column.MaxPoints</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+        </Columns>
+    </MudDataGrid>
+}
+
+@code {
+    [Parameter] public SubjectResultsDto? Results { get; set; }
+
+    private static string CellText(ResultCellDto? cell) =>
+        cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
+
+    private static string CellStyle(ResultCellDto? cell)
+    {
+        var background = cell?.AdminColor ?? "transparent";
+        return $"background-color:{background};text-align:center;color:black;font-weight:bold;" +
+               "text-shadow:0 0 3px rgba(255,255,255,0.7);";
+    }
+
+    private static string FioStyle(string? color)
+    {
+        if (string.IsNullOrEmpty(color))
+            return string.Empty;
+        return $"background-color:{color};color:{ColorUtils.ContrastText(color)};" +
+               "padding:2px 8px;border-radius:6px;display:inline-block;";
+    }
+}

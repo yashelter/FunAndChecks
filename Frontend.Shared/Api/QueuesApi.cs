@@ -17,6 +17,12 @@ public class QueuesApi(HttpClient http) : ApiClientBase(http)
     public Task<QueueEventDto> CreateAsync(CreateQueueEventRequest request, CancellationToken ct = default) =>
         PostAsync<QueueEventDto>("api/queues", request, ct);
 
+    public Task<QueueEventDto> UpdateAsync(int eventId, UpdateQueueEventRequest request, CancellationToken ct = default) =>
+        PutAsync<QueueEventDto>($"api/queues/{eventId}", request, ct);
+
+    public Task DeleteAsync(int eventId, CancellationToken ct = default) =>
+        DeleteAsync($"api/queues/{eventId}", ct);
+
     public Task JoinAsync(int eventId, CancellationToken ct = default) =>
         PostAsync($"api/queues/{eventId}/join", body: null, ct);
 

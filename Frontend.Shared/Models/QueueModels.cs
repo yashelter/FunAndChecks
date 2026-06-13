@@ -1,8 +1,19 @@
 namespace Frontend.Shared.Models;
 
-public record QueueEventDto(int Id, string Name, DateTime EventDateTime);
+public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin);
 
-public record CreateQueueEventRequest(string Name, DateTime EventDateTime, int SubjectId);
+/// <summary>
+/// Создание события. Если задан <see cref="AutoFillGroupId"/>, в очередь добавляются все студенты
+/// группы и самозапись отключается.
+/// </summary>
+public record CreateQueueEventRequest(
+    string Name,
+    DateTime EventDateTime,
+    int SubjectId,
+    bool AllowSelfJoin = true,
+    int? AutoFillGroupId = null);
+
+public record UpdateQueueEventRequest(string Name, DateTime EventDateTime);
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
@@ -13,7 +24,8 @@ public record QueueParticipantDto(
     string GroupName,
     int TotalPoints,
     QueueEntryStatus Status,
-    string? CheckingByAdminName)
+    string? CheckingByAdminName,
+    DateTime JoinedAt)
 {
     public string FullName => $"{FirstName} {LastName}";
 }
@@ -24,6 +36,7 @@ public record QueueDetailsDto(
     string SubjectName,
     int SubjectId,
     DateTime EventDateTime,
+    bool AllowSelfJoin,
     List<QueueParticipantDto> Participants);
 
 /// <summary>Событие SignalR об изменении записи в очереди.</summary>

@@ -23,10 +23,40 @@ public partial class QueueDetails : IAsyncDisposable
     private bool _loading = true;
     private HubConnection? _hub;
 
+    private string? _filter;
+    private ParticipantSort _sort = ParticipantSort.Status;
+
+    public enum ParticipantSort { Status, Group, Points, JoinedAt }
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
         await InitializeSignalRAsync();
+    }
+
+    private List<QueueParticipantDto> Visible => VisibleParticipants();
+
+    private List<QueueParticipantDto> VisibleParticipants()
+    {
+        IEnumerable<QueueParticipantDto> items = _participants;
+
+        if (!string.IsNullOrWhiteSpace(_filter))
+        {
+            var term = _filter.Trim();
+            items = items.Where(p =>
+                p.FullName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                p.GroupName.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        items = _sort switch
+        {
+            ParticipantSort.Group => items.OrderBy(p => p.GroupName).ThenBy(p => p.LastName),
+            ParticipantSort.Points => items.OrderByDescending(p => p.TotalPoints),
+            ParticipantSort.JoinedAt => items.OrderBy(p => p.JoinedAt),
+            _ => items.OrderBy(p => p.Status).ThenByDescending(p => p.TotalPoints),
+        };
+
+        return items.ToList();
     }
 
     private async Task LoadAsync()
@@ -34,10 +64,7 @@ public partial class QueueDetails : IAsyncDisposable
         try
         {
             _details = await Queues.GetDetailsAsync(EventId);
-            _participants = _details.Participants
-                .OrderBy(p => p.Status)
-                .ThenByDescending(p => p.TotalPoints)
-                .ToList();
+            _participants = _details.Participants.ToList();
         }
         catch (ApiException ex)
         {
@@ -59,6 +86,13 @@ public partial class QueueDetails : IAsyncDisposable
             .Build();
 
         _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(LoadAsync));
+
+        // После переподключения переподписываемся, иначе обновления перестают приходить.
+        _hub.Reconnected += async _ =>
+        {
+            await _hub.InvokeAsync("SubscribeToQueue", EventId);
+            await InvokeAsync(LoadAsync);
+        };
 
         try
         {

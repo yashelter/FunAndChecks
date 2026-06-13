@@ -33,7 +33,11 @@ else if (_results is not null)
     <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
                  Sortable="true" Filterable="true" Dense="true" Hover="true">
         <Columns>
-            <PropertyColumn Property="x => x.FullName" Title="ФИО" />
+            <TemplateColumn Title="ФИО" SortBy="@(x => x.FullName)">
+                <CellTemplate>
+                    <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
+                </CellTemplate>
+            </TemplateColumn>
             <PropertyColumn Property="x => x.GroupName" Title="Группа" />
 
             @foreach (var task in _results.TaskHeaders)

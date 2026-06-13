@@ -32,3 +32,5 @@ public record MeDto(
 }
 
 public record UpdateMyProfileRequest(string? GitHubUrl, string? Color);
+
+public record SetStudentColorRequest(string? Color);

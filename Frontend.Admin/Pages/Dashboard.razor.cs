@@ -87,6 +87,14 @@ public partial class Dashboard
         Snackbar.Add("Экспорт в CSV завершён.", Severity.Success);
     }
 
+    private static string FioStyle(string? color)
+    {
+        if (string.IsNullOrEmpty(color))
+            return string.Empty;
+        return $"background-color:{color};color:{Frontend.Shared.UI.ColorUtils.ContrastText(color)};" +
+               "padding:2px 8px;border-radius:6px;display:inline-block;";
+    }
+
     private static string CellText(ResultCellDto? cell) =>
         cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
 

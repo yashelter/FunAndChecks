@@ -12,7 +12,8 @@ public record StudentResultRowDto(
     string GroupName,
     int TotalPoints,
     Dictionary<int, ResultCellDto> Results,
-    Dictionary<int, int> Grades);
+    Dictionary<int, int> Grades,
+    string? StudentColor);
 
 public record SubjectResultsDto(
     int SubjectId,

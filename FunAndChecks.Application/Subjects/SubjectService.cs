@@ -12,11 +12,14 @@ public class SubjectService(
     IApplicationDbContext db,
     IResultsCacheService cache,
     IValidator<CreateSubjectRequest> createSubjectValidator,
-    IValidator<CreateTaskRequest> createTaskValidator)
+    IValidator<UpdateSubjectRequest> updateSubjectValidator,
+    IValidator<CreateTaskRequest> createTaskValidator,
+    IValidator<UpdateTaskRequest> updateTaskValidator)
     : ISubjectService
 {
     public Task<List<SubjectDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
         db.Subjects
+            .OrderBy(s => s.Name)
             .Select(s => new SubjectDto(s.Id, s.Name))
             .ToListAsync(cancellationToken);
 
@@ -38,6 +41,20 @@ public class SubjectService(
         db.Subjects.Add(subject);
         await db.SaveChangesAsync(cancellationToken);
 
+        return new SubjectDto(subject.Id, subject.Name);
+    }
+
+    public async Task<SubjectDto> UpdateAsync(int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateSubjectValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var subject = await db.Subjects.FindAsync([subjectId], cancellationToken)
+                      ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
+
+        subject.Name = request.Name;
+        await db.SaveChangesAsync(cancellationToken);
+
+        cache.Invalidate(subjectId);
         return new SubjectDto(subject.Id, subject.Name);
     }
 
@@ -112,6 +129,22 @@ public class SubjectService(
         await db.SaveChangesAsync(cancellationToken);
 
         cache.Invalidate(subjectId);
+        return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
+    }
+
+    public async Task<TaskDto> UpdateTaskAsync(int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateTaskValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var task = await db.Tasks.FindAsync([taskId], cancellationToken)
+                   ?? throw new NotFoundException($"Task with ID {taskId} not found.");
+
+        task.Name = request.Name;
+        task.Description = request.Description;
+        task.MaxPoints = request.MaxPoints;
+        await db.SaveChangesAsync(cancellationToken);
+
+        cache.Invalidate(task.SubjectId);
         return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
     }
 

@@ -21,7 +21,7 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
         {
             // Не настроен SMTP (локальная разработка) — не падаем, пишем письмо в лог.
             logger.LogWarning(
-                "SMTP host is not configured. Skipping email to {To}. Subject: {Subject}", to, subject);
+                "SMTP host is not configured. Skipping email to {To}. Subject: {Subject}. Message: {HtmlBody}", to, subject, htmlBody);
             return;
         }
 

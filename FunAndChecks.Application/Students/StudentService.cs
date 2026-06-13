@@ -11,9 +11,14 @@ namespace FunAndChecks.Application.Students;
 public class StudentService(
     IApplicationDbContext db,
     IIdentityService identityService,
-    IValidator<UpdateMyProfileRequest> updateProfileValidator)
+    IResultsCacheService cache,
+    IValidator<UpdateMyProfileRequest> updateProfileValidator,
+    IValidator<SetStudentColorRequest> setColorValidator)
     : IStudentService
 {
+    /// <summary>Сколько студентов максимум вернёт глобальный поиск.</summary>
+    private const int SearchLimit = 50;
+
     /// <summary>Окно, в котором событие очереди считается актуальным для студента.</summary>
     private static readonly TimeSpan UpcomingEventGracePeriod = TimeSpan.FromDays(1);
 
@@ -66,6 +71,62 @@ public class StudentService(
         student.GitHubUrl = request.GitHubUrl;
         student.Color = request.Color;
         await db.SaveChangesAsync(cancellationToken);
+
+        await InvalidateStudentResultsCacheAsync(studentId, cancellationToken);
+    }
+
+    public async Task<List<StudentDetailsDto>> SearchStudentsAsync(string query, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        var term = query.Trim().ToLower();
+
+        var students = await db.Students
+            .Where(s => (s.LastName + " " + s.FirstName).ToLower().Contains(term)
+                        || (s.FirstName + " " + s.LastName).ToLower().Contains(term))
+            .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
+            .Take(SearchLimit)
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.GitHubUrl, s.Color, s.GroupId))
+            .ToListAsync(cancellationToken);
+
+        var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));
+        return students
+            .Select(s => s with { Email = emails.GetValueOrDefault(s.Id) })
+            .ToList();
+    }
+
+    public async Task SetColorAsync(Guid studentId, SetStudentColorRequest request, CancellationToken cancellationToken = default)
+    {
+        await setColorValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var student = await db.Students.FindAsync([studentId], cancellationToken)
+                      ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+
+        student.Color = request.Color;
+        await db.SaveChangesAsync(cancellationToken);
+
+        await InvalidateStudentResultsCacheAsync(studentId, cancellationToken);
+    }
+
+    /// <summary>Сбрасывает кэш результатов всех предметов группы студента (цвет влияет на таблицу).</summary>
+    private async Task InvalidateStudentResultsCacheAsync(Guid studentId, CancellationToken cancellationToken)
+    {
+        var groupId = await db.Students
+            .Where(s => s.Id == studentId)
+            .Select(s => s.GroupId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (groupId is null)
+            return;
+
+        var subjectIds = await db.GroupSubjects
+            .Where(gs => gs.GroupId == groupId)
+            .Select(gs => gs.SubjectId)
+            .ToListAsync(cancellationToken);
+
+        foreach (var subjectId in subjectIds)
+            cache.Invalidate(subjectId);
     }
 
     public async Task<List<SubjectDto>> GetMySubjectsAsync(Guid studentId, CancellationToken cancellationToken = default)
@@ -120,7 +181,7 @@ public class StudentService(
             .Where(qe => qe.EventDateTime > threshold)
             .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
             .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime))
+            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
     }
 
@@ -135,7 +196,7 @@ public class StudentService(
             .Where(qe => qe.EventDateTime > threshold)
             .Where(qe => qe.Subject.GroupSubjects.Any(gs => gs.GroupId == groupId))
             .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime))
+            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
     }
 

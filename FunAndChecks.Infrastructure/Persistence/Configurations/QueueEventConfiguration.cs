@@ -9,6 +9,7 @@ public class QueueEventConfiguration : IEntityTypeConfiguration<QueueEvent>
     public void Configure(EntityTypeBuilder<QueueEvent> builder)
     {
         builder.Property(e => e.Name).HasMaxLength(200);
+        builder.Property(e => e.AllowSelfJoin).HasDefaultValue(true);
 
         builder.HasOne(e => e.Subject)
             .WithMany()

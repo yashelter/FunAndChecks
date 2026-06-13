@@ -20,3 +20,6 @@ public record AdminDto(Guid Id, string FirstName, string LastName, string? Color
 public record MeDto(Guid Id, string FirstName, string LastName, string? Email, string? GroupName, string? Color, bool IsAdmin);
 
 public record UpdateMyProfileRequest(string? GitHubUrl, string? Color);
+
+/// <summary>Установка админом цвета студента (null — убрать заливку).</summary>
+public record SetStudentColorRequest(string? Color);

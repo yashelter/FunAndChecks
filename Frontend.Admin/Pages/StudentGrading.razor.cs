@@ -16,7 +16,6 @@ public partial class StudentGrading
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
-    private List<StudentDetailsDto> _students = [];
     private List<GradeComponentDto> _components = [];
     private List<TaskWithStatusDto> _tasks = [];
     private readonly Dictionary<int, int> _gradeInputs = [];
@@ -39,8 +38,6 @@ public partial class StudentGrading
     private async Task OnSubjectChangedAsync(SubjectDto? subject)
     {
         _subject = subject;
-        _student = null;
-        _students = [];
         _tasks = [];
         _components = [];
 
@@ -49,8 +46,9 @@ public partial class StudentGrading
 
         try
         {
-            _students = await Subjects.GetStudentsAsync(subject.Id);
             _components = await Subjects.GetGradeComponentsAsync(subject.Id);
+            if (_student is not null)
+                await LoadStudentDataAsync();
         }
         catch (ApiException ex)
         {
@@ -58,12 +56,20 @@ public partial class StudentGrading
         }
     }
 
-    private Task<IEnumerable<StudentDetailsDto>> SearchStudents(string? value, CancellationToken token)
+    /// <summary>Глобальный поиск по фамилии — не ограничен группой/предметом.</summary>
+    private async Task<IEnumerable<StudentDetailsDto>> SearchStudents(string? value, CancellationToken token)
     {
-        var matches = string.IsNullOrWhiteSpace(value)
-            ? _students
-            : _students.Where(s => $"{s.LastName} {s.FirstName}".Contains(value, StringComparison.InvariantCultureIgnoreCase));
-        return Task.FromResult<IEnumerable<StudentDetailsDto>>(matches);
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        try
+        {
+            return await Students.SearchAsync(value, token);
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
     }
 
     private async Task OnStudentChangedAsync(StudentDetailsDto? student)
@@ -87,7 +93,9 @@ public partial class StudentGrading
             var grades = await Students.GetGradesAsync(_student.Id, _subject.Id);
             _gradeInputs.Clear();
             foreach (var component in _components)
-                _gradeInputs[component.Id] = grades.FirstOrDefault(g => g.ComponentId == component.Id)?.Points ?? 0;
+                _gradeInputs[component.Id] = grades.FirstOrDefault(g => g.ComponentId == component.Id)?.Points ?? component.MinPoints;
+
+            StateHasChanged();
         }
         catch (ApiException ex)
         {

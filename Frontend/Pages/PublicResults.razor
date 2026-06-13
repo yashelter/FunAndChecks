@@ -1,0 +1,29 @@
+@page "/results"
+@layout MainLayout
+
+<PageTitle>Результаты</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
+    <div class="d-flex justify-space-between align-center mb-4">
+        <MudText Typo="Typo.h4">Результаты</MudText>
+        <MudButton Href="/login" Variant="Variant.Text" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Login">Вход</MudButton>
+    </div>
+
+    <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+               Class="mb-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+        @foreach (var subject in _subjects)
+        {
+            <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else
+    {
+        <SubjectResultsView Results="_results" />
+    }
+</MudContainer>

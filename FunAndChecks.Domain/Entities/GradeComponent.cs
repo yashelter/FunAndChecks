@@ -8,6 +8,11 @@ public class GradeComponent
 {
     public int Id { get; set; }
     public required string Name { get; set; }
+
+    /// <summary>Минимально допустимый балл (например, 2 для шкалы 2–5). По умолчанию 0.</summary>
+    public int MinPoints { get; set; }
+
+    /// <summary>Максимально допустимый балл (например, 5 для шкалы 2–5).</summary>
     public int MaxPoints { get; set; }
 
     public int SubjectId { get; set; }

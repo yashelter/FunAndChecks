@@ -14,3 +14,11 @@ public class UpdateMyProfileRequestValidator : AbstractValidator<UpdateMyProfile
             .WithMessage("GitHubUrl must be a valid absolute URL.");
     }
 }
+
+public class SetStudentColorRequestValidator : AbstractValidator<SetStudentColorRequest>
+{
+    public SetStudentColorRequestValidator()
+    {
+        RuleFor(x => x.Color).HexColor();
+    }
+}

@@ -2,9 +2,9 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
 
-<PageTitle>Создание</PageTitle>
+<PageTitle>Управление</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Создание и связи</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">Управление</MudText>
 
 @if (_loading)
 {
@@ -12,113 +12,184 @@
 }
 else
 {
-    <MudTabs Elevation="3" Rounded="true" Centered="true">
-        <MudTabPanel Text="Предметы и группы">
-            <MudGrid Class="mt-4">
-                <MudItem xs="12" md="6">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать предмет</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudTextField @bind-Value="_subjectName" Label="Название предмета" Variant="Variant.Outlined" />
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">Создать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
+    <MudTabs Elevation="2" Rounded="true" Border="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
 
-                <MudItem xs="12" md="6">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать группу</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudTextField @bind-Value="_groupName" Label="Название группы" Variant="Variant.Outlined"
-                                          HelperText="Например: М8О-116БВ-21" />
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateGroupAsync">Создать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            </MudGrid>
+        <MudTabPanel Text="Очереди">
+            <MudCard Class="mb-4">
+                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать очередь</MudText></CardHeaderContent></MudCardHeader>
+                <MudCardContent>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="int" Value="_queueSubjectId" ValueChanged="OnQueueSubjectChanged" Label="Предмет" Variant="Variant.Outlined">
+                                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_queueName" Label="Название" Variant="Variant.Outlined"
+                                          HelperText="По умолчанию: предмет + дата" />
+                        </MudItem>
+                        <MudItem xs="6" sm="3"><MudDatePicker @bind-Date="_queueDate" Label="Дата" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="6" sm="3"><MudTimePicker @bind-Time="_queueTime" Label="Время" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect T="int?" @bind-Value="_autoFillGroupId" Label="Авто-заполнить группой (необязательно)"
+                                       Variant="Variant.Outlined" Clearable="true">
+                                @foreach (var g in _groups) { <MudSelectItem T="int?" Value="@g.Id">@g.Name</MudSelectItem> }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary"
+                                       Disabled="@(_autoFillGroupId is not null)">Разрешить самозапись студентов</MudSwitch>
+                        </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateQueueAsync">Создать</MudButton>
+                    <MudText Typo="Typo.caption" Class="ml-3 align-self-center">Форма не сбрасывает предмет/дату — удобно делать несколько подряд.</MudText>
+                </MudCardActions>
+            </MudCard>
+
+            <MudTable Items="_queues" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm"
+                      CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnQueueCommit">
+                <HeaderContent>
+                    <MudTh>Название</MudTh>
+                    <MudTh>Дата</MudTh>
+                    <MudTh>Самозапись</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd DataLabel="Дата">@context.EventDateTime.ToLocalTime().ToString("g")</MudTd>
+                    <MudTd DataLabel="Самозапись">@(context.AllowSelfJoin ? "да" : "нет")</MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => DeleteQueueAsync(context))" />
+                    </MudTd>
+                </RowTemplate>
+                <RowEditingTemplate>
+                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="Дата"><MudTextField @bind-Value="context.LocalDateTimeText" HelperText="дд.ММ.гггг ЧЧ:мм" /></MudTd>
+                    <MudTd DataLabel="Самозапись">@(context.AllowSelfJoin ? "да" : "нет")</MudTd>
+                    <MudTd></MudTd>
+                </RowEditingTemplate>
+            </MudTable>
         </MudTabPanel>
 
-        <MudTabPanel Text="Задачи и очереди">
-            <MudGrid Class="mt-4">
-                <MudItem xs="12" md="6">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать задачу</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudSelect T="int" @bind-Value="_taskSubjectId" Label="Предмет" Variant="Variant.Outlined">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                            </MudSelect>
-                            <MudTextField @bind-Value="_taskName" Label="Название задачи" Variant="Variant.Outlined" Class="mt-2" />
-                            <MudTextField @bind-Value="_taskDescription" Label="Описание" Variant="Variant.Outlined" Lines="3" Class="mt-2" />
-                            <MudNumericField @bind-Value="_taskMaxPoints" Label="Максимум баллов" Variant="Variant.Outlined" Class="mt-2" Min="1" />
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTaskAsync">Создать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-
-                <MudItem xs="12" md="6">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать событие (очередь)</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudSelect T="int" @bind-Value="_queueSubjectId" Label="Предмет" Variant="Variant.Outlined">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                            </MudSelect>
-                            <MudTextField @bind-Value="_queueName" Label="Название события" Variant="Variant.Outlined" Class="mt-2" />
-                            <MudDatePicker @bind-Date="_queueDate" Label="Дата" Variant="Variant.Outlined" Class="mt-2" />
-                            <MudTimePicker @bind-Time="_queueTime" Label="Время" Variant="Variant.Outlined" Class="mt-2" />
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateQueueAsync">Создать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            </MudGrid>
+        <MudTabPanel Text="Предметы">
+            <div class="d-flex gap-2 mb-3" style="max-width: 480px;">
+                <MudTextField @bind-Value="_newSubjectName" Label="Новый предмет" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">Добавить</MudButton>
+            </div>
+            <MudTable Items="_subjects" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnSubjectCommit">
+                <HeaderContent><MudTh>Название</MudTh><MudTh></MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteSubjectAsync(context))" /></MudTd>
+                </RowTemplate>
+                <RowEditingTemplate>
+                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd></MudTd>
+                </RowEditingTemplate>
+            </MudTable>
         </MudTabPanel>
 
-        <MudTabPanel Text="Оценочные колонки">
-            <MudGrid Class="mt-4" Justify="Justify.Center">
-                <MudItem xs="12" md="8">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Добавить колонку оценки (билет, курсовая…)</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudSelect T="int" @bind-Value="_componentSubjectId" Label="Предмет" Variant="Variant.Outlined">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                            </MudSelect>
-                            <MudTextField @bind-Value="_componentName" Label="Название колонки" Variant="Variant.Outlined" Class="mt-2" />
-                            <MudNumericField @bind-Value="_componentMaxPoints" Label="Максимум баллов" Variant="Variant.Outlined" Class="mt-2" Min="1" />
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateComponentAsync">Создать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            </MudGrid>
+        <MudTabPanel Text="Группы">
+            <div class="d-flex gap-2 mb-3" style="max-width: 480px;">
+                <MudTextField @bind-Value="_newGroupName" Label="Новая группа" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateGroupAsync">Добавить</MudButton>
+            </div>
+            <MudTable Items="_groups" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnGroupCommit">
+                <HeaderContent><MudTh>Название</MudTh><MudTh></MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteGroupAsync(context))" /></MudTd>
+                </RowTemplate>
+                <RowEditingTemplate>
+                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd></MudTd>
+                </RowEditingTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Задачи">
+            <MudSelect T="int" Value="_taskSubjectId" ValueChanged="OnTaskSubjectChanged" Label="Предмет"
+                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;">
+                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
+            </MudSelect>
+
+            @if (_taskSubjectId != 0)
+            {
+                <div class="d-flex flex-wrap gap-2 mb-3 align-end">
+                    <MudTextField @bind-Value="_newTaskName" Label="Задача" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="_newTaskDescription" Label="Описание" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="_newTaskMaxPoints" Label="Баллы" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 100px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTaskAsync">Добавить</MudButton>
+                </div>
+                <MudTable Items="_tasks" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnTaskCommit">
+                    <HeaderContent><MudTh>Название</MudTh><MudTh>Описание</MudTh><MudTh>Баллы</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Название">@context.Name</MudTd>
+                        <MudTd DataLabel="Описание">@context.Description</MudTd>
+                        <MudTd DataLabel="Баллы">@context.MaxPoints</MudTd>
+                        <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                              OnClick="@(() => DeleteTaskAsync(context))" /></MudTd>
+                    </RowTemplate>
+                    <RowEditingTemplate>
+                        <MudTd><MudTextField @bind-Value="context.Name" /></MudTd>
+                        <MudTd><MudTextField @bind-Value="context.Description" /></MudTd>
+                        <MudTd><MudNumericField @bind-Value="context.MaxPoints" Min="0" /></MudTd>
+                        <MudTd></MudTd>
+                    </RowEditingTemplate>
+                </MudTable>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Оценки">
+            <MudSelect T="int" Value="_componentSubjectId" ValueChanged="OnComponentSubjectChanged" Label="Предмет"
+                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;">
+                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
+            </MudSelect>
+
+            @if (_componentSubjectId != 0)
+            {
+                <div class="d-flex flex-wrap gap-2 mb-3 align-end">
+                    <MudTextField @bind-Value="_newComponentName" Label="Колонка (билет/курсовая)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="_newComponentMin" Label="Мин" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 90px;" />
+                    <MudNumericField @bind-Value="_newComponentMax" Label="Макс" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Style="width: 90px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateComponentAsync">Добавить</MudButton>
+                </div>
+                <MudTable Items="_components" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnComponentCommit">
+                    <HeaderContent><MudTh>Название</MudTh><MudTh>Мин</MudTh><MudTh>Макс</MudTh><MudTh></MudTh></HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Название">@context.Name</MudTd>
+                        <MudTd DataLabel="Мин">@context.MinPoints</MudTd>
+                        <MudTd DataLabel="Макс">@context.MaxPoints</MudTd>
+                        <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                              OnClick="@(() => DeleteComponentAsync(context))" /></MudTd>
+                    </RowTemplate>
+                    <RowEditingTemplate>
+                        <MudTd><MudTextField @bind-Value="context.Name" /></MudTd>
+                        <MudTd><MudNumericField @bind-Value="context.MinPoints" Min="0" /></MudTd>
+                        <MudTd><MudNumericField @bind-Value="context.MaxPoints" Min="1" /></MudTd>
+                        <MudTd></MudTd>
+                    </RowEditingTemplate>
+                </MudTable>
+            }
         </MudTabPanel>
 
         <MudTabPanel Text="Связи">
-            <MudGrid Class="mt-4" Justify="Justify.Center">
-                <MudItem xs="12" md="8">
-                    <MudCard>
-                        <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Дать группе доступ к предмету</MudText></CardHeaderContent></MudCardHeader>
-                        <MudCardContent>
-                            <MudSelect T="int" @bind-Value="_linkSubjectId" Label="Предмет" Variant="Variant.Outlined">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                            </MudSelect>
-                            <MudSelect T="int" @bind-Value="_linkGroupId" Label="Группа" Variant="Variant.Outlined" Class="mt-2">
-                                @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
-                            </MudSelect>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LinkAsync">Связать</MudButton>
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            </MudGrid>
+            <div class="d-flex flex-wrap gap-2 align-end" style="max-width: 720px;">
+                <MudSelect T="int" @bind-Value="_linkSubjectId" Label="Предмет" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
+                </MudSelect>
+                <MudSelect T="int" @bind-Value="_linkGroupId" Label="Группа" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LinkAsync">Связать</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" OnClick="UnlinkAsync">Отвязать</MudButton>
+            </div>
+            <MudText Typo="Typo.caption" Class="mt-2">Открывает/закрывает группе доступ к предмету.</MudText>
         </MudTabPanel>
     </MudTabs>
 }

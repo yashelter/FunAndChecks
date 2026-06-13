@@ -21,7 +21,8 @@ public record StudentResultRowDto(
     string GroupName,
     int TotalPoints,
     Dictionary<int, ResultCellDto> Results,
-    Dictionary<int, int> Grades);
+    Dictionary<int, int> Grades,
+    string? StudentColor);
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>
 public record SubjectResultsDto(

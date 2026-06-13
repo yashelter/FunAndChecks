@@ -79,7 +79,8 @@ public class ResultsService(
                 student.Group?.Name ?? "N/A",
                 totalPoints,
                 cells,
-                grades);
+                grades,
+                student.Color);
         })
         .OrderByDescending(r => r.TotalPoints)
         .ToList();

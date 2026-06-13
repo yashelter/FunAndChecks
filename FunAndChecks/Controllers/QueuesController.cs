@@ -34,6 +34,24 @@ public class QueuesController(IQueueService queueService) : ControllerBase
         return CreatedAtAction(nameof(GetDetails), new { eventId = queueEvent.Id }, queueEvent);
     }
 
+    /// <summary>Изменить название/время события.</summary>
+    [HttpPut("{eventId:int}")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(QueueEventDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueueEventDto>> Update(
+        int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken) =>
+        Ok(await queueService.UpdateEventAsync(eventId, request, cancellationToken));
+
+    /// <summary>Удалить событие очереди вместе с записями участников.</summary>
+    [HttpDelete("{eventId:int}")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Delete(int eventId, CancellationToken cancellationToken)
+    {
+        await queueService.DeleteEventAsync(eventId, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Текущий пользователь (студент) встаёт в очередь.</summary>
     [HttpPost("{eventId:int}/join")]
     [Authorize]

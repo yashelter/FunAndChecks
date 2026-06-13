@@ -11,6 +11,13 @@ namespace FunAndChecks.Controllers;
 [Authorize(Roles = Roles.Admin)]
 public class GradesController(IGradeService gradeService) : ControllerBase
 {
+    /// <summary>Изменить оценочную колонку (название, диапазон баллов).</summary>
+    [HttpPut("{componentId:int}")]
+    [ProducesResponseType(typeof(GradeComponentDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<GradeComponentDto>> UpdateComponent(
+        int componentId, UpdateGradeComponentRequest request, CancellationToken cancellationToken) =>
+        Ok(await gradeService.UpdateComponentAsync(User.GetUserId(), componentId, request, cancellationToken));
+
     /// <summary>Удалить оценочную колонку вместе со всеми выставленными по ней баллами.</summary>
     [HttpDelete("{componentId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

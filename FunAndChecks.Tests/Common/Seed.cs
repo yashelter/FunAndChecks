@@ -82,9 +82,9 @@ public static class Seed
         return task;
     }
 
-    public static GradeComponent Component(this ApplicationDbContext db, Subject subject, int maxPoints = 100, string name = "Exam")
+    public static GradeComponent Component(this ApplicationDbContext db, Subject subject, int maxPoints = 100, int minPoints = 0, string name = "Exam")
     {
-        var component = new GradeComponent { Name = name, MaxPoints = maxPoints, SubjectId = subject.Id };
+        var component = new GradeComponent { Name = name, MinPoints = minPoints, MaxPoints = maxPoints, SubjectId = subject.Id };
         db.GradeComponents.Add(component);
         return component;
     }

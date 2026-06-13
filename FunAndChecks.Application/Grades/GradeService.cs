@@ -13,6 +13,7 @@ public class GradeService(
     IResultsCacheService cache,
     IResultsNotifier resultsNotifier,
     IValidator<CreateGradeComponentRequest> createComponentValidator,
+    IValidator<UpdateGradeComponentRequest> updateComponentValidator,
     IValidator<SetGradeRequest> setGradeValidator)
     : IGradeService
 {
@@ -20,7 +21,7 @@ public class GradeService(
         db.GradeComponents
             .Where(c => c.SubjectId == subjectId)
             .OrderBy(c => c.Name)
-            .Select(c => new GradeComponentDto(c.Id, c.SubjectId, c.Name, c.MaxPoints))
+            .Select(c => new GradeComponentDto(c.Id, c.SubjectId, c.Name, c.MinPoints, c.MaxPoints))
             .ToListAsync(cancellationToken);
 
     public async Task<GradeComponentDto> CreateComponentAsync(Guid adminId, int subjectId, CreateGradeComponentRequest request, CancellationToken cancellationToken = default)
@@ -35,6 +36,7 @@ public class GradeService(
         var component = new GradeComponent
         {
             Name = request.Name,
+            MinPoints = request.MinPoints,
             MaxPoints = request.MaxPoints,
             SubjectId = subjectId,
         };
@@ -42,7 +44,25 @@ public class GradeService(
         await db.SaveChangesAsync(cancellationToken);
 
         cache.Invalidate(subjectId);
-        return new GradeComponentDto(component.Id, component.SubjectId, component.Name, component.MaxPoints);
+        return new GradeComponentDto(component.Id, component.SubjectId, component.Name, component.MinPoints, component.MaxPoints);
+    }
+
+    public async Task<GradeComponentDto> UpdateComponentAsync(Guid adminId, int componentId, UpdateGradeComponentRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateComponentValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var component = await db.GradeComponents.FindAsync([componentId], cancellationToken)
+                        ?? throw new NotFoundException($"Grade component with ID {componentId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, component.SubjectId, cancellationToken);
+
+        component.Name = request.Name;
+        component.MinPoints = request.MinPoints;
+        component.MaxPoints = request.MaxPoints;
+        await db.SaveChangesAsync(cancellationToken);
+
+        cache.Invalidate(component.SubjectId);
+        return new GradeComponentDto(component.Id, component.SubjectId, component.Name, component.MinPoints, component.MaxPoints);
     }
 
     public async Task DeleteComponentAsync(Guid adminId, int componentId, CancellationToken cancellationToken = default)
@@ -67,8 +87,8 @@ public class GradeService(
 
         await accessService.EnsureSubjectAllowedAsync(adminId, component.SubjectId, cancellationToken);
 
-        if (request.Points > component.MaxPoints)
-            throw new ConflictException($"Points cannot exceed the component maximum of {component.MaxPoints}.");
+        if (request.Points < component.MinPoints || request.Points > component.MaxPoints)
+            throw new ConflictException($"Points must be between {component.MinPoints} and {component.MaxPoints}.");
 
         if (!await db.Students.AnyAsync(s => s.Id == studentId, cancellationToken))
             throw new NotFoundException($"Student with ID {studentId} not found.");
@@ -126,6 +146,7 @@ public class GradeService(
                 x.Component.Name,
                 studentId,
                 x.Grade!.Points,
+                x.Component.MinPoints,
                 x.Component.MaxPoints,
                 x.Grade.Comment,
                 x.Grade.UpdatedAt))

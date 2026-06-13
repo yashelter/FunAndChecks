@@ -14,6 +14,9 @@ public class SubjectsApi(HttpClient http) : ApiClientBase(http)
     public Task<SubjectDto> CreateAsync(CreateSubjectRequest request, CancellationToken ct = default) =>
         PostAsync<SubjectDto>("api/subjects", request, ct);
 
+    public Task<SubjectDto> UpdateAsync(int subjectId, UpdateSubjectRequest request, CancellationToken ct = default) =>
+        PutAsync<SubjectDto>($"api/subjects/{subjectId}", request, ct);
+
     public Task DeleteAsync(int subjectId, CancellationToken ct = default) =>
         DeleteAsync($"api/subjects/{subjectId}", ct);
 
@@ -23,8 +26,14 @@ public class SubjectsApi(HttpClient http) : ApiClientBase(http)
     public Task<TaskDto> CreateTaskAsync(int subjectId, CreateTaskRequest request, CancellationToken ct = default) =>
         PostAsync<TaskDto>($"api/subjects/{subjectId}/tasks", request, ct);
 
+    public Task<TaskDto> UpdateTaskAsync(int taskId, UpdateTaskRequest request, CancellationToken ct = default) =>
+        PutAsync<TaskDto>($"api/tasks/{taskId}", request, ct);
+
     public Task DeleteTaskAsync(int taskId, CancellationToken ct = default) =>
         DeleteAsync($"api/tasks/{taskId}", ct);
+
+    public Task<GradeComponentDto> UpdateGradeComponentAsync(int componentId, UpdateGradeComponentRequest request, CancellationToken ct = default) =>
+        PutAsync<GradeComponentDto>($"api/grade-components/{componentId}", request, ct);
 
     public Task<List<StudentDetailsDto>> GetStudentsAsync(int subjectId, CancellationToken ct = default) =>
         GetAsync<List<StudentDetailsDto>>($"api/subjects/{subjectId}/students", ct);

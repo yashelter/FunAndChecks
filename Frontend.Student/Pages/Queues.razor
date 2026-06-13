@@ -77,8 +77,15 @@ else
                                 <MudText Typo="Typo.body1"><b>@ev.Name</b></MudText>
                                 <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
                             </div>
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                       OnClick="@(() => JoinAsync(ev.Id))">Записаться</MudButton>
+                            <div class="d-flex gap-1">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                           OnClick="@(() => ViewQueueAsync(ev.Id))">Открыть</MudButton>
+                                @if (ev.AllowSelfJoin)
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                               OnClick="@(() => JoinAsync(ev.Id))">Записаться</MudButton>
+                                }
+                            </div>
                         </MudPaper>
                     }
                 </MudStack>

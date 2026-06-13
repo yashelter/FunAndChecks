@@ -16,10 +16,26 @@ public class StudentsController(
     IGradeService gradeService)
     : ControllerBase
 {
+    /// <summary>Поиск студентов по фамилии/имени.</summary>
+    [HttpGet("search")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<StudentDetailsDto>>> Search([FromQuery] string query, CancellationToken cancellationToken) =>
+        Ok(await studentService.SearchStudentsAsync(query, cancellationToken));
+
     /// <summary>Публичная карточка студента.</summary>
     [HttpGet("{studentId:guid}")]
     public async Task<ActionResult<StudentDto>> Get(Guid studentId, CancellationToken cancellationToken) =>
         Ok(await studentService.GetAsync(studentId, cancellationToken));
+
+    /// <summary>Задать цвет заливки ячейки студента в таблице результатов.</summary>
+    [HttpPut("{studentId:guid}/color")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetColor(Guid studentId, SetStudentColorRequest request, CancellationToken cancellationToken)
+    {
+        await studentService.SetColorAsync(studentId, request, cancellationToken);
+        return NoContent();
+    }
 
     /// <summary>Полная карточка студента (контакты, GitHub).</summary>
     [HttpGet("{studentId:guid}/details")]

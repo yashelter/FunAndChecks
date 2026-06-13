@@ -3,6 +3,7 @@ using Frontend.Shared.Models;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Web;
 using MudBlazor;
 
 namespace Frontend.Shared.Pages;
@@ -19,6 +20,12 @@ public partial class Login
     private string? _error;
     private bool _emailNotConfirmed;
     private bool _busy;
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter")
+            await SubmitAsync();
+    }
 
     private async Task SubmitAsync()
     {

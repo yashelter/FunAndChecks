@@ -97,6 +97,14 @@ public partial class Queues : IAsyncDisposable
         // На любое обновление очереди перечитываем её состав.
         _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
 
+        // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
+        // иначе очередь «зависает» и перестаёт обновляться.
+        _hub.Reconnected += async _ =>
+        {
+            await _hub.InvokeAsync("SubscribeToQueue", eventId);
+            await InvokeAsync(() => LoadDetailsAsync(eventId));
+        };
+
         try
         {
             await _hub.StartAsync();

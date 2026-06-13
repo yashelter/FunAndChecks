@@ -2,9 +2,20 @@ using FunAndChecks.Domain.Enums;
 
 namespace FunAndChecks.Application.Queues;
 
-public record QueueEventDto(int Id, string Name, DateTime EventDateTime);
+public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin);
 
-public record CreateQueueEventRequest(string Name, DateTime EventDateTime, int SubjectId);
+/// <summary>
+/// Создание события очереди. Если задан <see cref="AutoFillGroupId"/>, в очередь сразу
+/// добавляются все студенты этой группы, а самостоятельная запись отключается.
+/// </summary>
+public record CreateQueueEventRequest(
+    string Name,
+    DateTime EventDateTime,
+    int SubjectId,
+    bool AllowSelfJoin = true,
+    int? AutoFillGroupId = null);
+
+public record UpdateQueueEventRequest(string Name, DateTime EventDateTime);
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
@@ -15,7 +26,8 @@ public record QueueParticipantDto(
     string GroupName,
     int TotalPoints,
     QueueEntryStatus Status,
-    string? CheckingByAdminName);
+    string? CheckingByAdminName,
+    DateTime JoinedAt);
 
 public record QueueDetailsDto(
     int EventId,
@@ -23,6 +35,7 @@ public record QueueDetailsDto(
     string SubjectName,
     int SubjectId,
     DateTime EventDateTime,
+    bool AllowSelfJoin,
     List<QueueParticipantDto> Participants);
 
 /// <summary>Событие для подписчиков SignalR об изменении записи в очереди.</summary>

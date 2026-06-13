@@ -1,8 +1,10 @@
 namespace Frontend.Shared.Models;
 
-public record GradeComponentDto(int Id, int SubjectId, string Name, int MaxPoints);
+public record GradeComponentDto(int Id, int SubjectId, string Name, int MinPoints, int MaxPoints);
 
-public record CreateGradeComponentRequest(string Name, int MaxPoints);
+public record CreateGradeComponentRequest(string Name, int MinPoints, int MaxPoints);
+
+public record UpdateGradeComponentRequest(string Name, int MinPoints, int MaxPoints);
 
 public record SetGradeRequest(int Points, string? Comment);
 
@@ -11,6 +13,7 @@ public record StudentGradeDto(
     string ComponentName,
     Guid StudentId,
     int Points,
+    int MinPoints,
     int MaxPoints,
     string? Comment,
     DateTime UpdatedAt);
