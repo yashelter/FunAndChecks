@@ -16,8 +16,8 @@ public class QueueService(
     IValidator<UpdateQueueEventRequest> updateEventValidator)
     : IQueueService
 {
-    /// <summary>Сколько времени событие остаётся видимым после своей даты.</summary>
-    private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(2);
+    /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
+    private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
 
     public Task<List<QueueEventDto>> GetActiveEventsAsync(CancellationToken cancellationToken = default)
     {
@@ -63,6 +63,7 @@ public class QueueService(
                 p.Status,
                 AdminName = p.CurrentAdmin != null ? p.CurrentAdmin.FirstName : null,
                 p.JoinedAt,
+                p.Student.Color,
             })
             .ToListAsync(cancellationToken);
 
@@ -91,7 +92,8 @@ public class QueueService(
                 pointsByStudent.GetValueOrDefault(e.StudentId),
                 e.Status,
                 e.AdminName,
-                e.JoinedAt))
+                e.JoinedAt,
+                e.Color))
             .ToList();
 
         return new QueueDetailsDto(
@@ -112,8 +114,10 @@ public class QueueService(
         if (!subjectExists)
             throw new NotFoundException($"Subject with ID {request.SubjectId} not found.");
 
-        // Авто-заполнение по группе фиксирует состав: самостоятельная запись отключается.
-        var allowSelfJoin = request.AutoFillGroupId.HasValue ? false : request.AllowSelfJoin;
+        var autoFillGroupIds = request.AutoFillGroupIds?.Distinct().ToList() ?? [];
+
+        // Авто-заполнение по группам фиксирует состав: самостоятельная запись отключается.
+        var allowSelfJoin = autoFillGroupIds.Count > 0 ? false : request.AllowSelfJoin;
 
         var queueEvent = new QueueEvent
         {
@@ -125,14 +129,20 @@ public class QueueService(
         db.QueueEvents.Add(queueEvent);
         await db.SaveChangesAsync(cancellationToken);
 
-        if (request.AutoFillGroupId is { } groupId)
+        if (autoFillGroupIds.Count > 0)
         {
-            var groupExists = await db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
-            if (!groupExists)
-                throw new NotFoundException($"Group with ID {groupId} not found.");
+            var existingGroups = await db.Groups
+                .Where(g => autoFillGroupIds.Contains(g.Id))
+                .Select(g => g.Id)
+                .ToListAsync(cancellationToken);
 
+            var missing = autoFillGroupIds.Except(existingGroups).ToList();
+            if (missing.Count > 0)
+                throw new NotFoundException($"Group(s) not found: {string.Join(", ", missing)}.");
+
+            // Только подтверждённые студенты выбранных групп.
             var studentIds = await db.Students
-                .Where(s => s.GroupId == groupId)
+                .Where(s => s.IsActive && s.GroupId != null && autoFillGroupIds.Contains(s.GroupId.Value))
                 .Select(s => s.Id)
                 .ToListAsync(cancellationToken);
 

@@ -37,7 +37,7 @@ public class ResultsService(
             return null;
 
         var students = await db.Students
-            .Where(s => s.GroupId != null &&
+            .Where(s => s.IsActive && s.GroupId != null &&
                         db.GroupSubjects.Any(gs => gs.SubjectId == subjectId && gs.GroupId == s.GroupId))
             .Include(s => s.Group)
             .Include(s => s.Submissions.Where(sub => sub.Task.SubjectId == subjectId))
@@ -66,12 +66,10 @@ public class ResultsService(
                 cells[task.Id] = ToCell(lastSubmission);
             }
 
+            // Оценки-категории (билет/курсовая) показываются отдельными колонками и НЕ входят в Σ баллов.
             var grades = new Dictionary<int, int>();
             foreach (var grade in student.Grades)
-            {
                 grades[grade.GradeComponentId] = grade.Points;
-                totalPoints += grade.Points;
-            }
 
             return new StudentResultRowDto(
                 student.Id,
@@ -82,7 +80,9 @@ public class ResultsService(
                 grades,
                 student.Color);
         })
+        // Порядок по умолчанию для отображения: по баллам, затем по ФИО.
         .OrderByDescending(r => r.TotalPoints)
+        .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
 
         return new SubjectResultsDto(subject.Id, subject.Name, taskHeaders, gradeColumns, rows);
@@ -138,13 +138,11 @@ public class ResultsService(
                 g.Comment))
             .ToListAsync(cancellationToken);
 
+        // Оценки-категории идут отдельным списком и не входят в сумму баллов по задачам.
         var totalPointsEarned =
-            taskResults.Where(tr => tr.CurrentStatus == SubmissionStatus.Accepted).Sum(tr => tr.MaxPoints)
-            + grades.Sum(g => g.Points);
+            taskResults.Where(tr => tr.CurrentStatus == SubmissionStatus.Accepted).Sum(tr => tr.MaxPoints);
 
-        var maxPointsPossible =
-            subject.Tasks.Sum(t => t.MaxPoints)
-            + subject.GradeComponents.Sum(c => c.MaxPoints);
+        var maxPointsPossible = subject.Tasks.Sum(t => t.MaxPoints);
 
         return new StudentSubjectResultsDto(
             subject.Id,

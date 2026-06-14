@@ -5,13 +5,20 @@ namespace FunAndChecks.Domain.Entities;
 /// </summary>
 public class Student : User
 {
-    public string? GitHubUrl { get; set; }
-
     /// <summary>
-    /// Личный цвет студента в hex-формате (#RRGGBB).
-    /// Не связан с цветом админа и по умолчанию никак не влияет на отображение.
+    /// Цвет заливки ячейки студента в hex-формате (#RRGGBB). Назначается админом
+    /// (не самим студентом). null — без заливки.
     /// </summary>
     public string? Color { get; set; }
+
+    /// <summary>
+    /// Подтвердил ли студент почту. Неактивные (неподтверждённые) не показываются в рейтинге/очередях
+    /// и удаляются фоновой очисткой по истечении окна подтверждения.
+    /// </summary>
+    public bool IsActive { get; set; }
+
+    /// <summary>Момент регистрации (UTC) — для очистки неподтверждённых аккаунтов.</summary>
+    public DateTime CreatedAt { get; set; }
 
     public int? GroupId { get; set; }
     public Group? Group { get; set; }

@@ -16,6 +16,8 @@ public enum LoginStatus
 
 public record LoginResult(LoginStatus Status, Guid? UserId);
 
+public record AccountInfo(Guid Id, bool EmailConfirmed);
+
 /// <summary>
 /// Работа с учётными записями (email, пароль, роли, коды подтверждения).
 /// Реализуется поверх ASP.NET Identity в Infrastructure.
@@ -36,6 +38,9 @@ public interface IIdentityService
 
     /// <summary>Удаляет учётную запись (компенсация при неудачной регистрации, удаление админа).</summary>
     Task DeleteAccountAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>Находит учётную запись по email; null — если нет.</summary>
+    Task<AccountInfo?> FindByEmailAsync(string email);
 
     /// <summary>
     /// Проверяет пару email/пароль с учётом lockout-а (защита от перебора)

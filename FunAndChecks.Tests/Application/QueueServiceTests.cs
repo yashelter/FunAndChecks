@@ -35,7 +35,7 @@ public class QueueServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
         var created = await sut.CreateEventAsync(
-            new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupId: group.Id));
+            new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupIds: [group.Id]));
 
         created.AllowSelfJoin.Should().BeFalse();
         var details = await sut.GetDetailsAsync(created.Id);

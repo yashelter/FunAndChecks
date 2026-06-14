@@ -16,10 +16,21 @@ public class AuthServiceTests : IDisposable
     private readonly TestDatabase _db = new();
     private readonly IIdentityService _identity = Substitute.For<IIdentityService>();
     private readonly ITokenService _token = Substitute.For<ITokenService>();
+    private readonly IRefreshTokenService _refresh = Substitute.For<IRefreshTokenService>();
     private readonly IEmailSender _email = Substitute.For<IEmailSender>();
+    private readonly IEmailThrottle _throttle = Substitute.For<IEmailThrottle>();
+
+    public AuthServiceTests()
+    {
+        // По умолчанию троттлинг пропускает.
+        _throttle.TryAcquire(Arg.Any<string>(), out Arg.Any<TimeSpan>())
+            .Returns(ci => { ci[1] = TimeSpan.Zero; return true; });
+
+        _refresh.IssueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns("refresh-token");
+    }
 
     private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _token, _email,
+        new(ctx, _identity, _token, _refresh, _email, _throttle,
             new RegisterStudentRequestValidator(),
             new ResetPasswordRequestValidator(),
             NullLogger<AuthService>.Instance);
@@ -51,7 +62,7 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, null, "#abcdef");
+        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId);
         var id = await sut.RegisterStudentAsync(request);
 
         (await ctx.Students.FindAsync(id)).Should().NotBeNull();
@@ -64,19 +75,19 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", 999, null, null);
+        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", 999);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]
-    public async Task RegisterStudent_InvalidColor_FailsValidation()
+    public async Task RegisterStudent_BlankEmail_FailsValidation()
     {
         var groupId = await SeedGroupAsync();
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, null, "red");
+        var request = new RegisterStudentRequest("Ann", "Smith", "", "secret", groupId);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<ValidationException>();
     }
@@ -92,14 +103,41 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "dup@example.com", "secret", groupId, null, null);
+        var request = new RegisterStudentRequest("Ann", "Smith", "dup@example.com", "secret", groupId);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<ValidationException>();
         (await ctx.Students.AnyAsync()).Should().BeFalse();
     }
 
     [Fact]
-    public async Task Login_Success_ReturnsToken()
+    public async Task RegisterStudent_ConfirmedEmailExists_ThrowsConflict()
+    {
+        var groupId = await SeedGroupAsync();
+        _identity.FindByEmailAsync("taken@example.com").Returns(new AccountInfo(Guid.NewGuid(), EmailConfirmed: true));
+
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        var request = new RegisterStudentRequest("Ann", "Smith", "taken@example.com", "secret", groupId);
+        var act = () => sut.RegisterStudentAsync(request);
+        await act.Should().ThrowAsync<ConflictException>();
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Throttled_ThrowsRateLimit()
+    {
+        _throttle.TryAcquire(Arg.Any<string>(), out Arg.Any<TimeSpan>())
+            .Returns(ci => { ci[1] = TimeSpan.FromSeconds(30); return false; });
+
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        var act = () => sut.ForgotPasswordAsync(new ForgotPasswordRequest("a@b.c"));
+        await act.Should().ThrowAsync<RateLimitException>();
+    }
+
+    [Fact]
+    public async Task Login_Success_ReturnsAccessAndRefresh()
     {
         _identity.ValidateCredentialsAsync("a@b.c", "pwd")
             .Returns(new LoginResult(LoginStatus.Success, Guid.NewGuid()));
@@ -109,7 +147,51 @@ public class AuthServiceTests : IDisposable
         var sut = CreateSut(ctx);
 
         var response = await sut.LoginAsync(new LoginRequest("a@b.c", "pwd"));
-        response.Token.Should().Be("jwt-token");
+        response.AccessToken.Should().Be("jwt-token");
+        response.RefreshToken.Should().Be("refresh-token");
+    }
+
+    [Fact]
+    public async Task Refresh_RotatesAndReturnsNewPair()
+    {
+        var userId = Guid.NewGuid();
+        _refresh.RotateAsync("old-refresh", Arg.Any<CancellationToken>())
+            .Returns(new RefreshRotation(userId, "new-refresh"));
+        _token.CreateTokenAsync(userId).Returns("new-access");
+
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        var response = await sut.RefreshAsync(new RefreshRequest("old-refresh"));
+        response.AccessToken.Should().Be("new-access");
+        response.RefreshToken.Should().Be("new-refresh");
+    }
+
+    [Fact]
+    public async Task Refresh_InvalidToken_Throws()
+    {
+        _refresh.RotateAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((RefreshRotation?)null);
+
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        var act = () => sut.RefreshAsync(new RefreshRequest("bad"));
+        await act.Should().ThrowAsync<ForbiddenException>();
+    }
+
+    [Fact]
+    public async Task ResetPassword_RevokesAllRefreshTokens()
+    {
+        var userId = Guid.NewGuid();
+        _identity.ResetPasswordAsync("a@b.c", "000000", "newpass").Returns(AccountResult.Success());
+        _identity.FindByEmailAsync("a@b.c").Returns(new AccountInfo(userId, EmailConfirmed: true));
+
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        await sut.ResetPasswordAsync(new ResetPasswordRequest("a@b.c", "000000", "newpass"));
+
+        await _refresh.Received(1).RevokeAllAsync(userId, Arg.Any<CancellationToken>());
     }
 
     [Theory]

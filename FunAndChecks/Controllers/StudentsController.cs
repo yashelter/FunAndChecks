@@ -16,11 +16,11 @@ public class StudentsController(
     IGradeService gradeService)
     : ControllerBase
 {
-    /// <summary>Поиск студентов по фамилии/имени.</summary>
+    /// <summary>Поиск студентов по фамилии/имени. Пустой запрос → все студенты (по алфавиту).</summary>
     [HttpGet("search")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<ActionResult<List<StudentDetailsDto>>> Search([FromQuery] string query, CancellationToken cancellationToken) =>
-        Ok(await studentService.SearchStudentsAsync(query, cancellationToken));
+    public async Task<ActionResult<List<StudentDetailsDto>>> Search([FromQuery] string? query, CancellationToken cancellationToken) =>
+        Ok(await studentService.SearchStudentsAsync(query ?? string.Empty, cancellationToken));
 
     /// <summary>Публичная карточка студента.</summary>
     [HttpGet("{studentId:guid}")]

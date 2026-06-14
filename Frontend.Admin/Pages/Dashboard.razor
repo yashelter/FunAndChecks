@@ -18,8 +18,8 @@
     </MudItem>
     <MudItem>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudDownload"
-                   OnClick="ExportCsvAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
-            Скачать CSV
+                   OnClick="ExportXlsxAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
+            Скачать XLSX
         </MudButton>
     </MudItem>
 </MudGrid>

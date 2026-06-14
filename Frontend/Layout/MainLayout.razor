@@ -1,8 +1,9 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject Frontend.Shared.Services.ThemeService Theme
 
-@* Базовый layout для служебных страниц (редирект с «/», 404).
-   Провайдеры MudBlazor нужны в дереве — у области-специфичных layout-ов свои. *@
-<MudThemeProvider IsDarkMode="true" />
+@* Базовый layout для служебных и публичных страниц (редирект с «/», 404, /results). *@
+<MudThemeProvider IsDarkMode="Theme.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -12,3 +13,17 @@
         @Body
     </MudMainContent>
 </MudLayout>
+
+@code {
+    protected override void OnInitialized() => Theme.OnThemeChanged += OnThemeChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await Theme.InitializeAsync();
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Theme.OnThemeChanged -= OnThemeChanged;
+}

@@ -68,6 +68,18 @@ public class GroupsController(IGroupService groupService) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Id предметов, доступных группе (для настройки доступа).</summary>
+    [HttpGet("{groupId:int}/subject-ids")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<int>>> GetSubjectIds(int groupId, CancellationToken cancellationToken) =>
+        Ok(await groupService.GetSubjectIdsAsync(groupId, cancellationToken));
+
+    /// <summary>Id групп, которым доступен предмет (для настройки доступа).</summary>
+    [HttpGet("for-subject/{subjectId:int}")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<int>>> GetGroupIdsForSubject(int subjectId, CancellationToken cancellationToken) =>
+        Ok(await groupService.GetGroupIdsForSubjectAsync(subjectId, cancellationToken));
+
     [HttpGet("{groupId:int}/students")]
     public async Task<ActionResult<List<StudentDto>>> GetStudents(int groupId, CancellationToken cancellationToken) =>
         Ok(await groupService.GetStudentsAsync(groupId, cancellationToken));

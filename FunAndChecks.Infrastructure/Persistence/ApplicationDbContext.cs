@@ -22,6 +22,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<StudentGrade> StudentGrades => Set<StudentGrade>();
     public DbSet<AdminSubjectAccess> AdminSubjectAccesses => Set<AdminSubjectAccess>();
     public DbSet<AdminGroupAccess> AdminGroupAccesses => Set<AdminGroupAccess>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

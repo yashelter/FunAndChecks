@@ -4,7 +4,10 @@
 
 <PageTitle>Активные очереди</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Активные очереди</MudText>
+<div class="d-flex justify-space-between align-center flex-wrap gap-2">
+    <MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
+    <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">Показать прошедшие</MudSwitch>
+</div>
 
 @if (_loading)
 {
@@ -12,7 +15,7 @@
 }
 else if (_queues.Count == 0)
 {
-    <MudAlert Severity="Severity.Info">Активных очередей не найдено.</MudAlert>
+    <MudAlert Severity="Severity.Info">Очередей не найдено.</MudAlert>
 }
 else
 {

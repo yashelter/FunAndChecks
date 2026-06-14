@@ -21,6 +21,20 @@ public class GroupService(
             .Select(g => new GroupDto(g.Id, g.Name))
             .ToListAsync(cancellationToken);
 
+    public async Task<List<GroupDto>> GetVisibleForAdminAsync(Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var blocked = await db.AdminGroupAccesses
+            .Where(a => a.AdminId == adminId && (a.IsRestricted || a.IsHidden))
+            .Select(a => a.GroupId)
+            .ToListAsync(cancellationToken);
+
+        return await db.Groups
+            .Where(g => !blocked.Contains(g.Id))
+            .OrderBy(g => g.Name)
+            .Select(g => new GroupDto(g.Id, g.Name))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<GroupDto> GetAsync(int groupId, CancellationToken cancellationToken = default)
     {
         var group = await db.Groups
@@ -104,9 +118,15 @@ public class GroupService(
         cache.Invalidate(subjectId); // изменился состав студентов предмета
     }
 
+    public Task<List<int>> GetSubjectIdsAsync(int groupId, CancellationToken cancellationToken = default) =>
+        db.GroupSubjects.Where(gs => gs.GroupId == groupId).Select(gs => gs.SubjectId).ToListAsync(cancellationToken);
+
+    public Task<List<int>> GetGroupIdsForSubjectAsync(int subjectId, CancellationToken cancellationToken = default) =>
+        db.GroupSubjects.Where(gs => gs.SubjectId == subjectId).Select(gs => gs.GroupId).ToListAsync(cancellationToken);
+
     public Task<List<StudentDto>> GetStudentsAsync(int groupId, CancellationToken cancellationToken = default) =>
         db.Students
-            .Where(s => s.GroupId == groupId)
+            .Where(s => s.GroupId == groupId && s.IsActive)
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
             .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.Color))
             .ToListAsync(cancellationToken);
@@ -114,9 +134,9 @@ public class GroupService(
     public async Task<List<StudentDetailsDto>> GetStudentsDetailedAsync(int groupId, CancellationToken cancellationToken = default)
     {
         var students = await db.Students
-            .Where(s => s.GroupId == groupId)
+            .Where(s => s.GroupId == groupId && s.IsActive)
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.GitHubUrl, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));

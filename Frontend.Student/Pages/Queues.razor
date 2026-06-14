@@ -5,7 +5,13 @@
 
 <PageTitle>Очереди</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
+<div class="d-flex justify-space-between align-center flex-wrap gap-2">
+    <MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
+    @if (_details is null)
+    {
+        <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">Показать прошедшие</MudSwitch>
+    }
+</div>
 
 @if (_loading)
 {
@@ -19,15 +25,15 @@ else if (_details is not null)
     </div>
 
     <MudList T="QueueParticipantDto" ReadOnly="true">
-        @foreach (var p in _participants)
+        @foreach (var p in _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status)).ThenByDescending(x => x.TotalPoints))
         {
-            <MudListItem T="QueueParticipantDto">
+            <MudListItem T="QueueParticipantDto" Style="@QueueStyles.RowStyle(p.Status)">
                 <div class="d-flex justify-space-between align-center flex-grow-1">
-                    <MudText>@p.LastName @p.FirstName</MudText>
+                    <span style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
                     <div class="d-flex align-center gap-2">
                         <MudText Class="mr-2">Баллы: <b>@p.TotalPoints</b></MudText>
                         <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                            @StatusText(p.Status, p.CheckingByAdminName)
+                            @QueueStyles.StatusText(p.Status, p.CheckingByAdminName)
                         </MudChip>
                     </div>
                 </div>

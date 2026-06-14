@@ -14,26 +14,7 @@ public class StudentServiceTests : IDisposable
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     private StudentService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new UpdateMyProfileRequestValidator(), new SetStudentColorRequestValidator());
-
-    [Fact]
-    public async Task UpdateMyProfile_UpdatesGitHubAndColor()
-    {
-        Guid studentId;
-        await using var ctx = _db.NewContext();
-        var group = ctx.Group();
-        await ctx.SaveChangesAsync();
-        var student = ctx.Student(group);
-        await ctx.SaveChangesAsync();
-        studentId = student.Id;
-
-        var sut = CreateSut(ctx);
-        await sut.UpdateMyProfileAsync(studentId, new UpdateMyProfileRequest("https://github.com/x", "#aabbcc"));
-
-        var updated = await ctx.Students.FindAsync(studentId);
-        updated!.GitHubUrl.Should().Be("https://github.com/x");
-        updated.Color.Should().Be("#aabbcc");
-    }
+        new(ctx, _identity, _cache, new SetStudentColorRequestValidator());
 
     [Fact]
     public async Task GetStudentsBySubject_ReturnsOnlyLinkedGroups()

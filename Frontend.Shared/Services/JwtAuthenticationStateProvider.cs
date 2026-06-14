@@ -5,10 +5,10 @@ using Microsoft.AspNetCore.Components.Authorization;
 namespace Frontend.Shared.Services;
 
 /// <summary>
-/// Строит <see cref="AuthenticationState"/> из JWT в localStorage.
-/// Имена claim-ов роли/идентификатора соответствуют выпускаемому бэкендом токену.
+/// Строит <see cref="AuthenticationState"/> из access-токена в localStorage.
+/// Если access истёк — пытается обновить его по refresh-токену.
 /// </summary>
-public class JwtAuthenticationStateProvider(TokenStore tokenStore) : AuthenticationStateProvider
+public class JwtAuthenticationStateProvider(TokenStore tokenStore, TokenRefresher refresher) : AuthenticationStateProvider
 {
     private static readonly ClaimsPrincipal Anonymous = new(new ClaimsIdentity());
 
@@ -20,13 +20,15 @@ public class JwtAuthenticationStateProvider(TokenStore tokenStore) : Authenticat
             if (string.IsNullOrEmpty(token))
                 return new AuthenticationState(Anonymous);
 
-            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-            if (jwt.ValidTo < DateTime.UtcNow)
+            if (IsExpired(token))
             {
-                await tokenStore.RemoveTokenAsync();
-                return new AuthenticationState(Anonymous);
+                // Access истёк — пробуем обновить по refresh; иначе аноним (токены очищены внутри).
+                token = await refresher.RefreshAsync();
+                if (string.IsNullOrEmpty(token))
+                    return new AuthenticationState(Anonymous);
             }
 
+            var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
             var identity = new ClaimsIdentity(jwt.Claims, "jwt", ClaimsIdentity.DefaultNameClaimType, ClaimTypes.Role);
             return new AuthenticationState(new ClaimsPrincipal(identity));
         }
@@ -39,4 +41,16 @@ public class JwtAuthenticationStateProvider(TokenStore tokenStore) : Authenticat
     /// <summary>Сообщить Blazor, что состояние аутентификации изменилось (после входа/выхода).</summary>
     public void NotifyAuthenticationStateChanged() =>
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+
+    private static bool IsExpired(string token)
+    {
+        try
+        {
+            return new JwtSecurityTokenHandler().ReadJwtToken(token).ValidTo < DateTime.UtcNow;
+        }
+        catch
+        {
+            return true;
+        }
+    }
 }

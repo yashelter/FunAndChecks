@@ -19,12 +19,15 @@ public partial class Register
     private string _lastName = string.Empty;
     private string _email = string.Empty;
     private string _password = string.Empty;
+    private string _confirmPassword = string.Empty;
     private int _groupId;
-    private string? _gitHubUrl;
-    private string? _color;
+    private bool _showPassword;
 
     private string? _error;
     private bool _busy;
+
+    private string? ValidateConfirm(string value) =>
+        value == _password ? null : "Пароли не совпадают";
 
     protected override async Task OnInitializedAsync()
     {
@@ -52,9 +55,7 @@ public partial class Register
             _lastName.Trim(),
             _email.Trim(),
             _password,
-            _groupId,
-            string.IsNullOrWhiteSpace(_gitHubUrl) ? null : _gitHubUrl.Trim(),
-            string.IsNullOrWhiteSpace(_color) ? null : _color.Trim());
+            _groupId);
 
         var result = await Auth.RegisterAsync(request);
         _busy = false;

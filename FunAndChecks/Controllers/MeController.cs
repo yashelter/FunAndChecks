@@ -20,24 +20,14 @@ namespace FunAndChecks.Controllers;
 public class MeController(
     IStudentService studentService,
     IResultsService resultsService,
-    IAdminAccessService accessService)
+    IAdminAccessService accessService,
+    ISubjectService subjectService,
+    IGroupService groupService)
     : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<MeDto>> GetMe(CancellationToken cancellationToken) =>
         Ok(await studentService.GetMeAsync(User.GetUserId(), cancellationToken));
-
-    /// <summary>Обновляет редактируемые студентом поля профиля (GitHub, цвет).</summary>
-    [HttpPut("profile")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<IActionResult> UpdateProfile(UpdateMyProfileRequest request, CancellationToken cancellationToken)
-    {
-        if (User.IsInRole(Roles.Admin))
-            return Forbid();
-
-        await studentService.UpdateMyProfileAsync(User.GetUserId(), request, cancellationToken);
-        return NoContent();
-    }
 
     /// <summary>Предметы, доступные группе текущего студента.</summary>
     [HttpGet("subjects")]
@@ -50,13 +40,13 @@ public class MeController(
 
     /// <summary>Активные события очереди, на которые записан текущий студент.</summary>
     [HttpGet("queue-events")]
-    public async Task<ActionResult<List<QueueEventDto>>> GetMyQueueEvents(CancellationToken cancellationToken) =>
-        Ok(await studentService.GetMyQueueEventsAsync(User.GetUserId(), cancellationToken));
+    public async Task<ActionResult<List<QueueEventDto>>> GetMyQueueEvents([FromQuery] bool includePast, CancellationToken cancellationToken) =>
+        Ok(await studentService.GetMyQueueEventsAsync(User.GetUserId(), includePast, cancellationToken));
 
-    /// <summary>Активные события очереди, доступные текущему студенту для записи.</summary>
+    /// <summary>События очереди, доступные текущему студенту (по умолчанию — активные).</summary>
     [HttpGet("available-queue-events")]
-    public async Task<ActionResult<List<QueueEventDto>>> GetAvailableQueueEvents(CancellationToken cancellationToken) =>
-        Ok(await studentService.GetAvailableQueueEventsAsync(User.GetUserId(), cancellationToken));
+    public async Task<ActionResult<List<QueueEventDto>>> GetAvailableQueueEvents([FromQuery] bool includePast, CancellationToken cancellationToken) =>
+        Ok(await studentService.GetAvailableQueueEventsAsync(User.GetUserId(), includePast, cancellationToken));
 
     /// <summary>Детальные результаты текущего студента по предмету.</summary>
     [HttpGet("results/subjects/{subjectId:int}")]
@@ -68,6 +58,18 @@ public class MeController(
     [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<AdminAccessDto>> GetMyAccess(CancellationToken cancellationToken) =>
         Ok(await accessService.GetAccessAsync(User.GetUserId(), cancellationToken));
+
+    /// <summary>Видимые админу предметы (без запрещённых и архивных).</summary>
+    [HttpGet("admin/subjects")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<SubjectDto>>> GetVisibleSubjects(CancellationToken cancellationToken) =>
+        Ok(await subjectService.GetVisibleForAdminAsync(User.GetUserId(), cancellationToken));
+
+    /// <summary>Видимые админу группы (без запрещённых и архивных).</summary>
+    [HttpGet("admin/groups")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<GroupDto>>> GetVisibleGroups(CancellationToken cancellationToken) =>
+        Ok(await groupService.GetVisibleForAdminAsync(User.GetUserId(), cancellationToken));
 
     /// <summary>Скрыть/показать предмет в собственных списках (для админа).</summary>
     [HttpPut("subjects/{subjectId:int}/hidden")]

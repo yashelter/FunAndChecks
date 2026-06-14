@@ -211,6 +211,18 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse,
 });
 
+// Список ассетов экрана загрузки (wwwroot/loading) — фронт выбирает случайный.
+// Достаточно просто положить файлы (gif/mp4/webm/png/...) в папку.
+app.MapGet("/api/loading-assets", () =>
+{
+    var contents = app.Environment.WebRootFileProvider.GetDirectoryContents("loading");
+    var files = contents
+        .Where(f => !f.IsDirectory)
+        .Select(f => $"loading/{f.Name}")
+        .ToList();
+    return Results.Ok(files);
+});
+
 app.MapFallbackToFile("index.html");
 
 try

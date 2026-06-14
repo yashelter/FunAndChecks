@@ -5,13 +5,13 @@ public record RegisterStudentRequest(
     string LastName,
     string Email,
     string Password,
-    int GroupId,
-    string? GitHubUrl,
-    string? Color);
+    int GroupId);
 
 public record LoginRequest(string Email, string Password);
 
-public record AuthResponse(string Token);
+public record AuthResponse(string AccessToken, string RefreshToken);
+
+public record RefreshRequest(string RefreshToken);
 
 public record ConfirmEmailRequest(string Email, string Code);
 

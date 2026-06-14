@@ -8,7 +8,8 @@ public static class ColorUtils
     /// <summary>Контрастный цвет текста (чёрный/белый) для заданного фона #RRGGBB.</summary>
     public static string ContrastText(string? hexColor)
     {
-        if (string.IsNullOrEmpty(hexColor) || hexColor.Length != 7 || !hexColor.StartsWith('#'))
+        // Поддерживаем #RRGGBB и #RRGGBBAA (альфу игнорируем).
+        if (string.IsNullOrEmpty(hexColor) || (hexColor.Length != 7 && hexColor.Length != 9) || !hexColor.StartsWith('#'))
             return "#000000";
 
         try

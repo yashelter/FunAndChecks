@@ -55,11 +55,23 @@ public class AuthFlowTests : IClassFixture<TestWebAppFactory>
         var confirm = await _client.PostAsJsonAsync("/api/auth/confirm-email", new { email, code });
         confirm.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // После подтверждения вход выдаёт токен.
+        // После подтверждения вход выдаёт пару токенов.
         var login = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = "secret1" });
         login.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await login.Content.ReadFromJsonAsync<AuthResponsePayload>();
-        payload!.Token.Should().NotBeNullOrEmpty();
+        payload!.AccessToken.Should().NotBeNullOrEmpty();
+        payload.RefreshToken.Should().NotBeNullOrEmpty();
+
+        // Refresh обменивает refresh на новую пару (с ротацией).
+        var refresh = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = payload.RefreshToken });
+        refresh.StatusCode.Should().Be(HttpStatusCode.OK);
+        var refreshed = await refresh.Content.ReadFromJsonAsync<AuthResponsePayload>();
+        refreshed!.AccessToken.Should().NotBeNullOrEmpty();
+        refreshed.RefreshToken.Should().NotBe(payload.RefreshToken);
+
+        // Старый refresh после ротации больше не действует.
+        var reuse = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = payload.RefreshToken });
+        reuse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     [Fact]
@@ -69,5 +81,5 @@ public class AuthFlowTests : IClassFixture<TestWebAppFactory>
         login.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
-    private record AuthResponsePayload(string Token);
+    private record AuthResponsePayload(string AccessToken, string RefreshToken);
 }

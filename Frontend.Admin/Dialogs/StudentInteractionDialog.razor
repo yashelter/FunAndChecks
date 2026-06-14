@@ -1,28 +1,10 @@
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@Student.LastName @Student.FirstName (@Student.GroupName)</MudText>
+        <MudText Typo="Typo.h6">@StudentName@(string.IsNullOrEmpty(GroupName) ? "" : $" ({GroupName})")</MudText>
     </TitleContent>
     <DialogContent>
         <MudTabs Elevation="2" Rounded="true" Centered="true">
             <MudTabPanel Text="Задачи">
-                <MudStack Row="true" Spacing="2" Class="my-2" Justify="Justify.Center">
-                    @if (_status != QueueEntryStatus.Checking)
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                   OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Checking))">Принять в работу</MudButton>
-                    }
-                    else
-                    {
-                        <MudButton Variant="Variant.Filled" Color="Color.Success"
-                                   OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">Завершил</MudButton>
-                        <MudButton Variant="Variant.Filled" Color="Color.Warning"
-                                   OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">Пропущен</MudButton>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Info"
-                                   OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">В очередь</MudButton>
-                    }
-                </MudStack>
-                <MudDivider Class="mb-2" />
-
                 @if (_loadingTasks)
                 {
                     <div class="d-flex justify-center pa-4"><MudProgressCircular Indeterminate="true" /></div>
@@ -45,8 +27,41 @@
                                                    OnClick="@(() => SubmitAsync(task.Id, SubmissionStatus.Accepted))">Зачтено</MudButton>
                                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
                                                    OnClick="@(() => ReworkAsync(task.Id))">На доработку</MudButton>
+                                        <MudButton Size="Size.Small" Variant="Variant.Text"
+                                                   OnClick="@(() => ToggleHistoryAsync(task.Id))">
+                                            @(_openHistory.Contains(task.Id) ? "Скрыть историю" : "История")
+                                        </MudButton>
                                     </MudStack>
                                 </div>
+
+                                @if (_openHistory.Contains(task.Id))
+                                {
+                                    <MudDivider Class="my-2" />
+                                    @if (!_history.TryGetValue(task.Id, out var log))
+                                    {
+                                        <MudProgressLinear Indeterminate="true" />
+                                    }
+                                    else if (log.Count == 0)
+                                    {
+                                        <MudText Typo="Typo.caption">Сдач ещё не было.</MudText>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var entry in log)
+                                        {
+                                            <div class="mb-1">
+                                                <MudChip T="string" Size="Size.Small" Color="@StatusColor(entry.Status)">@StatusText(entry.Status)</MudChip>
+                                                <MudText Typo="Typo.caption" Class="d-inline">
+                                                    @entry.Admin.FullName · @entry.SubmittedAt.ToLocalTime().ToString("dd.MM HH:mm")
+                                                </MudText>
+                                                @if (!string.IsNullOrWhiteSpace(entry.Comment))
+                                                {
+                                                    <MudText Typo="Typo.body2">Причина: @entry.Comment</MudText>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                }
                             </MudPaper>
                         }
                     </MudList>
@@ -65,7 +80,17 @@
                         {
                             <MudPaper Outlined="true" Class="pa-3 mb-2">
                                 <div class="d-flex justify-space-between align-center gap-2">
-                                    <MudText><b>@c.Name</b> (@c.MinPoints–@c.MaxPoints)</MudText>
+                                    <div>
+                                        <MudText><b>@c.Name</b> (@c.MinPoints–@c.MaxPoints)</MudText>
+                                        @if (_currentGrades.TryGetValue(c.Id, out var current))
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Сейчас: @current</MudChip>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption">Не выставлено</MudText>
+                                        }
+                                    </div>
                                     <div class="d-flex align-center gap-2">
                                         <MudNumericField T="int" @bind-Value="_gradeInputs[c.Id]"
                                                          Min="@c.MinPoints" Max="@c.MaxPoints"
@@ -100,6 +125,18 @@
         </MudTabs>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Cancel">Закрыть</MudButton>
+        <div class="d-flex flex-wrap gap-2 pa-2" style="width:100%;">
+            @if (EventId is not null)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">Завершил</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">Пропущен</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">В очередь</MudButton>
+            }
+            <MudSpacer />
+            <MudButton OnClick="Cancel">@(EventId is null ? "Закрыть" : "Свернуть")</MudButton>
+        </div>
     </DialogActions>
 </MudDialog>

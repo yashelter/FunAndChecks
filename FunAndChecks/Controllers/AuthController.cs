@@ -46,6 +46,22 @@ public class AuthController(IAuthService authService) : ControllerBase
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken cancellationToken) =>
         Ok(await authService.LoginAsync(request, cancellationToken));
 
+    /// <summary>Обновить access-токен по refresh-токену (с ротацией refresh).</summary>
+    [HttpPost("refresh")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequest request, CancellationToken cancellationToken) =>
+        Ok(await authService.RefreshAsync(request, cancellationToken));
+
+    /// <summary>Выход: отзывает refresh-токен.</summary>
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Logout(RefreshRequest request, CancellationToken cancellationToken)
+    {
+        await authService.LogoutAsync(request, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Запросить код для сброса пароля (отправляется на почту).</summary>
     [HttpPost("forgot-password")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]

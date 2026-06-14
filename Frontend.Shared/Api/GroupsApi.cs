@@ -26,6 +26,12 @@ public class GroupsApi(HttpClient http) : ApiClientBase(http)
     public Task UnlinkSubjectAsync(int groupId, int subjectId, CancellationToken ct = default) =>
         DeleteAsync($"api/groups/{groupId}/subjects/{subjectId}", ct);
 
+    public Task<List<int>> GetSubjectIdsAsync(int groupId, CancellationToken ct = default) =>
+        GetAsync<List<int>>($"api/groups/{groupId}/subject-ids", ct);
+
+    public Task<List<int>> GetGroupIdsForSubjectAsync(int subjectId, CancellationToken ct = default) =>
+        GetAsync<List<int>>($"api/groups/for-subject/{subjectId}", ct);
+
     public Task<List<StudentDto>> GetStudentsAsync(int groupId, CancellationToken ct = default) =>
         GetAsync<List<StudentDto>>($"api/groups/{groupId}/students", ct);
 

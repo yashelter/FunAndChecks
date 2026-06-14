@@ -5,6 +5,7 @@ using FunAndChecks.Infrastructure.Email;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using FunAndChecks.Infrastructure.Persistence.Seeding;
+using FunAndChecks.Infrastructure.Workers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,7 @@ public static class DependencyInjection
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
@@ -55,6 +57,10 @@ public static class DependencyInjection
         services.AddScoped<IDatabaseBackupService, PgDumpBackupService>();
 
         services.AddSingleton<IResultsCacheService, ResultsCacheService>();
+        services.AddSingleton<IEmailThrottle, EmailThrottle>();
+
+        // Фоновая очистка неподтверждённых аккаунтов.
+        services.AddHostedService<UnconfirmedAccountCleanupService>();
 
         services.AddScoped<DataSeeder>();
 

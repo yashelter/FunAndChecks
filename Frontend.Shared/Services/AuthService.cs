@@ -25,10 +25,10 @@ public class AuthService(HttpClient http, TokenStore tokenStore)
             return new AuthResult(false, await response.ReadErrorMessageAsync());
 
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        if (string.IsNullOrEmpty(auth?.Token))
-            return new AuthResult(false, "Сервер вернул пустой токен.");
+        if (string.IsNullOrEmpty(auth?.AccessToken) || string.IsNullOrEmpty(auth.RefreshToken))
+            return new AuthResult(false, "Сервер вернул пустые токены.");
 
-        await tokenStore.SetTokenAsync(auth.Token);
+        await tokenStore.SetTokensAsync(auth.AccessToken, auth.RefreshToken);
         return AuthResult.Ok;
     }
 
@@ -63,5 +63,20 @@ public class AuthService(HttpClient http, TokenStore tokenStore)
             : new AuthResult(false, await response.ReadErrorMessageAsync());
     }
 
-    public Task LogoutAsync() => tokenStore.RemoveTokenAsync().AsTask();
+    public async Task LogoutAsync()
+    {
+        // Отзываем refresh на сервере (best-effort), затем чистим локально.
+        try
+        {
+            var refreshToken = await tokenStore.GetRefreshTokenAsync();
+            if (!string.IsNullOrEmpty(refreshToken))
+                await http.PostAsJsonAsync("api/auth/logout", new RefreshRequest(refreshToken));
+        }
+        catch
+        {
+            // выход не должен падать из-за сети
+        }
+
+        await tokenStore.ClearAsync();
+    }
 }

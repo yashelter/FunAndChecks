@@ -1,5 +1,4 @@
 using FluentValidation;
-using FunAndChecks.Application.Common.Validation;
 
 namespace FunAndChecks.Application.Auth;
 
@@ -12,11 +11,6 @@ public class RegisterStudentRequestValidator : AbstractValidator<RegisterStudent
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
         RuleFor(x => x.Password).NotEmpty().MinimumLength(6).MaximumLength(128);
         RuleFor(x => x.GroupId).GreaterThan(0);
-        RuleFor(x => x.Color).HexColor();
-        RuleFor(x => x.GitHubUrl)
-            .Must(url => Uri.TryCreate(url, UriKind.Absolute, out _))
-            .When(x => !string.IsNullOrEmpty(x.GitHubUrl))
-            .WithMessage("GitHubUrl must be a valid absolute URL.");
     }
 }
 

@@ -3,7 +3,7 @@
 
 <PageTitle>Регистрация</PageTitle>
 
-<MudPaper Class="pa-8 mx-auto mt-8" MaxWidth="480px" Elevation="4">
+<MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
     <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">Регистрация студента</MudText>
 
     <MudForm @ref="_form">
@@ -18,19 +18,26 @@
 
         <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
                       Required="true" RequiredError="Укажите email" Class="mt-2" />
-        <MudTextField @bind-Value="_password" Label="Пароль" InputType="InputType.Password"
-                      Required="true" RequiredError="Укажите пароль" Class="mt-2" />
+
+        <MudTextField @bind-Value="_password" Label="Пароль"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Required="true" RequiredError="Укажите пароль" Class="mt-2"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPassword = !_showPassword)" AdornmentAriaLabel="Показать пароль" />
+
+        <MudTextField @bind-Value="_confirmPassword" Label="Повторите пароль"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Required="true" RequiredError="Повторите пароль" Class="mt-2"
+                      Validation="@(new Func<string, string?>(ValidateConfirm))" />
 
         <MudSelect T="int" @bind-Value="_groupId" Label="Группа" Required="true"
-                   RequiredError="Выберите группу" Class="mt-2">
+                   RequiredError="Выберите группу" Class="mt-2" Placeholder="Выберите группу">
             @foreach (var group in _groups)
             {
                 <MudSelectItem T="int" Value="group.Id">@group.Name</MudSelectItem>
             }
         </MudSelect>
-
-        <MudTextField @bind-Value="_gitHubUrl" Label="GitHub (необязательно)" Class="mt-2" />
-        <MudTextField @bind-Value="_color" Label="Цвет, #RRGGBB (необязательно)" Class="mt-2" />
     </MudForm>
 
     @if (_error is not null)

@@ -12,12 +12,11 @@ public class StudentService(
     IApplicationDbContext db,
     IIdentityService identityService,
     IResultsCacheService cache,
-    IValidator<UpdateMyProfileRequest> updateProfileValidator,
     IValidator<SetStudentColorRequest> setColorValidator)
     : IStudentService
 {
-    /// <summary>Сколько студентов максимум вернёт глобальный поиск.</summary>
-    private const int SearchLimit = 50;
+    /// <summary>Защитный предел глобального поиска (фактически все похожие).</summary>
+    private const int SearchLimit = 500;
 
     /// <summary>Окно, в котором событие очереди считается актуальным для студента.</summary>
     private static readonly TimeSpan UpcomingEventGracePeriod = TimeSpan.FromDays(1);
@@ -36,7 +35,7 @@ public class StudentService(
     {
         var student = await db.Students
             .Where(s => s.Id == studentId)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.GitHubUrl, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Student with ID {studentId} not found.");
 
@@ -61,33 +60,23 @@ public class StudentService(
         return new MeDto(admin.Id, admin.FirstName, admin.LastName, email, null, admin.Color, IsAdmin: true);
     }
 
-    public async Task UpdateMyProfileAsync(Guid studentId, UpdateMyProfileRequest request, CancellationToken cancellationToken = default)
-    {
-        await updateProfileValidator.ValidateAndThrowAsync(request, cancellationToken);
-
-        var student = await db.Students.FindAsync([studentId], cancellationToken)
-                      ?? throw new NotFoundException("Student profile not found.");
-
-        student.GitHubUrl = request.GitHubUrl;
-        student.Color = request.Color;
-        await db.SaveChangesAsync(cancellationToken);
-
-        await InvalidateStudentResultsCacheAsync(studentId, cancellationToken);
-    }
-
     public async Task<List<StudentDetailsDto>> SearchStudentsAsync(string query, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(query))
-            return [];
+        var term = query?.Trim().ToLower();
 
-        var term = query.Trim().ToLower();
+        var filtered = db.Students.Where(s => s.IsActive);
+        if (!string.IsNullOrEmpty(term))
+        {
+            // Пустой запрос → все активные (алфавитный список); иначе — похожие по ФИО.
+            filtered = filtered.Where(s =>
+                (s.LastName + " " + s.FirstName).ToLower().Contains(term)
+                || (s.FirstName + " " + s.LastName).ToLower().Contains(term));
+        }
 
-        var students = await db.Students
-            .Where(s => (s.LastName + " " + s.FirstName).ToLower().Contains(term)
-                        || (s.FirstName + " " + s.LastName).ToLower().Contains(term))
+        var students = await filtered
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
             .Take(SearchLimit)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.GitHubUrl, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));
@@ -158,10 +147,10 @@ public class StudentService(
             throw new NotFoundException($"Subject with ID {subjectId} not found.");
 
         var students = await db.Students
-            .Where(s => s.GroupId != null &&
+            .Where(s => s.IsActive && s.GroupId != null &&
                         db.GroupSubjects.Any(gs => gs.SubjectId == subjectId && gs.GroupId == s.GroupId))
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.GitHubUrl, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));
@@ -170,7 +159,7 @@ public class StudentService(
             .ToList();
     }
 
-    public async Task<List<QueueEventDto>> GetMyQueueEventsAsync(Guid studentId, CancellationToken cancellationToken = default)
+    public async Task<List<QueueEventDto>> GetMyQueueEventsAsync(Guid studentId, bool includePast = false, CancellationToken cancellationToken = default)
     {
         var groupId = await GetGroupIdAsync(studentId, cancellationToken);
         if (groupId == null)
@@ -178,14 +167,14 @@ public class StudentService(
 
         var threshold = DateTime.UtcNow - UpcomingEventGracePeriod;
         return await db.QueueEvents
-            .Where(qe => qe.EventDateTime > threshold)
+            .Where(qe => includePast || qe.EventDateTime > threshold)
             .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(Guid studentId, CancellationToken cancellationToken = default)
+    public async Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(Guid studentId, bool includePast = false, CancellationToken cancellationToken = default)
     {
         var groupId = await GetGroupIdAsync(studentId, cancellationToken);
         if (groupId == null)
@@ -193,7 +182,7 @@ public class StudentService(
 
         var threshold = DateTime.UtcNow - UpcomingEventGracePeriod;
         return await db.QueueEvents
-            .Where(qe => qe.EventDateTime > threshold)
+            .Where(qe => includePast || qe.EventDateTime > threshold)
             .Where(qe => qe.Subject.GroupSubjects.Any(gs => gs.GroupId == groupId))
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))

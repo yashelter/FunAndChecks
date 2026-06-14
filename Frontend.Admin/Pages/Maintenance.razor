@@ -4,104 +4,25 @@
 
 <PageTitle>Обслуживание</PageTitle>
 
-<MudText Typo="Typo.h4" Color="Color.Error" GutterBottom="true">Опасная зона</MudText>
-<MudText Typo="Typo.body1" GutterBottom="true">Действия необратимы — будьте внимательны.</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">Обслуживание</MudText>
+<MudText Typo="Typo.body2" GutterBottom="true">
+    Управление сущностями (создание, изменение, удаление) — на странице «Управление».
+</MudText>
 
-@if (_loading)
-{
-    <MudProgressCircular Indeterminate="true" />
-}
-else
-{
-    <MudGrid Class="mt-4">
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Удалить предмет</MudText></CardHeaderContent></MudCardHeader>
-                <MudCardContent>
-                    <MudAlert Severity="Severity.Warning" Class="mb-3">Каскадно удалит задачи, колонки и историю.</MudAlert>
-                    <MudSelect T="int" @bind-Value="_subjectToDelete" Label="Предмет" Variant="Variant.Outlined">
-                        @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                    </MudSelect>
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@(_subjectToDelete == 0)"
-                               OnClick="DeleteSubjectAsync">Удалить</MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Удалить группу</MudText></CardHeaderContent></MudCardHeader>
-                <MudCardContent>
-                    <MudAlert Severity="Severity.Info" Class="mb-3">Студенты группы останутся без группы.</MudAlert>
-                    <MudSelect T="int" @bind-Value="_groupToDelete" Label="Группа" Variant="Variant.Outlined">
-                        @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
-                    </MudSelect>
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@(_groupToDelete == 0)"
-                               OnClick="DeleteGroupAsync">Удалить</MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Удалить задачу</MudText></CardHeaderContent></MudCardHeader>
-                <MudCardContent>
-                    <MudSelect T="int" ValueChanged="OnTaskSubjectChangedAsync" Label="Предмет" Variant="Variant.Outlined">
-                        @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                    </MudSelect>
-                    <MudSelect T="int" @bind-Value="_taskToDelete" Label="Задача" Variant="Variant.Outlined" Class="mt-2"
-                               Disabled="@(_tasks.Count == 0)">
-                        @foreach (var t in _tasks) { <MudSelectItem T="int" Value="@t.Id">@t.Name</MudSelectItem> }
-                    </MudSelect>
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@(_taskToDelete == 0)"
-                               OnClick="DeleteTaskAsync">Удалить</MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" md="6">
-            <MudCard Elevation="4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Отвязать группу от предмета</MudText></CardHeaderContent></MudCardHeader>
-                <MudCardContent>
-                    <MudSelect T="int" @bind-Value="_unlinkSubjectId" Label="Предмет" Variant="Variant.Outlined">
-                        @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
-                    </MudSelect>
-                    <MudSelect T="int" @bind-Value="_unlinkGroupId" Label="Группа" Variant="Variant.Outlined" Class="mt-2">
-                        @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
-                    </MudSelect>
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton Color="Color.Warning" Variant="Variant.Filled"
-                               Disabled="@(_unlinkSubjectId == 0 || _unlinkGroupId == 0)"
-                               OnClick="UnlinkAsync">Отозвать доступ</MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12">
-            <MudCard Elevation="4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Резервная копия БД</MudText></CardHeaderContent></MudCardHeader>
-                <MudCardContent>
-                    <MudText Typo="Typo.body2">Создаёт дамп БД на сервере (pg_dump) в настроенный каталог.</MudText>
-                    @if (_lastBackupPath is not null)
-                    {
-                        <MudAlert Severity="Severity.Success" Class="mt-2">Создан: @_lastBackupPath</MudAlert>
-                    }
-                </MudCardContent>
-                <MudCardActions>
-                    <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Backup"
-                               OnClick="BackupAsync" Disabled="_backupRunning">
-                        @if (_backupRunning) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-                        Создать бэкап
-                    </MudButton>
-                </MudCardActions>
-            </MudCard>
-        </MudItem>
-    </MudGrid>
-}
+<MudCard Elevation="4" Class="mt-4" Style="max-width: 640px;">
+    <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Резервная копия БД</MudText></CardHeaderContent></MudCardHeader>
+    <MudCardContent>
+        <MudText Typo="Typo.body2">Создаёт дамп БД на сервере (pg_dump) в настроенный каталог.</MudText>
+        @if (_lastBackupPath is not null)
+        {
+            <MudAlert Severity="Severity.Success" Class="mt-2">Создан: @_lastBackupPath</MudAlert>
+        }
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Backup"
+                   OnClick="BackupAsync" Disabled="_backupRunning">
+            @if (_backupRunning) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Создать бэкап
+        </MudButton>
+    </MudCardActions>
+</MudCard>

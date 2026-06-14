@@ -13,12 +13,22 @@ public partial class Queues
 
     private List<QueueEventDto> _queues = [];
     private bool _loading = true;
+    private bool _showPast;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task OnShowPastChangedAsync(bool value)
     {
+        _showPast = value;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
         try
         {
-            _queues = await QueuesApi.GetActiveAsync();
+            _queues = _showPast ? await QueuesApi.GetAllAsync() : await QueuesApi.GetActiveAsync();
         }
         catch (ApiException ex)
         {

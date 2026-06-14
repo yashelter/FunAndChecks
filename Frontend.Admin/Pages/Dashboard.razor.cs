@@ -1,4 +1,3 @@
-using System.Text;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Services;
@@ -9,7 +8,7 @@ namespace Frontend.Admin.Pages;
 
 public partial class Dashboard
 {
-    [Inject] private SubjectsApi Subjects { get; set; } = null!;
+    [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private ResultsApi Results { get; set; } = null!;
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
@@ -23,7 +22,7 @@ public partial class Dashboard
     {
         try
         {
-            _subjects = await Subjects.GetAllAsync();
+            _subjects = await Me.GetVisibleSubjectsAsync();
         }
         catch (ApiException ex)
         {
@@ -53,38 +52,22 @@ public partial class Dashboard
         }
     }
 
-    private async Task ExportCsvAsync()
+    private async Task ExportXlsxAsync()
     {
         if (_results is null)
             return;
 
-        const string delimiter = ";";
-        var rows = _grid?.FilteredItems ?? _results.UserResults;
-
-        var sb = new StringBuilder();
-        var headers = new List<string> { "ФИО", "Группа" };
-        headers.AddRange(_results.TaskHeaders.Select(t => t.TaskName));
-        headers.AddRange(_results.GradeColumns.Select(c => c.Name));
-        headers.Add("Сумма");
-        sb.AppendLine(string.Join(delimiter, headers));
-
-        foreach (var row in rows)
+        try
         {
-            var cells = new List<string> { row.FullName, row.GroupName };
-            cells.AddRange(_results.TaskHeaders.Select(t => CellText(row.Results.GetValueOrDefault(t.TaskId))));
-            cells.AddRange(_results.GradeColumns.Select(c =>
-                row.Grades.TryGetValue(c.ComponentId, out var p) ? p.ToString() : string.Empty));
-            cells.Add(row.TotalPoints.ToString());
-            sb.AppendLine(string.Join(delimiter, cells));
+            var bytes = await Results.ExportXlsxAsync(_results.SubjectId);
+            using var stream = new MemoryStream(bytes);
+            await Downloader.DownloadAsync($"Results_{_results.SubjectName}_{DateTime.Now:yyyy-MM-dd}.xlsx", stream);
+            Snackbar.Add("Экспорт в XLSX завершён.", Severity.Success);
         }
-
-        using var stream = new MemoryStream();
-        await stream.WriteAsync(Encoding.UTF8.GetPreamble());
-        await stream.WriteAsync(Encoding.UTF8.GetBytes(sb.ToString()));
-        stream.Position = 0;
-
-        await Downloader.DownloadAsync($"Results_{_results.SubjectName}_{DateTime.Now:yyyy-MM-dd}.csv", stream);
-        Snackbar.Add("Экспорт в CSV завершён.", Severity.Success);
+        catch (ApiException ex)
+        {
+            Snackbar.Add($"Не удалось экспортировать: {ex.Message}", Severity.Error);
+        }
     }
 
     private static string FioStyle(string? color)

@@ -13,9 +13,6 @@ public interface IStudentService
     /// <summary>Профиль текущего пользователя — работает и для студента, и для админа.</summary>
     Task<MeDto> GetMeAsync(Guid userId, CancellationToken cancellationToken = default);
 
-    /// <summary>Обновляет редактируемые студентом поля своего профиля (GitHub, цвет).</summary>
-    Task UpdateMyProfileAsync(Guid studentId, UpdateMyProfileRequest request, CancellationToken cancellationToken = default);
-
     Task<List<SubjectDto>> GetMySubjectsAsync(Guid studentId, CancellationToken cancellationToken = default);
 
     Task<GroupDto> GetMyGroupAsync(Guid studentId, CancellationToken cancellationToken = default);
@@ -29,9 +26,9 @@ public interface IStudentService
     /// <summary>Админ задаёт цвет заливки ячейки студента (null — убрать заливку).</summary>
     Task SetColorAsync(Guid studentId, SetStudentColorRequest request, CancellationToken cancellationToken = default);
 
-    /// <summary>Активные события, на которые студент уже записан.</summary>
-    Task<List<QueueEventDto>> GetMyQueueEventsAsync(Guid studentId, CancellationToken cancellationToken = default);
+    /// <summary>События, на которые студент записан (по умолчанию — активные).</summary>
+    Task<List<QueueEventDto>> GetMyQueueEventsAsync(Guid studentId, bool includePast = false, CancellationToken cancellationToken = default);
 
-    /// <summary>Активные события, доступные группе студента для записи.</summary>
-    Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(Guid studentId, CancellationToken cancellationToken = default);
+    /// <summary>События, доступные группе студента (по умолчанию — активные).</summary>
+    Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(Guid studentId, bool includePast = false, CancellationToken cancellationToken = default);
 }

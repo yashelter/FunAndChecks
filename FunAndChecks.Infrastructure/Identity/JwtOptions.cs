@@ -10,5 +10,10 @@ public class JwtOptions
     public string Issuer { get; set; } = string.Empty;
     public string Audience { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
-    public int TokenLifetimeDays { get; set; } = 180;
+
+    /// <summary>Время жизни access-токена (короткое — чтобы отзыв прав срабатывал быстро).</summary>
+    public int AccessTokenMinutes { get; set; } = 120;
+
+    /// <summary>Время жизни refresh-токена (хранится в БД, отзываемый).</summary>
+    public int RefreshTokenDays { get; set; } = 180;
 }

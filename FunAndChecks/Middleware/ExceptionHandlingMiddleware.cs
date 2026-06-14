@@ -38,6 +38,10 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             await WriteProblemAsync(context, StatusCodes.Status403Forbidden, ex.Message);
         }
+        catch (RateLimitException ex)
+        {
+            await WriteProblemAsync(context, StatusCodes.Status429TooManyRequests, ex.Message);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception while processing {Method} {Path}.",
@@ -75,6 +79,7 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         StatusCodes.Status403Forbidden => "Forbidden",
         StatusCodes.Status404NotFound => "Not Found",
         StatusCodes.Status409Conflict => "Conflict",
+        StatusCodes.Status429TooManyRequests => "Too Many Requests",
         _ => "Internal Server Error",
     };
 }

@@ -13,7 +13,7 @@ public record CreateQueueEventRequest(
     DateTime EventDateTime,
     int SubjectId,
     bool AllowSelfJoin = true,
-    int? AutoFillGroupId = null);
+    List<int>? AutoFillGroupIds = null);
 
 public record UpdateQueueEventRequest(string Name, DateTime EventDateTime);
 
@@ -27,7 +27,8 @@ public record QueueParticipantDto(
     int TotalPoints,
     QueueEntryStatus Status,
     string? CheckingByAdminName,
-    DateTime JoinedAt);
+    DateTime JoinedAt,
+    string? StudentColor);
 
 public record QueueDetailsDto(
     int EventId,

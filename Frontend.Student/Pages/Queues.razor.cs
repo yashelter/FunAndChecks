@@ -20,18 +20,25 @@ public partial class Queues : IAsyncDisposable
     private QueueDetailsDto? _details;
     private List<QueueParticipantDto> _participants = [];
     private bool _loading = true;
+    private bool _showPast;
 
     private HubConnection? _hub;
 
     protected override async Task OnInitializedAsync() => await LoadAllAsync();
+
+    private async Task OnShowPastChangedAsync(bool value)
+    {
+        _showPast = value;
+        await LoadAllAsync();
+    }
 
     private async Task LoadAllAsync()
     {
         _loading = true;
         try
         {
-            var mine = await Me.GetMyQueueEventsAsync();
-            var available = await Me.GetAvailableQueueEventsAsync();
+            var mine = await Me.GetMyQueueEventsAsync(_showPast);
+            var available = await Me.GetAvailableQueueEventsAsync(_showPast);
 
             _myEvents = mine;
             var joinedIds = mine.Select(e => e.Id).ToHashSet();

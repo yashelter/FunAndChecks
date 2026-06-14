@@ -1,6 +1,6 @@
 @inherits LayoutComponentBase
 
-<MudThemeProvider IsDarkMode="true" />
+<MudThemeProvider IsDarkMode="Theme.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -11,6 +11,8 @@
                        OnClick="ToggleDrawer" />
         <MudText Typo="Typo.h6">FunAndChecks</MudText>
         <MudSpacer />
+        <MudIconButton Color="Color.Inherit" OnClick="ToggleThemeAsync"
+                       Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" />
         <MudText Typo="Typo.body2" Class="mr-4">@_userName</MudText>
         <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
             Выход

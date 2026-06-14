@@ -15,7 +15,7 @@ public class ResultsServiceTests : IDisposable
     private readonly ResultsCacheService _cache = new();
 
     [Fact]
-    public async Task GetSubjectResults_CountsTasksAndGradesInTotal()
+    public async Task GetSubjectResults_TotalExcludesGrades_ButGradesShownSeparately()
     {
         int subjectId;
         await using var ctx = _db.NewContext();
@@ -47,7 +47,8 @@ public class ResultsServiceTests : IDisposable
 
         results.GradeColumns.Should().ContainSingle();
         results.UserResults.Should().ContainSingle();
-        results.UserResults[0].TotalPoints.Should().Be(40); // 10 (task) + 30 (grade)
+        // Оценки-категории НЕ входят в Σ — только баллы задач.
+        results.UserResults[0].TotalPoints.Should().Be(10);
         results.UserResults[0].Grades[component.Id].Should().Be(30);
     }
 
@@ -81,7 +82,7 @@ public class ResultsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetStudentResults_IncludesMaxPointsFromTasksAndComponents()
+    public async Task GetStudentResults_MaxPointsFromTasksOnly_GradesSeparate()
     {
         Guid studentId; int subjectId;
         await using var ctx = _db.NewContext();
@@ -98,7 +99,8 @@ public class ResultsServiceTests : IDisposable
         var sut = new ResultsService(ctx, _cache);
         var result = await sut.GetStudentResultsAsync(studentId, subjectId);
 
-        result.MaxPointsPossible.Should().Be(110);
+        // Колонки-оценки идут отдельным списком, в максимум по задачам не входят.
+        result.MaxPointsPossible.Should().Be(10);
     }
 
     public void Dispose() => _db.Dispose();

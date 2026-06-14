@@ -23,11 +23,10 @@ else if (_details is not null)
         <MudTextField @bind-Value="_filter" Label="Фильтр (ФИО/группа)" Variant="Variant.Outlined"
                       Margin="Margin.Dense" Clearable="true" Style="max-width: 280px;"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="Сортировка" Variant="Variant.Outlined"
-                   Margin="Margin.Dense" Style="max-width: 220px;">
-            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Status">По статусу</MudSelectItem>
-            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">По группе</MudSelectItem>
+        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="Сортировка (внутри статуса)" Variant="Variant.Outlined"
+                   Margin="Margin.Dense" Style="max-width: 240px;">
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">По баллам</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">По группе</MudSelectItem>
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.JoinedAt">По времени записи</MudSelectItem>
         </MudSelect>
     </div>
@@ -41,16 +40,16 @@ else if (_details is not null)
         <MudList T="QueueParticipantDto" Class="mt-2">
             @foreach (var p in Visible)
             {
-                <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))">
+                <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))" Style="@QueueStyles.RowStyle(p.Status)">
                     <div class="d-flex justify-space-between align-center flex-grow-1">
                         <div class="d-flex align-center gap-2">
-                            <MudText><b>@p.LastName @p.FirstName</b></MudText>
+                            <span style="@QueueStyles.NameStyle(p.StudentColor)"><b>@p.LastName @p.FirstName</b></span>
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@p.GroupName</MudChip>
                         </div>
                         <div class="d-flex align-center gap-2">
                             <MudText>Баллы: <b>@p.TotalPoints</b></MudText>
                             <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                                @StatusText(p.Status, p.CheckingByAdminName)
+                                @QueueStyles.StatusText(p.Status, p.CheckingByAdminName)
                             </MudChip>
                         </div>
                     </div>

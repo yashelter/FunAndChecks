@@ -2,6 +2,7 @@ using Frontend.Admin.Dialogs;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Services;
+using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
 using MudBlazor;
@@ -24,9 +25,9 @@ public partial class QueueDetails : IAsyncDisposable
     private HubConnection? _hub;
 
     private string? _filter;
-    private ParticipantSort _sort = ParticipantSort.Status;
+    private ParticipantSort _sort = ParticipantSort.Points;
 
-    public enum ParticipantSort { Status, Group, Points, JoinedAt }
+    public enum ParticipantSort { Group, Points, JoinedAt }
 
     protected override async Task OnInitializedAsync()
     {
@@ -48,15 +49,17 @@ public partial class QueueDetails : IAsyncDisposable
                 p.GroupName.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        items = _sort switch
+        // Статус — всегда первичный ключ сортировки (сдают → в очереди → пропущенные → завершившие),
+        // выбранное поле — вторичное.
+        var ordered = items.OrderBy(p => QueueStyles.StatusOrder(p.Status));
+        ordered = _sort switch
         {
-            ParticipantSort.Group => items.OrderBy(p => p.GroupName).ThenBy(p => p.LastName),
-            ParticipantSort.Points => items.OrderByDescending(p => p.TotalPoints),
-            ParticipantSort.JoinedAt => items.OrderBy(p => p.JoinedAt),
-            _ => items.OrderBy(p => p.Status).ThenByDescending(p => p.TotalPoints),
+            ParticipantSort.Group => ordered.ThenBy(p => p.GroupName).ThenBy(p => p.LastName),
+            ParticipantSort.JoinedAt => ordered.ThenBy(p => p.JoinedAt),
+            _ => ordered.ThenByDescending(p => p.TotalPoints),
         };
 
-        return items.ToList();
+        return ordered.ToList();
     }
 
     private async Task LoadAsync()
@@ -110,9 +113,26 @@ public partial class QueueDetails : IAsyncDisposable
         if (_details is null)
             return;
 
+        // Клик по студенту = начать приём: сразу ставим статус «Сдаёт».
+        if (participant.Status != QueueEntryStatus.Checking)
+        {
+            try
+            {
+                await Queues.UpdateStatusAsync(EventId, participant.StudentId, new UpdateQueueStatusRequest(QueueEntryStatus.Checking));
+                await LoadAsync();
+                participant = _participants.FirstOrDefault(p => p.StudentId == participant.StudentId) ?? participant;
+            }
+            catch (ApiException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Error);
+            }
+        }
+
         var parameters = new DialogParameters<StudentInteractionDialog>
         {
-            { x => x.Student, participant },
+            { x => x.StudentId, participant.StudentId },
+            { x => x.StudentName, $"{participant.LastName} {participant.FirstName}" },
+            { x => x.GroupName, participant.GroupName },
             { x => x.EventId, EventId },
             { x => x.SubjectId, _details.SubjectId },
         };
@@ -134,15 +154,6 @@ public partial class QueueDetails : IAsyncDisposable
         QueueEntryStatus.Waiting => Color.Warning,
         QueueEntryStatus.Finished => Color.Success,
         _ => Color.Default,
-    };
-
-    private static string StatusText(QueueEntryStatus status, string? adminName) => status switch
-    {
-        QueueEntryStatus.Waiting => "В очереди",
-        QueueEntryStatus.Skipped => "Пропущен",
-        QueueEntryStatus.Checking => $"Сдаёт ({adminName ?? "админ"})",
-        QueueEntryStatus.Finished => "Завершил",
-        _ => "Неизвестно",
     };
 
     public async ValueTask DisposeAsync()

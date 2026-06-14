@@ -6,16 +6,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FunAndChecks</title>
     <base href="/" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/png" href="favicon.png?v=2" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png?v=2" />
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link href="css/app.css" rel="stylesheet" />
+    <style>
+        #app-loading {
+            position: fixed; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 20px;
+            background: #121212; color: #fff; font-family: 'Roboto', sans-serif;
+        }
+        #app-loading video, #app-loading img { width: 180px; height: 180px; object-fit: contain; border-radius: 16px; }
+        #app-loading .loading-text { font-size: 20px; letter-spacing: 1px; }
+        #app-loading .loading-text .dots span {
+            animation: app-blink 1.4s infinite both;
+        }
+        #app-loading .loading-text .dots span:nth-child(2) { animation-delay: .2s; }
+        #app-loading .loading-text .dots span:nth-child(3) { animation-delay: .4s; }
+        @keyframes app-blink { 0%, 80%, 100% { opacity: 0; } 40% { opacity: 1; } }
+        #app-loading .loading-bar {
+            width: 220px; height: 4px; border-radius: 4px; overflow: hidden;
+            background: rgba(255,255,255,0.15); position: relative;
+        }
+        #app-loading .loading-bar::before {
+            content: ""; position: absolute; left: -40%; top: 0; height: 100%; width: 40%;
+            background: #7c4dff; border-radius: 4px; animation: app-slide 1.2s infinite ease-in-out;
+        }
+        @keyframes app-slide { 0% { left: -40%; } 100% { left: 100%; } }
+    </style>
 </head>
 
 <body>
     <div id="app">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
-            <svg class="loading-progress"><circle r="40%" cx="50%" cy="50%" /><circle r="40%" cx="50%" cy="50%" /></svg>
+        <div id="app-loading">
+            <div id="app-loading-media"></div>
+            <div class="loading-text">Загрузка<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
+            <div class="loading-bar"></div>
         </div>
     </div>
 
@@ -24,6 +51,39 @@
         <a href="." class="reload">Перезагрузить</a>
         <span class="dismiss">🗙</span>
     </div>
+
+    <script>
+        // Случайный ассет экрана загрузки из папки wwwroot/loading (gif/mp4/webm/png/...).
+        (function () {
+            const fallback = 'loading/loading.mp4';
+            const mount = document.getElementById('app-loading-media');
+            if (!mount) return;
+
+            const render = (src) => {
+                const lower = src.toLowerCase();
+                const isVideo = lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg');
+                if (isVideo) {
+                    const v = document.createElement('video');
+                    v.src = src; v.autoplay = true; v.muted = true; v.loop = true; v.playsInline = true;
+                    mount.appendChild(v);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = src; img.alt = 'loading';
+                    mount.appendChild(img);
+                }
+            };
+
+            fetch('/api/loading-assets')
+                .then(r => r.ok ? r.json() : [])
+                .then(list => {
+                    const pick = Array.isArray(list) && list.length
+                        ? list[Math.floor(Math.random() * list.length)]
+                        : fallback;
+                    render(pick);
+                })
+                .catch(() => render(fallback));
+        })();
+    </script>
 
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>

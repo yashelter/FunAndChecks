@@ -1,16 +1,36 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject Frontend.Shared.Services.ThemeService Theme
 
-<MudThemeProvider IsDarkMode="true" />
+<MudThemeProvider IsDarkMode="Theme.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<MudLayout>
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center justify-center" Style="min-height: 100vh;">
-            <div style="width: 100%;">
-                @Body
-            </div>
-        </MudContainer>
-    </MudMainContent>
-</MudLayout>
+<div style="position: fixed; top: 12px; right: 12px; z-index: 10;">
+    <MudIconButton OnClick="ToggleThemeAsync"
+                   Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" />
+</div>
+
+<div class="d-flex align-center justify-center"
+     style="min-height: 100dvh; width: 100%; padding: 16px; box-sizing: border-box;">
+    <div style="width: 100%; max-width: 460px;">
+        @Body
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized() => Theme.OnThemeChanged += OnThemeChanged;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await Theme.InitializeAsync();
+    }
+
+    private Task ToggleThemeAsync() => Theme.ToggleThemeAsync();
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Theme.OnThemeChanged -= OnThemeChanged;
+}

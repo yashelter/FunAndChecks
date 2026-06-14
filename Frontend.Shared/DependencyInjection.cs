@@ -16,8 +16,9 @@ public static class DependencyInjection
     {
         services.AddMudServices();
 
-        // Хранение токена и аутентификация.
+        // Хранение токенов и аутентификация.
         services.AddSingleton<TokenStore>();
+        services.AddSingleton<TokenRefresher>();
         services.AddTransient<AuthHeaderHandler>();
         services.AddScoped<AuthService>();
         services.AddScoped<ThemeService>();
@@ -27,7 +28,10 @@ public static class DependencyInjection
         services.AddScoped<JwtAuthenticationStateProvider>();
         services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JwtAuthenticationStateProvider>());
 
-        // HTTP-клиент к API (тот же origin, что и SPA) с подстановкой Bearer-токена.
+        // «Сырой» клиент без AuthHeaderHandler — для обновления токена (иначе рекурсия).
+        services.AddHttpClient("ApiRaw", client => client.BaseAddress = new Uri(apiBaseAddress));
+
+        // HTTP-клиент к API (тот же origin, что и SPA) с подстановкой Bearer-токена и авто-refresh.
         services.AddHttpClient("Api", client => client.BaseAddress = new Uri(apiBaseAddress))
             .AddHttpMessageHandler<AuthHeaderHandler>();
         services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api"));

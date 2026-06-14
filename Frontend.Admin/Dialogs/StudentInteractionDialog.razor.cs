@@ -12,8 +12,11 @@ public partial class StudentInteractionDialog
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
 
-    [Parameter] public QueueParticipantDto Student { get; set; } = null!;
-    [Parameter] public int EventId { get; set; }
+    [Parameter] public Guid StudentId { get; set; }
+    [Parameter] public string StudentName { get; set; } = "";
+    [Parameter] public string? GroupName { get; set; }
+    /// <summary>Id события очереди; null — оценивание вне очереди (без статус-кнопок).</summary>
+    [Parameter] public int? EventId { get; set; }
     [Parameter] public int SubjectId { get; set; }
 
     [Inject] private StudentsApi Students { get; set; } = null!;
@@ -27,15 +30,47 @@ public partial class StudentInteractionDialog
     private List<TaskWithStatusDto> _tasks = [];
     private List<GradeComponentDto> _components = [];
     private readonly Dictionary<int, int> _gradeInputs = [];
-    private QueueEntryStatus _status;
+    private readonly Dictionary<int, int> _currentGrades = [];
+    private readonly HashSet<int> _openHistory = [];
+    private readonly Dictionary<int, List<SubmissionLogDto>> _history = [];
     private bool _loadingTasks = true;
     private string? _pickerColor;
 
     protected override async Task OnInitializedAsync()
     {
-        _status = Student.Status;
         await LoadTasksAsync();
         await LoadGradesAsync();
+
+        // История несданных задач (статус не «Зачтено») раскрыта по умолчанию.
+        foreach (var task in _tasks.Where(t => t.Status != SubmissionStatus.Accepted))
+        {
+            _openHistory.Add(task.Id);
+            await LoadHistoryAsync(task.Id);
+        }
+    }
+
+    private async Task ToggleHistoryAsync(int taskId)
+    {
+        if (!_openHistory.Add(taskId))
+        {
+            _openHistory.Remove(taskId);
+            return;
+        }
+
+        await LoadHistoryAsync(taskId);
+    }
+
+    private async Task LoadHistoryAsync(int taskId)
+    {
+        try
+        {
+            _history[taskId] = await Submissions.GetLogAsync(StudentId, taskId);
+        }
+        catch (ApiException)
+        {
+            // Нет сдач — пустая история.
+            _history[taskId] = [];
+        }
     }
 
     private async Task LoadTasksAsync()
@@ -43,7 +78,7 @@ public partial class StudentInteractionDialog
         _loadingTasks = true;
         try
         {
-            _tasks = await Students.GetTasksWithStatusAsync(Student.StudentId, SubjectId);
+            _tasks = await Students.GetTasksWithStatusAsync(StudentId, SubjectId);
         }
         catch (ApiException ex)
         {
@@ -60,10 +95,16 @@ public partial class StudentInteractionDialog
         try
         {
             _components = await Subjects.GetGradeComponentsAsync(SubjectId);
-            var grades = await Students.GetGradesAsync(Student.StudentId, SubjectId);
+            var grades = await Students.GetGradesAsync(StudentId, SubjectId);
             _gradeInputs.Clear();
+            _currentGrades.Clear();
             foreach (var c in _components)
-                _gradeInputs[c.Id] = grades.FirstOrDefault(g => g.ComponentId == c.Id)?.Points ?? c.MinPoints;
+            {
+                var existing = grades.FirstOrDefault(g => g.ComponentId == c.Id);
+                _gradeInputs[c.Id] = existing?.Points ?? c.MinPoints;
+                if (existing is not null)
+                    _currentGrades[c.Id] = existing.Points;
+            }
         }
         catch (ApiException ex)
         {
@@ -75,12 +116,9 @@ public partial class StudentInteractionDialog
     {
         try
         {
-            await Queues.UpdateStatusAsync(EventId, Student.StudentId, new UpdateQueueStatusRequest(status));
-            _status = status;
+            await Queues.UpdateStatusAsync(EventId!.Value, StudentId, new UpdateQueueStatusRequest(status));
             Snackbar.Add("Статус обновлён.", Severity.Success);
-
-            if (status != QueueEntryStatus.Checking)
-                MudDialog.Close(DialogResult.Ok(true));
+            MudDialog.Close(DialogResult.Ok(true));
         }
         catch (ApiException ex)
         {
@@ -100,9 +138,11 @@ public partial class StudentInteractionDialog
     {
         try
         {
-            await Submissions.CreateAsync(new CreateSubmissionRequest(Student.StudentId, taskId, status, comment));
+            await Submissions.CreateAsync(new CreateSubmissionRequest(StudentId, taskId, status, comment));
             Snackbar.Add("Статус задачи обновлён.", Severity.Success);
             await LoadTasksAsync();
+            if (_openHistory.Contains(taskId))
+                await LoadHistoryAsync(taskId);
         }
         catch (ApiException ex)
         {
@@ -114,7 +154,8 @@ public partial class StudentInteractionDialog
     {
         try
         {
-            await Grades.SetGradeAsync(componentId, Student.StudentId, new SetGradeRequest(_gradeInputs[componentId], null));
+            await Grades.SetGradeAsync(componentId, StudentId, new SetGradeRequest(_gradeInputs[componentId], null));
+            _currentGrades[componentId] = _gradeInputs[componentId];
             Snackbar.Add("Оценка сохранена.", Severity.Success);
         }
         catch (ApiException ex)
@@ -127,7 +168,7 @@ public partial class StudentInteractionDialog
     {
         try
         {
-            await Students.SetColorAsync(Student.StudentId, new SetStudentColorRequest(color));
+            await Students.SetColorAsync(StudentId, new SetStudentColorRequest(color));
             Snackbar.Add(color is null ? "Заливка убрана." : "Цвет применён.", Severity.Success);
         }
         catch (ApiException ex)

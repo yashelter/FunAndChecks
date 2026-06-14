@@ -1,0 +1,48 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Options.Count == 0)
+        {
+            <MudText Class="pa-2">Список пуст.</MudText>
+        }
+        else
+        {
+            <div style="max-height: 50vh; overflow-y: auto;">
+                @foreach (var option in Options)
+                {
+                    <MudCheckBox T="bool" Value="_selected.Contains(option.Id)"
+                                 ValueChanged="@(v => Toggle(option.Id, v))" Label="@option.Name" Dense="true" />
+                }
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Отмена</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Сохранить</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    public record LinkOption(int Id, string Name);
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string Title { get; set; } = "Доступ";
+    [Parameter] public List<LinkOption> Options { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<int> SelectedIds { get; set; } = [];
+
+    private HashSet<int> _selected = [];
+
+    protected override void OnInitialized() => _selected = [.. SelectedIds];
+
+    private void Toggle(int id, bool on)
+    {
+        if (on) _selected.Add(id);
+        else _selected.Remove(id);
+    }
+
+    private void Save() => MudDialog.Close(DialogResult.Ok(_selected));
+    private void Cancel() => MudDialog.Cancel();
+}

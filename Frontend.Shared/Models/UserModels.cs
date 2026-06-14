@@ -7,7 +7,6 @@ public record StudentDetailsDto(
     string FirstName,
     string LastName,
     string? Email,
-    string? GitHubUrl,
     string? Color,
     int? GroupId)
 {
@@ -30,7 +29,5 @@ public record MeDto(
 {
     public string FullName => $"{FirstName} {LastName}";
 }
-
-public record UpdateMyProfileRequest(string? GitHubUrl, string? Color);
 
 public record SetStudentColorRequest(string? Color);

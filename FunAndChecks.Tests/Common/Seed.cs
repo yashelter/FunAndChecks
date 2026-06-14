@@ -63,6 +63,8 @@ public static class Seed
             FirstName = "Test",
             LastName = last,
             GroupId = group.Id,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
         };
         AddAccount(db, student.Id);
         db.Students.Add(student);

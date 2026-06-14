@@ -47,6 +47,12 @@ public class IdentityService(UserManager<ApplicationUser> userManager) : IIdenti
             await userManager.DeleteAsync(user);
     }
 
+    public async Task<AccountInfo?> FindByEmailAsync(string email)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        return user is null ? null : new AccountInfo(user.Id, user.EmailConfirmed);
+    }
+
     public async Task<LoginResult> ValidateCredentialsAsync(string email, string password)
     {
         var user = await userManager.FindByEmailAsync(email);
