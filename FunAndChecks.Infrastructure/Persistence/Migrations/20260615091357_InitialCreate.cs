@@ -205,14 +205,37 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RefreshTokens",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    TokenHash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    RevokedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefreshTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RefreshTokens_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Students",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     FirstName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     LastName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    GitHubUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
                     Color = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: true),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     GroupId = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
@@ -239,6 +262,7 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    MinPoints = table.Column<int>(type: "integer", nullable: false),
                     MaxPoints = table.Column<int>(type: "integer", nullable: false),
                     SubjectId = table.Column<int>(type: "integer", nullable: false)
                 },
@@ -285,6 +309,7 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     EventDateTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AllowSelfJoin = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
                     SubjectId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
@@ -565,6 +590,17 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                 column: "SubjectId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_TokenHash",
+                table: "RefreshTokens",
+                column: "TokenHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RefreshTokens_UserId",
+                table: "RefreshTokens",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StudentGrades_AdminId",
                 table: "StudentGrades",
                 column: "AdminId");
@@ -640,6 +676,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "QueueEntries");
+
+            migrationBuilder.DropTable(
+                name: "RefreshTokens");
 
             migrationBuilder.DropTable(
                 name: "StudentGrades");

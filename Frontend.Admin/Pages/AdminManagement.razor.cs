@@ -80,7 +80,7 @@ public partial class AdminManagement
 
     private async Task DeleteAsync(AdminDto admin)
     {
-        var confirmed = await DialogService.ShowMessageBox(
+        var confirmed = await DialogService.ShowMessageBoxAsync(
             "Удаление администратора",
             $"Удалить администратора {admin.LastName} {admin.FirstName}?",
             yesText: "Удалить", cancelText: "Отмена");

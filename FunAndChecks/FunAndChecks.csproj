@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-
     <PropertyGroup>
+        <PackageId>FunAndChecks</PackageId>
+        <Version>3.0.0</Version>
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -8,20 +9,24 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <UserSecretsId>d48d9292-045c-4265-8469-2ef0d31160d5</UserSecretsId>
         <LangVersion>14</LangVersion>
+        <Authors>yashelter</Authors>
+        <RepositoryUrl>https://github.com/yashelter/FunAndChecks</RepositoryUrl>
+        <PackageDescription>The service for labs checks and fun :3</PackageDescription>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
         <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
-        <PackageReference Include="ClosedXML" Version="0.104.2" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.8" />
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.0" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
-        <PackageReference Include="Scalar.AspNetCore" Version="2.8.5" />
-        <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
-        <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-        <PackageReference Include="Serilog.Sinks.Console.LogThemes" Version="0.3.0" />
+        <PackageReference Include="ClosedXML" Version="0.105.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+        <PackageReference Include="Scalar.AspNetCore" Version="2.16.3" />
+        <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+        <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+        <PackageReference Include="Serilog.Sinks.Console.LogThemes" Version="0.4.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     </ItemGroup>
 

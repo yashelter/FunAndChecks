@@ -58,6 +58,7 @@ public static class ResultsXlsxExporter
                     ApplyFill(cell, data.AdminColor, withContrastFont: true);
             }
 
+            // TODO: probably save it with / <-- this splitter not best idea for results, maybe better store this in col name only
             foreach (var grade in results.GradeColumns)
             {
                 var cell = ws.Cell(row, col++);
