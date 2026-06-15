@@ -64,7 +64,7 @@
 - [`TokenService`](../FunAndChecks.Infrastructure/Identity/TokenService.cs) реализует `ITokenService`,
   выпускает HS512-токен с claim-ами id и ролей.
 - Параметры — секция `Jwt` → [`JwtOptions`](../FunAndChecks.Infrastructure/Identity/JwtOptions.cs)
-  (`Issuer`, `Audience`, `Key`, `TokenLifetimeDays`). `Key` для HS512 — не короче 64 байт.
+  (`Issuer`, `Audience`, `Key`, `AccessTokenMinutes`, `RefreshTokenDays`). `Key` для HS512 — не короче 64 байт.
 
 ## Почта (SMTP)
 

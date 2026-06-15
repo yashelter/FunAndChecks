@@ -39,7 +39,7 @@ public class SubjectsController(
     [Authorize(Roles = Roles.Admin)]
     [ProducesResponseType(typeof(SubjectDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<SubjectDto>> Update(int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken) =>
-        Ok(await subjectService.UpdateAsync(subjectId, request, cancellationToken));
+        Ok(await subjectService.UpdateAsync(User.GetUserId(), subjectId, request, cancellationToken));
 
     /// <summary>Удаляет предмет каскадно вместе с заданиями и историей сдач.</summary>
     [HttpDelete("{subjectId:int}")]
@@ -60,7 +60,7 @@ public class SubjectsController(
     [ProducesResponseType(typeof(TaskDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<TaskDto>> CreateTask(int subjectId, CreateTaskRequest request, CancellationToken cancellationToken)
     {
-        var task = await subjectService.CreateTaskAsync(subjectId, request, cancellationToken);
+        var task = await subjectService.CreateTaskAsync(User.GetUserId(), subjectId, request, cancellationToken);
         return CreatedAtAction(nameof(GetTasks), new { subjectId }, task);
     }
 

@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Tasks;
@@ -11,6 +12,7 @@ namespace FunAndChecks.Application.Subjects;
 public class SubjectService(
     IApplicationDbContext db,
     IResultsCacheService cache,
+    IAdminAccessService accessService,
     IValidator<CreateSubjectRequest> createSubjectValidator,
     IValidator<UpdateSubjectRequest> updateSubjectValidator,
     IValidator<CreateTaskRequest> createTaskValidator,
@@ -58,8 +60,9 @@ public class SubjectService(
         return new SubjectDto(subject.Id, subject.Name);
     }
 
-    public async Task<SubjectDto> UpdateAsync(int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default)
+    public async Task<SubjectDto> UpdateAsync(Guid adminId, int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         await updateSubjectValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var subject = await db.Subjects.FindAsync([subjectId], cancellationToken)
@@ -124,8 +127,9 @@ public class SubjectService(
             .ToList();
     }
 
-    public async Task<TaskDto> CreateTaskAsync(int subjectId, CreateTaskRequest request, CancellationToken cancellationToken = default)
+    public async Task<TaskDto> CreateTaskAsync(Guid adminId, int subjectId, CreateTaskRequest request, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         await createTaskValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var subjectExists = await db.Subjects.AnyAsync(s => s.Id == subjectId, cancellationToken);
@@ -146,12 +150,14 @@ public class SubjectService(
         return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
     }
 
-    public async Task<TaskDto> UpdateTaskAsync(int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
+    public async Task<TaskDto> UpdateTaskAsync(Guid adminId, int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
     {
         await updateTaskValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var task = await db.Tasks.FindAsync([taskId], cancellationToken)
                    ?? throw new NotFoundException($"Task with ID {taskId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, task.SubjectId, cancellationToken);
 
         task.Name = request.Name;
         task.Description = request.Description;

@@ -16,7 +16,7 @@ public class TasksController(ISubjectService subjectService) : ControllerBase
     [Authorize(Roles = Roles.Admin)]
     [ProducesResponseType(typeof(TaskDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<TaskDto>> Update(int taskId, UpdateTaskRequest request, CancellationToken cancellationToken) =>
-        Ok(await subjectService.UpdateTaskAsync(taskId, request, cancellationToken));
+        Ok(await subjectService.UpdateTaskAsync(User.GetUserId(), taskId, request, cancellationToken));
 
     /// <summary>Удаляет задание каскадно вместе с историей сдач.</summary>
     [HttpDelete("{taskId:int}")]

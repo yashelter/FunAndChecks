@@ -30,7 +30,7 @@ public class QueuesController(IQueueService queueService) : ControllerBase
     [ProducesResponseType(typeof(QueueEventDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<QueueEventDto>> Create(CreateQueueEventRequest request, CancellationToken cancellationToken)
     {
-        var queueEvent = await queueService.CreateEventAsync(request, cancellationToken);
+        var queueEvent = await queueService.CreateEventAsync(User.GetUserId(), request, cancellationToken);
         return CreatedAtAction(nameof(GetDetails), new { eventId = queueEvent.Id }, queueEvent);
     }
 
@@ -40,7 +40,7 @@ public class QueuesController(IQueueService queueService) : ControllerBase
     [ProducesResponseType(typeof(QueueEventDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<QueueEventDto>> Update(
         int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken) =>
-        Ok(await queueService.UpdateEventAsync(eventId, request, cancellationToken));
+        Ok(await queueService.UpdateEventAsync(User.GetUserId(), eventId, request, cancellationToken));
 
     /// <summary>Удалить событие очереди вместе с записями участников.</summary>
     [HttpDelete("{eventId:int}")]

@@ -106,9 +106,10 @@ public class QueueService(
             participants);
     }
 
-    public async Task<QueueEventDto> CreateEventAsync(CreateQueueEventRequest request, CancellationToken cancellationToken = default)
+    public async Task<QueueEventDto> CreateEventAsync(Guid adminId, CreateQueueEventRequest request, CancellationToken cancellationToken = default)
     {
         await createEventValidator.ValidateAndThrowAsync(request, cancellationToken);
+        await accessService.EnsureSubjectAllowedAsync(adminId, request.SubjectId, cancellationToken);
 
         var subjectExists = await db.Subjects.AnyAsync(s => s.Id == request.SubjectId, cancellationToken);
         if (!subjectExists)
@@ -165,12 +166,14 @@ public class QueueService(
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
 
-    public async Task<QueueEventDto> UpdateEventAsync(int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken = default)
+    public async Task<QueueEventDto> UpdateEventAsync(Guid adminId, int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken = default)
     {
         await updateEventValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
 
         queueEvent.Name = request.Name;
         queueEvent.EventDateTime = request.EventDateTime;

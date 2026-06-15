@@ -11,9 +11,9 @@ public interface IQueueService
 
     Task<QueueDetailsDto> GetDetailsAsync(int eventId, CancellationToken cancellationToken = default);
 
-    Task<QueueEventDto> CreateEventAsync(CreateQueueEventRequest request, CancellationToken cancellationToken = default);
+    Task<QueueEventDto> CreateEventAsync(Guid adminId, CreateQueueEventRequest request, CancellationToken cancellationToken = default);
 
-    Task<QueueEventDto> UpdateEventAsync(int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken = default);
+    Task<QueueEventDto> UpdateEventAsync(Guid adminId, int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken = default);
 
     Task DeleteEventAsync(int eventId, CancellationToken cancellationToken = default);
 

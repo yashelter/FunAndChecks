@@ -84,8 +84,9 @@ forgot-password → на почту уходит 6-значный код → res
 Две независимые модели (`AdminSubjectAccess` / `AdminGroupAccess`):
 
 - **Restricted (глобальный запрет супер-админа)** — блокирует действия. `AdminAccessService.
-  EnsureSubjectAllowedAsync` вызывается в `GradeService` (создание колонок, выставление баллов,
-  удаление) и может применяться в других сценариях работы с предметом; при запрете — `403`.
+  EnsureSubjectAllowedAsync` вызывается в `GradeService` (колонки и оценки), `SubjectService`
+  (переименование предмета, создание и редактирование задач) и `QueueService` (создание и
+  обновление событий очереди); при запрете — `403`.
   Управление — супер-админ через `/api/admins/{id}/subjects|groups/.../restriction`.
 - **Hidden (локальное скрытие)** — не блокирует, лишь фильтрует собственные списки админа.
   Управление — сам админ через `/api/me/subjects|groups/.../hidden`.

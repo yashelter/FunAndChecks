@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace FunAndChecks.Hubs;
 
+[Authorize]
 public class QueueHub : Hub
 {
     public static string GroupName(int eventId) => $"queue-{eventId}";

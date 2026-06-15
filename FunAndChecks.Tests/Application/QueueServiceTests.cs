@@ -13,6 +13,7 @@ public class QueueServiceTests : IDisposable
 {
     private readonly TestDatabase _db = new();
     private readonly IQueueNotifier _notifier = Substitute.For<IQueueNotifier>();
+    private static readonly Guid AdminId = Guid.NewGuid();
 
     private QueueService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
         new(ctx,
@@ -34,7 +35,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(
+        var created = await sut.CreateEventAsync(AdminId,
             new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupIds: [group.Id]));
 
         created.AllowSelfJoin.Should().BeFalse();
@@ -54,7 +55,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(
+        var created = await sut.CreateEventAsync(AdminId,
             new CreateQueueEventRequest("Closed", DateTime.UtcNow.AddDays(1), subject.Id, AllowSelfJoin: false));
 
         var act = () => sut.JoinAsync(created.Id, student.Id);
@@ -73,7 +74,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(
+        var created = await sut.CreateEventAsync(AdminId,
             new CreateQueueEventRequest("Open", DateTime.UtcNow.AddDays(1), subject.Id));
 
         await sut.JoinAsync(created.Id, student.Id);
@@ -91,7 +92,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(
+        var created = await sut.CreateEventAsync(AdminId,
             new CreateQueueEventRequest("Temp", DateTime.UtcNow.AddDays(1), subject.Id));
 
         await sut.DeleteEventAsync(created.Id);

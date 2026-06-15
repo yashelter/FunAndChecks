@@ -37,15 +37,32 @@ public class RefreshTokenService(ApplicationDbContext db, IOptions<JwtOptions> o
         var hash = Hash(rawToken);
         var now = DateTime.UtcNow;
 
+        // RepeatableRead: если два запроса параллельно прочитали один токен,
+        // PostgreSQL не даст обоим сделать UPDATE — второй получит ошибку сериализации.
+        await using var tx = await db.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.RepeatableRead, cancellationToken);
+
         var token = await db.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
+
         if (token is null)
+        {
+            await tx.RollbackAsync(cancellationToken);
             return null;
+        }
 
         if (!token.IsActive(now))
         {
             // Предъявлен уже отозванный токен — признак кражи: отзываем все токены пользователя.
             if (token.RevokedAt is not null)
-                await RevokeAllAsync(token.UserId, cancellationToken);
+            {
+                await RevokeAllCoreAsync(token.UserId, now, cancellationToken);
+                await db.SaveChangesAsync(cancellationToken);
+                await tx.CommitAsync(cancellationToken);
+            }
+            else
+            {
+                await tx.RollbackAsync(cancellationToken);
+            }
             return null;
         }
 
@@ -62,6 +79,7 @@ public class RefreshTokenService(ApplicationDbContext db, IOptions<JwtOptions> o
             ExpiresAt = now + _lifetime,
         });
         await db.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
 
         return new RefreshRotation(token.UserId, raw);
     }
@@ -84,17 +102,18 @@ public class RefreshTokenService(ApplicationDbContext db, IOptions<JwtOptions> o
     public async Task RevokeAllAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
+        await RevokeAllCoreAsync(userId, now, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task RevokeAllCoreAsync(Guid userId, DateTime now, CancellationToken cancellationToken)
+    {
         var active = await db.RefreshTokens
             .Where(t => t.UserId == userId && t.RevokedAt == null)
             .ToListAsync(cancellationToken);
 
-        if (active.Count == 0)
-            return;
-
         foreach (var token in active)
             token.RevokedAt = now;
-
-        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static string GenerateRaw() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));

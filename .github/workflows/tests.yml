@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('FunAndChecks.Tests/**/*.csproj', 'FunAndChecks.*/**/*.csproj') }}
+          restore-keys: nuget-
+
+      - name: Restore
+        run: dotnet restore FunAndChecks.Tests/FunAndChecks.Tests.csproj
+
+      - name: Build
+        run: dotnet build FunAndChecks.Tests/FunAndChecks.Tests.csproj --no-restore -c Release
+
+      - name: Test
+        run: dotnet test FunAndChecks.Tests/FunAndChecks.Tests.csproj --no-build -c Release --logger "console;verbosity=minimal"

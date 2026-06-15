@@ -1,7 +1,7 @@
 # Тестирование
 
 Тесты в проекте [`FunAndChecks.Tests`](../FunAndChecks.Tests): юнит-тесты use-case сервисов и
-интеграционные тесты API. Изначально подход tests-first был нарушен — покрытие добиралось позже.
+интеграционные тесты API.
 
 ## Стек
 
@@ -18,7 +18,7 @@
 теста), наполнение — хелперы [`Seed`](../FunAndChecks.Tests/Common/Seed.cs).
 
 Покрыто: `AuthService`, `StudentService`, `AdminService`, `AdminAccessService`, `GradeService`,
-`SubmissionService`, `ResultsService`.
+`SubmissionService`, `ResultsService`, `QueueService`.
 
 ```csharp
 using var db = new TestDatabase();

@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
 namespace FunAndChecks.Hubs;
 
+[Authorize]
 public class ResultsHub : Hub
 {
     public static string GroupName(int subjectId) => $"results-subject-{subjectId}";
