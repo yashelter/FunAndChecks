@@ -22,4 +22,7 @@ public class StudentsApi(HttpClient http) : ApiClientBase(http)
 
     public Task<List<StudentGradeDto>> GetGradesAsync(Guid studentId, int subjectId, CancellationToken ct = default) =>
         GetAsync<List<StudentGradeDto>>($"api/students/{studentId}/subjects/{subjectId}/grades", ct);
+
+    public Task UpdateAccountAsync(Guid studentId, UpdateStudentAccountRequest request, CancellationToken ct = default) =>
+        PutAsync($"api/students/{studentId}/account", request, ct);
 }

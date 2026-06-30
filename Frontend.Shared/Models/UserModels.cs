@@ -31,3 +31,5 @@ public record MeDto(
 }
 
 public record SetStudentColorRequest(string? Color);
+
+public record UpdateStudentAccountRequest(string FirstName, string LastName, int? GroupId, string Email, string? NewPassword);

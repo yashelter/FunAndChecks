@@ -55,4 +55,14 @@ public class StudentsController(
     public async Task<ActionResult<List<StudentGradeDto>>> GetGrades(
         Guid studentId, int subjectId, CancellationToken cancellationToken) =>
         Ok(await gradeService.GetStudentGradesAsync(studentId, subjectId, cancellationToken));
+
+    /// <summary>Редактирование профиля и аккаунта студента.</summary>
+    [HttpPut("{studentId:guid}/account")]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> UpdateAccount(Guid studentId, UpdateStudentAccountRequest request, CancellationToken cancellationToken)
+    {
+        await studentService.UpdateStudentAccountAsync(studentId, request, cancellationToken);
+        return NoContent();
+    }
 }

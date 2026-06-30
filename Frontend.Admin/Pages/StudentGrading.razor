@@ -31,7 +31,14 @@ else if (_results.Count > 0)
             <MudListItem T="StudentDetailsDto" OnClick="@(() => OpenAsync(student))">
                 <div class="d-flex justify-space-between align-center flex-grow-1">
                     <span style="@QueueStyles.NameStyle(student.Color)">@student.LastName @student.FirstName</span>
-                    <MudText Typo="Typo.caption">@student.Email</MudText>
+                    <div class="d-flex align-center gap-2">
+                        <MudText Typo="Typo.caption">@student.Email</MudText>
+                        <AuthorizeView Roles="@Roles.SuperAdmin">
+                            <Authorized>
+                                <span @onclick:stopPropagation="true"><MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@((e) => EditAsync(student))" /></span>
+                            </Authorized>
+                        </AuthorizeView>
+                    </div>
                 </div>
             </MudListItem>
             <MudDivider />

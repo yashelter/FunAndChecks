@@ -109,17 +109,22 @@
                 <MudStack Spacing="3" Class="pa-2">
                     <MudText Typo="Typo.body2">Заливка ячейки ФИО студента в таблице результатов.</MudText>
                     <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
-                        <MudButton Variant="Variant.Outlined" OnClick="@(() => ApplyColorAsync(null))">Убрать заливку</MudButton>
+                        <MudButton Variant="Variant.Outlined" OnClick="@(() => _pickerColor = null)">Убрать заливку</MudButton>
                         <MudButton Variant="Variant.Filled" Style="background-color:#43A047;color:#fff;"
-                                   OnClick="@(() => ApplyColorAsync(GreenColor))">Зелёный</MudButton>
+                                   OnClick="@(() => _pickerColor = GreenColor)">Зелёный</MudButton>
                         <MudButton Variant="Variant.Filled" Style="background-color:#8D6E63;color:#fff;"
-                                   OnClick="@(() => ApplyColorAsync(BrownColor))">Коричневый</MudButton>
+                                   OnClick="@(() => _pickerColor = BrownColor)">Коричневый</MudButton>
                     </MudStack>
+
+                    <div class="d-flex align-center gap-4 mt-2">
+                        <MudText>Предпросмотр:</MudText>
+                        <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @(_pickerColor ?? "transparent")"></div>
+                    </div>
 
                     <MudColorPicker @bind-Text="_pickerColor" Label="Свой цвет" PickerVariant="PickerVariant.Static"
                                     ColorPickerMode="ColorPickerMode.HEX" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrEmpty(_pickerColor)"
-                               OnClick="@(() => ApplyColorAsync(_pickerColor))">Применить выбранный</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="@(() => ApplyColorAsync(_pickerColor))">Сохранить цвет</MudButton>
                 </MudStack>
             </MudTabPanel>
         </MudTabs>

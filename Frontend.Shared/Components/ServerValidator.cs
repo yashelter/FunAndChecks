@@ -39,10 +39,15 @@ public class ServerValidator : ComponentBase, IDisposable
         CurrentEditContext.NotifyValidationStateChanged();
     }
 
-    private void ClearErrors(object? sender, ValidationRequestedEventArgs args)
+    public void ClearErrors()
     {
         _messageStore?.Clear();
         CurrentEditContext?.NotifyValidationStateChanged();
+    }
+
+    private void ClearErrors(object? sender, ValidationRequestedEventArgs args)
+    {
+        ClearErrors();
     }
 
     private void ClearError(object? sender, FieldChangedEventArgs args)

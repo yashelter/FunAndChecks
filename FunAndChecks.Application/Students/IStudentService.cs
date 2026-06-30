@@ -31,4 +31,7 @@ public interface IStudentService
 
     /// <summary>События, доступные группе студента (по умолчанию — активные).</summary>
     Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(Guid studentId, bool includePast = false, CancellationToken cancellationToken = default);
+
+    /// <summary>Редактирование учётки и профиля студента (ФИО, группа, email, пароль).</summary>
+    Task UpdateStudentAccountAsync(Guid studentId, UpdateStudentAccountRequest request, CancellationToken cancellationToken = default);
 }

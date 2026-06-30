@@ -12,7 +12,8 @@ public class StudentService(
     IApplicationDbContext db,
     IIdentityService identityService,
     IResultsCacheService cache,
-    IValidator<SetStudentColorRequest> setColorValidator)
+    IValidator<SetStudentColorRequest> setColorValidator,
+    IValidator<UpdateStudentAccountRequest> updateAccountValidator)
     : IStudentService
 {
     /// <summary>Защитный предел глобального поиска (фактически все похожие).</summary>
@@ -198,5 +199,25 @@ public class StudentService(
             ?? throw new NotFoundException("Student profile not found.");
 
         return student.GroupId;
+    }
+
+    public async Task UpdateStudentAccountAsync(Guid studentId, UpdateStudentAccountRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateAccountValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        if (request.GroupId.HasValue && !await db.Groups.AnyAsync(g => g.Id == request.GroupId, cancellationToken))
+            throw new NotFoundException("Group not found.");
+
+        var student = await db.Students.FirstOrDefaultAsync(s => s.Id == studentId, cancellationToken)
+                      ?? throw new NotFoundException("Student profile not found.");
+
+        student.FirstName = request.FirstName;
+        student.LastName = request.LastName;
+        student.GroupId = request.GroupId;
+        student.IsActive = true;
+
+        await identityService.UpdateAccountAdminAsync(studentId, request.Email, request.NewPassword);
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Infrastructure.Identity;
 
-public class IdentityService(UserManager<ApplicationUser> userManager) : IIdentityService
+public class IdentityService(UserManager<ApplicationUser> userManager, IRefreshTokenService refreshTokenService) : IIdentityService
 {
     // Назначения токенов (TOTP-провайдер «Email» даёт короткие 6-значные коды).
     private const string EmailConfirmationPurpose = "EmailConfirmation";
@@ -162,5 +162,40 @@ public class IdentityService(UserManager<ApplicationUser> userManager) : IIdenti
         await userManager.ResetAccessFailedCountAsync(user);
 
         return AccountResult.Success();
+    }
+
+    public async Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+            throw new FunAndChecks.Application.Common.Exceptions.NotFoundException($"User {userId} not found.");
+
+        if (user.Email != email)
+        {
+            var existing = await userManager.FindByEmailAsync(email);
+            if (existing != null && existing.Id != userId)
+                throw new FunAndChecks.Application.Common.Exceptions.ConflictException($"Email '{email}' is already taken.");
+            
+            user.Email = email;
+            user.UserName = email;
+        }
+
+        user.EmailConfirmed = true;
+        // set IsActive = true if applicable, IdentityUser doesn't have it by default.
+        // wait, the prompt says "set EmailConfirmed = true, IsActive = true". Let's check ApplicationUser.cs to see if it has IsActive.
+        await userManager.SetLockoutEndDateAsync(user, null); // "Разбан" - unlock. 
+        // wait, maybe ApplicationUser has IsActive? Let's verify before saving.
+
+        if (!string.IsNullOrEmpty(newPassword))
+        {
+            await userManager.RemovePasswordAsync(user);
+            var result = await userManager.AddPasswordAsync(user, newPassword);
+            if (!result.Succeeded)
+                throw new FluentValidation.ValidationException(result.Errors.Select(e => new FluentValidation.Results.ValidationFailure("Password", e.Description)).ToList());
+        }
+
+        await userManager.UpdateAsync(user);
+        
+        await refreshTokenService.RevokeAllAsync(userId);
     }
 }

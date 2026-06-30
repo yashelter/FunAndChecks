@@ -14,7 +14,7 @@ public class StudentServiceTests : IDisposable
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     private StudentService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new SetStudentColorRequestValidator());
+        new(ctx, _identity, _cache, new SetStudentColorRequestValidator(), new FunAndChecks.Application.Students.Validators.UpdateStudentAccountRequestValidator());
 
     [Fact]
     public async Task GetStudentsBySubject_ReturnsOnlyLinkedGroups()
@@ -114,6 +114,39 @@ public class StudentServiceTests : IDisposable
 
         var updated = await ctx.Students.FindAsync(student.Id);
         updated!.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateStudentAccount_ValidRequest_UpdatesProfileAndIdentity()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group, "Old");
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+        var req = new UpdateStudentAccountRequest("NewFirst", "NewLast", group.Id, "new@test.com", "newpass");
+        
+        await sut.UpdateStudentAccountAsync(student.Id, req);
+
+        var updated = await ctx.Students.FindAsync(student.Id);
+        updated!.FirstName.Should().Be("NewFirst");
+        updated.LastName.Should().Be("NewLast");
+        
+        await _identity.Received(1).UpdateAccountAdminAsync(student.Id, "new@test.com", "newpass");
+    }
+
+    [Fact]
+    public async Task UpdateStudentAccount_GroupNotFound_ThrowsNotFound()
+    {
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+        var req = new UpdateStudentAccountRequest("New", "Last", 999, "test@test.com", null);
+
+        var act = async () => await sut.UpdateStudentAccountAsync(Guid.NewGuid(), req);
+
+        await act.Should().ThrowAsync<FunAndChecks.Application.Common.Exceptions.NotFoundException>().WithMessage("Group not found.");
     }
 
     public void Dispose() => _db.Dispose();

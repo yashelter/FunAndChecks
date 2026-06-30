@@ -72,4 +72,25 @@ public partial class StudentGrading
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
     }
+
+    private async Task EditAsync(StudentDetailsDto student)
+    {
+        var parameters = new DialogParameters<EditStudentDialog>
+        {
+            { x => x.StudentId, student.Id },
+            { x => x.CurrentDetails, student }
+        };
+
+        var dialog = await DialogService.ShowAsync<EditStudentDialog>(
+            "Редактирование профиля",
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (!result.Canceled)
+        {
+            await SearchAsync();
+            Snackbar.Add("Профиль успешно обновлен.", Severity.Success);
+        }
+    }
 }

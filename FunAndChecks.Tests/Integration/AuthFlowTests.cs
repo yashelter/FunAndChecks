@@ -6,7 +6,8 @@ using Xunit;
 
 namespace FunAndChecks.Tests.Integration;
 
-public class AuthFlowTests : IClassFixture<TestWebAppFactory>
+[Collection("Integration")]
+public class AuthFlowTests
 {
     private readonly TestWebAppFactory _factory;
     private readonly HttpClient _client;

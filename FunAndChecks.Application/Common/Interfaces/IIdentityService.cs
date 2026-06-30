@@ -67,4 +67,9 @@ public interface IIdentityService
     /// (владение ящиком доказано).
     /// </summary>
     Task<AccountResult> ResetPasswordAsync(string email, string code, string newPassword);
+
+    /// <summary>
+    /// Редактирование учётки админом: смена email, пароля, разбан и подтверждение.
+    /// </summary>
+    Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword);
 }

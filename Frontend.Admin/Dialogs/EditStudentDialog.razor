@@ -1,0 +1,35 @@
+@using Frontend.Shared.Models
+@using Frontend.Shared.Api
+@using Frontend.Shared.Components
+@inject StudentsApi Students
+@inject GroupsApi Groups
+
+<MudDialog>
+    <DialogContent>
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+            <ServerValidator @ref="_serverValidator" />
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_model.FirstName" For="@(() => _model.FirstName)" Label="Имя" Required="true" RequiredError="Укажите имя" />
+                <MudTextField @bind-Value="_model.LastName" For="@(() => _model.LastName)" Label="Фамилия" Required="true" RequiredError="Укажите фамилию" />
+                <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="Email" Required="true" RequiredError="Укажите email" InputType="InputType.Email" />
+                <MudTextField @bind-Value="_model.NewPassword" For="@(() => _model.NewPassword)" Label="Новый пароль (оставьте пустым чтобы не менять)" InputType="InputType.Password" />
+                
+                <MudSelect T="int?" @bind-Value="_model.GroupId" For="@(() => _model.GroupId)" Label="Группа">
+                    <MudSelectItem T="int?" Value="null">Без группы</MudSelectItem>
+                    @foreach (var group in _groups)
+                    {
+                        <MudSelectItem T="int?" Value="group.Id">@group.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+            
+            <div class="d-flex justify-end mt-4 gap-2">
+                <MudButton OnClick="Cancel">Отмена</MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_busy">
+                    @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Сохранить
+                </MudButton>
+            </div>
+        </EditForm>
+    </DialogContent>
+</MudDialog>

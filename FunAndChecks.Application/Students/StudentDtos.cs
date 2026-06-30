@@ -20,3 +20,5 @@ public record MeDto(Guid Id, string FirstName, string LastName, string? Email, s
 
 /// <summary>Установка админом цвета студента (null — убрать заливку).</summary>
 public record SetStudentColorRequest(string? Color);
+
+public record UpdateStudentAccountRequest(string FirstName, string LastName, int? GroupId, string Email, string? NewPassword);
