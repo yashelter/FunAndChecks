@@ -23,6 +23,7 @@ public partial class Queues : IAsyncDisposable
     private bool _showPast;
 
     private HubConnection? _hub;
+    private readonly SemaphoreSlim _hubLock = new(1, 1);
 
     protected override async Task OnInitializedAsync() => await LoadAllAsync();
 
@@ -93,33 +94,48 @@ public partial class Queues : IAsyncDisposable
 
     private async Task InitializeSignalRAsync(int eventId)
     {
-        await DisposeHubAsync();
-
-        _hub = new HubConnectionBuilder()
-            .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
-                options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
-            .WithAutomaticReconnect()
-            .Build();
-
-        // На любое обновление очереди перечитываем её состав.
-        _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-
-        // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
-        // иначе очередь «зависает» и перестаёт обновляться.
-        _hub.Reconnected += async _ =>
-        {
-            await _hub.InvokeAsync("SubscribeToQueue", eventId);
-            await InvokeAsync(() => LoadDetailsAsync(eventId));
-        };
-
+        await _hubLock.WaitAsync();
         try
         {
-            await _hub.StartAsync();
-            await _hub.InvokeAsync("SubscribeToQueue", eventId);
+            await DisposeHubAsync();
+
+            _hub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
+                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
+                .WithAutomaticReconnect()
+                .Build();
+
+            // На любое обновление очереди перечитываем её состав.
+            _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
+
+            // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
+            // иначе очередь «зависает» и перестаёт обновляться.
+            _hub.Reconnected += async _ =>
+            {
+                try
+                {
+                    await _hub.InvokeAsync("SubscribeToQueue", eventId);
+                    await InvokeAsync(() => LoadDetailsAsync(eventId));
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add($"Ошибка при переподключении: {ex.Message}", Severity.Error);
+                }
+            };
+
+            try
+            {
+                await _hub.StartAsync();
+                await _hub.InvokeAsync("SubscribeToQueue", eventId);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Не удалось подключиться к обновлениям: {ex.Message}", Severity.Warning);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Snackbar.Add($"Не удалось подключиться к обновлениям: {ex.Message}", Severity.Warning);
+            _hubLock.Release();
         }
     }
 

@@ -64,7 +64,7 @@ MAIL_DOMAIN=example.ru         # домен отправителя писем (n
 
 ## 3. Настройки DNS
 
-Пусть IP сервера — `203.0.113.10`, домен — `example.ru`.
+Пусть IP сервера — `203.0.113.10`, домен — `example.ru`. 83.220.170.183
 
 | Тип   | Имя                          | Значение                                   | Зачем |
 |-------|------------------------------|--------------------------------------------|-------|
@@ -82,12 +82,15 @@ MAIL_DOMAIN=example.ru         # домен отправителя писем (n
 Postfix-контейнер генерирует ключ при первом старте (`DKIM_AUTOGENERATE=1`). После `docker compose up`:
 
 ```bash
-docker exec funandchecks-mail sh -c 'cat /etc/opendkim/keys/*/mail.txt'
+# образ кладёт ключ плоско: /etc/opendkim/keys/<MAIL_DOMAIN>.txt
+docker exec funandchecks-mail sh -c 'cat /etc/opendkim/keys/*.txt'
 ```
 
-Выведет TXT-запись вида `mail._domainkey ... v=DKIM1; k=rsa; p=...`. Значение `p=...` положите
-в TXT-запись `mail._domainkey.example.ru`. Ключ сохраняется в томе `maildkim`, поэтому при
-перезапусках не меняется.
+Выведет TXT-запись вида `mail._domainkey ... v=DKIM1; k=rsa; p=...`. Значение собирается из
+кусков в кавычках (склейте их без пробелов) и кладётся в TXT-запись `mail._domainkey.example.ru`.
+Если ключа по пути нет — посмотрите фактическую структуру `docker exec funandchecks-mail ls -laR /etc/opendkim/keys`
+и логи `docker compose logs mail | grep -i dkim` (там же сразу печатается готовая запись).
+Ключ сохраняется в томе `maildkim`, поэтому при перезапусках не меняется.
 
 > Caddy сам получает TLS-сертификат для `APP_DOMAIN` (Let's Encrypt) — отдельных DNS-записей для HTTPS не нужно, только A-запись.
 

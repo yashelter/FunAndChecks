@@ -20,17 +20,17 @@ public record StudentResultRowDto(
     string FullName,
     string GroupName,
     int TotalPoints,
-    Dictionary<int, ResultCellDto> Results,
-    Dictionary<int, int> Grades,
+    IReadOnlyDictionary<int, ResultCellDto> Results,
+    IReadOnlyDictionary<int, int> Grades,
     string? StudentColor);
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>
 public record SubjectResultsDto(
     int SubjectId,
     string SubjectName,
-    List<TaskHeaderDto> TaskHeaders,
-    List<GradeColumnDto> GradeColumns,
-    List<StudentResultRowDto> UserResults);
+    IReadOnlyList<TaskHeaderDto> TaskHeaders,
+    IReadOnlyList<GradeColumnDto> GradeColumns,
+    IReadOnlyList<StudentResultRowDto> UserResults);
 
 /// <summary>Результат студента по одному заданию; история заполняется только для Rejected.</summary>
 public record StudentTaskResultDto(
@@ -38,7 +38,7 @@ public record StudentTaskResultDto(
     string TaskName,
     SubmissionStatus CurrentStatus,
     int MaxPoints,
-    List<SubmissionLogDto>? SubmissionHistory);
+    IReadOnlyList<SubmissionLogDto>? SubmissionHistory);
 
 /// <summary>Балл студента за глобальную оценочную колонку.</summary>
 public record StudentGradeResultDto(int ComponentId, string Name, int Points, int MaxPoints, string? Comment);
@@ -49,5 +49,5 @@ public record StudentSubjectResultsDto(
     string SubjectName,
     int TotalPointsEarned,
     int MaxPointsPossible,
-    List<StudentTaskResultDto> TaskResults,
-    List<StudentGradeResultDto> Grades);
+    IReadOnlyList<StudentTaskResultDto> TaskResults,
+    IReadOnlyList<StudentGradeResultDto> Grades);

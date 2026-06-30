@@ -93,20 +93,51 @@ public class GradeService(
         if (!await db.Students.AnyAsync(s => s.Id == studentId, cancellationToken))
             throw new NotFoundException($"Student with ID {studentId} not found.");
 
-        var grade = await db.StudentGrades
+        var existing = await db.StudentGrades
             .FirstOrDefaultAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, cancellationToken);
 
-        if (grade == null)
+        if (existing != null)
         {
-            grade = new StudentGrade { GradeComponentId = componentId, StudentId = studentId };
-            db.StudentGrades.Add(grade);
+            existing.Points = request.Points;
+            existing.Comment = request.Comment;
+            existing.AdminId = adminId;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            var newGrade = new StudentGrade
+            {
+                GradeComponentId = componentId,
+                StudentId = studentId,
+                Points = request.Points,
+                Comment = request.Comment,
+                AdminId = adminId,
+                UpdatedAt = DateTime.UtcNow
+            };
+            db.StudentGrades.Add(newGrade);
         }
 
-        grade.Points = request.Points;
-        grade.Comment = request.Comment;
-        grade.AdminId = adminId;
-        grade.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            if (db is DbContext dbContext)
+            {
+                dbContext.ChangeTracker.Clear();
+            }
+
+            var conflicting = await db.StudentGrades
+                .FirstAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, cancellationToken);
+
+            conflicting.Points = request.Points;
+            conflicting.Comment = request.Comment;
+            conflicting.AdminId = adminId;
+            conflicting.UpdatedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
 
         cache.Invalidate(component.SubjectId);
         await resultsNotifier.GradeUpdatedAsync(

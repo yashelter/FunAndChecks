@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IDatabaseBackupService, PgDumpBackupService>();
 
         services.AddSingleton<IResultsCacheService, ResultsCacheService>();
+        services.AddMemoryCache();
         services.AddSingleton<IEmailThrottle, EmailThrottle>();
 
         // Фоновая очистка неподтверждённых аккаунтов.

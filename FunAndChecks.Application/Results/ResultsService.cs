@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Students;
@@ -15,15 +16,11 @@ public class ResultsService(
 {
     public async Task<SubjectResultsDto> GetSubjectResultsAsync(int subjectId, CancellationToken cancellationToken = default)
     {
-        var cached = cache.GetResults(subjectId);
-        if (cached != null)
-            return cached;
-
-        var results = await BuildSubjectResultsAsync(subjectId, cancellationToken)
-                      ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
-
-        cache.UpdateResults(subjectId, results);
-        return results;
+        return await cache.GetOrAddAsync(subjectId, async () =>
+        {
+            return await BuildSubjectResultsAsync(subjectId, cancellationToken)
+                   ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
+        });
     }
 
     private async Task<SubjectResultsDto?> BuildSubjectResultsAsync(int subjectId, CancellationToken cancellationToken)
@@ -31,42 +28,89 @@ public class ResultsService(
         var subject = await db.Subjects
             .Include(s => s.Tasks.OrderBy(t => t.Name))
             .Include(s => s.GradeComponents.OrderBy(c => c.Name))
+            .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subjectId, cancellationToken);
 
         if (subject == null)
             return null;
 
-        var students = await db.Students
+        var studentsData = await db.Students
             .Where(s => s.IsActive && s.GroupId != null &&
                         db.GroupSubjects.Any(gs => gs.SubjectId == subjectId && gs.GroupId == s.GroupId))
-            .Include(s => s.Group)
-            .Include(s => s.Submissions.Where(sub => sub.Task.SubjectId == subjectId))
-            .ThenInclude(sub => sub.Admin)
-            .Include(s => s.Grades.Where(g => g.GradeComponent.SubjectId == subjectId))
+            .Select(s => new
+            {
+                s.Id,
+                s.FullName,
+                GroupName = s.Group != null ? s.Group.Name : "N/A",
+                s.Color,
+                Grades = s.Grades
+                    .Where(g => g.GradeComponent.SubjectId == subjectId)
+                    .Select(g => new { g.GradeComponentId, g.Points })
+                    .ToList()
+            })
             .ToListAsync(cancellationToken);
+
+        var studentIds = studentsData.Select(s => s.Id).ToList();
+
+        var allSubmissions = await db.Submissions
+            .Where(s => s.Task.SubjectId == subjectId && studentIds.Contains(s.StudentId))
+            .Where(s => s.SubmittedAt == db.Submissions
+                .Where(s2 => s2.StudentId == s.StudentId && s2.TaskId == s.TaskId)
+                .Max(s2 => s2.SubmittedAt))
+            .Select(s => new
+            {
+                s.StudentId,
+                s.TaskId,
+                s.Status,
+                s.SubmittedAt,
+                AdminLetter = s.Admin != null ? s.Admin.Letter : "?",
+                AdminColor = s.Admin != null ? s.Admin.Color : null
+            })
+            .ToListAsync(cancellationToken);
+
+        var latestSubmissionsByStudent = allSubmissions
+            .GroupBy(s => s.StudentId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(s => s.TaskId)
+                      .ToDictionary(
+                          tg => tg.Key,
+                          tg => tg.OrderByDescending(s => s.SubmittedAt).First()
+                      )
+            );
 
         var taskHeaders = subject.Tasks.Select(t => new TaskHeaderDto(t.Id, t.Name, t.MaxPoints)).ToList();
         var gradeColumns = subject.GradeComponents.Select(c => new GradeColumnDto(c.Id, c.Name, c.MaxPoints)).ToList();
 
-        var rows = students.Select(student =>
+        var rows = studentsData.Select(student =>
         {
             var totalPoints = 0;
             var cells = new Dictionary<int, ResultCellDto>();
 
+            var hasSubmissions = latestSubmissionsByStudent.TryGetValue(student.Id, out var dict);
+
             foreach (var task in subject.Tasks)
             {
-                var lastSubmission = student.Submissions
-                    .Where(s => s.TaskId == task.Id)
-                    .OrderByDescending(s => s.SubmittedAt)
-                    .FirstOrDefault();
+                var lastSubmission = hasSubmissions && dict!.TryGetValue(task.Id, out var sub) ? sub : null;
 
                 if (lastSubmission?.Status == SubmissionStatus.Accepted)
                     totalPoints += task.MaxPoints;
 
-                cells[task.Id] = ToCell(lastSubmission);
+                if (lastSubmission != null)
+                {
+                    cells[task.Id] = lastSubmission.Status switch
+                    {
+                        SubmissionStatus.Accepted => new ResultCellDto("+", lastSubmission.AdminColor, lastSubmission.Status),
+                        SubmissionStatus.Rejected => new ResultCellDto((string)lastSubmission.AdminLetter, lastSubmission.AdminColor, lastSubmission.Status),
+                        _ => new ResultCellDto("", null, SubmissionStatus.NotSubmitted)
+                    };
+                }
+                else
+                {
+                    cells[task.Id] = new ResultCellDto("", null, SubmissionStatus.NotSubmitted);
+                }
             }
 
-            // Оценки-категории (билет/курсовая) показываются отдельными колонками и НЕ входят в Σ баллов.
             var grades = new Dictionary<int, int>();
             foreach (var grade in student.Grades)
                 grades[grade.GradeComponentId] = grade.Points;
@@ -74,13 +118,12 @@ public class ResultsService(
             return new StudentResultRowDto(
                 student.Id,
                 student.FullName,
-                student.Group?.Name ?? "N/A",
+                student.GroupName,
                 totalPoints,
                 cells,
                 grades,
                 student.Color);
         })
-        // Порядок по умолчанию для отображения: по баллам, затем по ФИО.
         .OrderByDescending(r => r.TotalPoints)
         .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
@@ -112,7 +155,6 @@ public class ResultsService(
 
             var currentStatus = taskSubmissions.FirstOrDefault()?.Status ?? SubmissionStatus.NotSubmitted;
 
-            // Историю показываем только если последняя попытка не принята.
             List<SubmissionLogDto>? history = null;
             if (currentStatus == SubmissionStatus.Rejected)
             {
@@ -138,7 +180,6 @@ public class ResultsService(
                 g.Comment))
             .ToListAsync(cancellationToken);
 
-        // Оценки-категории идут отдельным списком и не входят в сумму баллов по задачам.
         var totalPointsEarned =
             taskResults.Where(tr => tr.CurrentStatus == SubmissionStatus.Accepted).Sum(tr => tr.MaxPoints);
 

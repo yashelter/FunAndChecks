@@ -15,6 +15,7 @@ public class AuthService(
     IRefreshTokenService refreshTokenService,
     IEmailSender emailSender,
     IEmailThrottle emailThrottle,
+    IResultsCacheService resultsCacheService,
     IValidator<RegisterStudentRequest> registerValidator,
     IValidator<ResetPasswordRequest> resetPasswordValidator,
     ILogger<AuthService> logger)
@@ -23,6 +24,7 @@ public class AuthService(
     public async Task<Guid> RegisterStudentAsync(RegisterStudentRequest request, CancellationToken cancellationToken = default)
     {
         await registerValidator.ValidateAndThrowAsync(request, cancellationToken);
+        EnsureEmailNotThrottled(request.Email);
 
         var groupExists = await db.Groups.AnyAsync(g => g.Id == request.GroupId, cancellationToken);
         if (!groupExists)
@@ -33,7 +35,14 @@ public class AuthService(
         if (existing is not null)
         {
             if (existing.EmailConfirmed)
-                throw new ConflictException("Этот email уже зарегистрирован.");
+            {
+                await emailSender.SendAsync(
+                    request.Email,
+                    EmailTemplates.ConfirmationSubject,
+                    "Someone tried to register an account with this email, but it already exists. If this wasn't you, please ignore this email.",
+                    cancellationToken);
+                return Guid.Empty;
+            }
 
             await DeleteAccountAndProfileAsync(existing.Id, cancellationToken);
         }
@@ -48,7 +57,10 @@ public class AuthService(
             cancellationToken);
 
         if (!accountResult.Succeeded)
-            throw new ValidationException(string.Join(" ", accountResult.Errors));
+        {
+            var failures = accountResult.Errors.Select(e => new FluentValidation.Results.ValidationFailure("Password", e));
+            throw new ValidationException(failures);
+        }
 
         try
         {
@@ -89,14 +101,41 @@ public class AuthService(
             {
                 student.IsActive = true;
                 await db.SaveChangesAsync(cancellationToken);
+                try
+                {
+                    var subjectIds = await db.GroupSubjects
+                        .Where(gs => gs.GroupId == student.GroupId)
+                        .Select(gs => gs.SubjectId)
+                        .ToListAsync(cancellationToken);
+                        
+                    foreach (var subjectId in subjectIds)
+                    {
+                        resultsCacheService.Invalidate(subjectId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to invalidate cache");
+                }
             }
         }
     }
 
     public async Task ResendConfirmationAsync(ResendConfirmationRequest request, CancellationToken cancellationToken = default)
     {
+        var code = await identityService.GenerateEmailConfirmationCodeAsync(request.Email);
+        
         // Намеренно не сообщаем, существует ли такая почта.
-        await SendConfirmationCodeAsync(request.Email, cancellationToken);
+        if (code == null)
+            return;
+
+        EnsureEmailNotThrottled(request.Email);
+
+        await emailSender.SendAsync(
+            request.Email,
+            EmailTemplates.ConfirmationSubject,
+            EmailTemplates.Confirmation(code),
+            cancellationToken);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -135,8 +174,6 @@ public class AuthService(
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
     {
-        EnsureEmailNotThrottled(request.Email);
-
         var code = await identityService.GeneratePasswordResetCodeAsync(request.Email);
 
         // Намеренно не сообщаем, существует ли такая почта.
@@ -145,6 +182,8 @@ public class AuthService(
             logger.LogInformation("Password reset requested for unknown email.");
             return;
         }
+
+        EnsureEmailNotThrottled(request.Email);
 
         await emailSender.SendAsync(
             request.Email,
@@ -169,8 +208,6 @@ public class AuthService(
 
     private async Task SendConfirmationCodeAsync(string email, CancellationToken cancellationToken)
     {
-        EnsureEmailNotThrottled(email);
-
         var code = await identityService.GenerateEmailConfirmationCodeAsync(email);
         if (code == null)
             return; // почты нет или она уже подтверждена

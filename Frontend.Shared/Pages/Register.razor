@@ -6,50 +6,50 @@
 <MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
     <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">Регистрация студента</MudText>
 
-    <MudForm @ref="_form">
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <Frontend.Shared.Components.ServerValidator @ref="_serverValidator" />
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_firstName" Label="Имя" Required="true" RequiredError="Укажите имя" />
+                <MudTextField For="@(() => _model.FirstName)" @bind-Value="_model.FirstName" Label="Имя" Required="true" RequiredError="Укажите имя" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_lastName" Label="Фамилия" Required="true" RequiredError="Укажите фамилию" />
+                <MudTextField For="@(() => _model.LastName)" @bind-Value="_model.LastName" Label="Фамилия" Required="true" RequiredError="Укажите фамилию" />
             </MudItem>
         </MudGrid>
 
-        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+        <MudTextField For="@(() => _model.Email)" @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
                       Required="true" RequiredError="Укажите email" Class="mt-2" />
 
-        <MudTextField @bind-Value="_password" Label="Пароль"
+        <MudTextField For="@(() => _model.Password)" @bind-Value="_model.Password" Label="Пароль"
                       InputType="@(_showPassword ? InputType.Text : InputType.Password)"
                       Required="true" RequiredError="Укажите пароль" Class="mt-2"
                       Adornment="Adornment.End"
                       AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
                       OnAdornmentClick="@(() => _showPassword = !_showPassword)" AdornmentAriaLabel="Показать пароль" />
 
-        <MudTextField @bind-Value="_confirmPassword" Label="Повторите пароль"
+        <MudTextField For="@(() => _model.ConfirmPassword)" @bind-Value="_model.ConfirmPassword" Label="Повторите пароль"
                       InputType="@(_showPassword ? InputType.Text : InputType.Password)"
                       Required="true" RequiredError="Повторите пароль" Class="mt-2"
                       Validation="@(new Func<string, string?>(ValidateConfirm))" />
 
-        <MudSelect T="int" @bind-Value="_groupId" Label="Группа" Required="true"
+        <MudSelect T="int" For="@(() => _model.GroupId)" @bind-Value="_model.GroupId" Label="Группа" Required="true"
                    RequiredError="Выберите группу" Class="mt-2" Placeholder="Выберите группу">
             @foreach (var group in _groups)
             {
                 <MudSelectItem T="int" Value="group.Id">@group.Name</MudSelectItem>
             }
         </MudSelect>
-    </MudForm>
 
-    @if (_error is not null)
-    {
-        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
-    }
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-               OnClick="SubmitAsync" Disabled="_busy">
-        @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-        Зарегистрироваться
-    </MudButton>
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" Disabled="_busy">
+            @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Зарегистрироваться
+        </MudButton>
+    </EditForm>
 
     <div class="d-flex justify-center mt-4">
         <MudLink Href="/login">Уже есть аккаунт? Войти</MudLink>

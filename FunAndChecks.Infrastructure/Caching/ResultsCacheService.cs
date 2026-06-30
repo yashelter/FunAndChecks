@@ -12,9 +12,32 @@ namespace FunAndChecks.Infrastructure.Caching;
 public class ResultsCacheService : IResultsCacheService
 {
     private readonly ConcurrentDictionary<int, SubjectResultsDto> _cache = new();
+    private readonly ConcurrentDictionary<int, Lazy<SemaphoreSlim>> _locks = new();
 
     public SubjectResultsDto? GetResults(int subjectId) =>
         _cache.TryGetValue(subjectId, out var results) ? results : null;
+
+    public async Task<SubjectResultsDto> GetOrAddAsync(int subjectId, Func<Task<SubjectResultsDto>> factory)
+    {
+        if (_cache.TryGetValue(subjectId, out var cached))
+            return cached;
+
+        var semaphore = _locks.GetOrAdd(subjectId, _ => new Lazy<SemaphoreSlim>(() => new SemaphoreSlim(1, 1))).Value;
+        await semaphore.WaitAsync();
+        try
+        {
+            if (_cache.TryGetValue(subjectId, out cached))
+                return cached;
+
+            var results = await factory();
+            _cache[subjectId] = results;
+            return results;
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
 
     public void UpdateResults(int subjectId, SubjectResultsDto results) =>
         _cache[subjectId] = results;

@@ -48,27 +48,58 @@ public class PgDumpBackupService(
 
         using var process = new Process { StartInfo = psi };
 
+        bool success = false;
+        bool processStarted = false;
         try
         {
-            process.Start();
+            try
+            {
+                process.Start();
+                processStarted = true;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to start pg_dump ('{PgDump}').", _options.PgDumpPath);
+                throw new InvalidOperationException(
+                    "Could not start pg_dump. Make sure PostgreSQL client tools are installed and Backup:PgDumpPath is correct.", ex);
+            }
+
+            var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+            await process.WaitForExitAsync(cancellationToken);
+
+            if (process.ExitCode != 0)
+            {
+                logger.LogError("pg_dump exited with code {Code}: {Error}", process.ExitCode, stderr);
+                throw new InvalidOperationException($"pg_dump failed (exit code {process.ExitCode}). {stderr}");
+            }
+
+            success = true;
+            logger.LogInformation("Database backup created at {FilePath}.", filePath);
+            return filePath;
         }
-        catch (Exception ex)
+        finally
         {
-            logger.LogError(ex, "Failed to start pg_dump ('{PgDump}').", _options.PgDumpPath);
-            throw new InvalidOperationException(
-                "Could not start pg_dump. Make sure PostgreSQL client tools are installed and Backup:PgDumpPath is correct.", ex);
+            if (processStarted)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        process.WaitForExit(3000); // Wait up to 3 seconds for it to die and release handles
+                    }
+                }
+                catch { /* Ignore exceptions during kill to ensure file cleanup runs */ }
+            }
+
+            if (!success && File.Exists(filePath))
+            {
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch { /* Best effort */ }
+            }
         }
-
-        var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken);
-
-        if (process.ExitCode != 0)
-        {
-            logger.LogError("pg_dump exited with code {Code}: {Error}", process.ExitCode, stderr);
-            throw new InvalidOperationException($"pg_dump failed (exit code {process.ExitCode}). {stderr}");
-        }
-
-        logger.LogInformation("Database backup created at {FilePath}.", filePath);
-        return filePath;
     }
 }

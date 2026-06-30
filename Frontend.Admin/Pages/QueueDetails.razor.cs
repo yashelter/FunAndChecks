@@ -93,8 +93,15 @@ public partial class QueueDetails : IAsyncDisposable
         // После переподключения переподписываемся, иначе обновления перестают приходить.
         _hub.Reconnected += async _ =>
         {
-            await _hub.InvokeAsync("SubscribeToQueue", EventId);
-            await InvokeAsync(LoadAsync);
+            try
+            {
+                await _hub.InvokeAsync("SubscribeToQueue", EventId);
+                await InvokeAsync(LoadAsync);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Ошибка при переподключении: {ex.Message}", Severity.Error);
+            }
         };
 
         try

@@ -44,6 +44,12 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         }
         catch (Exception ex)
         {
+            if (context.Response.HasStarted)
+            {
+                logger.LogError(ex, "An exception occurred, but response has already started.");
+                throw; // Rethrow so the server forcefully aborts the connection instead of sending a malformed 200 OK.
+            }
+
             logger.LogError(ex, "Unhandled exception while processing {Method} {Path}.",
                 context.Request.Method, context.Request.Path);
             await WriteProblemAsync(context, StatusCodes.Status500InternalServerError, "An unexpected error occurred.");

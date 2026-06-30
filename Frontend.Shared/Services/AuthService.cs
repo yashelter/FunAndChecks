@@ -36,9 +36,8 @@ public class AuthService(HttpClient http, TokenStore tokenStore)
     public async Task<AuthResult> RegisterAsync(RegisterStudentRequest request)
     {
         var response = await http.PostAsJsonAsync("api/auth/register", request);
-        return response.IsSuccessStatusCode
-            ? AuthResult.Ok
-            : new AuthResult(false, await response.ReadErrorMessageAsync());
+        await response.EnsureSuccessAsync();
+        return AuthResult.Ok;
     }
 
     public async Task<AuthResult> ConfirmEmailAsync(ConfirmEmailRequest request)

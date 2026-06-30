@@ -101,5 +101,52 @@ public class QueueServiceTests : IDisposable
         await act.Should().ThrowAsync<NotFoundException>();
     }
 
+    [Fact]
+    public async Task GetDetails_IgnoresOlderAttempts()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        var student = ctx.Student(group);
+        var task = ctx.Task(subject, maxPoints: 10);
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+        var created = await sut.CreateEventAsync(AdminId,
+            new CreateQueueEventRequest("Event", DateTime.UtcNow.AddDays(1), subject.Id));
+
+        await sut.JoinAsync(created.Id, student.Id);
+
+        // Older Accepted submission
+        ctx.Submissions.Add(new FunAndChecks.Domain.Entities.Submission
+        {
+            Status = FunAndChecks.Domain.Enums.SubmissionStatus.Accepted,
+            SubmittedAt = DateTime.UtcNow.AddDays(-2),
+            StudentId = student.Id,
+            TaskId = task.Id,
+            AdminId = admin.Id
+        });
+        
+        // Newer Rejected submission
+        ctx.Submissions.Add(new FunAndChecks.Domain.Entities.Submission
+        {
+            Status = FunAndChecks.Domain.Enums.SubmissionStatus.Rejected,
+            SubmittedAt = DateTime.UtcNow.AddDays(-1),
+            StudentId = student.Id,
+            TaskId = task.Id,
+            AdminId = admin.Id
+        });
+
+        await ctx.SaveChangesAsync();
+
+        var details = await sut.GetDetailsAsync(created.Id);
+        
+        details.Participants.Should().ContainSingle();
+        details.Participants[0].TotalPoints.Should().Be(0);
+    }
+
     public void Dispose() => _db.Dispose();
 }

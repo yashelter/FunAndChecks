@@ -149,7 +149,7 @@ public partial class Management
     // RowEditCommit в MudTable — синхронный Action<object>; запускаем сохранение фоном.
     private void OnQueueCommit(object element) => _ = RunAsync(
         () => QueuesApi.UpdateAsync(((QueueRow)element).Id, new UpdateQueueEventRequest(((QueueRow)element).Name, ((QueueRow)element).EventDateTime)),
-        "Очередь обновлена.", () => Task.CompletedTask);
+        "Очередь обновлена.", () => Task.CompletedTask, ReloadQueuesAsync);
 
     private async Task DeleteQueueAsync(QueueRow row) =>
         await RunAsync(() => QueuesApi.DeleteAsync(row.Id), "Очередь удалена.", ReloadQueuesAsync);
@@ -172,7 +172,7 @@ public partial class Management
 
     private void OnSubjectCommit(object element) => _ = RunAsync(
         () => Subjects.UpdateAsync(((SubjectRow)element).Id, new UpdateSubjectRequest(((SubjectRow)element).Name)),
-        "Сохранено.", () => Task.CompletedTask);
+        "Сохранено.", () => Task.CompletedTask, ReloadAsync);
 
     private async Task DeleteSubjectAsync(SubjectRow row) =>
         await RunAsync(() => Subjects.DeleteAsync(row.Id), "Предмет удалён.", ReloadAsync);
@@ -195,7 +195,7 @@ public partial class Management
 
     private void OnGroupCommit(object element) => _ = RunAsync(
         () => Groups.UpdateAsync(((GroupRow)element).Id, new UpdateGroupRequest(((GroupRow)element).Name)),
-        "Сохранено.", () => Task.CompletedTask);
+        "Сохранено.", () => Task.CompletedTask, ReloadAsync);
 
     private async Task DeleteGroupAsync(GroupRow row) =>
         await RunAsync(() => Groups.DeleteAsync(row.Id), "Группа удалена.", ReloadAsync);
@@ -224,7 +224,7 @@ public partial class Management
     {
         var row = (TaskRow)element;
         _ = RunAsync(() => Subjects.UpdateTaskAsync(row.Id, new UpdateTaskRequest(row.Name, row.Description, row.MaxPoints)),
-            "Сохранено.", () => Task.CompletedTask);
+            "Сохранено.", () => Task.CompletedTask, () => OnTaskSubjectChanged(_taskSubjectId));
     }
 
     private async Task DeleteTaskAsync(TaskRow row) =>
@@ -254,7 +254,7 @@ public partial class Management
     {
         var row = (ComponentRow)element;
         _ = RunAsync(() => Subjects.UpdateGradeComponentAsync(row.Id, new UpdateGradeComponentRequest(row.Name, row.MinPoints, row.MaxPoints)),
-            "Сохранено.", () => Task.CompletedTask);
+            "Сохранено.", () => Task.CompletedTask, () => OnComponentSubjectChanged(_componentSubjectId));
     }
 
     private async Task DeleteComponentAsync(ComponentRow row) =>
@@ -338,7 +338,7 @@ public partial class Management
             () => { if (hidden) _hiddenGroups.Add(groupId); else _hiddenGroups.Remove(groupId); return Task.CompletedTask; });
     }
 
-    private async Task RunAsync(Func<Task> action, string success, Func<Task> after)
+    private async Task RunAsync(Func<Task> action, string success, Func<Task> after, Func<Task>? onError = null)
     {
         try
         {
@@ -349,6 +349,12 @@ public partial class Management
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
+            if (onError != null)
+                await onError();
+        }
+        finally
+        {
+            StateHasChanged();
         }
     }
 }

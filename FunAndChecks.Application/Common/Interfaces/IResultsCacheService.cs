@@ -11,6 +11,8 @@ public interface IResultsCacheService
 {
     SubjectResultsDto? GetResults(int subjectId);
 
+    Task<SubjectResultsDto> GetOrAddAsync(int subjectId, Func<Task<SubjectResultsDto>> factory);
+
     void UpdateResults(int subjectId, SubjectResultsDto results);
 
     void Invalidate(int subjectId);

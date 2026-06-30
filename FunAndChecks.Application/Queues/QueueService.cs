@@ -70,18 +70,23 @@ public class QueueService(
         // Баллы (сумма MaxPoints принятых задач предмета) считаем в памяти —
         // так избегаем непереводимого Distinct().Sum() и лишних подзапросов.
         var studentIds = entries.Select(e => e.StudentId).ToList();
-        var accepted = await db.Submissions
+        var allSubmissions = await db.Submissions
             .Where(s => studentIds.Contains(s.StudentId)
-                        && s.Status == SubmissionStatus.Accepted
                         && s.Task.SubjectId == queueEvent.SubjectId)
-            .Select(s => new { s.StudentId, s.TaskId, s.Task.MaxPoints })
+            .Where(s => s.SubmittedAt == db.Submissions
+                .Where(s2 => s2.StudentId == s.StudentId && s2.TaskId == s.TaskId)
+                .Max(s2 => s2.SubmittedAt))
+            .Select(s => new { s.StudentId, s.TaskId, s.Status, s.SubmittedAt, s.Task.MaxPoints })
             .ToListAsync(cancellationToken);
 
-        var pointsByStudent = accepted
-            .GroupBy(a => a.StudentId)
+        var pointsByStudent = allSubmissions
+            .GroupBy(s => s.StudentId)
             .ToDictionary(
                 g => g.Key,
-                g => g.DistinctBy(x => x.TaskId).Sum(x => x.MaxPoints));
+                g => g.GroupBy(s => s.TaskId)
+                      .Select(tg => tg.OrderByDescending(x => x.SubmittedAt).First())
+                      .Where(s => s.Status == SubmissionStatus.Accepted)
+                      .Sum(s => s.MaxPoints));
 
         var participants = entries
             .Select(e => new QueueParticipantDto(
@@ -128,7 +133,6 @@ public class QueueService(
             AllowSelfJoin = allowSelfJoin,
         };
         db.QueueEvents.Add(queueEvent);
-        await db.SaveChangesAsync(cancellationToken);
 
         if (autoFillGroupIds.Count > 0)
         {
@@ -152,16 +156,15 @@ public class QueueService(
             {
                 db.QueueEntries.Add(new QueueEntry
                 {
-                    QueueEventId = queueEvent.Id,
+                    QueueEvent = queueEvent,
                     StudentId = studentId,
                     JoinedAt = now,
                     Status = QueueEntryStatus.Waiting,
                 });
             }
-
-            if (studentIds.Count > 0)
-                await db.SaveChangesAsync(cancellationToken);
         }
+
+        await db.SaveChangesAsync(cancellationToken);
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
@@ -211,11 +214,6 @@ public class QueueService(
         if (!isGroupAllowed)
             throw new ForbiddenException("Your group does not have access to the subject of this event.");
 
-        var alreadyInQueue = await db.QueueEntries
-            .AnyAsync(qu => qu.QueueEventId == eventId && qu.StudentId == studentId, cancellationToken);
-        if (alreadyInQueue)
-            throw new ConflictException("Student is already in the queue.");
-
         db.QueueEntries.Add(new QueueEntry
         {
             QueueEventId = eventId,
@@ -223,7 +221,15 @@ public class QueueService(
             JoinedAt = DateTime.UtcNow,
             Status = QueueEntryStatus.Waiting,
         });
-        await db.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            throw new ConflictException("Student is already in the queue.");
+        }
 
         await queueNotifier.QueueEntryUpdatedAsync(
             new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Waiting, null),

@@ -19,6 +19,7 @@ public class AuthServiceTests : IDisposable
     private readonly IRefreshTokenService _refresh = Substitute.For<IRefreshTokenService>();
     private readonly IEmailSender _email = Substitute.For<IEmailSender>();
     private readonly IEmailThrottle _throttle = Substitute.For<IEmailThrottle>();
+    private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     public AuthServiceTests()
     {
@@ -30,7 +31,7 @@ public class AuthServiceTests : IDisposable
     }
 
     private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _token, _refresh, _email, _throttle,
+        new(ctx, _identity, _token, _refresh, _email, _throttle, _cache,
             new RegisterStudentRequestValidator(),
             new ResetPasswordRequestValidator(),
             NullLogger<AuthService>.Instance);
@@ -110,7 +111,7 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RegisterStudent_ConfirmedEmailExists_ThrowsConflict()
+    public async Task RegisterStudent_ConfirmedEmailExists_ReturnsEmptyGuid_AndSendsEmail()
     {
         var groupId = await SeedGroupAsync();
         _identity.FindByEmailAsync("taken@example.com").Returns(new AccountInfo(Guid.NewGuid(), EmailConfirmed: true));
@@ -119,8 +120,10 @@ public class AuthServiceTests : IDisposable
         var sut = CreateSut(ctx);
 
         var request = new RegisterStudentRequest("Ann", "Smith", "taken@example.com", "secret", groupId);
-        var act = () => sut.RegisterStudentAsync(request);
-        await act.Should().ThrowAsync<ConflictException>();
+        var result = await sut.RegisterStudentAsync(request);
+
+        result.Should().Be(Guid.Empty);
+        await _email.Received(1).SendAsync("taken@example.com", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

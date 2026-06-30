@@ -41,24 +41,19 @@ public class UnconfirmedAccountCleanupService(
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
 
         var threshold = DateTime.UtcNow - ConfirmationWindow;
-        var staleIds = await db.Students
+        var staleStudentIdsQuery = db.Students
             .Where(s => !s.IsActive && s.CreatedAt < threshold)
-            .Select(s => s.Id)
-            .ToListAsync(cancellationToken);
+            .Select(s => s.Id);
 
-        if (staleIds.Count == 0)
-            return;
+        var deletedCount = await db.Users
+            .Where(u => staleStudentIdsQuery.Contains(u.Id))
+            .ExecuteDeleteAsync(cancellationToken);
 
-        foreach (var id in staleIds)
+        if (deletedCount > 0)
         {
-            var user = await userManager.FindByIdAsync(id.ToString());
-            if (user is not null)
-                await userManager.DeleteAsync(user); // каскад удалит профиль Student
+            logger.LogInformation("Removed {Count} unconfirmed account(s).", deletedCount);
         }
-
-        logger.LogInformation("Removed {Count} unconfirmed account(s).", staleIds.Count);
     }
 }
