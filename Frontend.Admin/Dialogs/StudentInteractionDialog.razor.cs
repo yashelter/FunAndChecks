@@ -35,7 +35,19 @@ public partial class StudentInteractionDialog
     private readonly Dictionary<int, List<SubmissionLogDto>> _history = [];
     private bool _loadingTasks = true;
     private string? _pickerColor;
+    private MudBlazor.Utilities.MudColor? _pickerMudColor;
 
+    private void SetPickerColor(string? hex)
+    {
+        _pickerColor = hex;
+        _pickerMudColor = hex is null ? null : new MudBlazor.Utilities.MudColor(hex);
+    }
+
+    private void OnColorPickerChanged(MudBlazor.Utilities.MudColor? color)
+    {
+        _pickerMudColor = color;
+        _pickerColor = color?.Value;
+    }
     protected override async Task OnInitializedAsync()
     {
         await LoadTasksAsync();
