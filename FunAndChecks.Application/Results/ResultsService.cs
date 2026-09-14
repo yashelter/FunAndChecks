@@ -101,7 +101,7 @@ public class ResultsService(
                     cells[task.Id] = lastSubmission.Status switch
                     {
                         SubmissionStatus.Accepted => new ResultCellDto("+", lastSubmission.AdminColor, lastSubmission.Status),
-                        SubmissionStatus.Rejected => new ResultCellDto((string)lastSubmission.AdminLetter, lastSubmission.AdminColor, lastSubmission.Status),
+                        SubmissionStatus.Rejected => new ResultCellDto(lastSubmission.AdminLetter ?? string.Empty, lastSubmission.AdminColor, lastSubmission.Status),
                         _ => new ResultCellDto("", null, SubmissionStatus.NotSubmitted)
                     };
                 }

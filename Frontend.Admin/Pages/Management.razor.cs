@@ -3,6 +3,7 @@ using Frontend.Admin.Dialogs;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
@@ -19,6 +20,7 @@ public partial class Management
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private UnsavedChangesTracker Dirty { get; set; } = null!;
 
     // ----- Мутабельные модели строк для inline-редактирования таблиц -----
     private sealed class SubjectRow { public int Id; public string Name = ""; }
@@ -36,10 +38,10 @@ public partial class Management
         /// <summary>Редактируемое локальное представление даты/времени.</summary>
         public string LocalDateTimeText
         {
-            get => EventDateTime.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+            get => EventDateTime.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
             set
             {
-                if (DateTime.TryParseExact(value, "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture,
+                if (DateTime.TryParse(value, CultureInfo.CurrentCulture,
                         DateTimeStyles.AssumeLocal, out var parsed))
                     EventDateTime = parsed.ToUniversalTime();
             }
@@ -122,7 +124,7 @@ public partial class Management
         _queueSubjectId = subjectId;
         var name = _subjects.FirstOrDefault(s => s.Id == subjectId)?.Name;
         if (name is not null)
-            _queueName = $"{name} {(_queueDate ?? DateTime.Today):dd.MM}";
+            _queueName = $"{name} {(_queueDate ?? DateTime.Today).ToString("d", CultureInfo.CurrentCulture)}";
     }
 
     private async Task CreateQueueAsync()
@@ -132,7 +134,7 @@ public partial class Management
 
         var when = DateTime.SpecifyKind(_queueDate.Value.Date + _queueTime.Value, DateTimeKind.Local).ToUniversalTime();
         var name = string.IsNullOrWhiteSpace(_queueName)
-            ? $"{_subjects.FirstOrDefault(s => s.Id == _queueSubjectId)?.Name} {_queueDate.Value:dd.MM}"
+            ? $"{_subjects.FirstOrDefault(s => s.Id == _queueSubjectId)?.Name} {_queueDate.Value.ToString("d", CultureInfo.CurrentCulture)}"
             : _queueName.Trim();
 
         var autoFill = _autoFillGroupIds.Count > 0 ? _autoFillGroupIds.ToList() : null;
@@ -142,6 +144,7 @@ public partial class Management
             await QueuesApi.CreateAsync(new CreateQueueEventRequest(name, when, _queueSubjectId.Value, _allowSelfJoin, autoFill));
             Snackbar.Add(Loc["Management_QueueCreated"], Severity.Success);
             await ReloadQueuesAsync();
+            Dirty.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -312,6 +315,7 @@ public partial class Management
             foreach (var id in current.Where(id => !selected.Contains(id)))
                 await unlink(id);
             Snackbar.Add(Loc["Management_AccessUpdated"], Severity.Success);
+            Dirty.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -347,6 +351,7 @@ public partial class Management
         {
             await action();
             await after();
+            Dirty.MarkClean();
             Snackbar.Add(success, Severity.Success);
         }
         catch (ApiException ex)

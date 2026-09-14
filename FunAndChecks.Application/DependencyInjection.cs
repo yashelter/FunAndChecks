@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddSingleton<IEmailTemplateRenderer, EmailTemplateRenderer>();
         services.AddScoped<ISubjectService, SubjectService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IQueueService, QueueService>();

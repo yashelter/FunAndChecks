@@ -32,6 +32,7 @@
 
   <!-- ==================== Common ==================== -->
   <data name="Common_EmailRequired" xml:space="preserve"><value>Email is required</value></data>
+  <data name="Common_EmailLabel" xml:space="preserve"><value>Email</value></data>
   <data name="Common_PasswordRequired" xml:space="preserve"><value>Password is required</value></data>
   <data name="Common_BackToLogin" xml:space="preserve"><value>Back to sign in</value></data>
   <data name="Common_Yes" xml:space="preserve"><value>Yes</value></data>
@@ -405,4 +406,31 @@
   <!-- ==================== Student Dashboard (extra) ==================== -->
   <data name="StudentDashboard_PageTitle" xml:space="preserve"><value>Results</value></data>
 
+  <data name="Error_SubjectRestricted" xml:space="preserve"><value>Access to subject {0} is restricted.</value></data>
+  <data name="Error_GroupRestricted" xml:space="preserve"><value>Access to group {0} is restricted.</value></data>
+  <data name="Error_SubjectHidden" xml:space="preserve"><value>Subject {0} is hidden. Restore it before making changes.</value></data>
+  <data name="Error_GroupHidden" xml:space="preserve"><value>Group {0} is hidden. Restore it before making changes.</value></data>
+  <data name="Error_NotFound" xml:space="preserve"><value>The requested resource was not found.</value></data>
+  <data name="Error_Conflict" xml:space="preserve"><value>The operation conflicts with the current state.</value></data>
+  <data name="Error_StudentNotEnrolled" xml:space="preserve"><value>The student is not enrolled in subject {0}.</value></data>
+  <data name="Error_AutofillGroupNotEnrolled" xml:space="preserve"><value>Groups {0} are not linked to this subject.</value></data>
+  <data name="Error_AlreadyInQueue" xml:space="preserve"><value>The student is already in the queue.</value></data>
+  <data name="Error_EmailTaken" xml:space="preserve"><value>This email address is already in use.</value></data>
+  <data name="Error_EmailRateLimited" xml:space="preserve"><value>Please wait {0} seconds before requesting another email.</value></data>
+  <data name="Error_MethodNotAllowed" xml:space="preserve"><value>This request method is not allowed.</value></data>
+  <data name="Error_Internal" xml:space="preserve"><value>An unexpected server error occurred.</value></data>
+  <data name="Error_ValidationRequired" xml:space="preserve"><value>This field is required.</value></data>
+  <data name="Error_ValidationEmail" xml:space="preserve"><value>Enter a valid email address.</value></data>
+  <data name="Error_ValidationFailed" xml:space="preserve"><value>Check the entered values.</value></data>
+  <data name="Error_ValidationMaximumLength" xml:space="preserve"><value>Use at most {0} characters.</value></data>
+  <data name="Error_ValidationMinimumLength" xml:space="preserve"><value>Use at least {0} characters.</value></data>
+  <data name="Error_ValidationGreaterThan" xml:space="preserve"><value>The value must be greater than {0}.</value></data>
+  <data name="Error_ValidationGreaterThanOrEqual" xml:space="preserve"><value>The value must be at least {0}.</value></data>
+  <data name="Error_ValidationFormat" xml:space="preserve"><value>The value has an invalid format.</value></data>
+  <data name="Error_ValidationSelection" xml:space="preserve"><value>Select a valid value.</value></data>
+  <data name="Error_ValidationInvalid" xml:space="preserve"><value>The submitted value is invalid.</value></data>
+  <data name="Error_ValidationCulture" xml:space="preserve"><value>Select a supported language.</value></data>
+  <data name="Culture_UnsavedTitle" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="Culture_UnsavedMessage" xml:space="preserve"><value>Changing the language reloads the page and discards unsaved changes. Continue?</value></data>
+  <data name="AdminLayout_Role" xml:space="preserve"><value>Administrator</value></data>
 </root>

@@ -26,7 +26,7 @@
 
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
-            @Body
+            <div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">@Body</div>
         </MudContainer>
     </MudMainContent>
 </MudLayout>

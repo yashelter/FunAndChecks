@@ -13,6 +13,8 @@ public class ResultsCacheService : IResultsCacheService
 {
     private readonly ConcurrentDictionary<int, SubjectResultsDto> _cache = new();
     private readonly ConcurrentDictionary<int, Lazy<SemaphoreSlim>> _locks = new();
+    private readonly ConcurrentDictionary<int, long> _generations = new();
+    private long _globalGeneration;
 
     public SubjectResultsDto? GetResults(int subjectId) =>
         _cache.TryGetValue(subjectId, out var results) ? results : null;
@@ -29,9 +31,22 @@ public class ResultsCacheService : IResultsCacheService
             if (_cache.TryGetValue(subjectId, out cached))
                 return cached;
 
-            var results = await factory();
-            _cache[subjectId] = results;
-            return results;
+            while (true)
+            {
+                var subjectGeneration = _generations.GetOrAdd(subjectId, 0);
+                var globalGeneration = Volatile.Read(ref _globalGeneration);
+                var results = await factory();
+
+                if (subjectGeneration == _generations.GetOrAdd(subjectId, 0) &&
+                    globalGeneration == Volatile.Read(ref _globalGeneration))
+                {
+                    _cache[subjectId] = results;
+                    return results;
+                }
+
+                if (_cache.TryGetValue(subjectId, out cached))
+                    return cached;
+            }
         }
         finally
         {
@@ -39,12 +54,21 @@ public class ResultsCacheService : IResultsCacheService
         }
     }
 
-    public void UpdateResults(int subjectId, SubjectResultsDto results) =>
+    public void UpdateResults(int subjectId, SubjectResultsDto results)
+    {
+        _generations.AddOrUpdate(subjectId, 1, static (_, current) => current + 1);
         _cache[subjectId] = results;
+    }
 
-    public void Invalidate(int subjectId) =>
+    public void Invalidate(int subjectId)
+    {
+        _generations.AddOrUpdate(subjectId, 1, static (_, current) => current + 1);
         _cache.TryRemove(subjectId, out _);
+    }
 
-    public void InvalidateAll() =>
+    public void InvalidateAll()
+    {
+        Interlocked.Increment(ref _globalGeneration);
         _cache.Clear();
+    }
 }

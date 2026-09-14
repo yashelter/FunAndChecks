@@ -17,6 +17,7 @@ public partial class StudentLayout : AppLayoutBase
         {
             var me = await Me.GetMeAsync();
             _userName = me.FullName;
+            await Culture.SynchronizeAccountCultureAsync(me.PreferredCulture);
         }
         catch
         {

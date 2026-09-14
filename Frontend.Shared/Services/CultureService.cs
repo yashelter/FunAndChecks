@@ -9,11 +9,7 @@ namespace Frontend.Shared.Services;
 /// </summary>
 public class CultureService(IJSRuntime js, NavigationManager nav)
 {
-    private const string Key = "culture_preference";
-
     public string CurrentCulture { get; private set; } = "en-US";
-
-    public event Action? OnCultureChanged;
 
     /// <summary>
     /// Инициализирует культуру из localStorage; если не сохранена —
@@ -24,25 +20,12 @@ public class CultureService(IJSRuntime js, NavigationManager nav)
     {
         try
         {
-            var stored = await js.InvokeAsync<string?>("localStorage.getItem", Key);
-            if (stored is "en-US" or "ru-RU")
-            {
-                CurrentCulture = stored;
-            }
-            else
-            {
-                var lang = await js.InvokeAsync<string>("eval", "navigator.language");
-                CurrentCulture = lang.StartsWith("ru", StringComparison.OrdinalIgnoreCase)
-                    ? "ru-RU"
-                    : "en-US";
-            }
+            CurrentCulture = await js.InvokeAsync<string>("culturePreference.get");
         }
         catch
         {
             CurrentCulture = "en-US";
         }
-
-        OnCultureChanged?.Invoke();
     }
 
     /// <summary>
@@ -51,7 +34,16 @@ public class CultureService(IJSRuntime js, NavigationManager nav)
     /// </summary>
     public async Task SetCultureAsync(string culture)
     {
-        await js.InvokeVoidAsync("localStorage.setItem", Key, culture);
+        if (culture is not ("en-US" or "ru-RU"))
+            throw new ArgumentOutOfRangeException(nameof(culture));
+        await js.InvokeVoidAsync("culturePreference.set", culture);
         nav.NavigateTo(nav.Uri, forceLoad: true);
+    }
+
+    public async Task SynchronizeAccountCultureAsync(string? culture)
+    {
+        if (culture is not ("en-US" or "ru-RU") || culture == CurrentCulture)
+            return;
+        await SetCultureAsync(culture);
     }
 }

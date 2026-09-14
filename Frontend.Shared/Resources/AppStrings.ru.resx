@@ -32,6 +32,7 @@
 
   <!-- ==================== Common ==================== -->
   <data name="Common_EmailRequired" xml:space="preserve"><value>Укажите email</value></data>
+  <data name="Common_EmailLabel" xml:space="preserve"><value>Электронная почта</value></data>
   <data name="Common_PasswordRequired" xml:space="preserve"><value>Укажите пароль</value></data>
   <data name="Common_BackToLogin" xml:space="preserve"><value>Ко входу</value></data>
   <data name="Common_Yes" xml:space="preserve"><value>да</value></data>
@@ -405,4 +406,31 @@
   <!-- ==================== Student Dashboard (extra) ==================== -->
   <data name="StudentDashboard_PageTitle" xml:space="preserve"><value>Результаты</value></data>
 
+  <data name="Error_SubjectRestricted" xml:space="preserve"><value>Доступ к предмету {0} ограничен.</value></data>
+  <data name="Error_GroupRestricted" xml:space="preserve"><value>Доступ к группе {0} ограничен.</value></data>
+  <data name="Error_SubjectHidden" xml:space="preserve"><value>Предмет {0} скрыт. Восстановите его перед изменением.</value></data>
+  <data name="Error_GroupHidden" xml:space="preserve"><value>Группа {0} скрыта. Восстановите её перед изменением.</value></data>
+  <data name="Error_NotFound" xml:space="preserve"><value>Запрошенный ресурс не найден.</value></data>
+  <data name="Error_Conflict" xml:space="preserve"><value>Операция конфликтует с текущим состоянием.</value></data>
+  <data name="Error_StudentNotEnrolled" xml:space="preserve"><value>Студент не зачислен на предмет {0}.</value></data>
+  <data name="Error_AutofillGroupNotEnrolled" xml:space="preserve"><value>Группы {0} не привязаны к этому предмету.</value></data>
+  <data name="Error_AlreadyInQueue" xml:space="preserve"><value>Студент уже находится в очереди.</value></data>
+  <data name="Error_EmailTaken" xml:space="preserve"><value>Этот адрес электронной почты уже используется.</value></data>
+  <data name="Error_EmailRateLimited" xml:space="preserve"><value>Подождите {0} секунд перед повторной отправкой письма.</value></data>
+  <data name="Error_MethodNotAllowed" xml:space="preserve"><value>Этот метод запроса не поддерживается.</value></data>
+  <data name="Error_Internal" xml:space="preserve"><value>Произошла непредвиденная ошибка сервера.</value></data>
+  <data name="Error_ValidationRequired" xml:space="preserve"><value>Обязательное поле.</value></data>
+  <data name="Error_ValidationEmail" xml:space="preserve"><value>Введите корректный адрес электронной почты.</value></data>
+  <data name="Error_ValidationFailed" xml:space="preserve"><value>Проверьте введённые значения.</value></data>
+  <data name="Error_ValidationMaximumLength" xml:space="preserve"><value>Используйте не более {0} символов.</value></data>
+  <data name="Error_ValidationMinimumLength" xml:space="preserve"><value>Используйте не менее {0} символов.</value></data>
+  <data name="Error_ValidationGreaterThan" xml:space="preserve"><value>Значение должно быть больше {0}.</value></data>
+  <data name="Error_ValidationGreaterThanOrEqual" xml:space="preserve"><value>Значение должно быть не меньше {0}.</value></data>
+  <data name="Error_ValidationFormat" xml:space="preserve"><value>Значение имеет неверный формат.</value></data>
+  <data name="Error_ValidationSelection" xml:space="preserve"><value>Выберите допустимое значение.</value></data>
+  <data name="Error_ValidationInvalid" xml:space="preserve"><value>Передано недопустимое значение.</value></data>
+  <data name="Error_ValidationCulture" xml:space="preserve"><value>Выберите поддерживаемый язык.</value></data>
+  <data name="Culture_UnsavedTitle" xml:space="preserve"><value>Несохранённые изменения</value></data>
+  <data name="Culture_UnsavedMessage" xml:space="preserve"><value>Смена языка перезагрузит страницу и удалит несохранённые изменения. Продолжить?</value></data>
+  <data name="AdminLayout_Role" xml:space="preserve"><value>Администратор</value></data>
 </root>

@@ -35,7 +35,7 @@ public partial class Register
     private bool _busy;
 
     private string? ValidateConfirm(string value) =>
-        value == _model.Password ? null : Loc["Register_PasswordMismatch"];
+        value == _model.Password ? null : Loc["Register_PasswordMismatch"].Value;
 
     protected override async Task OnInitializedAsync()
     {

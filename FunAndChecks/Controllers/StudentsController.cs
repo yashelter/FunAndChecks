@@ -2,6 +2,7 @@ using FunAndChecks.Application.Grades;
 using FunAndChecks.Application.Students;
 using FunAndChecks.Application.Subjects;
 using FunAndChecks.Application.Tasks;
+using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +21,7 @@ public class StudentsController(
     [HttpGet("search")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<StudentDetailsDto>>> Search([FromQuery] string? query, CancellationToken cancellationToken) =>
-        Ok(await studentService.SearchStudentsAsync(query ?? string.Empty, cancellationToken));
+        Ok(await studentService.SearchStudentsAsync(User.GetUserId(), query ?? string.Empty, cancellationToken));
 
     /// <summary>Публичная карточка студента.</summary>
     [HttpGet("{studentId:guid}")]
@@ -33,7 +34,7 @@ public class StudentsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetColor(Guid studentId, SetStudentColorRequest request, CancellationToken cancellationToken)
     {
-        await studentService.SetColorAsync(studentId, request, cancellationToken);
+        await studentService.SetColorAsync(User.GetUserId(), studentId, request, cancellationToken);
         return NoContent();
     }
 
@@ -41,7 +42,7 @@ public class StudentsController(
     [HttpGet("{studentId:guid}/details")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<StudentDetailsDto>> GetDetails(Guid studentId, CancellationToken cancellationToken) =>
-        Ok(await studentService.GetDetailsAsync(studentId, cancellationToken));
+        Ok(await studentService.GetDetailsAsync(User.GetUserId(), studentId, cancellationToken));
 
     /// <summary>Задания предмета со статусами сдачи конкретного студента.</summary>
     [HttpGet("{studentId:guid}/subjects/{subjectId:int}/tasks")]
@@ -54,7 +55,7 @@ public class StudentsController(
     [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<StudentGradeDto>>> GetGrades(
         Guid studentId, int subjectId, CancellationToken cancellationToken) =>
-        Ok(await gradeService.GetStudentGradesAsync(studentId, subjectId, cancellationToken));
+        Ok(await gradeService.GetStudentGradesAsync(User.GetUserId(), studentId, subjectId, cancellationToken));
 
     /// <summary>Редактирование профиля и аккаунта студента.</summary>
     [HttpPut("{studentId:guid}/account")]
@@ -62,7 +63,7 @@ public class StudentsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> UpdateAccount(Guid studentId, UpdateStudentAccountRequest request, CancellationToken cancellationToken)
     {
-        await studentService.UpdateStudentAccountAsync(studentId, request, cancellationToken);
+        await studentService.UpdateStudentAccountAsync(User.GetUserId(), studentId, request, cancellationToken);
         return NoContent();
     }
 }

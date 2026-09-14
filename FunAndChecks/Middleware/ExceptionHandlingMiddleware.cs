@@ -1,6 +1,5 @@
 using FluentValidation;
 using FunAndChecks.Application.Common.Exceptions;
-using Microsoft.AspNetCore.Mvc;
 
 namespace FunAndChecks.Middleware;
 
@@ -21,26 +20,30 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                 .GroupBy(e => e.PropertyName)
                 .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
 
-            await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Validation failed.", extensions: new()
-            {
-                ["errors"] = errors,
-            });
+            var validationCodes = ex.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(ToDescriptor).ToArray());
+
+            await ApiProblemDetails.WriteAsync(context, StatusCodes.Status400BadRequest, "Validation failed.",
+                "validation.failed", errors: errors, validationCodes: validationCodes);
         }
         catch (NotFoundException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status404NotFound, ex.Message);
+            await WriteApplicationProblemAsync(context, StatusCodes.Status404NotFound, ex);
         }
         catch (ConflictException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status409Conflict, ex.Message);
+            await WriteApplicationProblemAsync(context, StatusCodes.Status409Conflict, ex);
         }
         catch (ForbiddenException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status403Forbidden, ex.Message);
+            await WriteApplicationProblemAsync(context, StatusCodes.Status403Forbidden, ex);
         }
         catch (RateLimitException ex)
         {
-            await WriteProblemAsync(context, StatusCodes.Status429TooManyRequests, ex.Message);
+            await WriteApplicationProblemAsync(context, StatusCodes.Status429TooManyRequests, ex);
         }
         catch (Exception ex)
         {
@@ -52,40 +55,29 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
 
             logger.LogError(ex, "Unhandled exception while processing {Method} {Path}.",
                 context.Request.Method, context.Request.Path);
-            await WriteProblemAsync(context, StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            await ApiProblemDetails.WriteAsync(context, StatusCodes.Status500InternalServerError,
+                "An unexpected error occurred.", "server.internal_error");
         }
     }
 
-    private static async Task WriteProblemAsync(
-        HttpContext context, int statusCode, string detail, Dictionary<string, object?>? extensions = null)
+    private static Task WriteApplicationProblemAsync(HttpContext context, int statusCode, ApplicationExceptionBase exception) =>
+        ApiProblemDetails.WriteAsync(context, statusCode, exception.Message, exception.Code, exception.Arguments);
+
+    private static ErrorDescriptor ToDescriptor(FluentValidation.Results.ValidationFailure failure)
     {
-        if (context.Response.HasStarted)
-            return;
-
-        var problem = new ProblemDetails
+        var arguments = new Dictionary<string, object?>();
+        if (failure.FormattedMessagePlaceholderValues is not null)
         {
-            Status = statusCode,
-            Title = ReasonPhrase(statusCode),
-            Detail = detail,
-        };
-
-        if (extensions != null)
-        {
-            foreach (var (key, value) in extensions)
-                problem.Extensions[key] = value;
+            foreach (var (name, value) in failure.FormattedMessagePlaceholderValues)
+            {
+                if (value is null or string or bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
+                    arguments[char.ToLowerInvariant(name[0]) + name[1..]] = value;
+            }
         }
 
-        context.Response.StatusCode = statusCode;
-        await context.Response.WriteAsJsonAsync(problem);
+        var code = string.IsNullOrWhiteSpace(failure.ErrorCode)
+            ? "validation.invalid"
+            : $"validation.{failure.ErrorCode}";
+        return new ErrorDescriptor(code, arguments);
     }
-
-    private static string ReasonPhrase(int statusCode) => statusCode switch
-    {
-        StatusCodes.Status400BadRequest => "Bad Request",
-        StatusCodes.Status403Forbidden => "Forbidden",
-        StatusCodes.Status404NotFound => "Not Found",
-        StatusCodes.Status409Conflict => "Conflict",
-        StatusCodes.Status429TooManyRequests => "Too Many Requests",
-        _ => "Internal Server Error",
-    };
 }

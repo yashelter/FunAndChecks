@@ -4,6 +4,7 @@ using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FunAndChecks.Application.Grades;
 
@@ -14,7 +15,8 @@ public class GradeService(
     IResultsNotifier resultsNotifier,
     IValidator<CreateGradeComponentRequest> createComponentValidator,
     IValidator<UpdateGradeComponentRequest> updateComponentValidator,
-    IValidator<SetGradeRequest> setGradeValidator)
+    IValidator<SetGradeRequest> setGradeValidator,
+    ILogger<GradeService> logger)
     : IGradeService
 {
     public Task<List<GradeComponentDto>> GetComponentsAsync(int subjectId, CancellationToken cancellationToken = default) =>
@@ -90,60 +92,51 @@ public class GradeService(
         if (request.Points < component.MinPoints || request.Points > component.MaxPoints)
             throw new ConflictException($"Points must be between {component.MinPoints} and {component.MaxPoints}.");
 
-        if (!await db.Students.AnyAsync(s => s.Id == studentId, cancellationToken))
-            throw new NotFoundException($"Student with ID {studentId} not found.");
-
-        var existing = await db.StudentGrades
-            .FirstOrDefaultAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, cancellationToken);
-
-        if (existing != null)
+        await db.ExecuteSerializableAsync(async ct =>
         {
-            existing.Points = request.Points;
-            existing.Comment = request.Comment;
-            existing.AdminId = adminId;
-            existing.UpdatedAt = DateTime.UtcNow;
-        }
-        else
-        {
-            var newGrade = new StudentGrade
+            var student = await db.Students
+                .Where(s => s.Id == studentId)
+                .Select(s => new { s.Id, s.GroupId })
+                .FirstOrDefaultAsync(ct)
+                ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+
+            var enrolled = student.GroupId is int groupId && await db.GroupSubjects
+                .AnyAsync(gs => gs.GroupId == groupId && gs.SubjectId == component.SubjectId, ct);
+            if (student.GroupId is int currentGroupId)
+                await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, ct);
+            if (!enrolled)
+                throw new ConflictException(
+                    "Student is not enrolled in this subject.",
+                    "student.not_enrolled",
+                    new Dictionary<string, object?> { ["studentId"] = studentId, ["subjectId"] = component.SubjectId });
+
+            var grade = await db.StudentGrades
+                .FirstOrDefaultAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, ct);
+            if (grade is null)
             {
-                GradeComponentId = componentId,
-                StudentId = studentId,
-                Points = request.Points,
-                Comment = request.Comment,
-                AdminId = adminId,
-                UpdatedAt = DateTime.UtcNow
-            };
-            db.StudentGrades.Add(newGrade);
-        }
-
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException)
-        {
-            if (db is DbContext dbContext)
-            {
-                dbContext.ChangeTracker.Clear();
+                grade = new StudentGrade { GradeComponentId = componentId, StudentId = studentId };
+                db.StudentGrades.Add(grade);
             }
 
-            var conflicting = await db.StudentGrades
-                .FirstAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, cancellationToken);
-
-            conflicting.Points = request.Points;
-            conflicting.Comment = request.Comment;
-            conflicting.AdminId = adminId;
-            conflicting.UpdatedAt = DateTime.UtcNow;
-
-            await db.SaveChangesAsync(cancellationToken);
-        }
+            grade.Points = request.Points;
+            grade.Comment = request.Comment;
+            grade.AdminId = adminId;
+            grade.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
 
         cache.Invalidate(component.SubjectId);
-        await resultsNotifier.GradeUpdatedAsync(
-            component.SubjectId,
-            new GradeUpdateDto(studentId, componentId, request.Points),
-            cancellationToken);
+        try
+        {
+            await resultsNotifier.GradeUpdatedAsync(
+                component.SubjectId,
+                new GradeUpdateDto(studentId, componentId, request.Points),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Grade committed, but results notification failed for subject {SubjectId}.", component.SubjectId);
+        }
     }
 
     public async Task DeleteGradeAsync(Guid adminId, int componentId, Guid studentId, CancellationToken cancellationToken = default)
@@ -162,8 +155,18 @@ public class GradeService(
         cache.Invalidate(subjectId);
     }
 
-    public Task<List<StudentGradeDto>> GetStudentGradesAsync(Guid studentId, int subjectId, CancellationToken cancellationToken = default) =>
-        db.GradeComponents
+    public async Task<List<StudentGradeDto>> GetStudentGradesAsync(Guid adminId, Guid studentId, int subjectId, CancellationToken cancellationToken = default)
+    {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+        var student = await db.Students
+            .Where(s => s.Id == studentId)
+            .Select(s => new { s.GroupId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+        if (student.GroupId is int currentGroupId)
+            await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, cancellationToken);
+
+        return await db.GradeComponents
             .Where(c => c.SubjectId == subjectId)
             .OrderBy(c => c.Name)
             .Select(c => new
@@ -182,4 +185,5 @@ public class GradeService(
                 x.Grade.Comment,
                 x.Grade.UpdatedAt))
             .ToListAsync(cancellationToken);
+    }
 }

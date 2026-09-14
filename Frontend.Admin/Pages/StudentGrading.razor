@@ -6,7 +6,7 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">@Loc["Grading_Title"]</MudText>
 
-<MudSelect T="int?" @bind-Value="_subjectId" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
+<MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="SearchAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
            Placeholder="@Loc["Grading_SelectSubject"]" Class="mb-3" Style="max-width: 360px;">
     @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
 </MudSelect>

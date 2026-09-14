@@ -10,7 +10,7 @@ namespace FunAndChecks.Controllers;
 [Route("api/queues")]
 public class QueuesController(IQueueService queueService) : ControllerBase
 {
-    /// <summary>События, чья дата не истекла больше чем на 2 дня.</summary>
+    /// <summary>События, чья дата не истекла больше чем на 24 часа.</summary>
     [HttpGet]
     public async Task<ActionResult<List<QueueEventDto>>> GetActive(CancellationToken cancellationToken) =>
         Ok(await queueService.GetActiveEventsAsync(cancellationToken));
@@ -48,7 +48,7 @@ public class QueuesController(IQueueService queueService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int eventId, CancellationToken cancellationToken)
     {
-        await queueService.DeleteEventAsync(eventId, cancellationToken);
+        await queueService.DeleteEventAsync(User.GetUserId(), eventId, cancellationToken);
         return NoContent();
     }
 

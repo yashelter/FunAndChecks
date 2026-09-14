@@ -24,4 +24,7 @@ public interface IApplicationDbContext
     DbSet<AdminGroupAccess> AdminGroupAccesses { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Runs a consistency-sensitive use case in a serializable transaction with bounded retries.</summary>
+    Task ExecuteSerializableAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default);
 }

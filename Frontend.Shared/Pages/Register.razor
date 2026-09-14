@@ -17,7 +17,7 @@
             </MudItem>
         </MudGrid>
 
-        <MudTextField For="@(() => _model.Email)" @bind-Value="_model.Email" Label="Email" InputType="InputType.Email"
+        <MudTextField For="@(() => _model.Email)" @bind-Value="_model.Email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
                       Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mt-2" />
 
         <MudTextField For="@(() => _model.Password)" @bind-Value="_model.Password" Label="@Loc["Register_PasswordLabel"]"

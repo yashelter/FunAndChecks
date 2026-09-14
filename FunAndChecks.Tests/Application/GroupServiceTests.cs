@@ -1,5 +1,6 @@
 using FluentAssertions;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Groups;
 using FunAndChecks.Tests.Common;
 using NSubstitute;
@@ -14,7 +15,7 @@ public class GroupServiceTests : IDisposable
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     private GroupService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new CreateGroupRequestValidator(), new UpdateGroupRequestValidator());
+        new(ctx, _identity, _cache, new AdminAccessService(ctx), new CreateGroupRequestValidator(), new UpdateGroupRequestValidator());
 
     [Fact]
     public async Task Update_UpdatesGroupAndInvalidatesCache()
@@ -32,7 +33,7 @@ public class GroupServiceTests : IDisposable
         var sut = CreateSut(ctx);
         var req = new UpdateGroupRequest("New Name");
 
-        await sut.UpdateAsync(group.Id, req);
+        await sut.UpdateAsync(Guid.NewGuid(), group.Id, req);
 
         var updated = await ctx.Groups.FindAsync(group.Id);
         updated!.Name.Should().Be("New Name");
@@ -51,7 +52,7 @@ public class GroupServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
 
-        await sut.LinkSubjectAsync(group.Id, subject.Id);
+        await sut.LinkSubjectAsync(Guid.NewGuid(), group.Id, subject.Id);
 
         var links = ctx.GroupSubjects.Where(gs => gs.GroupId == group.Id && gs.SubjectId == subject.Id).ToList();
         links.Should().ContainSingle();
@@ -72,7 +73,7 @@ public class GroupServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
 
-        await sut.UnlinkSubjectAsync(group.Id, subject.Id);
+        await sut.UnlinkSubjectAsync(Guid.NewGuid(), group.Id, subject.Id);
 
         var links = ctx.GroupSubjects.Where(gs => gs.GroupId == group.Id && gs.SubjectId == subject.Id).ToList();
         links.Should().BeEmpty();

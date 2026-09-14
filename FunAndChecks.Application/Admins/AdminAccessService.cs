@@ -25,13 +25,39 @@ public class AdminAccessService(IApplicationDbContext db) : IAdminAccessService
 
     public async Task EnsureSubjectAllowedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
     {
-        if (await IsSubjectRestrictedAsync(adminId, subjectId, cancellationToken))
-            throw new ForbiddenException("You are restricted from working with this subject.");
+        var access = await db.AdminSubjectAccesses
+            .Where(a => a.AdminId == adminId && a.SubjectId == subjectId)
+            .Select(a => new { a.IsRestricted, a.IsHidden })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (access?.IsRestricted == true)
+            throw new ForbiddenException("You are restricted from working with this subject.", "access.subject_restricted",
+                new Dictionary<string, object?> { ["subjectId"] = subjectId });
+        if (access?.IsHidden == true)
+            throw new ForbiddenException("This subject is hidden from your workspace.", "access.subject_hidden",
+                new Dictionary<string, object?> { ["subjectId"] = subjectId });
+    }
+
+    public async Task EnsureGroupAllowedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
+    {
+        var access = await db.AdminGroupAccesses
+            .Where(a => a.AdminId == adminId && a.GroupId == groupId)
+            .Select(a => new { a.IsRestricted, a.IsHidden })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (access?.IsRestricted == true)
+            throw new ForbiddenException("You are restricted from working with this group.", "access.group_restricted",
+                new Dictionary<string, object?> { ["groupId"] = groupId });
+        if (access?.IsHidden == true)
+            throw new ForbiddenException("This group is hidden from your workspace.", "access.group_hidden",
+                new Dictionary<string, object?> { ["groupId"] = groupId });
     }
 
     public Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default) =>
         db.AdminSubjectAccesses
             .AnyAsync(a => a.AdminId == adminId && a.SubjectId == subjectId && a.IsRestricted, cancellationToken);
+
+    public Task<bool> IsGroupRestrictedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default) =>
+        db.AdminGroupAccesses
+            .AnyAsync(a => a.AdminId == adminId && a.GroupId == groupId && a.IsRestricted, cancellationToken);
 
     public Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default) =>
         UpsertSubjectAsync(adminId, subjectId, a => a.IsRestricted = restricted, cancellationToken);

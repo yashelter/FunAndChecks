@@ -33,6 +33,7 @@ public static class DependencyInjection
                 // Логин — это email; он должен быть уникальным и обязательно подтверждённым.
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedEmail = true;
+                options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultEmailProvider;
 
                 // Защита от перебора пароля.
                 options.Lockout.AllowedForNewUsers = true;

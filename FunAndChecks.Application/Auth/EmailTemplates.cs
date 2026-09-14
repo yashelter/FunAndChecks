@@ -1,23 +1,36 @@
+using System.Globalization;
+using System.Resources;
+
 namespace FunAndChecks.Application.Auth;
 
-internal static class EmailTemplates
+public enum EmailTemplateKind { Confirmation, PasswordReset, ExistingAccount }
+
+public sealed record EmailTemplate(string Subject, string HtmlBody);
+
+public interface IEmailTemplateRenderer
 {
-    public const string ConfirmationSubject = "FunAndChecks — подтверждение почты";
-    public const string PasswordResetSubject = "FunAndChecks — сброс пароля";
+    EmailTemplate Render(EmailTemplateKind kind, string culture, string? code = null);
+}
 
-    public static string Confirmation(string code) =>
-        $"""
-         <p>Здравствуйте!</p>
-         <p>Ваш код подтверждения почты в FunAndChecks:</p>
-         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{code}</p>
-         <p>Код действует около 10 минут. Если вы не регистрировались — просто проигнорируйте это письмо.</p>
-         """;
+internal sealed class EmailTemplateRenderer : IEmailTemplateRenderer
+{
+    private static readonly ResourceManager Resources = new(
+        "FunAndChecks.Application.Auth.EmailTemplateResources", typeof(EmailTemplateRenderer).Assembly);
 
-    public static string PasswordReset(string code) =>
-        $"""
-         <p>Здравствуйте!</p>
-         <p>Ваш код для сброса пароля в FunAndChecks:</p>
-         <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;">{code}</p>
-         <p>Код действует около 10 минут. Если вы не запрашивали сброс — просто проигнорируйте это письмо.</p>
-         """;
+    public EmailTemplate Render(EmailTemplateKind kind, string culture, string? code = null)
+    {
+        var selected = culture == "ru-RU" ? CultureInfo.GetCultureInfo("ru-RU") : CultureInfo.GetCultureInfo("en-US");
+        var prefix = kind switch
+        {
+            EmailTemplateKind.Confirmation => "Confirmation",
+            EmailTemplateKind.PasswordReset => "PasswordReset",
+            EmailTemplateKind.ExistingAccount => "ExistingAccount",
+            _ => throw new ArgumentOutOfRangeException(nameof(kind)),
+        };
+        var subject = Resources.GetString($"{prefix}Subject", selected)
+                      ?? throw new InvalidOperationException($"Missing email resource {prefix}Subject.");
+        var body = Resources.GetString($"{prefix}Body", selected)
+                   ?? throw new InvalidOperationException($"Missing email resource {prefix}Body.");
+        return new EmailTemplate(subject, code is null ? body : string.Format(selected, body, code));
+    }
 }

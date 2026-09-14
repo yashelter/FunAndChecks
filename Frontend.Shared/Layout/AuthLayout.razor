@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject Frontend.Shared.Services.ThemeService Theme
+@inject Frontend.Shared.Services.UnsavedChangesTracker Dirty
 
 <MudThemeProvider IsDarkMode="Theme.IsDarkMode" />
 <MudPopoverProvider />
@@ -16,7 +17,7 @@
 <div class="d-flex align-center justify-center"
      style="min-height: 100dvh; width: 100%; padding: 16px; box-sizing: border-box;">
     <div style="width: 100%; max-width: 460px;">
-        @Body
+        <div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">@Body</div>
     </div>
 </div>
 
@@ -33,5 +34,9 @@
 
     private void OnThemeChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Theme.OnThemeChanged -= OnThemeChanged;
+    public void Dispose()
+    {
+        Theme.OnThemeChanged -= OnThemeChanged;
+        Dirty.ClearAll();
+    }
 }

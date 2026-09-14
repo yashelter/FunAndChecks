@@ -5,6 +5,7 @@ using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FunAndChecks.Application.Queues;
 
@@ -13,7 +14,8 @@ public class QueueService(
     IQueueNotifier queueNotifier,
     IAdminAccessService accessService,
     IValidator<CreateQueueEventRequest> createEventValidator,
-    IValidator<UpdateQueueEventRequest> updateEventValidator)
+    IValidator<UpdateQueueEventRequest> updateEventValidator,
+    ILogger<QueueService> logger)
     : IQueueService
 {
     /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
@@ -145,6 +147,20 @@ public class QueueService(
             if (missing.Count > 0)
                 throw new NotFoundException($"Group(s) not found: {string.Join(", ", missing)}.");
 
+            foreach (var groupId in autoFillGroupIds)
+                await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+
+            var linkedGroupIds = await db.GroupSubjects
+                .Where(gs => gs.SubjectId == request.SubjectId && autoFillGroupIds.Contains(gs.GroupId))
+                .Select(gs => gs.GroupId)
+                .ToListAsync(cancellationToken);
+            var unrelated = autoFillGroupIds.Except(linkedGroupIds).ToList();
+            if (unrelated.Count > 0)
+                throw new ConflictException(
+                    $"Group(s) are not linked to subject {request.SubjectId}: {string.Join(", ", unrelated)}.",
+                    "queue.autofill_group_not_enrolled",
+                    new Dictionary<string, object?> { ["subjectId"] = request.SubjectId, ["groupIds"] = string.Join(",", unrelated) });
+
             // Только подтверждённые студенты выбранных групп.
             var studentIds = await db.Students
                 .Where(s => s.IsActive && s.GroupId != null && autoFillGroupIds.Contains(s.GroupId.Value))
@@ -185,10 +201,12 @@ public class QueueService(
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
 
-    public async Task DeleteEventAsync(int eventId, CancellationToken cancellationToken = default)
+    public async Task DeleteEventAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
     {
         var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
 
         db.QueueEvents.Remove(queueEvent);
         await db.SaveChangesAsync(cancellationToken);
@@ -228,12 +246,15 @@ public class QueueService(
         }
         catch (DbUpdateException)
         {
-            throw new ConflictException("Student is already in the queue.");
+            var duplicate = await db.QueueEntries.AsNoTracking()
+                .AnyAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken);
+            if (duplicate)
+                throw new ConflictException("Student is already in the queue.", "queue.already_joined");
+            throw;
         }
 
-        await queueNotifier.QueueEntryUpdatedAsync(
-            new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Waiting, null),
-            cancellationToken);
+        await NotifyBestEffortAsync(
+            new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Waiting, null), cancellationToken);
     }
 
     public async Task UpdateParticipantStatusAsync(
@@ -242,6 +263,7 @@ public class QueueService(
     {
         var entry = await db.QueueEntries
             .Include(qu => qu.QueueEvent)
+            .Include(qu => qu.Student)
             .FirstOrDefaultAsync(qu => qu.QueueEventId == eventId && qu.StudentId == studentId, cancellationToken)
             ?? throw new NotFoundException("Student not found in this queue.");
 
@@ -249,13 +271,26 @@ public class QueueService(
                     ?? throw new ForbiddenException("Admin profile not found.");
 
         await accessService.EnsureSubjectAllowedAsync(adminId, entry.QueueEvent.SubjectId, cancellationToken);
+        if (entry.Student.GroupId is int groupId)
+            await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
 
         entry.Status = status;
         entry.CurrentAdminId = admin.Id;
         await db.SaveChangesAsync(cancellationToken);
 
-        await queueNotifier.QueueEntryUpdatedAsync(
-            new QueueEntryUpdateDto(eventId, studentId, status, admin.FullName),
-            cancellationToken);
+        await NotifyBestEffortAsync(
+            new QueueEntryUpdateDto(eventId, studentId, status, admin.FullName), cancellationToken);
+    }
+
+    private async Task NotifyBestEffortAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await queueNotifier.QueueEntryUpdatedAsync(update, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Queue change committed, but notification failed for event {EventId}.", update.EventId);
+        }
     }
 }

@@ -14,7 +14,7 @@ public class ResultsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : Api
     public async Task<byte[]> ExportXlsxAsync(int subjectId, CancellationToken ct = default)
     {
         using var response = await Http.GetAsync($"api/results/subjects/{subjectId}/export", ct);
-        await response.EnsureSuccessAsync(loc);
+        await response.EnsureSuccessAsync(Loc);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 }

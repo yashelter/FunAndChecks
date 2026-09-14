@@ -47,7 +47,7 @@ public class SubjectsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int subjectId, CancellationToken cancellationToken)
     {
-        await subjectService.DeleteAsync(subjectId, cancellationToken);
+        await subjectService.DeleteAsync(User.GetUserId(), subjectId, cancellationToken);
         return NoContent();
     }
 
@@ -68,7 +68,7 @@ public class SubjectsController(
     [HttpGet("{subjectId:int}/students")]
     [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<StudentDetailsDto>>> GetStudents(int subjectId, CancellationToken cancellationToken) =>
-        Ok(await studentService.GetStudentsBySubjectAsync(subjectId, cancellationToken));
+        Ok(await studentService.GetStudentsBySubjectAsync(User.GetUserId(), subjectId, cancellationToken));
 
     /// <summary>Оценочные колонки предмета (билет, курсовая и т.п.).</summary>
     [HttpGet("{subjectId:int}/grade-components")]

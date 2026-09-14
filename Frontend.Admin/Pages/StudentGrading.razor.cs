@@ -11,7 +11,7 @@ namespace Frontend.Admin.Pages;
 public partial class StudentGrading
 {
     [Inject] private MeApi Me { get; set; } = null!;
-    [Inject] private StudentsApi Students { get; set; } = null!;
+    [Inject] private SubjectsApi Subjects { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
@@ -27,7 +27,7 @@ public partial class StudentGrading
         try
         {
             _subjects = await Me.GetVisibleSubjectsAsync();
-            await SearchAsync(); // пустой запрос → весь список по алфавиту
+            _results = [];
         }
         catch (ApiException ex)
         {
@@ -40,7 +40,17 @@ public partial class StudentGrading
         _searching = true;
         try
         {
-            _results = await Students.SearchAsync(_query.Trim());
+            if (_subjectId is null)
+            {
+                _results = [];
+                return;
+            }
+
+            var students = await Subjects.GetStudentsAsync(_subjectId.Value);
+            var query = _query.Trim();
+            _results = string.IsNullOrEmpty(query)
+                ? students
+                : students.Where(s => s.FullName.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
         }
         catch (ApiException ex)
         {
@@ -90,7 +100,7 @@ public partial class StudentGrading
             new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
 
         var result = await dialog.Result;
-        if (!result.Canceled)
+        if (result is { Canceled: false })
         {
             await SearchAsync();
             Snackbar.Add(Loc["StudentGrading_ProfileUpdated"], Severity.Success);

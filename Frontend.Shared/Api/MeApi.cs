@@ -10,6 +10,9 @@ public class MeApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClien
     public Task<MeDto> GetMeAsync(CancellationToken ct = default) =>
         GetAsync<MeDto>("api/me", ct);
 
+    public Task SetPreferredCultureAsync(string culture, CancellationToken ct = default) =>
+        PutAsync("api/account/preferences/culture", new SetPreferredCultureRequest(culture), ct);
+
     public Task<List<SubjectDto>> GetMySubjectsAsync(CancellationToken ct = default) =>
         GetAsync<List<SubjectDto>>("api/me/subjects", ct);
 

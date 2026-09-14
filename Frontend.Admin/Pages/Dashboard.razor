@@ -6,7 +6,7 @@
 
 <MudText Typo="Typo.h4" GutterBottom="true">@Loc["Dashboard_Title"]</MudText>
 
-<MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="my-4">
+<MudGrid Justify="Justify.SpaceBetween" Class="my-4" Style="align-items:center;">
     <MudItem xs="12" sm="6" md="4">
         <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
                    Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
@@ -31,7 +31,7 @@
 else if (_results is not null)
 {
     <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
-                 Sortable="true" Filterable="true" Dense="true" Hover="true">
+                 Filterable="true" Dense="true" Hover="true">
         <Columns>
             <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)">
                 <CellTemplate>

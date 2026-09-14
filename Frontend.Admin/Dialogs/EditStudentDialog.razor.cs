@@ -2,16 +2,18 @@ using Frontend.Shared.Api;
 using Frontend.Shared.Components;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Dialogs;
 
-public partial class EditStudentDialog : ComponentBase
+public partial class EditStudentDialog : ComponentBase, IDisposable
 {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
     [Inject] IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] UnsavedChangesTracker Dirty { get; set; } = null!;
     [Parameter] public Guid StudentId { get; set; }
     [Parameter] public StudentDetailsDto CurrentDetails { get; set; } = null!;
 
@@ -19,9 +21,11 @@ public partial class EditStudentDialog : ComponentBase
     private EditStudentModel _model = new();
     private bool _busy;
     private List<GroupDto> _groups = new();
+    private UnsavedChangesTracker.Registration _edits = null!;
 
     protected override async Task OnInitializedAsync()
     {
+        _edits = Dirty.Register();
         _model.FirstName = CurrentDetails.FirstName;
         _model.LastName = CurrentDetails.LastName;
         _model.Email = CurrentDetails.Email ?? "";
@@ -46,6 +50,7 @@ public partial class EditStudentDialog : ComponentBase
             );
 
             await Students.UpdateAccountAsync(StudentId, request);
+            _edits.MarkClean();
             MudDialog.Close(DialogResult.Ok(true));
         }
         catch (ApiException ex)
@@ -60,7 +65,13 @@ public partial class EditStudentDialog : ComponentBase
         }
     }
 
-    private void Cancel() => MudDialog.Cancel();
+    private void Cancel()
+    {
+        _edits.MarkClean();
+        MudDialog.Cancel();
+    }
+
+    public void Dispose() => _edits?.Dispose();
 
     private class EditStudentModel
     {

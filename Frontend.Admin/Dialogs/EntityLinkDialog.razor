@@ -1,3 +1,5 @@
+@implements IDisposable
+
 <MudDialog>
     <TitleContent>
         <MudText Typo="Typo.h6">@Title</MudText>
@@ -29,21 +31,39 @@
 
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private Frontend.Shared.Services.UnsavedChangesTracker Dirty { get; set; } = null!;
 
     [Parameter] public string Title { get; set; } = "";
     [Parameter] public List<LinkOption> Options { get; set; } = [];
     [Parameter] public IReadOnlyCollection<int> SelectedIds { get; set; } = [];
 
     private HashSet<int> _selected = [];
+    private Frontend.Shared.Services.UnsavedChangesTracker.Registration _edits = null!;
 
-    protected override void OnInitialized() => _selected = [.. SelectedIds];
+    protected override void OnInitialized()
+    {
+        _edits = Dirty.Register();
+        _selected = [.. SelectedIds];
+    }
 
     private void Toggle(int id, bool on)
     {
         if (on) _selected.Add(id);
         else _selected.Remove(id);
+        _edits.MarkDirty();
     }
 
-    private void Save() => MudDialog.Close(DialogResult.Ok(_selected));
-    private void Cancel() => MudDialog.Cancel();
+    private void Save()
+    {
+        _edits.MarkClean();
+        MudDialog.Close(DialogResult.Ok(_selected));
+    }
+
+    private void Cancel()
+    {
+        _edits.MarkClean();
+        MudDialog.Cancel();
+    }
+
+    public void Dispose() => _edits?.Dispose();
 }

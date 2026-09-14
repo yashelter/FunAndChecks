@@ -7,7 +7,7 @@ namespace Frontend.Shared.Services;
 /// Подставляет Bearer-токен в запросы к API. Если access-токен истёк (или вот-вот истечёт),
 /// заранее обновляет его по refresh-токену — бесшовно для пользователя.
 /// </summary>
-public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher) : DelegatingHandler
+public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher, CultureService culture) : DelegatingHandler
 {
     private static readonly TimeSpan ExpiryLeeway = TimeSpan.FromSeconds(30);
 
@@ -24,6 +24,9 @@ public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher) 
 
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        request.Headers.AcceptLanguage.Clear();
+        request.Headers.AcceptLanguage.ParseAdd(culture.CurrentCulture);
 
         return await base.SendAsync(request, cancellationToken);
     }

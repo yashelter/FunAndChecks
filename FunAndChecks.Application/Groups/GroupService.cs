@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Students;
@@ -11,6 +12,7 @@ public class GroupService(
     IApplicationDbContext db,
     IIdentityService identityService,
     IResultsCacheService cache,
+    IAdminAccessService accessService,
     IValidator<CreateGroupRequest> createGroupValidator,
     IValidator<UpdateGroupRequest> updateGroupValidator)
     : IGroupService
@@ -56,8 +58,9 @@ public class GroupService(
         return new GroupDto(group.Id, group.Name);
     }
 
-    public async Task<GroupDto> UpdateAsync(int groupId, UpdateGroupRequest request, CancellationToken cancellationToken = default)
+    public async Task<GroupDto> UpdateAsync(Guid adminId, int groupId, UpdateGroupRequest request, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
         await updateGroupValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var group = await db.Groups.FindAsync([groupId], cancellationToken)
@@ -72,8 +75,9 @@ public class GroupService(
         return new GroupDto(group.Id, group.Name);
     }
 
-    public async Task DeleteAsync(int groupId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
         var group = await db.Groups.FindAsync([groupId], cancellationToken)
                     ?? throw new NotFoundException($"Group with ID {groupId} not found.");
 
@@ -83,8 +87,10 @@ public class GroupService(
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task LinkSubjectAsync(int groupId, int subjectId, CancellationToken cancellationToken = default)
+    public async Task LinkSubjectAsync(Guid adminId, int groupId, int subjectId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         var groupExists = await db.Groups.AnyAsync(g => g.Id == groupId, cancellationToken);
         if (!groupExists)
             throw new NotFoundException($"Group with ID {groupId} not found.");
@@ -104,8 +110,10 @@ public class GroupService(
         cache.Invalidate(subjectId); // изменился состав студентов предмета
     }
 
-    public async Task UnlinkSubjectAsync(int groupId, int subjectId, CancellationToken cancellationToken = default)
+    public async Task UnlinkSubjectAsync(Guid adminId, int groupId, int subjectId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         var link = await db.GroupSubjects
             .FirstOrDefaultAsync(gs => gs.GroupId == groupId && gs.SubjectId == subjectId, cancellationToken);
 
@@ -118,11 +126,25 @@ public class GroupService(
         cache.Invalidate(subjectId); // изменился состав студентов предмета
     }
 
-    public Task<List<int>> GetSubjectIdsAsync(int groupId, CancellationToken cancellationToken = default) =>
-        db.GroupSubjects.Where(gs => gs.GroupId == groupId).Select(gs => gs.SubjectId).ToListAsync(cancellationToken);
+    public async Task<List<int>> GetSubjectIdsAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
+    {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+        return await db.GroupSubjects
+            .Where(gs => gs.GroupId == groupId)
+            .Where(gs => !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && (a.IsRestricted || a.IsHidden)))
+            .Select(gs => gs.SubjectId)
+            .ToListAsync(cancellationToken);
+    }
 
-    public Task<List<int>> GetGroupIdsForSubjectAsync(int subjectId, CancellationToken cancellationToken = default) =>
-        db.GroupSubjects.Where(gs => gs.SubjectId == subjectId).Select(gs => gs.GroupId).ToListAsync(cancellationToken);
+    public async Task<List<int>> GetGroupIdsForSubjectAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
+    {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+        return await db.GroupSubjects
+            .Where(gs => gs.SubjectId == subjectId)
+            .Where(gs => !db.AdminGroupAccesses.Any(a => a.AdminId == adminId && a.GroupId == gs.GroupId && (a.IsRestricted || a.IsHidden)))
+            .Select(gs => gs.GroupId)
+            .ToListAsync(cancellationToken);
+    }
 
     public Task<List<StudentDto>> GetStudentsAsync(int groupId, CancellationToken cancellationToken = default) =>
         db.Students
@@ -131,8 +153,9 @@ public class GroupService(
             .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.Color))
             .ToListAsync(cancellationToken);
 
-    public async Task<List<StudentDetailsDto>> GetStudentsDetailedAsync(int groupId, CancellationToken cancellationToken = default)
+    public async Task<List<StudentDetailsDto>> GetStudentsDetailedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
         var students = await db.Students
             .Where(s => s.GroupId == groupId && s.IsActive)
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)

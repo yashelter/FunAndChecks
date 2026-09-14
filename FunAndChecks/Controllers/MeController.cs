@@ -29,6 +29,15 @@ public class MeController(
     public async Task<ActionResult<MeDto>> GetMe(CancellationToken cancellationToken) =>
         Ok(await studentService.GetMeAsync(User.GetUserId(), cancellationToken));
 
+    [HttpPut("preferences/culture")]
+    [HttpPut("/api/account/preferences/culture")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetPreferredCulture(SetPreferredCultureRequest request, CancellationToken cancellationToken)
+    {
+        await studentService.SetPreferredCultureAsync(User.GetUserId(), request.Culture, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Предметы, доступные группе текущего студента.</summary>
     [HttpGet("subjects")]
     public async Task<ActionResult<List<SubjectDto>>> GetMySubjects(CancellationToken cancellationToken) =>

@@ -13,7 +13,11 @@ public interface IAdminAccessService
     /// <summary>Кидает ForbiddenException, если предмет глобально запрещён админу.</summary>
     Task EnsureSubjectAllowedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Кидает ForbiddenException, если группа глобально запрещена админу.</summary>
+    Task EnsureGroupAllowedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default);
+
     Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
+    Task<bool> IsGroupRestrictedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default);
 
     // --- Глобальные ограничения (только супер-админ) ---
     Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default);

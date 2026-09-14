@@ -29,7 +29,7 @@ JWT-аутентификация, SignalR для realtime, собственна�
 ## Технологии
 
 - **.NET 10**, ASP.NET Core, C# 14
-- **PostgreSQL** + EF Core 9 (Npgsql)
+- **PostgreSQL** + EF Core 10 (Npgsql)
 - **ASP.NET Core Identity** — учётные записи, роли, токены (только в Infrastructure)
 - **JWT** (HS512) — bearer-токены
 - **SignalR** — realtime обновления очередей и результатов

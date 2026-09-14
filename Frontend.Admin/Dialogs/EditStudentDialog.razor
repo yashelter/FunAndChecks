@@ -6,7 +6,7 @@
 
 <MudDialog>
     <DialogContent>
-        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync" @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
             <ServerValidator @ref="_serverValidator" />
             <MudStack Spacing="3">
                 <MudTextField @bind-Value="_model.FirstName" For="@(() => _model.FirstName)" Label="@Loc["EditStudent_FirstNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_FirstNameRequired"]" />

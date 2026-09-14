@@ -75,8 +75,9 @@ public class SubjectService(
         return new SubjectDto(subject.Id, subject.Name);
     }
 
-    public async Task DeleteAsync(int subjectId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         var subject = await db.Subjects.FindAsync([subjectId], cancellationToken)
                       ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
 
@@ -168,10 +169,12 @@ public class SubjectService(
         return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
     }
 
-    public async Task DeleteTaskAsync(int taskId, CancellationToken cancellationToken = default)
+    public async Task DeleteTaskAsync(Guid adminId, int taskId, CancellationToken cancellationToken = default)
     {
         var task = await db.Tasks.FindAsync([taskId], cancellationToken)
                    ?? throw new NotFoundException($"Task with ID {taskId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, task.SubjectId, cancellationToken);
 
         var subjectId = task.SubjectId;
         db.Tasks.Remove(task);

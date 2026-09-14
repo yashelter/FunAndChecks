@@ -18,11 +18,14 @@ public class AuthServiceTests : IDisposable
     private readonly ITokenService _token = Substitute.For<ITokenService>();
     private readonly IRefreshTokenService _refresh = Substitute.For<IRefreshTokenService>();
     private readonly IEmailSender _email = Substitute.For<IEmailSender>();
+    private readonly IEmailTemplateRenderer _templates = Substitute.For<IEmailTemplateRenderer>();
     private readonly IEmailThrottle _throttle = Substitute.For<IEmailThrottle>();
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     public AuthServiceTests()
     {
+        _templates.Render(Arg.Any<EmailTemplateKind>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(call => new EmailTemplate("subject", $"body {call.ArgAt<string?>(2)}"));
         // По умолчанию троттлинг пропускает.
         _throttle.TryAcquire(Arg.Any<string>(), out Arg.Any<TimeSpan>())
             .Returns(ci => { ci[1] = TimeSpan.Zero; return true; });
@@ -31,7 +34,7 @@ public class AuthServiceTests : IDisposable
     }
 
     private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _token, _refresh, _email, _throttle, _cache,
+        new(ctx, _identity, _token, _refresh, _email, _templates, _throttle, _cache,
             new RegisterStudentRequestValidator(),
             new ResetPasswordRequestValidator(),
             NullLogger<AuthService>.Instance);

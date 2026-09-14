@@ -10,7 +10,7 @@
     </MudText>
 
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
                       Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
         <MudTextField @bind-Value="_code" Label="@Loc["ConfirmEmail_CodeLabel"]"
                       Required="true" RequiredError="@Loc["ConfirmEmail_CodeRequired"]" />

@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ThemeService>();
         services.AddScoped<FileDownloader>();
         services.AddScoped<CultureService>();
+        services.AddScoped<UnsavedChangesTracker>();
 
         services.AddAuthorizationCore();
         services.AddScoped<JwtAuthenticationStateProvider>();

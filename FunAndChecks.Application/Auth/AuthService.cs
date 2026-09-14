@@ -5,6 +5,7 @@ using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace FunAndChecks.Application.Auth;
 
@@ -14,6 +15,7 @@ public class AuthService(
     ITokenService tokenService,
     IRefreshTokenService refreshTokenService,
     IEmailSender emailSender,
+    IEmailTemplateRenderer emailTemplates,
     IEmailThrottle emailThrottle,
     IResultsCacheService resultsCacheService,
     IValidator<RegisterStudentRequest> registerValidator,
@@ -36,10 +38,12 @@ public class AuthService(
         {
             if (existing.EmailConfirmed)
             {
+                var template = emailTemplates.Render(EmailTemplateKind.ExistingAccount,
+                    await GetRecipientCultureAsync(existing.Id));
                 await emailSender.SendAsync(
                     request.Email,
-                    EmailTemplates.ConfirmationSubject,
-                    "Someone tried to register an account with this email, but it already exists. If this wasn't you, please ignore this email.",
+                    template.Subject,
+                    template.HtmlBody,
                     cancellationToken);
                 return Guid.Empty;
             }
@@ -64,6 +68,7 @@ public class AuthService(
 
         try
         {
+            await identityService.SetPreferredCultureAsync(studentId, CurrentSupportedCulture());
             db.Students.Add(new Student
             {
                 Id = studentId,
@@ -123,19 +128,18 @@ public class AuthService(
 
     public async Task ResendConfirmationAsync(ResendConfirmationRequest request, CancellationToken cancellationToken = default)
     {
+        // Apply the same observable throttling behavior even when the account does not exist.
+        EnsureEmailNotThrottled(request.Email);
         var code = await identityService.GenerateEmailConfirmationCodeAsync(request.Email);
         
         // Намеренно не сообщаем, существует ли такая почта.
         if (code == null)
             return;
 
-        EnsureEmailNotThrottled(request.Email);
-
-        await emailSender.SendAsync(
-            request.Email,
-            EmailTemplates.ConfirmationSubject,
-            EmailTemplates.Confirmation(code),
-            cancellationToken);
+        var account = await identityService.FindByEmailAsync(request.Email);
+        var template = emailTemplates.Render(EmailTemplateKind.Confirmation,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(request.Email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -174,6 +178,8 @@ public class AuthService(
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
     {
+        // Throttle before lookup so 202/429 cannot be used to enumerate accounts.
+        EnsureEmailNotThrottled(request.Email);
         var code = await identityService.GeneratePasswordResetCodeAsync(request.Email);
 
         // Намеренно не сообщаем, существует ли такая почта.
@@ -183,13 +189,10 @@ public class AuthService(
             return;
         }
 
-        EnsureEmailNotThrottled(request.Email);
-
-        await emailSender.SendAsync(
-            request.Email,
-            EmailTemplates.PasswordResetSubject,
-            EmailTemplates.PasswordReset(code),
-            cancellationToken);
+        var account = await identityService.FindByEmailAsync(request.Email);
+        var template = emailTemplates.Render(EmailTemplateKind.PasswordReset,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(request.Email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
@@ -212,18 +215,19 @@ public class AuthService(
         if (code == null)
             return; // почты нет или она уже подтверждена
 
-        await emailSender.SendAsync(
-            email,
-            EmailTemplates.ConfirmationSubject,
-            EmailTemplates.Confirmation(code),
-            cancellationToken);
+        var account = await identityService.FindByEmailAsync(email);
+        var template = emailTemplates.Render(EmailTemplateKind.Confirmation,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     private void EnsureEmailNotThrottled(string email)
     {
         if (!emailThrottle.TryAcquire(email, out var retryAfter))
             throw new RateLimitException(
-                $"Письмо можно отправлять не чаще одного раза в минуту. Повторите через {Math.Ceiling(retryAfter.TotalSeconds)} с.");
+                $"Email can be sent once per minute. Retry in {Math.Ceiling(retryAfter.TotalSeconds)} seconds.",
+                "email.rate_limited",
+                new Dictionary<string, object?> { ["retryAfterSeconds"] = Math.Ceiling(retryAfter.TotalSeconds) });
     }
 
     private async Task DeleteAccountAndProfileAsync(Guid id, CancellationToken cancellationToken)
@@ -237,4 +241,15 @@ public class AuthService(
 
         await identityService.DeleteAccountAsync(id, cancellationToken);
     }
+
+    private async Task<string> GetRecipientCultureAsync(Guid userId)
+    {
+        var preferred = await identityService.GetPreferredCultureAsync(userId);
+        return preferred is "en-US" or "ru-RU" ? preferred : CurrentSupportedCulture();
+    }
+
+    private static string CurrentSupportedCulture() => NormalizeCulture(CultureInfo.CurrentUICulture.Name);
+
+    private static string NormalizeCulture(string? culture) =>
+        string.Equals(culture, "ru-RU", StringComparison.OrdinalIgnoreCase) ? "ru-RU" : "en-US";
 }

@@ -1,13 +1,14 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Dialogs;
 
-public partial class StudentInteractionDialog
+public partial class StudentInteractionDialog : IDisposable
 {
     private const string GreenColor = "#43A047";
     private const string BrownColor = "#8D6E63";
@@ -29,6 +30,7 @@ public partial class StudentInteractionDialog
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private UnsavedChangesTracker Dirty { get; set; } = null!;
 
     private List<TaskWithStatusDto> _tasks = [];
     private List<GradeComponentDto> _components = [];
@@ -39,6 +41,7 @@ public partial class StudentInteractionDialog
     private bool _loadingTasks = true;
     private string? _pickerColor;
     private MudBlazor.Utilities.MudColor? _pickerMudColor;
+    private UnsavedChangesTracker.Registration _edits = null!;
 
     private void SetPickerColor(string? hex)
     {
@@ -53,6 +56,7 @@ public partial class StudentInteractionDialog
     }
     protected override async Task OnInitializedAsync()
     {
+        _edits = Dirty.Register();
         await LoadTasksAsync();
         await LoadGradesAsync();
 
@@ -133,6 +137,7 @@ public partial class StudentInteractionDialog
         {
             await Queues.UpdateStatusAsync(EventId!.Value, StudentId, new UpdateQueueStatusRequest(status));
             Snackbar.Add(Loc["Dialog_StatusUpdated"], Severity.Success);
+            _edits.MarkClean();
             MudDialog.Close(DialogResult.Ok(true));
         }
         catch (ApiException ex)
@@ -155,6 +160,7 @@ public partial class StudentInteractionDialog
         {
             await Submissions.CreateAsync(new CreateSubmissionRequest(StudentId, taskId, status, comment));
             Snackbar.Add(Loc["Dialog_TaskStatusUpdated"], Severity.Success);
+            _edits.MarkClean();
             await LoadTasksAsync();
             if (_openHistory.Contains(taskId))
                 await LoadHistoryAsync(taskId);
@@ -172,6 +178,7 @@ public partial class StudentInteractionDialog
             await Grades.SetGradeAsync(componentId, StudentId, new SetGradeRequest(_gradeInputs[componentId], null));
             _currentGrades[componentId] = _gradeInputs[componentId];
             Snackbar.Add(Loc["Dialog_GradeSaved"], Severity.Success);
+            _edits.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -185,6 +192,7 @@ public partial class StudentInteractionDialog
         {
             await Students.SetColorAsync(StudentId, new SetStudentColorRequest(color));
             Snackbar.Add(color is null ? Loc["Dialog_FillRemoved"] : Loc["Dialog_ColorApplied"], Severity.Success);
+            _edits.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -192,7 +200,13 @@ public partial class StudentInteractionDialog
         }
     }
 
-    private void Cancel() => MudDialog.Close(DialogResult.Cancel());
+    private void Cancel()
+    {
+        _edits.MarkClean();
+        MudDialog.Close(DialogResult.Cancel());
+    }
+
+    public void Dispose() => _edits?.Dispose();
 
     private string StatusText(SubmissionStatus status) => status switch
     {

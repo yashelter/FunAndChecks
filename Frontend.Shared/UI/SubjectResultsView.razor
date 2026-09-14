@@ -5,7 +5,7 @@
 @if (Results is not null)
 {
     <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true"
-                 Sortable="true" Filterable="true" Hover="true">
+                 Filterable="true" Hover="true">
         <Columns>
             <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)">
                 <CellTemplate>

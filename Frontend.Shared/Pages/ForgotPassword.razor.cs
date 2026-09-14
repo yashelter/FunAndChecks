@@ -19,7 +19,7 @@ public partial class ForgotPassword
 
     private async Task SubmitAsync()
     {
-        await _form.Validate();
+        await _form.ValidateAsync();
         if (!_form.IsValid)
             return;
 

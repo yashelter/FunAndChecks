@@ -25,10 +25,13 @@ public record MeDto(
     string? Email,
     string? GroupName,
     string? Color,
-    bool IsAdmin)
+    bool IsAdmin,
+    string PreferredCulture)
 {
     public string FullName => $"{FirstName} {LastName}";
 }
+
+public record SetPreferredCultureRequest(string Culture);
 
 public record SetStudentColorRequest(string? Color);
 

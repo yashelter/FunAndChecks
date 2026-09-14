@@ -9,13 +9,13 @@ namespace Frontend.Shared.Api;
 public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings> loc)
 {
     protected HttpClient Http { get; } = http;
-    private readonly IStringLocalizer<AppStrings> _loc = loc;
+    protected IStringLocalizer<AppStrings> Loc { get; } = loc;
 
     protected Task<T> GetAsync<T>(string url, CancellationToken ct = default) =>
         ExecuteAsync(async () =>
         {
             var response = await Http.GetAsync(url, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
             return (await response.Content.ReadFromJsonAsync<T>(ct))!;
         });
 
@@ -23,7 +23,7 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         ExecuteAsync(async () =>
         {
             var response = await Http.PostAsJsonAsync(url, body, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
             return (await response.Content.ReadFromJsonAsync<TRes>(ct))!;
         });
 
@@ -33,14 +33,14 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
             using var response = body is null
                 ? await Http.PostAsync(url, content: null, ct)
                 : await Http.PostAsJsonAsync(url, body, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
         });
 
     protected Task<TRes> PutAsync<TRes>(string url, object body, CancellationToken ct = default) =>
         ExecuteAsync(async () =>
         {
             var response = await Http.PutAsJsonAsync(url, body, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
             return (await response.Content.ReadFromJsonAsync<TRes>(ct))!;
         });
 
@@ -50,14 +50,14 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
             using var response = body is null
                 ? await Http.PutAsync(url, content: null, ct)
                 : await Http.PutAsJsonAsync(url, body, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
         });
 
     protected Task DeleteAsync(string url, CancellationToken ct = default) =>
         ExecuteAsync(async () =>
         {
             using var response = await Http.DeleteAsync(url, ct);
-            await response.EnsureSuccessAsync(_loc);
+            await response.EnsureSuccessAsync(Loc);
         });
 
     private async Task<T> ExecuteAsync<T>(Func<Task<T>> action)
@@ -72,11 +72,11 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         }
         catch (HttpRequestException)
         {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, _loc["Common_NetworkError"].Value ?? _loc["Common_NetworkError"]);
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
         }
         catch (Exception ex)
         {
-            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(_loc["Common_UnknownError"].Value, ex.Message));
+            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(Loc["Common_UnknownError"].Value, ex.Message));
         }
     }
 
@@ -92,11 +92,11 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         }
         catch (HttpRequestException)
         {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, _loc["Common_NetworkError"].Value ?? _loc["Common_NetworkError"]);
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
         }
         catch (Exception ex)
         {
-            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(_loc["Common_UnknownError"].Value, ex.Message));
+            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(Loc["Common_UnknownError"].Value, ex.Message));
         }
     }
 }

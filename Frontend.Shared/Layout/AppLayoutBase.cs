@@ -6,7 +6,7 @@ namespace Frontend.Shared.Layout;
 
 /// <summary>
 /// Базовый класс для AdminLayout и StudentLayout.
-/// Содержит общий lifecycle: подписки на ThemeService / CultureService,
+/// Содержит общий lifecycle темы,
 /// инициализацию темы, переключение темы, выход из аккаунта.
 /// Устраняет дублирование между двумя layout'ами.
 /// </summary>
@@ -14,6 +14,7 @@ public abstract class AppLayoutBase : LayoutComponentBase, IDisposable
 {
     [Inject] protected ThemeService Theme { get; set; } = null!;
     [Inject] protected CultureService Culture { get; set; } = null!;
+    [Inject] protected UnsavedChangesTracker Dirty { get; set; } = null!;
     [Inject] protected AuthService Auth { get; set; } = null!;
     [Inject] protected JwtAuthenticationStateProvider AuthState { get; set; } = null!;
     [Inject] protected NavigationManager Nav { get; set; } = null!;
@@ -21,7 +22,7 @@ public abstract class AppLayoutBase : LayoutComponentBase, IDisposable
     protected override void OnInitialized()
     {
         Theme.OnThemeChanged += Refresh;
-        Culture.OnCultureChanged += Refresh;
+        Nav.LocationChanged += OnLocationChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -41,9 +42,12 @@ public abstract class AppLayoutBase : LayoutComponentBase, IDisposable
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => Dirty.ClearAll();
+
     public void Dispose()
     {
         Theme.OnThemeChanged -= Refresh;
-        Culture.OnCultureChanged -= Refresh;
+        Nav.LocationChanged -= OnLocationChanged;
+        Dirty.ClearAll();
     }
 }

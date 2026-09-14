@@ -7,7 +7,7 @@
     <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Login_Title"]</MudText>
 
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
+        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
                       Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
         <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
                       Required="true" RequiredError="@Loc["Common_PasswordRequired"]"

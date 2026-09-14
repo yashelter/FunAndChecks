@@ -1,4 +1,4 @@
-<MudDialog>
+<MudDialog @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
     <TitleContent>
         <MudText Typo="Typo.h6">@StudentName@(string.IsNullOrEmpty(GroupName) ? "" : $" ({GroupName})")</MudText>
     </TitleContent>
@@ -52,7 +52,7 @@
                                             <div class="mb-1">
                                                 <MudChip T="string" Size="Size.Small" Color="@StatusColor(entry.Status)">@StatusText(entry.Status)</MudChip>
                                                 <MudText Typo="Typo.caption" Class="d-inline">
-                                                    @entry.Admin.FullName · @entry.SubmittedAt.ToLocalTime().ToString("dd.MM HH:mm")
+                                                    @entry.Admin.FullName · @entry.SubmittedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
                                                 </MudText>
                                                 @if (!string.IsNullOrWhiteSpace(entry.Comment))
                                                 {
