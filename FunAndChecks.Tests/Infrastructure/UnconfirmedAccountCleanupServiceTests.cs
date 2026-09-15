@@ -34,6 +34,12 @@ public class UnconfirmedAccountCleanupServiceTests : IDisposable
         var oldUnconfirmed = ctx.Student(group, "OldUnconfirmed");
         oldUnconfirmed.IsActive = false;
         oldUnconfirmed.CreatedAt = DateTime.UtcNow.AddHours(-25);
+        ctx.Users.Local.Single(u => u.Id == oldUnconfirmed.Id).EmailConfirmed = false;
+
+        // Подтверждённый, но не активированный аккаунт (сбой между ConfirmEmail и IsActive=true) — удалять нельзя.
+        var oldConfirmedInactive = ctx.Student(group, "OldConfirmedInactive");
+        oldConfirmedInactive.IsActive = false;
+        oldConfirmedInactive.CreatedAt = DateTime.UtcNow.AddHours(-25);
 
         await ctx.SaveChangesAsync();
 
@@ -60,6 +66,7 @@ public class UnconfirmedAccountCleanupServiceTests : IDisposable
         usersAfter.Should().Contain(u => u.Id == confirmedUser.Id);
         usersAfter.Should().Contain(u => u.Id == recentUnconfirmed.Id);
         usersAfter.Should().NotContain(u => u.Id == oldUnconfirmed.Id);
+        usersAfter.Should().Contain(u => u.Id == oldConfirmedInactive.Id);
     }
 
     public void Dispose() => _db.Dispose();

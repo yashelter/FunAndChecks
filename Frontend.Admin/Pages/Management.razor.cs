@@ -113,9 +113,18 @@ public partial class Management
 
     private async Task ReloadQueuesAsync()
     {
-        _queues = (await QueuesApi.GetAllAsync())
-            .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin })
-            .ToList();
+        try
+        {
+            _queues = (await QueuesApi.GetAllAsync())
+                .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin })
+                .ToList();
+        }
+        catch (ApiException ex)
+        {
+            // Вызывается и как after() успешных операций — сбой перечитки не должен
+            // выглядеть ошибкой самой операции.
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     // ----- Очереди -----
@@ -210,11 +219,22 @@ public partial class Management
     private async Task OnTaskSubjectChanged(int? subjectId)
     {
         _taskSubjectId = subjectId;
-        _tasks = subjectId is null
-            ? []
-            : (await Subjects.GetTasksAsync(subjectId.Value))
+        if (subjectId is null)
+        {
+            _tasks = [];
+            return;
+        }
+
+        try
+        {
+            _tasks = (await Subjects.GetTasksAsync(subjectId.Value))
                 .Select(t => new TaskRow { Id = t.Id, Name = t.Name, Description = t.Description, MaxPoints = t.MaxPoints })
                 .ToList();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task CreateTaskAsync()
@@ -240,11 +260,22 @@ public partial class Management
     private async Task OnComponentSubjectChanged(int? subjectId)
     {
         _componentSubjectId = subjectId;
-        _components = subjectId is null
-            ? []
-            : (await Subjects.GetGradeComponentsAsync(subjectId.Value))
+        if (subjectId is null)
+        {
+            _components = [];
+            return;
+        }
+
+        try
+        {
+            _components = (await Subjects.GetGradeComponentsAsync(subjectId.Value))
                 .Select(c => new ComponentRow { Id = c.Id, Name = c.Name, MinPoints = c.MinPoints, MaxPoints = c.MaxPoints })
                 .ToList();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task CreateComponentAsync()
@@ -269,7 +300,17 @@ public partial class Management
     // ----- Доступ (связи группа↔предмет) -----
     private async Task OpenSubjectAccessAsync(SubjectRow subject)
     {
-        var current = await Groups.GetGroupIdsForSubjectAsync(subject.Id);
+        List<int> current;
+        try
+        {
+            current = await Groups.GetGroupIdsForSubjectAsync(subject.Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
         var options = _groups.Select(g => new EntityLinkDialog.LinkOption(g.Id, g.Name)).ToList();
         var selected = await ShowAccessDialogAsync(string.Format(Loc["Management_SubjectAccessTitle"], subject.Name), options, current);
         if (selected is null)
@@ -282,7 +323,17 @@ public partial class Management
 
     private async Task OpenGroupAccessAsync(GroupRow group)
     {
-        var current = await Groups.GetSubjectIdsAsync(group.Id);
+        List<int> current;
+        try
+        {
+            current = await Groups.GetSubjectIdsAsync(group.Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
         var options = _subjects.Select(s => new EntityLinkDialog.LinkOption(s.Id, s.Name)).ToList();
         var selected = await ShowAccessDialogAsync(string.Format(Loc["Management_GroupAccessTitle"], group.Name), options, current);
         if (selected is null)

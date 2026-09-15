@@ -92,6 +92,10 @@ builder.Services.AddAuthentication(options =>
             OnChallenge = async context =>
             {
                 context.HandleResponse();
+                // RFC 9110 §11.6.1: 401 обязан сопровождаться WWW-Authenticate.
+                context.HttpContext.Response.Headers.WWWAuthenticate = context.AuthenticateFailure is null
+                    ? "Bearer"
+                    : "Bearer error=\"invalid_token\"";
                 await ApiProblemDetails.WriteAsync(context.HttpContext, StatusCodes.Status401Unauthorized,
                     "Authentication is required.", "auth.unauthorized");
             },
@@ -112,6 +116,8 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, _) =>
     {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
         await ApiProblemDetails.WriteAsync(context.HttpContext, StatusCodes.Status429TooManyRequests,
             "Too many requests. Try again later.", "rate_limit.exceeded");
     };

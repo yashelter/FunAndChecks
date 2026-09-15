@@ -421,7 +421,13 @@
   <data name="Error_SubjectNameTaken" xml:space="preserve"><value>Предмет с таким названием уже существует.</value></data>
   <data name="Error_TaskNameTaken" xml:space="preserve"><value>Задание с таким названием уже есть в этом предмете.</value></data>
   <data name="Error_EmailRateLimited" xml:space="preserve"><value>Подождите {0} секунд перед повторной отправкой письма.</value></data>
+  <data name="Error_EmailNotConfirmed" xml:space="preserve"><value>Email не подтверждён. Проверьте почту — там код подтверждения.</value></data>
+  <data name="Error_AccountLocked" xml:space="preserve"><value>Аккаунт временно заблокирован из-за слишком частых неудачных попыток. Попробуйте позже.</value></data>
+  <data name="Error_InvalidCredentials" xml:space="preserve"><value>Неверный email или пароль.</value></data>
+  <data name="Error_InvalidResetCode" xml:space="preserve"><value>Код сброса неверен или истёк, либо пароль не соответствует требованиям.</value></data>
+  <data name="Error_InvalidConfirmationCode" xml:space="preserve"><value>Код подтверждения неверен или истёк.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>Этот метод запроса не поддерживается.</value></data>
+  <data name="Error_RequestFailed" xml:space="preserve"><value>Не удалось выполнить запрос.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>Произошла непредвиденная ошибка сервера.</value></data>
   <data name="Error_ValidationRequired" xml:space="preserve"><value>Обязательное поле.</value></data>
   <data name="Error_ValidationEmail" xml:space="preserve"><value>Введите корректный адрес электронной почты.</value></data>

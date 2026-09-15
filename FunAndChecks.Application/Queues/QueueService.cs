@@ -75,9 +75,14 @@ public class QueueService(
         var allSubmissions = await db.Submissions
             .Where(s => studentIds.Contains(s.StudentId)
                         && s.Task.SubjectId == queueEvent.SubjectId)
-            .Where(s => s.SubmittedAt == db.Submissions
+            // Последняя попытка (StudentId, TaskId) с детерминированным тай-брейком по Id,
+            // иначе при равных SubmittedAt в выборку попадают обе и баллы недетерминированы.
+            .Where(s => s.Id == db.Submissions
                 .Where(s2 => s2.StudentId == s.StudentId && s2.TaskId == s.TaskId)
-                .Max(s2 => s2.SubmittedAt))
+                .OrderByDescending(s2 => s2.SubmittedAt)
+                .ThenByDescending(s2 => s2.Id)
+                .Select(s2 => (int?)s2.Id)
+                .FirstOrDefault())
             .Select(s => new { s.StudentId, s.TaskId, s.Status, s.SubmittedAt, s.Task.MaxPoints })
             .ToListAsync(cancellationToken);
 
@@ -147,8 +152,7 @@ public class QueueService(
             if (missing.Count > 0)
                 throw new NotFoundException($"Group(s) not found: {string.Join(", ", missing)}.");
 
-            foreach (var groupId in autoFillGroupIds)
-                await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+            await accessService.EnsureGroupsAllowedAsync(adminId, autoFillGroupIds, cancellationToken);
 
             var linkedGroupIds = await db.GroupSubjects
                 .Where(gs => gs.SubjectId == request.SubjectId && autoFillGroupIds.Contains(gs.GroupId))

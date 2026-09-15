@@ -85,14 +85,23 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
+    // Вызывается в том числе из SignalR-колбэков — любые сбои гасим здесь,
+    // иначе необработанное исключение уронит весь компонент.
     private async Task LoadDetailsAsync(int eventId)
     {
-        _details = await QueuesApi.GetDetailsAsync(eventId);
-        _participants = _details.Participants
-            .OrderBy(p => p.Status)
-            .ThenByDescending(p => p.TotalPoints)
-            .ToList();
-        StateHasChanged();
+        try
+        {
+            _details = await QueuesApi.GetDetailsAsync(eventId);
+            _participants = _details.Participants
+                .OrderBy(p => p.Status)
+                .ThenByDescending(p => p.TotalPoints)
+                .ToList();
+            StateHasChanged();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task InitializeSignalRAsync(int eventId)

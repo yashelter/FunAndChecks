@@ -54,9 +54,13 @@ public class ResultsService(
 
         var allSubmissions = await db.Submissions
             .Where(s => s.Task.SubjectId == subjectId && studentIds.Contains(s.StudentId))
-            .Where(s => s.SubmittedAt == db.Submissions
+            // Последняя попытка (StudentId, TaskId) с детерминированным тай-брейком по Id.
+            .Where(s => s.Id == db.Submissions
                 .Where(s2 => s2.StudentId == s.StudentId && s2.TaskId == s.TaskId)
-                .Max(s2 => s2.SubmittedAt))
+                .OrderByDescending(s2 => s2.SubmittedAt)
+                .ThenByDescending(s2 => s2.Id)
+                .Select(s2 => (int?)s2.Id)
+                .FirstOrDefault())
             .Select(s => new
             {
                 s.StudentId,
@@ -151,6 +155,7 @@ public class ResultsService(
             var taskSubmissions = submissions
                 .Where(s => s.TaskId == task.Id)
                 .OrderByDescending(s => s.SubmittedAt)
+                .ThenByDescending(s => s.Id)
                 .ToList();
 
             var currentStatus = taskSubmissions.FirstOrDefault()?.Status ?? SubmissionStatus.NotSubmitted;

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -7,9 +8,13 @@ using Microsoft.Extensions.Localization;
 namespace Frontend.Shared.Api;
 
 /// <summary>Ошибка обращения к API с человекочитаемым сообщением из ProblemDetails.</summary>
-public class ApiException(HttpStatusCode statusCode, string message, Dictionary<string, string[]>? validationErrors = null) : Exception(message)
+public class ApiException(HttpStatusCode statusCode, string message, string? code = null, Dictionary<string, string[]>? validationErrors = null) : Exception(message)
 {
     public HttpStatusCode StatusCode { get; } = statusCode;
+
+    /// <summary>Машинный код ошибки из ProblemDetails (например, <c>auth.email_not_confirmed</c>).</summary>
+    public string? Code { get; } = code;
+
     public Dictionary<string, string[]> ValidationErrors { get; } = validationErrors ?? new();
 }
 
@@ -43,7 +48,13 @@ public static class HttpResponseExtensions
             ["subjects.name_taken"] = ("Error_SubjectNameTaken", []),
             ["tasks.name_taken"] = ("Error_TaskNameTaken", []),
             ["email.rate_limited"] = ("Error_EmailRateLimited", ["retryAfterSeconds"]),
+            ["auth.email_not_confirmed"] = ("Error_EmailNotConfirmed", []),
+            ["auth.account_locked"] = ("Error_AccountLocked", []),
+            ["auth.invalid_credentials"] = ("Error_InvalidCredentials", []),
+            ["auth.invalid_reset_code"] = ("Error_InvalidResetCode", []),
+            ["auth.invalid_confirmation_code"] = ("Error_InvalidConfirmationCode", []),
             ["rate_limit.exceeded"] = ("Error_TooManyRequests", []),
+            ["request.failed"] = ("Error_RequestFailed", []),
             ["request.method_not_allowed"] = ("Error_MethodNotAllowed", []),
             ["server.internal_error"] = ("Error_Internal", []),
             ["validation.NotEmptyValidator"] = ("Error_ValidationRequired", []),
@@ -66,17 +77,24 @@ public static class HttpResponseExtensions
         if (response.IsSuccessStatusCode)
             return;
 
-        var (message, errors) = await ReadErrorAsync(response, loc);
-        throw new ApiException(response.StatusCode, message, errors);
+        var (message, code, errors) = await ReadErrorAsync(response, loc);
+        throw new ApiException(response.StatusCode, message, code, errors);
     }
 
     public static async Task<string> ReadErrorMessageAsync(this HttpResponseMessage response, IStringLocalizer<AppStrings> loc)
     {
-        var (message, _) = await ReadErrorAsync(response, loc);
+        var (message, _, _) = await ReadErrorAsync(response, loc);
         return message;
     }
 
-    private static async Task<(string Message, Dictionary<string, string[]> Errors)> ReadErrorAsync(
+    /// <summary>Сообщение и машинный код ошибки из ProblemDetails неуспешного ответа.</summary>
+    public static async Task<(string Message, string? Code)> ReadErrorInfoAsync(this HttpResponseMessage response, IStringLocalizer<AppStrings> loc)
+    {
+        var (message, code, _) = await ReadErrorAsync(response, loc);
+        return (message, code);
+    }
+
+    private static async Task<(string Message, string? Code, Dictionary<string, string[]> Errors)> ReadErrorAsync(
         HttpResponseMessage response, IStringLocalizer<AppStrings> loc)
     {
         try
@@ -85,19 +103,19 @@ public static class HttpResponseExtensions
             var errors = LocalizeValidation(problem, loc);
 
             if (!string.IsNullOrWhiteSpace(problem?.Code) && Catalog.ContainsKey(problem.Code))
-                return (Localize(problem.Code, problem.Args, loc), errors);
+                return (Localize(problem.Code, problem.Args, loc), problem!.Code, errors);
 
             if (!string.IsNullOrWhiteSpace(problem?.Detail))
-                return (problem!.Detail!, errors);
+                return (problem!.Detail!, problem?.Code, errors);
             if (!string.IsNullOrWhiteSpace(problem?.Title))
-                return (problem!.Title!, errors);
+                return (problem!.Title!, problem?.Code, errors);
 
-            return (GetDefaultMessage(response.StatusCode, loc), errors);
+            return (GetDefaultMessage(response.StatusCode, loc), problem?.Code, errors);
         }
         catch (JsonException) { /* тело не ProblemDetails */ }
         catch (NotSupportedException) { /* не JSON */ }
 
-        return (GetDefaultMessage(response.StatusCode, loc), new Dictionary<string, string[]>());
+        return (GetDefaultMessage(response.StatusCode, loc), null, new Dictionary<string, string[]>());
     }
 
     private static Dictionary<string, string[]> LocalizeValidation(ProblemDetails? problem, IStringLocalizer<AppStrings> loc)
@@ -128,6 +146,9 @@ public static class HttpResponseExtensions
         JsonValueKind.True => true,
         JsonValueKind.False => false,
         JsonValueKind.String => value.Value.GetString() ?? string.Empty,
+        // Массивы (например, groupIds) склеиваем через запятую, а не теряем.
+        JsonValueKind.Array => string.Join(", ", value.Value.EnumerateArray()
+            .Select(item => Convert.ToString(ReadScalar(item), CultureInfo.InvariantCulture) ?? string.Empty)),
         _ => string.Empty,
     };
 

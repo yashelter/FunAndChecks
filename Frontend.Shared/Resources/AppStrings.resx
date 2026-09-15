@@ -421,7 +421,13 @@
   <data name="Error_SubjectNameTaken" xml:space="preserve"><value>A subject with this name already exists.</value></data>
   <data name="Error_TaskNameTaken" xml:space="preserve"><value>A task with this name already exists in this subject.</value></data>
   <data name="Error_EmailRateLimited" xml:space="preserve"><value>Please wait {0} seconds before requesting another email.</value></data>
+  <data name="Error_EmailNotConfirmed" xml:space="preserve"><value>Email is not confirmed. Check your inbox for the confirmation code.</value></data>
+  <data name="Error_AccountLocked" xml:space="preserve"><value>The account is temporarily locked due to too many failed attempts. Try again later.</value></data>
+  <data name="Error_InvalidCredentials" xml:space="preserve"><value>Invalid email or password.</value></data>
+  <data name="Error_InvalidResetCode" xml:space="preserve"><value>The reset code is invalid or expired, or the password does not meet requirements.</value></data>
+  <data name="Error_InvalidConfirmationCode" xml:space="preserve"><value>The confirmation code is invalid or expired.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>This request method is not allowed.</value></data>
+  <data name="Error_RequestFailed" xml:space="preserve"><value>The request could not be completed.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>An unexpected server error occurred.</value></data>
   <data name="Error_ValidationRequired" xml:space="preserve"><value>This field is required.</value></data>
   <data name="Error_ValidationEmail" xml:space="preserve"><value>Enter a valid email address.</value></data>

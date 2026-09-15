@@ -90,6 +90,26 @@ public class IdentityServiceTests
     }
 
     [Fact]
+    public async Task ResetPasswordAsync_ValidCode_ResetsPassword_AndKillsOldCode()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var identityService = scope.ServiceProvider.GetRequiredService<IIdentityService>();
+        var id = Guid.NewGuid();
+        var email = $"reset-happy-{id:N}@example.com";
+        await identityService.CreateAccountAsync(id, email, "OldPassword123!", [], true);
+        var code = await identityService.GeneratePasswordResetCodeAsync(email);
+        code.Should().MatchRegex("^\\d{6}$");
+
+        var result = await identityService.ResetPasswordAsync(email, code!, "NewPassword123!");
+
+        result.Succeeded.Should().BeTrue();
+        (await identityService.ValidateCredentialsAsync(email, "NewPassword123!")).Status.Should().Be(LoginStatus.Success);
+        // Успешный сброс ротирует SecurityStamp — повторно тот же код уже не сработает.
+        var replay = await identityService.ResetPasswordAsync(email, code!, "AnotherPass123!");
+        replay.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task PreferredCulture_RoundTrips()
     {
         using var scope = _factory.Services.CreateScope();

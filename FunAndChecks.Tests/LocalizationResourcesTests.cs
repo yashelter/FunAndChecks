@@ -44,8 +44,11 @@ public partial class LocalizationResourcesTests
 
     private static void AssertResourceParity(ResourceManager manager)
     {
-        var english = Read(manager, CultureInfo.GetCultureInfo("en-US"));
-        var russian = Read(manager, CultureInfo.GetCultureInfo("ru-RU"));
+        // Нейтральный (en) набор читаем как есть; ru — строго без родительского fallback
+        // (спутник компилируется под культуру "ru", не "ru-RU"), чтобы ключ, забытый
+        // в ru-файле, не подменился молча нейтральным значением.
+        var english = ReadNeutral(manager);
+        var russian = ReadExact(manager, "ru");
 
         russian.Keys.Should().BeEquivalentTo(english.Keys);
         foreach (var key in english.Keys)
@@ -56,8 +59,13 @@ public partial class LocalizationResourcesTests
         }
     }
 
-    private static Dictionary<string, string> Read(ResourceManager manager, CultureInfo culture) =>
-        manager.GetResourceSet(culture, createIfNotExists: true, tryParents: true)!
+    private static Dictionary<string, string> ReadNeutral(ResourceManager manager) =>
+        manager.GetResourceSet(CultureInfo.InvariantCulture, createIfNotExists: true, tryParents: false)!
+            .Cast<DictionaryEntry>()
+            .ToDictionary(entry => (string)entry.Key, entry => (string)entry.Value!);
+
+    private static Dictionary<string, string> ReadExact(ResourceManager manager, string cultureName) =>
+        manager.GetResourceSet(CultureInfo.GetCultureInfo(cultureName), createIfNotExists: true, tryParents: false)!
             .Cast<DictionaryEntry>()
             .ToDictionary(entry => (string)entry.Key, entry => (string)entry.Value!);
 

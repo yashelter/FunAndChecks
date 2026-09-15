@@ -32,38 +32,61 @@ public partial class ConfirmEmail
 
     private async Task SubmitAsync()
     {
-        await _form.ValidateAsync();
-        if (!_form.IsValid)
-            return;
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
 
         _busy = true;
-        _error = null;
-        _info = null;
-
-        var result = await Auth.ConfirmEmailAsync(new ConfirmEmailRequest(_email.Trim(), _code.Trim()));
-        _busy = false;
-
-        if (!result.Success)
+        try
         {
-            _error = result.Error;
-            return;
-        }
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
 
-        Nav.NavigateTo("/login");
+            _error = null;
+            _info = null;
+
+            var result = await Auth.ConfirmEmailAsync(new ConfirmEmailRequest(_email.Trim(), _code.Trim()));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            Nav.NavigateTo("/login");
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task ResendAsync()
     {
-        _error = null;
-        _info = null;
+        if (_busy) return; // повторная отправка не должна совмещаться с подтверждением
 
-        if (string.IsNullOrWhiteSpace(_email))
+        _busy = true;
+        try
         {
-            _error = Loc["ConfirmEmail_ResendNoEmail"];
-            return;
-        }
+            _error = null;
+            _info = null;
 
-        await Auth.ResendConfirmationAsync(_email.Trim());
-        _info = Loc["ConfirmEmail_ResendSuccess"];
+            if (string.IsNullOrWhiteSpace(_email))
+            {
+                _error = Loc["ConfirmEmail_ResendNoEmail"];
+                return;
+            }
+
+            var result = await Auth.ResendConfirmationAsync(_email.Trim());
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            _info = Loc["ConfirmEmail_ResendSuccess"];
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 }

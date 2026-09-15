@@ -15,20 +15,35 @@ public partial class ForgotPassword
     private MudForm _form = null!;
     private string _email = string.Empty;
     private string? _info;
+    private string? _error;
     private bool _busy;
 
     private async Task SubmitAsync()
     {
-        await _form.ValidateAsync();
-        if (!_form.IsValid)
-            return;
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
 
         _busy = true;
-        await Auth.ForgotPasswordAsync(_email.Trim());
-        _busy = false;
+        try
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
 
-        // Не раскрываем существование почты; сразу ведём на ввод кода.
-        _info = Loc["ForgotPassword_SentInfo"];
-        Nav.NavigateTo($"/reset-password?email={Uri.EscapeDataString(_email.Trim())}");
+            _error = null;
+            var result = await Auth.ForgotPasswordAsync(_email.Trim());
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            // Не раскрываем существование почты; сразу ведём на ввод кода.
+            _info = Loc["ForgotPassword_SentInfo"];
+            Nav.NavigateTo($"/reset-password?email={Uri.EscapeDataString(_email.Trim())}");
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 
@@ -7,7 +8,7 @@ namespace Frontend.Shared.Services;
 /// Подставляет Bearer-токен в запросы к API. Если access-токен истёк (или вот-вот истечёт),
 /// заранее обновляет его по refresh-токену — бесшовно для пользователя.
 /// </summary>
-public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher, CultureService culture) : DelegatingHandler
+public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher) : DelegatingHandler
 {
     private static readonly TimeSpan ExpiryLeeway = TimeSpan.FromSeconds(30);
 
@@ -25,11 +26,16 @@ public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher, 
         if (!string.IsNullOrEmpty(token))
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
+        // Культуру берём из процесса, а не из CultureService: HttpClientFactory строит
+        // обработчики в собственном DI-scope, где scoped-сервис был бы пустым инстансом.
         request.Headers.AcceptLanguage.Clear();
-        request.Headers.AcceptLanguage.ParseAdd(culture.CurrentCulture);
+        request.Headers.AcceptLanguage.ParseAdd(CurrentCultureName());
 
         return await base.SendAsync(request, cancellationToken);
     }
+
+    private static string CurrentCultureName() =>
+        CultureInfo.CurrentUICulture.Name is "en-US" or "ru-RU" ? CultureInfo.CurrentUICulture.Name : "en-US";
 
     private static bool IsExpiredOrSoon(string token)
     {

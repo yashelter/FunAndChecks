@@ -22,6 +22,7 @@ public partial class EditStudentDialog : ComponentBase, IDisposable
     private EditStudentModel _model = new();
     private bool _busy;
     private List<GroupDto> _groups = new();
+    private string? _loadError;
     private UnsavedChangesTracker.Registration _edits = null!;
 
     protected override async Task OnInitializedAsync()
@@ -32,7 +33,14 @@ public partial class EditStudentDialog : ComponentBase, IDisposable
         _model.Email = CurrentDetails.Email ?? "";
         _model.GroupId = CurrentDetails.GroupId;
 
-        _groups = await Groups.GetAllAsync();
+        try
+        {
+            _groups = await Groups.GetAllAsync();
+        }
+        catch (ApiException ex)
+        {
+            _loadError = ex.Message;
+        }
     }
 
     private async Task SubmitAsync()

@@ -11,6 +11,10 @@
         <EditForm Model="_model" OnValidSubmit="SubmitAsync">
             <div @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
                 <ServerValidator @ref="_serverValidator" />
+                @if (_loadError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Class="mb-4">@_loadError</MudAlert>
+                }
                 <MudStack Spacing="3">
                     <MudTextField @bind-Value="_model.FirstName" For="@(() => _model.FirstName)" Label="@Loc["EditStudent_FirstNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_FirstNameRequired"]" />
                     <MudTextField @bind-Value="_model.LastName" For="@(() => _model.LastName)" Label="@Loc["EditStudent_LastNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_LastNameRequired"]" />
@@ -28,7 +32,7 @@
 
                 <div class="d-flex justify-end mt-4 gap-2">
                     <MudButton OnClick="Cancel">@Loc["Common_Cancel"]</MudButton>
-                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_busy">
+                    <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary" Variant="Variant.Filled" Disabled="_busy || _loadError is not null">
                         @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
                         @Loc["Common_Save"]
                     </MudButton>

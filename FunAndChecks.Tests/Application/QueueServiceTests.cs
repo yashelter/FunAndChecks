@@ -45,6 +45,26 @@ public class QueueServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateEvent_AutoFillWithRestrictedGroup_ThrowsForbidden()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        await ctx.SaveChangesAsync();
+        await new AdminAccessService(ctx).SetGroupRestrictedAsync(admin.Id, group.Id, true);
+
+        var sut = CreateSut(ctx);
+        var act = () => sut.CreateEventAsync(admin.Id,
+            new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupIds: [group.Id]));
+
+        var thrown = await act.Should().ThrowAsync<ForbiddenException>();
+        thrown.Which.Code.Should().Be("access.group_restricted");
+    }
+
+    [Fact]
     public async Task Join_WhenSelfJoinDisabled_Throws()
     {
         await using var ctx = _db.NewContext();

@@ -10,7 +10,8 @@ public class IdentityService(
     IRefreshTokenService refreshTokenService,
     ApplicationDbContext dbContext) : IIdentityService
 {
-    // Назначения токенов (TOTP-провайдер «Email» даёт короткие 6-значные коды).
+    // Назначения токенов (провайдер «Email» — EmailCodeTokenProvider — даёт короткие
+    // 6-значные коды со сроком жизни 10 минут).
     private const string EmailConfirmationPurpose = "EmailConfirmation";
     private const string PasswordResetPurpose = "ResetPassword";
 

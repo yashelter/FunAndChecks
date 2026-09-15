@@ -62,6 +62,10 @@ public class StudentsController(
     [HttpPut("{studentId:guid}/account")]
     [Authorize(Roles = Roles.SuperAdmin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateAccount(Guid studentId, UpdateStudentAccountRequest request, CancellationToken cancellationToken)
     {
         await studentService.UpdateStudentAccountAsync(User.GetUserId(), studentId, request, cancellationToken);

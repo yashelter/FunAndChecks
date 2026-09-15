@@ -32,26 +32,33 @@ public partial class Login
 
     private async Task SubmitAsync()
     {
-        await _form.ValidateAsync();
-        if (!_form.IsValid)
-            return;
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
 
         _busy = true;
-        _error = null;
-        _emailNotConfirmed = false;
-
-        var result = await Auth.LoginAsync(new Models.LoginRequest(_email.Trim(), _password));
-        if (!result.Success)
+        try
         {
-            _error = result.Error;
-            _emailNotConfirmed = result.Error?.Contains("not confirmed", StringComparison.OrdinalIgnoreCase) == true
-                                 || result.Error?.Contains("подтвержд", StringComparison.OrdinalIgnoreCase) == true;
-            _busy = false;
-            return;
-        }
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
 
-        AuthState.NotifyAuthenticationStateChanged();
-        await RedirectByRoleAsync();
+            _error = null;
+            _emailNotConfirmed = false;
+
+            var result = await Auth.LoginAsync(new Models.LoginRequest(_email.Trim(), _password));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                _emailNotConfirmed = result.Code == "auth.email_not_confirmed";
+                return;
+            }
+
+            AuthState.NotifyAuthenticationStateChanged();
+            await RedirectByRoleAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task RedirectByRoleAsync()

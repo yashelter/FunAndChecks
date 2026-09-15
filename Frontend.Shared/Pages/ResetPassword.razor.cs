@@ -31,22 +31,28 @@ public partial class ResetPassword
 
     private async Task SubmitAsync()
     {
-        await _form.ValidateAsync();
-        if (!_form.IsValid)
-            return;
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
 
         _busy = true;
-        _error = null;
-
-        var result = await Auth.ResetPasswordAsync(new ResetPasswordRequest(_email.Trim(), _code.Trim(), _newPassword));
-        _busy = false;
-
-        if (!result.Success)
+        try
         {
-            _error = result.Error;
-            return;
-        }
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
 
-        Nav.NavigateTo("/login");
+            _error = null;
+            var result = await Auth.ResetPasswordAsync(new ResetPasswordRequest(_email.Trim(), _code.Trim(), _newPassword));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            Nav.NavigateTo("/login");
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 }

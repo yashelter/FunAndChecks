@@ -19,9 +19,10 @@ public class ResultsCacheService : IResultsCacheService
     private const int MaxRebuildAttempts = 5;
 
     private readonly ConcurrentDictionary<int, SubjectResultsDto> _cache = new();
+    // Замки живут всё время работы приложения и растут с числом предметов; SemaphoreSlim
+    // без AvailableWaitHandle не держит неуправляемых ресурсов и не требует Dispose.
     private readonly ConcurrentDictionary<int, Lazy<SemaphoreSlim>> _locks = new();
     private readonly ConcurrentDictionary<int, long> _generations = new();
-    private long _globalGeneration;
 
     public SubjectResultsDto? GetResults(int subjectId) =>
         _cache.TryGetValue(subjectId, out var results) ? results : null;
@@ -41,11 +42,9 @@ public class ResultsCacheService : IResultsCacheService
             for (var attempt = 1; ; attempt++)
             {
                 var subjectGeneration = _generations.GetOrAdd(subjectId, 0);
-                var globalGeneration = Volatile.Read(ref _globalGeneration);
                 var results = await factory();
 
-                if (subjectGeneration == _generations.GetOrAdd(subjectId, 0) &&
-                    globalGeneration == Volatile.Read(ref _globalGeneration))
+                if (subjectGeneration == _generations.GetOrAdd(subjectId, 0))
                 {
                     _cache[subjectId] = results;
                     return results;
@@ -68,21 +67,9 @@ public class ResultsCacheService : IResultsCacheService
         }
     }
 
-    public void UpdateResults(int subjectId, SubjectResultsDto results)
-    {
-        _generations.AddOrUpdate(subjectId, 1, static (_, current) => current + 1);
-        _cache[subjectId] = results;
-    }
-
     public void Invalidate(int subjectId)
     {
         _generations.AddOrUpdate(subjectId, 1, static (_, current) => current + 1);
         _cache.TryRemove(subjectId, out _);
-    }
-
-    public void InvalidateAll()
-    {
-        Interlocked.Increment(ref _globalGeneration);
-        _cache.Clear();
     }
 }

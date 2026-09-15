@@ -69,7 +69,18 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
             string.Format(Loc["Common_UnknownError"].Value, Loc["Common_EmptyResponseError"].Value));
     }
 
-    private async Task<T> ExecuteAsync<T>(Func<Task<T>> action, CancellationToken ct)
+    private async Task<T> ExecuteAsync<T>(Func<Task<T>> action, CancellationToken ct) =>
+        await GuardAsync(action, Loc, ct);
+
+    private async Task ExecuteAsync(Func<Task> action, CancellationToken ct) =>
+        await GuardAsync(async () => { await action(); return 0; }, Loc, ct);
+
+    /// <summary>
+    /// Обёртка вызова API: сетевые сбои и таймауты превращаются в <see cref="ApiException"/>
+    /// с локализованным сообщением. Используется и вне типизированных клиентов
+    /// (например, <see cref="Services.AuthService"/>).
+    /// </summary>
+    public static async Task<T> GuardAsync<T>(Func<Task<T>> action, IStringLocalizer<AppStrings> loc, CancellationToken ct = default)
     {
         try
         {
@@ -81,7 +92,7 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         }
         catch (HttpRequestException)
         {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, loc["Common_NetworkError"].Value);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -92,39 +103,11 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         {
             // HttpClient timeout тоже приходит как TaskCanceledException, но токен не отменён —
             // это сетевая проблема, а не отмена запроса.
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, loc["Common_NetworkError"].Value);
         }
         catch (Exception ex)
         {
-            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(Loc["Common_UnknownError"].Value, ex.Message));
-        }
-    }
-
-    private async Task ExecuteAsync(Func<Task> action, CancellationToken ct)
-    {
-        try
-        {
-            await action();
-        }
-        catch (ApiException)
-        {
-            throw;
-        }
-        catch (HttpRequestException)
-        {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, Loc["Common_NetworkError"].Value);
-        }
-        catch (Exception ex)
-        {
-            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(Loc["Common_UnknownError"].Value, ex.Message));
+            throw new ApiException(HttpStatusCode.InternalServerError, string.Format(loc["Common_UnknownError"].Value, ex.Message));
         }
     }
 }

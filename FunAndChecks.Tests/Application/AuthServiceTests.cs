@@ -201,10 +201,10 @@ public class AuthServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(LoginStatus.EmailNotConfirmed)]
-    [InlineData(LoginStatus.LockedOut)]
-    [InlineData(LoginStatus.InvalidCredentials)]
-    public async Task Login_Failure_Throws(LoginStatus status)
+    [InlineData(LoginStatus.EmailNotConfirmed, "auth.email_not_confirmed")]
+    [InlineData(LoginStatus.LockedOut, "auth.account_locked")]
+    [InlineData(LoginStatus.InvalidCredentials, "auth.invalid_credentials")]
+    public async Task Login_Failure_ThrowsCodedForbidden(LoginStatus status, string expectedCode)
     {
         _identity.ValidateCredentialsAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(new LoginResult(status, null));
@@ -213,7 +213,8 @@ public class AuthServiceTests : IDisposable
         var sut = CreateSut(ctx);
 
         var act = () => sut.LoginAsync(new LoginRequest("a@b.c", "pwd"));
-        await act.Should().ThrowAsync<ForbiddenException>();
+        var thrown = await act.Should().ThrowAsync<ForbiddenException>();
+        thrown.Which.Code.Should().Be(expectedCode);
     }
 
     [Fact]

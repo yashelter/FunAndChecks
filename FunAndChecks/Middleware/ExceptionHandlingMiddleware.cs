@@ -43,7 +43,17 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         }
         catch (RateLimitException ex)
         {
+            if (ex.Arguments.TryGetValue("retryAfterSeconds", out var seconds))
+                context.Response.Headers.RetryAfter = Convert.ToInt64(seconds).ToString();
             await WriteApplicationProblemAsync(context, StatusCodes.Status429TooManyRequests, ex);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Клиент оборвал соединение — это не ошибка сервера: не пишем 500 в мёртвый
+            // сокет и не засоряем error-логи стектрейсами.
+            logger.LogDebug("Request {Method} {Path} was cancelled by the client.",
+                context.Request.Method, context.Request.Path);
+            throw;
         }
         catch (Exception ex)
         {
@@ -74,6 +84,9 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                     continue;
                 if (value is null or string or bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
                     arguments[char.ToLowerInvariant(name[0]) + name[1..]] = value;
+                else if (value is Enum enumValue)
+                    // enum-плейсхолдеры сериализуем строкой — JSON-число ничего не скажет UI.
+                    arguments[char.ToLowerInvariant(name[0]) + name[1..]] = enumValue.ToString();
             }
         }
 

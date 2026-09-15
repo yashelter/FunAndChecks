@@ -1,5 +1,6 @@
 using FluentValidation;
 using FunAndChecks.Application.Admins;
+using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Groups;
@@ -258,7 +259,9 @@ public class StudentService(
 
     public Task SetPreferredCultureAsync(Guid userId, string culture, CancellationToken cancellationToken = default)
     {
-        if (culture is not ("en-US" or "ru-RU"))
+        // Нормализуем регистр ("ru-ru" → "ru-RU") и сохраняем каноничное значение.
+        var normalized = SupportedCultures.TryNormalize(culture);
+        if (normalized is null)
             throw new ValidationException([
                 new FluentValidation.Results.ValidationFailure(nameof(culture), "Only en-US and ru-RU cultures are supported.")
                 {
@@ -266,6 +269,6 @@ public class StudentService(
                 },
             ]);
 
-        return identityService.SetPreferredCultureAsync(userId, culture);
+        return identityService.SetPreferredCultureAsync(userId, normalized);
     }
 }

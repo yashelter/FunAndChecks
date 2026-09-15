@@ -47,8 +47,10 @@ public class UnconfirmedAccountCleanupService(
             .Where(s => !s.IsActive && s.CreatedAt < threshold)
             .Select(s => s.Id);
 
+        // Email-confirmed аккаунты не трогаем: подтверждение и IsActive=true сохраняются
+        // раздельно, и между ними может возникнуть окно сбоя — такой аккаунт валиден.
         var deletedCount = await db.Users
-            .Where(u => staleStudentIdsQuery.Contains(u.Id))
+            .Where(u => !u.EmailConfirmed && staleStudentIdsQuery.Contains(u.Id))
             .ExecuteDeleteAsync(cancellationToken);
 
         if (deletedCount > 0)

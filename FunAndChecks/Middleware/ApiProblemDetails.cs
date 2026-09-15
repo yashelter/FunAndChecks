@@ -1,6 +1,7 @@
 using FunAndChecks.Application.Common.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.WebUtilities;
 using System.Text.Json;
 
 namespace FunAndChecks.Middleware;
@@ -82,7 +83,7 @@ public static class ApiProblemDetails
         StatusCodes.Status405MethodNotAllowed => "request.method_not_allowed",
         StatusCodes.Status409Conflict => "state.conflict",
         StatusCodes.Status429TooManyRequests => "rate_limit.exceeded",
-        _ => "server.internal_error",
+        _ => "request.failed",
     };
 
     public static string DetailForStatus(int statusCode) => statusCode switch
@@ -95,15 +96,9 @@ public static class ApiProblemDetails
         _ => "The request could not be completed.",
     };
 
-    private static string Title(int statusCode) => statusCode switch
+    private static string Title(int statusCode)
     {
-        StatusCodes.Status400BadRequest => "Bad Request",
-        StatusCodes.Status401Unauthorized => "Unauthorized",
-        StatusCodes.Status403Forbidden => "Forbidden",
-        StatusCodes.Status404NotFound => "Not Found",
-        StatusCodes.Status405MethodNotAllowed => "Method Not Allowed",
-        StatusCodes.Status409Conflict => "Conflict",
-        StatusCodes.Status429TooManyRequests => "Too Many Requests",
-        _ => "Internal Server Error",
-    };
+        var phrase = ReasonPhrases.GetReasonPhrase(statusCode);
+        return phrase.Length > 0 ? phrase : "Error";
+    }
 }

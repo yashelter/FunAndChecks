@@ -51,6 +51,32 @@ public class AdminAccessService(IApplicationDbContext db) : IAdminAccessService
                 new Dictionary<string, object?> { ["groupId"] = groupId });
     }
 
+    public async Task EnsureGroupsAllowedAsync(Guid adminId, IEnumerable<int> groupIds, CancellationToken cancellationToken = default)
+    {
+        var ids = groupIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return;
+
+        var accesses = await db.AdminGroupAccesses
+            .Where(a => a.AdminId == adminId && ids.Contains(a.GroupId))
+            .Select(a => new { a.GroupId, a.IsRestricted, a.IsHidden })
+            .ToDictionaryAsync(a => a.GroupId, cancellationToken);
+        if (accesses.Count == 0)
+            return;
+
+        foreach (var groupId in ids)
+        {
+            if (!accesses.TryGetValue(groupId, out var access))
+                continue;
+            if (access.IsRestricted)
+                throw new ForbiddenException("You are restricted from working with this group.", "access.group_restricted",
+                    new Dictionary<string, object?> { ["groupId"] = groupId });
+            if (access.IsHidden)
+                throw new ForbiddenException("This group is hidden from your workspace.", "access.group_hidden",
+                    new Dictionary<string, object?> { ["groupId"] = groupId });
+        }
+    }
+
     public Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default) =>
         db.AdminSubjectAccesses
             .AnyAsync(a => a.AdminId == adminId && a.SubjectId == subjectId && a.IsRestricted, cancellationToken);

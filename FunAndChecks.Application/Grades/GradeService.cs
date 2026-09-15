@@ -166,6 +166,14 @@ public class GradeService(
         if (student.GroupId is int currentGroupId)
             await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, cancellationToken);
 
+        // Тот же критерий, что и при выставлении баллов: без зачисления чтение тоже запрещено.
+        if (student.GroupId is int enrolledGroupId &&
+            !await db.GroupSubjects.AnyAsync(gs => gs.GroupId == enrolledGroupId && gs.SubjectId == subjectId, cancellationToken))
+            throw new ConflictException(
+                "Student is not enrolled in this subject.",
+                "student.not_enrolled",
+                new Dictionary<string, object?> { ["studentId"] = studentId, ["subjectId"] = subjectId });
+
         return await db.GradeComponents
             .Where(c => c.SubjectId == subjectId)
             .OrderBy(c => c.Name)

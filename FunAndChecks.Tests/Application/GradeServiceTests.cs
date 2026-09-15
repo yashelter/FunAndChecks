@@ -86,6 +86,26 @@ public class GradeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetStudentGrades_WhenNotEnrolled_ThrowsConflict()
+    {
+        Guid adminId, studentId; int subjectId;
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group); // группа не привязана к предмету — студент не зачислен
+        await ctx.SaveChangesAsync();
+        adminId = admin.Id; studentId = student.Id; subjectId = subject.Id;
+
+        var sut = CreateSut(ctx);
+        var act = () => sut.GetStudentGradesAsync(adminId, studentId, subjectId);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .Where(ex => ex.Code == "student.not_enrolled");
+    }
+
+    [Fact]
     public async Task SetGrade_ExceedingMax_Throws()
     {
         Guid adminId, studentId; int componentId;
