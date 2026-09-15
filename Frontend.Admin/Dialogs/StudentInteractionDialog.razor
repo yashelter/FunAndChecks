@@ -1,10 +1,10 @@
-<MudDialog>
+<MudDialog @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
     <TitleContent>
         <MudText Typo="Typo.h6">@StudentName@(string.IsNullOrEmpty(GroupName) ? "" : $" ({GroupName})")</MudText>
     </TitleContent>
     <DialogContent>
         <MudTabs Elevation="2" Rounded="true" Centered="true">
-            <MudTabPanel Text="Задачи">
+            <MudTabPanel Text="@Loc["Dialog_TabTasks"]">
                 @if (_loadingTasks)
                 {
                     <div class="d-flex justify-center pa-4"><MudProgressCircular Indeterminate="true" /></div>
@@ -17,19 +17,19 @@
                             <MudPaper Outlined="true" Class="pa-3 mb-3">
                                 <div class="d-flex justify-space-between align-start">
                                     <div>
-                                        <MudText Typo="Typo.body1"><b>@task.Name</b> (@task.MaxPoints б.)</MudText>
+                                        <MudText Typo="Typo.body1"><b>@task.Name</b> (@task.MaxPoints @Loc["Common_PointsAbbr"])</MudText>
                                         <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.Status)">
                                             @StatusText(task.Status)
                                         </MudChip>
                                     </div>
                                     <MudStack Spacing="1" AlignItems="AlignItems.End">
                                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
-                                                   OnClick="@(() => SubmitAsync(task.Id, SubmissionStatus.Accepted))">Зачтено</MudButton>
+                                                   OnClick="@(() => SubmitAsync(task.Id, SubmissionStatus.Accepted))">@Loc["Dialog_Accepted"]</MudButton>
                                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
-                                                   OnClick="@(() => ReworkAsync(task.Id))">На доработку</MudButton>
+                                                   OnClick="@(() => ReworkAsync(task.Id))">@Loc["Dialog_Rework"]</MudButton>
                                         <MudButton Size="Size.Small" Variant="Variant.Text"
                                                    OnClick="@(() => ToggleHistoryAsync(task.Id))">
-                                            @(_openHistory.Contains(task.Id) ? "Скрыть историю" : "История")
+                                            @(_openHistory.Contains(task.Id) ? Loc["Dialog_HideHistory"] : Loc["Dialog_History"])
                                         </MudButton>
                                     </MudStack>
                                 </div>
@@ -43,7 +43,7 @@
                                     }
                                     else if (log.Count == 0)
                                     {
-                                        <MudText Typo="Typo.caption">Сдач ещё не было.</MudText>
+                                        <MudText Typo="Typo.caption">@Loc["Dialog_NoSubmissions"]</MudText>
                                     }
                                     else
                                     {
@@ -52,11 +52,11 @@
                                             <div class="mb-1">
                                                 <MudChip T="string" Size="Size.Small" Color="@StatusColor(entry.Status)">@StatusText(entry.Status)</MudChip>
                                                 <MudText Typo="Typo.caption" Class="d-inline">
-                                                    @entry.Admin.FullName · @entry.SubmittedAt.ToLocalTime().ToString("dd.MM HH:mm")
+                                                    @entry.Admin.FullName · @entry.SubmittedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)
                                                 </MudText>
                                                 @if (!string.IsNullOrWhiteSpace(entry.Comment))
                                                 {
-                                                    <MudText Typo="Typo.body2">Причина: @entry.Comment</MudText>
+                                                    <MudText Typo="Typo.body2">@Loc["Common_Reason"]@entry.Comment</MudText>
                                                 }
                                             </div>
                                         }
@@ -68,10 +68,10 @@
                 }
             </MudTabPanel>
 
-            <MudTabPanel Text="Оценки">
+            <MudTabPanel Text="@Loc["Dialog_TabGrades"]">
                 @if (_components.Count == 0)
                 {
-                    <MudText Class="pa-4">У предмета нет оценочных колонок (билет, курсовая).</MudText>
+                    <MudText Class="pa-4">@Loc["Dialog_NoGradeComponents"]</MudText>
                 }
                 else
                 {
@@ -84,11 +84,11 @@
                                         <MudText><b>@c.Name</b> (@c.MinPoints–@c.MaxPoints)</MudText>
                                         @if (_currentGrades.TryGetValue(c.Id, out var current))
                                         {
-                                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Сейчас: @current</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Success">@Loc["Dialog_CurrentGrade", current]</MudChip>
                                         }
                                         else
                                         {
-                                            <MudText Typo="Typo.caption">Не выставлено</MudText>
+                                            <MudText Typo="Typo.caption">@Loc["Common_NotSet"]</MudText>
                                         }
                                     </div>
                                     <div class="d-flex align-center gap-2">
@@ -96,7 +96,7 @@
                                                          Min="@c.MinPoints" Max="@c.MaxPoints"
                                                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 100px;" />
                                         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
-                                                   OnClick="@(() => SetGradeAsync(c.Id))">ОК</MudButton>
+                                                   OnClick="@(() => SetGradeAsync(c.Id))">@Loc["Common_Ok"]</MudButton>
                                     </div>
                                 </div>
                             </MudPaper>
@@ -105,21 +105,26 @@
                 }
             </MudTabPanel>
 
-            <MudTabPanel Text="Цвет">
+            <MudTabPanel Text="@Loc["Dialog_TabColor"]">
                 <MudStack Spacing="3" Class="pa-2">
-                    <MudText Typo="Typo.body2">Заливка ячейки ФИО студента в таблице результатов.</MudText>
+                    <MudText Typo="Typo.body2">@Loc["Dialog_ColorSubtitle"]</MudText>
                     <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
-                        <MudButton Variant="Variant.Outlined" OnClick="@(() => ApplyColorAsync(null))">Убрать заливку</MudButton>
+                        <MudButton Variant="Variant.Outlined" OnClick="@(() => SetPickerColor(null))">@Loc["Dialog_RemoveFill"]</MudButton>
                         <MudButton Variant="Variant.Filled" Style="background-color:#43A047;color:#fff;"
-                                   OnClick="@(() => ApplyColorAsync(GreenColor))">Зелёный</MudButton>
+                                   OnClick="@(() => SetPickerColor(GreenColor))">@Loc["Dialog_Green"]</MudButton>
                         <MudButton Variant="Variant.Filled" Style="background-color:#8D6E63;color:#fff;"
-                                   OnClick="@(() => ApplyColorAsync(BrownColor))">Коричневый</MudButton>
+                                   OnClick="@(() => SetPickerColor(BrownColor))">@Loc["Dialog_Brown"]</MudButton>
                     </MudStack>
 
-                    <MudColorPicker @bind-Text="_pickerColor" Label="Свой цвет" PickerVariant="PickerVariant.Static"
+                    <div class="d-flex align-center gap-4 mt-2">
+                        <MudText>@Loc["Dialog_ColorPreview"]</MudText>
+                        <div style="width: 40px; height: 40px; border-radius: 4px; border: 1px solid #ccc; background-color: @(_pickerColor ?? "transparent")"></div>
+                    </div>
+
+                    <MudColorPicker Value="_pickerMudColor" ValueChanged="OnColorPickerChanged" Label="@Loc["Dialog_CustomColor"]" PickerVariant="PickerVariant.Static"
                                     ColorPickerMode="ColorPickerMode.HEX" />
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrEmpty(_pickerColor)"
-                               OnClick="@(() => ApplyColorAsync(_pickerColor))">Применить выбранный</MudButton>
+                               OnClick="@(() => ApplyColorAsync(_pickerColor))">@Loc["Dialog_ApplyColor"]</MudButton>
                 </MudStack>
             </MudTabPanel>
         </MudTabs>
@@ -129,14 +134,14 @@
             @if (EventId is not null)
             {
                 <MudButton Variant="Variant.Filled" Color="Color.Success"
-                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">Завершил</MudButton>
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">@Loc["Dialog_StatusFinished"]</MudButton>
                 <MudButton Variant="Variant.Filled" Color="Color.Warning"
-                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">Пропущен</MudButton>
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">@Loc["Dialog_StatusSkipped"]</MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Info"
-                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">В очередь</MudButton>
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">@Loc["Dialog_StatusWaiting"]</MudButton>
             }
             <MudSpacer />
-            <MudButton OnClick="Cancel">@(EventId is null ? "Закрыть" : "Свернуть")</MudButton>
+            <MudButton OnClick="Cancel">@(EventId is null ? Loc["Common_Close"] : Loc["Dialog_Collapse"])</MudButton>
         </div>
     </DialogActions>
 </MudDialog>

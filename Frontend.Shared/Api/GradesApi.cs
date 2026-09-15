@@ -1,9 +1,11 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
 /// <summary>Эндпоинты оценок — /api/grade-components.</summary>
-public class GradesApi(HttpClient http) : ApiClientBase(http)
+public class GradesApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public Task DeleteComponentAsync(int componentId, CancellationToken ct = default) =>
         DeleteAsync($"api/grade-components/{componentId}", ct);

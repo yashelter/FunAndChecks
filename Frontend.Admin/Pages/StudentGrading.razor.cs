@@ -1,7 +1,9 @@
 using Frontend.Admin.Dialogs;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -9,9 +11,10 @@ namespace Frontend.Admin.Pages;
 public partial class StudentGrading
 {
     [Inject] private MeApi Me { get; set; } = null!;
-    [Inject] private StudentsApi Students { get; set; } = null!;
+    [Inject] private SubjectsApi Subjects { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
     private List<StudentDetailsDto> _results = [];
@@ -24,7 +27,7 @@ public partial class StudentGrading
         try
         {
             _subjects = await Me.GetVisibleSubjectsAsync();
-            await SearchAsync(); // пустой запрос → весь список по алфавиту
+            _results = [];
         }
         catch (ApiException ex)
         {
@@ -37,7 +40,17 @@ public partial class StudentGrading
         _searching = true;
         try
         {
-            _results = await Students.SearchAsync(_query.Trim());
+            if (_subjectId is null)
+            {
+                _results = [];
+                return;
+            }
+
+            var students = await Subjects.GetStudentsAsync(_subjectId.Value);
+            var query = _query.Trim();
+            _results = string.IsNullOrEmpty(query)
+                ? students
+                : students.Where(s => s.FullName.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
         }
         catch (ApiException ex)
         {
@@ -53,7 +66,7 @@ public partial class StudentGrading
     {
         if (_subjectId is null)
         {
-            Snackbar.Add("Сначала выберите предмет.", Severity.Warning);
+            Snackbar.Add(Loc["Grading_SelectSubjectFirst"], Severity.Warning);
             return;
         }
 
@@ -68,8 +81,29 @@ public partial class StudentGrading
         };
 
         await DialogService.ShowAsync<StudentInteractionDialog>(
-            "Оценивание",
+            Loc["Grading_DialogTitle"],
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+    }
+
+    private async Task EditAsync(StudentDetailsDto student)
+    {
+        var parameters = new DialogParameters<EditStudentDialog>
+        {
+            { x => x.StudentId, student.Id },
+            { x => x.CurrentDetails, student }
+        };
+
+        var dialog = await DialogService.ShowAsync<EditStudentDialog>(
+            Loc["StudentGrading_EditProfileTitle"],
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            await SearchAsync();
+            Snackbar.Add(Loc["StudentGrading_ProfileUpdated"], Severity.Success);
+        }
     }
 }

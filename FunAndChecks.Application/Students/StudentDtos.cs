@@ -16,7 +16,11 @@ public record StudentDetailsDto(
 public record AdminDto(Guid Id, string FirstName, string LastName, string? Color, string? Letter);
 
 /// <summary>Профиль текущего пользователя.</summary>
-public record MeDto(Guid Id, string FirstName, string LastName, string? Email, string? GroupName, string? Color, bool IsAdmin);
+public record MeDto(Guid Id, string FirstName, string LastName, string? Email, string? GroupName, string? Color, bool IsAdmin, string PreferredCulture);
+
+public record SetPreferredCultureRequest(string Culture);
 
 /// <summary>Установка админом цвета студента (null — убрать заливку).</summary>
 public record SetStudentColorRequest(string? Color);
+
+public record UpdateStudentAccountRequest(string FirstName, string LastName, int? GroupId, string Email, string? NewPassword);

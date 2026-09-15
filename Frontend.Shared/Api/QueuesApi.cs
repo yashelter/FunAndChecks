@@ -1,9 +1,11 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
 /// <summary>Эндпоинты очередей — /api/queues.</summary>
-public class QueuesApi(HttpClient http) : ApiClientBase(http)
+public class QueuesApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public Task<List<QueueEventDto>> GetActiveAsync(CancellationToken ct = default) =>
         GetAsync<List<QueueEventDto>>("api/queues", ct);

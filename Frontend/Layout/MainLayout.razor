@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject Frontend.Shared.Services.ThemeService Theme
+@inject Frontend.Shared.Services.UnsavedChangesTracker Dirty
 
 @* Базовый layout для служебных и публичных страниц (редирект с «/», 404, /results). *@
 <MudThemeProvider IsDarkMode="Theme.IsDarkMode" />
@@ -9,6 +10,7 @@
 <MudSnackbarProvider />
 
 <MudLayout>
+    <div style="position: fixed; top: 12px; right: 12px; z-index: 10;"><LangSwitcher /></div>
     <MudMainContent>
         @Body
     </MudMainContent>
@@ -25,5 +27,9 @@
 
     private void OnThemeChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Theme.OnThemeChanged -= OnThemeChanged;
+    public void Dispose()
+    {
+        Theme.OnThemeChanged -= OnThemeChanged;
+        Dirty.ClearAll();
+    }
 }

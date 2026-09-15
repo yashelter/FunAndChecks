@@ -1,5 +1,6 @@
 using FluentAssertions;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Students;
 using FunAndChecks.Tests.Common;
 using NSubstitute;
@@ -14,7 +15,7 @@ public class StudentServiceTests : IDisposable
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     private StudentService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new SetStudentColorRequestValidator());
+        new(ctx, _identity, _cache, new AdminAccessService(ctx), new SetStudentColorRequestValidator(), new FunAndChecks.Application.Students.Validators.UpdateStudentAccountRequestValidator());
 
     [Fact]
     public async Task GetStudentsBySubject_ReturnsOnlyLinkedGroups()
@@ -35,7 +36,7 @@ public class StudentServiceTests : IDisposable
             .Returns(new Dictionary<Guid, string?> { [inSubject.Id] = "linked@example.com" });
 
         var sut = CreateSut(ctx);
-        var students = await sut.GetStudentsBySubjectAsync(subjectId);
+        var students = await sut.GetStudentsBySubjectAsync(Guid.NewGuid(), subjectId);
 
         students.Should().ContainSingle();
         students[0].LastName.Should().Be("Linked");
@@ -56,7 +57,7 @@ public class StudentServiceTests : IDisposable
         _identity.GetEmailAsync(studentId).Returns("me@example.com");
 
         var sut = CreateSut(ctx);
-        var details = await sut.GetDetailsAsync(studentId);
+        var details = await sut.GetDetailsAsync(Guid.NewGuid(), studentId);
         details.Email.Should().Be("me@example.com");
     }
 
@@ -74,10 +75,29 @@ public class StudentServiceTests : IDisposable
             .Returns(new Dictionary<Guid, string?>());
 
         var sut = CreateSut(ctx);
-        var found = await sut.SearchStudentsAsync("petr");
+        var found = await sut.SearchStudentsAsync(Guid.NewGuid(), "petr");
 
         found.Should().ContainSingle();
         found[0].LastName.Should().Be("Petrov");
+    }
+
+    [Fact]
+    public async Task SearchStudents_ExcludesGroupsHiddenOrRestrictedForAdmin()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var visibleGroup = ctx.Group("Visible");
+        var restrictedGroup = ctx.Group("Restricted");
+        await ctx.SaveChangesAsync();
+        ctx.Student(visibleGroup, "Visible");
+        ctx.Student(restrictedGroup, "Restricted");
+        await ctx.SaveChangesAsync();
+        await new AdminAccessService(ctx).SetGroupRestrictedAsync(admin.Id, restrictedGroup.Id, true);
+        _identity.GetEmailsAsync(Arg.Any<IEnumerable<Guid>>()).Returns(new Dictionary<Guid, string?>());
+
+        var students = await CreateSut(ctx).SearchStudentsAsync(admin.Id, string.Empty);
+
+        students.Select(student => student.LastName).Should().Equal("Visible");
     }
 
     [Fact]
@@ -92,7 +112,7 @@ public class StudentServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        await sut.SetColorAsync(student.Id, new SetStudentColorRequest("#228822"));
+        await sut.SetColorAsync(Guid.NewGuid(), student.Id, new SetStudentColorRequest("#228822"));
 
         var updated = await ctx.Students.FindAsync(student.Id);
         updated!.Color.Should().Be("#228822");
@@ -110,10 +130,81 @@ public class StudentServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        await sut.SetColorAsync(student.Id, new SetStudentColorRequest(null));
+        await sut.SetColorAsync(Guid.NewGuid(), student.Id, new SetStudentColorRequest(null));
 
         var updated = await ctx.Students.FindAsync(student.Id);
         updated!.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetColor_WhenGroupRestricted_ThrowsAndDoesNotChangeStudent()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group);
+        await ctx.SaveChangesAsync();
+        await new AdminAccessService(ctx).SetGroupRestrictedAsync(admin.Id, group.Id, true);
+
+        var act = () => CreateSut(ctx).SetColorAsync(admin.Id, student.Id, new SetStudentColorRequest("#228822"));
+
+        await act.Should().ThrowAsync<FunAndChecks.Application.Common.Exceptions.ForbiddenException>();
+        student.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdateStudentAccount_ValidRequest_UpdatesProfileAndIdentity()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group, "Old");
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+        var req = new UpdateStudentAccountRequest("NewFirst", "NewLast", group.Id, "new@test.com", "newpass");
+        
+        await sut.UpdateStudentAccountAsync(Guid.NewGuid(), student.Id, req);
+
+        var updated = await ctx.Students.FindAsync(student.Id);
+        updated!.FirstName.Should().Be("NewFirst");
+        updated.LastName.Should().Be("NewLast");
+        
+        await _identity.Received(1).UpdateAccountAdminAsync(student.Id, "new@test.com", "newpass");
+    }
+
+    [Fact]
+    public async Task UpdateStudentAccount_WhenGroupChanges_InvalidatesOldAndNewSubjects()
+    {
+        await using var ctx = _db.NewContext();
+        var oldGroup = ctx.Group("Old");
+        var newGroup = ctx.Group("New");
+        var oldSubject = ctx.Subject("Old subject");
+        var newSubject = ctx.Subject("New subject");
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(oldGroup, oldSubject);
+        ctx.LinkGroupSubject(newGroup, newSubject);
+        var student = ctx.Student(oldGroup);
+        await ctx.SaveChangesAsync();
+
+        await CreateSut(ctx).UpdateStudentAccountAsync(Guid.NewGuid(), student.Id,
+            new UpdateStudentAccountRequest("New", "Name", newGroup.Id, "new@test.com", null));
+
+        _cache.Received(1).Invalidate(oldSubject.Id);
+        _cache.Received(1).Invalidate(newSubject.Id);
+    }
+
+    [Fact]
+    public async Task UpdateStudentAccount_GroupNotFound_ThrowsNotFound()
+    {
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+        var req = new UpdateStudentAccountRequest("New", "Last", 999, "test@test.com", null);
+
+        var act = async () => await sut.UpdateStudentAccountAsync(Guid.NewGuid(), Guid.NewGuid(), req);
+
+        await act.Should().ThrowAsync<FunAndChecks.Application.Common.Exceptions.NotFoundException>().WithMessage("Group not found.");
     }
 
     public void Dispose() => _db.Dispose();

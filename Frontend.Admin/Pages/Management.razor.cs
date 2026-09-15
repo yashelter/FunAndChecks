@@ -2,7 +2,10 @@ using System.Globalization;
 using Frontend.Admin.Dialogs;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -16,6 +19,8 @@ public partial class Management
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private UnsavedChangesTracker Dirty { get; set; } = null!;
 
     // ----- Мутабельные модели строк для inline-редактирования таблиц -----
     private sealed class SubjectRow { public int Id; public string Name = ""; }
@@ -33,10 +38,10 @@ public partial class Management
         /// <summary>Редактируемое локальное представление даты/времени.</summary>
         public string LocalDateTimeText
         {
-            get => EventDateTime.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+            get => EventDateTime.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
             set
             {
-                if (DateTime.TryParseExact(value, "dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture,
+                if (DateTime.TryParse(value, CultureInfo.CurrentCulture,
                         DateTimeStyles.AssumeLocal, out var parsed))
                     EventDateTime = parsed.ToUniversalTime();
             }
@@ -108,9 +113,18 @@ public partial class Management
 
     private async Task ReloadQueuesAsync()
     {
-        _queues = (await QueuesApi.GetAllAsync())
-            .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin })
-            .ToList();
+        try
+        {
+            _queues = (await QueuesApi.GetAllAsync())
+                .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin })
+                .ToList();
+        }
+        catch (ApiException ex)
+        {
+            // Вызывается и как after() успешных операций — сбой перечитки не должен
+            // выглядеть ошибкой самой операции.
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     // ----- Очереди -----
@@ -119,17 +133,17 @@ public partial class Management
         _queueSubjectId = subjectId;
         var name = _subjects.FirstOrDefault(s => s.Id == subjectId)?.Name;
         if (name is not null)
-            _queueName = $"{name} {(_queueDate ?? DateTime.Today):dd.MM}";
+            _queueName = $"{name} {(_queueDate ?? DateTime.Today).ToString("d", CultureInfo.CurrentCulture)}";
     }
 
     private async Task CreateQueueAsync()
     {
-        if (_queueSubjectId is null) { Snackbar.Add("Выберите предмет.", Severity.Warning); return; }
-        if (_queueDate is null || _queueTime is null) { Snackbar.Add("Укажите дату и время.", Severity.Warning); return; }
+        if (_queueSubjectId is null) { Snackbar.Add(Loc["Management_SelectSubjectWarning"], Severity.Warning); return; }
+        if (_queueDate is null || _queueTime is null) { Snackbar.Add(Loc["Management_DateTimeRequired"], Severity.Warning); return; }
 
         var when = DateTime.SpecifyKind(_queueDate.Value.Date + _queueTime.Value, DateTimeKind.Local).ToUniversalTime();
         var name = string.IsNullOrWhiteSpace(_queueName)
-            ? $"{_subjects.FirstOrDefault(s => s.Id == _queueSubjectId)?.Name} {_queueDate.Value:dd.MM}"
+            ? $"{_subjects.FirstOrDefault(s => s.Id == _queueSubjectId)?.Name} {_queueDate.Value.ToString("d", CultureInfo.CurrentCulture)}"
             : _queueName.Trim();
 
         var autoFill = _autoFillGroupIds.Count > 0 ? _autoFillGroupIds.ToList() : null;
@@ -137,8 +151,9 @@ public partial class Management
         try
         {
             await QueuesApi.CreateAsync(new CreateQueueEventRequest(name, when, _queueSubjectId.Value, _allowSelfJoin, autoFill));
-            Snackbar.Add("Очередь создана.", Severity.Success);
+            Snackbar.Add(Loc["Management_QueueCreated"], Severity.Success);
             await ReloadQueuesAsync();
+            Dirty.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -149,10 +164,10 @@ public partial class Management
     // RowEditCommit в MudTable — синхронный Action<object>; запускаем сохранение фоном.
     private void OnQueueCommit(object element) => _ = RunAsync(
         () => QueuesApi.UpdateAsync(((QueueRow)element).Id, new UpdateQueueEventRequest(((QueueRow)element).Name, ((QueueRow)element).EventDateTime)),
-        "Очередь обновлена.", () => Task.CompletedTask);
+        Loc["Management_QueueUpdated"], () => Task.CompletedTask, ReloadQueuesAsync);
 
     private async Task DeleteQueueAsync(QueueRow row) =>
-        await RunAsync(() => QueuesApi.DeleteAsync(row.Id), "Очередь удалена.", ReloadQueuesAsync);
+        await RunAsync(() => QueuesApi.DeleteAsync(row.Id), Loc["Management_QueueDeleted"], ReloadQueuesAsync);
 
     // ----- Предметы -----
     private async Task CreateSubjectAsync()
@@ -166,16 +181,16 @@ public partial class Management
                 foreach (var groupId in _newSubjectGroupIds)
                     await Groups.LinkSubjectAsync(groupId, subject.Id);
             },
-            "Предмет создан.",
+            Loc["Management_SubjectCreated"],
             async () => { _newSubjectName = ""; _newSubjectGroupIds = new HashSet<int>(); await ReloadAsync(); });
     }
 
     private void OnSubjectCommit(object element) => _ = RunAsync(
         () => Subjects.UpdateAsync(((SubjectRow)element).Id, new UpdateSubjectRequest(((SubjectRow)element).Name)),
-        "Сохранено.", () => Task.CompletedTask);
+        Loc["Common_Saved"], () => Task.CompletedTask, ReloadAsync);
 
     private async Task DeleteSubjectAsync(SubjectRow row) =>
-        await RunAsync(() => Subjects.DeleteAsync(row.Id), "Предмет удалён.", ReloadAsync);
+        await RunAsync(() => Subjects.DeleteAsync(row.Id), Loc["Management_SubjectDeleted"], ReloadAsync);
 
     // ----- Группы -----
     private async Task CreateGroupAsync()
@@ -189,26 +204,37 @@ public partial class Management
                 foreach (var subjectId in _newGroupSubjectIds)
                     await Groups.LinkSubjectAsync(group.Id, subjectId);
             },
-            "Группа создана.",
+            Loc["Management_GroupCreated"],
             async () => { _newGroupName = ""; _newGroupSubjectIds = new HashSet<int>(); await ReloadAsync(); });
     }
 
     private void OnGroupCommit(object element) => _ = RunAsync(
         () => Groups.UpdateAsync(((GroupRow)element).Id, new UpdateGroupRequest(((GroupRow)element).Name)),
-        "Сохранено.", () => Task.CompletedTask);
+        Loc["Common_Saved"], () => Task.CompletedTask, ReloadAsync);
 
     private async Task DeleteGroupAsync(GroupRow row) =>
-        await RunAsync(() => Groups.DeleteAsync(row.Id), "Группа удалена.", ReloadAsync);
+        await RunAsync(() => Groups.DeleteAsync(row.Id), Loc["Management_GroupDeleted"], ReloadAsync);
 
     // ----- Задачи -----
     private async Task OnTaskSubjectChanged(int? subjectId)
     {
         _taskSubjectId = subjectId;
-        _tasks = subjectId is null
-            ? []
-            : (await Subjects.GetTasksAsync(subjectId.Value))
+        if (subjectId is null)
+        {
+            _tasks = [];
+            return;
+        }
+
+        try
+        {
+            _tasks = (await Subjects.GetTasksAsync(subjectId.Value))
                 .Select(t => new TaskRow { Id = t.Id, Name = t.Name, Description = t.Description, MaxPoints = t.MaxPoints })
                 .ToList();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task CreateTaskAsync()
@@ -216,7 +242,7 @@ public partial class Management
         if (_taskSubjectId is null || string.IsNullOrWhiteSpace(_newTaskName)) return;
         await RunAsync(
             () => Subjects.CreateTaskAsync(_taskSubjectId.Value, new CreateTaskRequest(_newTaskName.Trim(), _newTaskDescription?.Trim() ?? "", _newTaskMaxPoints)),
-            "Задача создана.",
+            Loc["Management_TaskCreated"],
             async () => { _newTaskName = ""; _newTaskDescription = ""; _newTaskMaxPoints = 1; await OnTaskSubjectChanged(_taskSubjectId); });
     }
 
@@ -224,21 +250,32 @@ public partial class Management
     {
         var row = (TaskRow)element;
         _ = RunAsync(() => Subjects.UpdateTaskAsync(row.Id, new UpdateTaskRequest(row.Name, row.Description, row.MaxPoints)),
-            "Сохранено.", () => Task.CompletedTask);
+            Loc["Common_Saved"], () => Task.CompletedTask, () => OnTaskSubjectChanged(_taskSubjectId));
     }
 
     private async Task DeleteTaskAsync(TaskRow row) =>
-        await RunAsync(() => Subjects.DeleteTaskAsync(row.Id), "Задача удалена.", () => OnTaskSubjectChanged(_taskSubjectId));
+        await RunAsync(() => Subjects.DeleteTaskAsync(row.Id), Loc["Management_TaskDeleted"], () => OnTaskSubjectChanged(_taskSubjectId));
 
     // ----- Оценочные колонки -----
     private async Task OnComponentSubjectChanged(int? subjectId)
     {
         _componentSubjectId = subjectId;
-        _components = subjectId is null
-            ? []
-            : (await Subjects.GetGradeComponentsAsync(subjectId.Value))
+        if (subjectId is null)
+        {
+            _components = [];
+            return;
+        }
+
+        try
+        {
+            _components = (await Subjects.GetGradeComponentsAsync(subjectId.Value))
                 .Select(c => new ComponentRow { Id = c.Id, Name = c.Name, MinPoints = c.MinPoints, MaxPoints = c.MaxPoints })
                 .ToList();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task CreateComponentAsync()
@@ -246,7 +283,7 @@ public partial class Management
         if (_componentSubjectId is null || string.IsNullOrWhiteSpace(_newComponentName)) return;
         await RunAsync(
             () => Subjects.CreateGradeComponentAsync(_componentSubjectId.Value, new CreateGradeComponentRequest(_newComponentName.Trim(), _newComponentMin, _newComponentMax)),
-            "Колонка создана.",
+            Loc["Management_ComponentCreated"],
             async () => { _newComponentName = ""; _newComponentMin = 0; _newComponentMax = 5; await OnComponentSubjectChanged(_componentSubjectId); });
     }
 
@@ -254,18 +291,28 @@ public partial class Management
     {
         var row = (ComponentRow)element;
         _ = RunAsync(() => Subjects.UpdateGradeComponentAsync(row.Id, new UpdateGradeComponentRequest(row.Name, row.MinPoints, row.MaxPoints)),
-            "Сохранено.", () => Task.CompletedTask);
+            Loc["Common_Saved"], () => Task.CompletedTask, () => OnComponentSubjectChanged(_componentSubjectId));
     }
 
     private async Task DeleteComponentAsync(ComponentRow row) =>
-        await RunAsync(() => Grades.DeleteComponentAsync(row.Id), "Колонка удалена.", () => OnComponentSubjectChanged(_componentSubjectId));
+        await RunAsync(() => Grades.DeleteComponentAsync(row.Id), Loc["Management_ComponentDeleted"], () => OnComponentSubjectChanged(_componentSubjectId));
 
     // ----- Доступ (связи группа↔предмет) -----
     private async Task OpenSubjectAccessAsync(SubjectRow subject)
     {
-        var current = await Groups.GetGroupIdsForSubjectAsync(subject.Id);
+        List<int> current;
+        try
+        {
+            current = await Groups.GetGroupIdsForSubjectAsync(subject.Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
         var options = _groups.Select(g => new EntityLinkDialog.LinkOption(g.Id, g.Name)).ToList();
-        var selected = await ShowAccessDialogAsync($"Доступ к предмету «{subject.Name}»", options, current);
+        var selected = await ShowAccessDialogAsync(string.Format(Loc["Management_SubjectAccessTitle"], subject.Name), options, current);
         if (selected is null)
             return;
 
@@ -276,9 +323,19 @@ public partial class Management
 
     private async Task OpenGroupAccessAsync(GroupRow group)
     {
-        var current = await Groups.GetSubjectIdsAsync(group.Id);
+        List<int> current;
+        try
+        {
+            current = await Groups.GetSubjectIdsAsync(group.Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
         var options = _subjects.Select(s => new EntityLinkDialog.LinkOption(s.Id, s.Name)).ToList();
-        var selected = await ShowAccessDialogAsync($"Предметы группы «{group.Name}»", options, current);
+        var selected = await ShowAccessDialogAsync(string.Format(Loc["Management_GroupAccessTitle"], group.Name), options, current);
         if (selected is null)
             return;
 
@@ -308,7 +365,8 @@ public partial class Management
                 await link(id);
             foreach (var id in current.Where(id => !selected.Contains(id)))
                 await unlink(id);
-            Snackbar.Add("Доступ обновлён.", Severity.Success);
+            Snackbar.Add(Loc["Management_AccessUpdated"], Severity.Success);
+            Dirty.MarkClean();
         }
         catch (ApiException ex)
         {
@@ -326,7 +384,7 @@ public partial class Management
     {
         await RunAsync(
             () => Me.SetSubjectHiddenAsync(subjectId, hidden),
-            hidden ? "Предмет в архиве." : "Предмет восстановлен.",
+            hidden ? Loc["Management_SubjectArchived"] : Loc["Management_SubjectRestored"],
             () => { if (hidden) _hiddenSubjects.Add(subjectId); else _hiddenSubjects.Remove(subjectId); return Task.CompletedTask; });
     }
 
@@ -334,21 +392,28 @@ public partial class Management
     {
         await RunAsync(
             () => Me.SetGroupHiddenAsync(groupId, hidden),
-            hidden ? "Группа в архиве." : "Группа восстановлена.",
+            hidden ? Loc["Management_GroupArchived"] : Loc["Management_GroupRestored"],
             () => { if (hidden) _hiddenGroups.Add(groupId); else _hiddenGroups.Remove(groupId); return Task.CompletedTask; });
     }
 
-    private async Task RunAsync(Func<Task> action, string success, Func<Task> after)
+    private async Task RunAsync(Func<Task> action, string success, Func<Task> after, Func<Task>? onError = null)
     {
         try
         {
             await action();
             await after();
+            Dirty.MarkClean();
             Snackbar.Add(success, Severity.Success);
         }
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
+            if (onError != null)
+                await onError();
+        }
+        finally
+        {
+            StateHasChanged();
         }
     }
 }

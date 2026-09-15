@@ -1,19 +1,19 @@
 @page "/confirm-email"
 @layout AuthLayout
 
-<PageTitle>Подтверждение почты</PageTitle>
+<PageTitle>@Loc["ConfirmEmail_PageTitle"]</PageTitle>
 
 <MudPaper Class="pa-8 mx-auto mt-16" MaxWidth="420px" Elevation="4">
-    <MudText Typo="Typo.h5" Class="mb-2" Align="Align.Center">Подтверждение почты</MudText>
+    <MudText Typo="Typo.h5" Class="mb-2" Align="Align.Center">@Loc["ConfirmEmail_Title"]</MudText>
     <MudText Typo="Typo.body2" Class="mb-4" Align="Align.Center">
-        Мы отправили код на вашу почту. Введите его, чтобы активировать аккаунт.
+        @Loc["ConfirmEmail_Subtitle"]
     </MudText>
 
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
-                      Required="true" RequiredError="Укажите email" Class="mb-3" />
-        <MudTextField @bind-Value="_code" Label="Код из письма"
-                      Required="true" RequiredError="Введите код" />
+        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
+        <MudTextField @bind-Value="_code" Label="@Loc["ConfirmEmail_CodeLabel"]"
+                      Required="true" RequiredError="@Loc["ConfirmEmail_CodeRequired"]" />
     </MudForm>
 
     @if (_error is not null)
@@ -28,13 +28,13 @@
     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
                OnClick="SubmitAsync" Disabled="_busy">
         @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-        Подтвердить
+        @Loc["ConfirmEmail_SubmitButton"]
     </MudButton>
 
     <div class="d-flex justify-space-between mt-4">
-        <MudLink Href="/login">Ко входу</MudLink>
+        <MudLink Href="/login">@Loc["Common_BackToLogin"]</MudLink>
         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ResendAsync" Disabled="_busy">
-            Отправить код повторно
+            @Loc["ConfirmEmail_ResendButton"]
         </MudButton>
     </div>
 </MudPaper>

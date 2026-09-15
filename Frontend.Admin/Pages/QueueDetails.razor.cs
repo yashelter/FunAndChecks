@@ -1,10 +1,12 @@
 using Frontend.Admin.Dialogs;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -18,6 +20,7 @@ public partial class QueueDetails : IAsyncDisposable
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private QueueDetailsDto? _details;
     private List<QueueParticipantDto> _participants = [];
@@ -71,7 +74,7 @@ public partial class QueueDetails : IAsyncDisposable
         }
         catch (ApiException ex)
         {
-            Snackbar.Add($"Ошибка загрузки очереди: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(Loc["QueueDetails_LoadErrorPrefix"], ex.Message), Severity.Error);
         }
         finally
         {
@@ -93,8 +96,15 @@ public partial class QueueDetails : IAsyncDisposable
         // После переподключения переподписываемся, иначе обновления перестают приходить.
         _hub.Reconnected += async _ =>
         {
-            await _hub.InvokeAsync("SubscribeToQueue", EventId);
-            await InvokeAsync(LoadAsync);
+            try
+            {
+                await _hub.InvokeAsync("SubscribeToQueue", EventId);
+                await InvokeAsync(LoadAsync);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
+            }
         };
 
         try
@@ -104,7 +114,7 @@ public partial class QueueDetails : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Не удалось подключиться к обновлениям: {ex.Message}", Severity.Warning);
+            Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
         }
     }
 
@@ -138,7 +148,7 @@ public partial class QueueDetails : IAsyncDisposable
         };
 
         var dialog = await DialogService.ShowAsync<StudentInteractionDialog>(
-            "Работа со студентом",
+            Loc["QueueDetails_WorkTitle"],
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
 

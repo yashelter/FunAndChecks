@@ -12,7 +12,7 @@ public interface ISubjectService
     Task<SubjectDto> GetAsync(int subjectId, CancellationToken cancellationToken = default);
     Task<SubjectDto> CreateAsync(CreateSubjectRequest request, CancellationToken cancellationToken = default);
     Task<SubjectDto> UpdateAsync(Guid adminId, int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default);
-    Task DeleteAsync(int subjectId, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
 
     Task<List<TaskDto>> GetTasksAsync(int subjectId, CancellationToken cancellationToken = default);
 
@@ -20,5 +20,5 @@ public interface ISubjectService
     Task<List<TaskWithStatusDto>> GetTasksWithStatusAsync(int subjectId, Guid studentId, CancellationToken cancellationToken = default);
     Task<TaskDto> CreateTaskAsync(Guid adminId, int subjectId, CreateTaskRequest request, CancellationToken cancellationToken = default);
     Task<TaskDto> UpdateTaskAsync(Guid adminId, int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default);
-    Task DeleteTaskAsync(int taskId, CancellationToken cancellationToken = default);
+    Task DeleteTaskAsync(Guid adminId, int taskId, CancellationToken cancellationToken = default);
 }

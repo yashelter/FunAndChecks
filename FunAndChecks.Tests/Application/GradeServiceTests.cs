@@ -6,6 +6,7 @@ using FunAndChecks.Application.Grades;
 using FunAndChecks.Tests.Common;
 using NSubstitute;
 using Xunit;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FunAndChecks.Tests.Application;
 
@@ -22,7 +23,7 @@ public class GradeServiceTests : IDisposable
             _notifier,
             new CreateGradeComponentRequestValidator(),
             new UpdateGradeComponentRequestValidator(),
-            new SetGradeRequestValidator());
+            new SetGradeRequestValidator(), NullLogger<GradeService>.Instance);
 
     [Fact]
     public async Task CreateComponent_AddsColumn_AndInvalidatesCache()
@@ -68,6 +69,7 @@ public class GradeServiceTests : IDisposable
         var group = ctx.Group();
         var subject = ctx.Subject();
         await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         var component = ctx.Component(subject, maxPoints: 100);
         await ctx.SaveChangesAsync();
@@ -77,10 +79,30 @@ public class GradeServiceTests : IDisposable
         await sut.SetGradeAsync(adminId, componentId, studentId, new SetGradeRequest(40, "ok"));
         await sut.SetGradeAsync(adminId, componentId, studentId, new SetGradeRequest(80, "better"));
 
-        var grades = await sut.GetStudentGradesAsync(studentId, subject.Id);
+        var grades = await sut.GetStudentGradesAsync(adminId, studentId, subject.Id);
         grades.Should().ContainSingle();
         grades[0].Points.Should().Be(80);
         await _notifier.Received(2).GradeUpdatedAsync(subject.Id, Arg.Any<GradeUpdateDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetStudentGrades_WhenNotEnrolled_ThrowsConflict()
+    {
+        Guid adminId, studentId; int subjectId;
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group); // группа не привязана к предмету — студент не зачислен
+        await ctx.SaveChangesAsync();
+        adminId = admin.Id; studentId = student.Id; subjectId = subject.Id;
+
+        var sut = CreateSut(ctx);
+        var act = () => sut.GetStudentGradesAsync(adminId, studentId, subjectId);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .Where(ex => ex.Code == "student.not_enrolled");
     }
 
     [Fact]
@@ -92,6 +114,7 @@ public class GradeServiceTests : IDisposable
         var group = ctx.Group();
         var subject = ctx.Subject();
         await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         var component = ctx.Component(subject, maxPoints: 100);
         await ctx.SaveChangesAsync();
@@ -100,6 +123,49 @@ public class GradeServiceTests : IDisposable
         var sut = CreateSut(ctx);
         var act = () => sut.SetGradeAsync(adminId, componentId, studentId, new SetGradeRequest(101, null));
         await act.Should().ThrowAsync<ConflictException>();
+    }
+
+    [Fact]
+    public async Task SetGrade_WhenStudentGroupIsNotLinked_RejectsWholeOperation()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        var student = ctx.Student(group);
+        var component = ctx.Component(subject, maxPoints: 10);
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+        var act = () => sut.SetGradeAsync(admin.Id, component.Id, student.Id, new SetGradeRequest(5, null));
+
+        var error = await act.Should().ThrowAsync<ConflictException>();
+        error.Which.Code.Should().Be("student.not_enrolled");
+        ctx.StudentGrades.Should().BeEmpty();
+        _cache.DidNotReceive().Invalidate(subject.Id);
+    }
+
+    [Fact]
+    public async Task SetGrade_WhenNotificationFails_KeepsCommittedGrade()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        var student = ctx.Student(group);
+        var component = ctx.Component(subject, maxPoints: 10);
+        await ctx.SaveChangesAsync();
+        _notifier.GradeUpdatedAsync(subject.Id, Arg.Any<GradeUpdateDto>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("SignalR unavailable")));
+
+        var sut = CreateSut(ctx);
+        await sut.SetGradeAsync(admin.Id, component.Id, student.Id, new SetGradeRequest(5, null));
+
+        ctx.StudentGrades.Should().ContainSingle(g => g.Points == 5);
+        _cache.Received().Invalidate(subject.Id);
     }
 
     [Fact]
@@ -127,6 +193,7 @@ public class GradeServiceTests : IDisposable
         var group = ctx.Group();
         var subject = ctx.Subject();
         await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         var component = ctx.Component(subject, maxPoints: 5, minPoints: 2);
         await ctx.SaveChangesAsync();
@@ -134,7 +201,7 @@ public class GradeServiceTests : IDisposable
         var sut = CreateSut(ctx);
         await sut.SetGradeAsync(admin.Id, component.Id, student.Id, new SetGradeRequest(4, "хорошо"));
 
-        var grades = await sut.GetStudentGradesAsync(student.Id, subject.Id);
+        var grades = await sut.GetStudentGradesAsync(admin.Id, student.Id, subject.Id);
         grades.Should().ContainSingle();
         grades[0].Points.Should().Be(4);
         grades[0].MinPoints.Should().Be(2);

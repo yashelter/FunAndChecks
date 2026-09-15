@@ -33,6 +33,7 @@ public static class DependencyInjection
                 // Логин — это email; он должен быть уникальным и обязательно подтверждённым.
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedEmail = true;
+                options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultEmailProvider;
 
                 // Защита от перебора пароля.
                 options.Lockout.AllowedForNewUsers = true;
@@ -41,9 +42,9 @@ public static class DependencyInjection
             })
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
-            // TOTP-провайдер «Email» даёт короткие 6-значные коды для подтверждения почты
-            // и сброса пароля — без зависимости от DataProtection.
-            .AddTokenProvider<EmailTokenProvider<ApplicationUser>>(TokenOptions.DefaultEmailProvider);
+            // Провайдер «Email» выдаёт короткие 6-значные коды подтверждения почты и сброса
+            // пароля со сроком жизни 10 минут (см. EmailCodeTokenProvider) — без DataProtection.
+            .AddTokenProvider<EmailCodeTokenProvider>(TokenOptions.DefaultEmailProvider);
 
         services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<ITokenService, TokenService>();
@@ -52,11 +53,13 @@ public static class DependencyInjection
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<BackupOptions>(configuration.GetSection(BackupOptions.SectionName));
+        services.AddOptions<EmailCodeTokenProviderOptions>();
 
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IDatabaseBackupService, PgDumpBackupService>();
 
         services.AddSingleton<IResultsCacheService, ResultsCacheService>();
+        services.AddMemoryCache();
         services.AddSingleton<IEmailThrottle, EmailThrottle>();
 
         // Фоновая очистка неподтверждённых аккаунтов.

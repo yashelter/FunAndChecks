@@ -1,4 +1,6 @@
 @using System.Reflection
+@using Microsoft.Extensions.Localization
+@using Frontend.Shared.Resources
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="_additionalAssemblies">
@@ -15,13 +17,15 @@
         </Found>
         <NotFound>
             <LayoutView Layout="@typeof(MainLayout)">
-                <MudText Typo="Typo.h6" Class="ma-8">Страница не найдена.</MudText>
+                <MudText Typo="Typo.h6" Class="ma-8">@Loc["App_PageNotFound"]</MudText>
             </LayoutView>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
 
 @code {
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+
     // Маршруты собираются из общих (вход/регистрация), админских и студенческих страниц.
     private readonly Assembly[] _additionalAssemblies =
     [

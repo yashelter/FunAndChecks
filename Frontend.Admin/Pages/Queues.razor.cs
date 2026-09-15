@@ -1,6 +1,8 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -10,6 +12,7 @@ public partial class Queues
     [Inject] private QueuesApi QueuesApi { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<QueueEventDto> _queues = [];
     private bool _loading = true;

@@ -37,6 +37,11 @@
 
 Файл монтируется в контейнер только для чтения (`./secrets.json:/app/secrets.json:ro`).
 
+> **Важно:** пароль администратора должен быть **не короче 6 символов** — сидер работает
+> в режиме fail-fast: при ошибке создания учётной записи (например, слабый пароль)
+> приложение при старте завершится с ошибкой (с `restart: always` — цикл перезапусков).
+> Подробности — в логах контейнера.
+
 ### Переменные окружения compose — файл `.env` в корне
 
 ```dotenv
@@ -82,18 +87,28 @@ MAIL_DOMAIN=example.ru         # домен отправителя писем (n
 Postfix-контейнер генерирует ключ при первом старте (`DKIM_AUTOGENERATE=1`). После `docker compose up`:
 
 ```bash
-docker exec funandchecks-mail sh -c 'cat /etc/opendkim/keys/*/mail.txt'
+# образ кладёт ключ плоско: /etc/opendkim/keys/<MAIL_DOMAIN>.txt
+docker exec funandchecks-mail sh -c 'cat /etc/opendkim/keys/*.txt'
 ```
 
-Выведет TXT-запись вида `mail._domainkey ... v=DKIM1; k=rsa; p=...`. Значение `p=...` положите
-в TXT-запись `mail._domainkey.example.ru`. Ключ сохраняется в томе `maildkim`, поэтому при
-перезапусках не меняется.
+Выведет TXT-запись вида `mail._domainkey ... v=DKIM1; k=rsa; p=...`. Значение собирается из
+кусков в кавычках (склейте их без пробелов) и кладётся в TXT-запись `mail._domainkey.example.ru`.
+Если ключа по пути нет — посмотрите фактическую структуру `docker exec funandchecks-mail ls -laR /etc/opendkim/keys`
+и логи `docker compose logs mail | grep -i dkim` (там же сразу печатается готовая запись).
+Ключ сохраняется в томе `maildkim`, поэтому при перезапусках не меняется.
 
 > Caddy сам получает TLS-сертификат для `APP_DOMAIN` (Let's Encrypt) — отдельных DNS-записей для HTTPS не нужно, только A-запись.
 
 ---
 
 ## 4. Запуск
+
+`caddy_net`, через которую Caddy проксирует трафик в API, объявлена в compose как
+`external` — создайте её заранее (один раз на хост):
+
+```bash
+docker network create caddy_net
+```
 
 ```bash
 docker compose up -d --build
@@ -102,6 +117,10 @@ docker compose up -d --build
 При старте API:
 - применяет миграции БД автоматически;
 - создаёт роли и стартовых админов из `InitialAdmins`.
+
+> Сидинг работает в режиме fail-fast: любая некорректная запись в `InitialAdmins`
+> (слабый пароль, email студента, дубликат) прерывает применение миграций и старт
+> контейнера с явной ошибкой в логах — исправьте конфиг и перезапустите.
 
 Проверка: `https://example.ru/health` и документация API на `https://example.ru/scalar`.
 

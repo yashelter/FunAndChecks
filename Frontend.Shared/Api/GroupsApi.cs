@@ -1,9 +1,11 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
 /// <summary>Эндпоинты групп — /api/groups.</summary>
-public class GroupsApi(HttpClient http) : ApiClientBase(http)
+public class GroupsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public Task<List<GroupDto>> GetAllAsync(CancellationToken ct = default) =>
         GetAsync<List<GroupDto>>("api/groups", ct);

@@ -2,11 +2,11 @@
 @layout StudentLayout
 @attribute [Authorize(Roles = Roles.Student)]
 
-<PageTitle>Результаты</PageTitle>
+<PageTitle>@Loc["StudentDashboard_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Результаты по предмету</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["StudentDashboard_Title"]</MudText>
 
-<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
            Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
     @foreach (var subject in _subjects)
     {

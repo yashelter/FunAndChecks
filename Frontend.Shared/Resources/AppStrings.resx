@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="xml:space" use="optional" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+
+  <!-- ==================== Common ==================== -->
+  <data name="Common_EmailRequired" xml:space="preserve"><value>Email is required</value></data>
+  <data name="Common_EmailLabel" xml:space="preserve"><value>Email</value></data>
+  <data name="Common_PasswordRequired" xml:space="preserve"><value>Password is required</value></data>
+  <data name="Common_BackToLogin" xml:space="preserve"><value>Back to sign in</value></data>
+  <data name="Common_Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Common_No" xml:space="preserve"><value>No</value></data>
+  <data name="Common_Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Common_Download" xml:space="preserve"><value>Download XLSX</value></data>
+  <data name="Common_NotSet" xml:space="preserve"><value>Not set</value></data>
+  <data name="Common_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Common_Save" xml:space="preserve"><value>Save</value></data>
+  <data name="Common_SelectSubject" xml:space="preserve"><value>Select subject</value></data>
+  <data name="Common_Reason" xml:space="preserve"><value>Reason: </value></data>
+
+  <!-- ==================== App ==================== -->
+  <data name="App_PageNotFound" xml:space="preserve"><value>Page not found.</value></data>
+  <data name="App_Logout" xml:space="preserve"><value>Sign out</value></data>
+
+  <!-- ==================== Login ==================== -->
+  <data name="Login_PageTitle" xml:space="preserve"><value>Sign In</value></data>
+  <data name="Login_Title" xml:space="preserve"><value>Sign in to FunAndChecks</value></data>
+  <data name="Login_PasswordLabel" xml:space="preserve"><value>Password</value></data>
+  <data name="Login_SubmitButton" xml:space="preserve"><value>Sign In</value></data>
+  <data name="Login_ForgotPassword" xml:space="preserve"><value>Forgot password?</value></data>
+  <data name="Login_GoToRegister" xml:space="preserve"><value>Register</value></data>
+  <data name="Login_ViewResults" xml:space="preserve"><value>View results without signing in</value></data>
+  <data name="Login_ConfirmEmailButton" xml:space="preserve"><value>Confirm email</value></data>
+
+  <!-- ==================== Register ==================== -->
+  <data name="Register_PageTitle" xml:space="preserve"><value>Registration</value></data>
+  <data name="Register_Title" xml:space="preserve"><value>Student Registration</value></data>
+  <data name="Register_FirstNameLabel" xml:space="preserve"><value>First Name</value></data>
+  <data name="Register_FirstNameRequired" xml:space="preserve"><value>First name is required</value></data>
+  <data name="Register_LastNameLabel" xml:space="preserve"><value>Last Name</value></data>
+  <data name="Register_LastNameRequired" xml:space="preserve"><value>Last name is required</value></data>
+  <data name="Register_PasswordLabel" xml:space="preserve"><value>Password</value></data>
+  <data name="Register_ConfirmPasswordLabel" xml:space="preserve"><value>Confirm password</value></data>
+  <data name="Register_ConfirmPasswordRequired" xml:space="preserve"><value>Please confirm your password</value></data>
+  <data name="Register_PasswordMismatch" xml:space="preserve"><value>Passwords do not match</value></data>
+  <data name="Register_ShowPassword" xml:space="preserve"><value>Show password</value></data>
+  <data name="Register_GroupLabel" xml:space="preserve"><value>Group</value></data>
+  <data name="Register_GroupRequired" xml:space="preserve"><value>Please select a group</value></data>
+  <data name="Register_GroupPlaceholder" xml:space="preserve"><value>Select group</value></data>
+  <data name="Register_SubmitButton" xml:space="preserve"><value>Register</value></data>
+  <data name="Register_HaveAccount" xml:space="preserve"><value>Already have an account? Sign in</value></data>
+
+  <!-- ==================== ConfirmEmail ==================== -->
+  <data name="ConfirmEmail_PageTitle" xml:space="preserve"><value>Email Confirmation</value></data>
+  <data name="ConfirmEmail_Title" xml:space="preserve"><value>Email Confirmation</value></data>
+  <data name="ConfirmEmail_Subtitle" xml:space="preserve"><value>We sent a code to your email. Enter it to activate your account.</value></data>
+  <data name="ConfirmEmail_CodeLabel" xml:space="preserve"><value>Code from email</value></data>
+  <data name="ConfirmEmail_CodeRequired" xml:space="preserve"><value>Enter the code</value></data>
+  <data name="ConfirmEmail_SubmitButton" xml:space="preserve"><value>Confirm</value></data>
+  <data name="ConfirmEmail_ResendButton" xml:space="preserve"><value>Resend code</value></data>
+  <data name="ConfirmEmail_ResendNoEmail" xml:space="preserve"><value>Enter email to resend the code</value></data>
+  <data name="ConfirmEmail_ResendSuccess" xml:space="preserve"><value>If the account exists and is not confirmed, the code has been resent.</value></data>
+
+  <!-- ==================== ForgotPassword ==================== -->
+  <data name="ForgotPassword_PageTitle" xml:space="preserve"><value>Password Reset</value></data>
+  <data name="ForgotPassword_Title" xml:space="preserve"><value>Password Reset</value></data>
+  <data name="ForgotPassword_Subtitle" xml:space="preserve"><value>Enter your email — we will send you a reset code.</value></data>
+  <data name="ForgotPassword_SendButton" xml:space="preserve"><value>Send Code</value></data>
+  <data name="ForgotPassword_SentInfo" xml:space="preserve"><value>If an account with that email exists, a reset code has been sent.</value></data>
+
+  <!-- ==================== ResetPassword ==================== -->
+  <data name="ResetPassword_PageTitle" xml:space="preserve"><value>New Password</value></data>
+  <data name="ResetPassword_Title" xml:space="preserve"><value>Set New Password</value></data>
+  <data name="ResetPassword_CodeLabel" xml:space="preserve"><value>Reset code</value></data>
+  <data name="ResetPassword_CodeRequired" xml:space="preserve"><value>Enter the reset code</value></data>
+  <data name="ResetPassword_NewPasswordLabel" xml:space="preserve"><value>New password</value></data>
+  <data name="ResetPassword_NewPasswordRequired" xml:space="preserve"><value>Enter new password</value></data>
+  <data name="ResetPassword_SubmitButton" xml:space="preserve"><value>Reset Password</value></data>
+  <data name="ResetPassword_BackToLogin" xml:space="preserve"><value>Back to sign in</value></data>
+  <data name="ResetPassword_Subtitle" xml:space="preserve"><value>Enter the code from the email and a new password.</value></data>
+
+  <!-- ==================== Errors / API ==================== -->
+  <data name="Error_TooManyRequests" xml:space="preserve"><value>Too many requests. Please try again later.</value></data>
+  <data name="Error_Unauthorized" xml:space="preserve"><value>Authentication required.</value></data>
+  <data name="Error_Forbidden" xml:space="preserve"><value>Access denied.</value></data>
+  <data name="Error_RequestFailed" xml:space="preserve"><value>Request failed ({0}).</value></data>
+  <data name="Auth_EmptyTokensError" xml:space="preserve"><value>Server returned empty tokens.</value></data>
+
+  <!-- ==================== Queue statuses ==================== -->
+  <data name="Queue_StatusWaiting" xml:space="preserve"><value>In queue</value></data>
+  <data name="Queue_StatusSkipped" xml:space="preserve"><value>Skipped</value></data>
+  <data name="Queue_StatusChecking" xml:space="preserve"><value>Checking</value></data>
+  <data name="Queue_StatusFinished" xml:space="preserve"><value>Finished</value></data>
+  <data name="Queue_StatusUnknown" xml:space="preserve"><value>Unknown</value></data>
+
+  <!-- ==================== Admin Nav ==================== -->
+  <data name="AdminNav_Results" xml:space="preserve"><value>Results</value></data>
+  <data name="AdminNav_Management" xml:space="preserve"><value>Management</value></data>
+  <data name="AdminNav_Queues" xml:space="preserve"><value>Queues</value></data>
+  <data name="AdminNav_Grading" xml:space="preserve"><value>Students &amp; Grades</value></data>
+  <data name="AdminNav_Admins" xml:space="preserve"><value>Administrators</value></data>
+  <data name="AdminNav_Maintenance" xml:space="preserve"><value>Maintenance</value></data>
+
+  <!-- ==================== Student Nav ==================== -->
+  <data name="StudentNav_MySubjects" xml:space="preserve"><value>My Subjects</value></data>
+  <data name="StudentNav_Queues" xml:space="preserve"><value>Queues</value></data>
+  <data name="StudentNav_History" xml:space="preserve"><value>Submission History</value></data>
+
+  <!-- ==================== Admin Dashboard ==================== -->
+  <data name="Dashboard_Title" xml:space="preserve"><value>Results</value></data>
+  <data name="Dashboard_FullName" xml:space="preserve"><value>Full Name</value></data>
+  <data name="Dashboard_Group" xml:space="preserve"><value>Group</value></data>
+
+  <!-- ==================== Student Dashboard ==================== -->
+  <data name="StudentDashboard_Title" xml:space="preserve"><value>Subject Results</value></data>
+
+  <!-- ==================== Management ==================== -->
+  <data name="Management_PageTitle" xml:space="preserve"><value>Management</value></data>
+  <data name="Management_Title" xml:space="preserve"><value>Management</value></data>
+  <data name="Management_TabQueues" xml:space="preserve"><value>Queues</value></data>
+  <data name="Management_TabSubjects" xml:space="preserve"><value>Subjects</value></data>
+  <data name="Management_TabGroups" xml:space="preserve"><value>Groups</value></data>
+  <data name="Management_TabTasks" xml:space="preserve"><value>Tasks</value></data>
+  <data name="Management_TabGradeComponents" xml:space="preserve"><value>Grade Components</value></data>
+  <data name="Management_CreateQueue" xml:space="preserve"><value>Create Queue</value></data>
+  <data name="Management_SubjectLabel" xml:space="preserve"><value>Subject</value></data>
+  <data name="Management_SelectSubject" xml:space="preserve"><value>Select subject</value></data>
+  <data name="Management_QueueNameLabel" xml:space="preserve"><value>Name</value></data>
+  <data name="Management_QueueNameHelper" xml:space="preserve"><value>Default: subject + date</value></data>
+  <data name="Management_DateLabel" xml:space="preserve"><value>Date</value></data>
+  <data name="Management_TimeLabel" xml:space="preserve"><value>Time</value></data>
+  <data name="Management_AutoFillLabel" xml:space="preserve"><value>Auto-fill with groups (optional)</value></data>
+  <data name="Management_SelectGroups" xml:space="preserve"><value>Select groups</value></data>
+  <data name="Management_AutoFillSelected" xml:space="preserve"><value>Groups selected: {0}</value></data>
+  <data name="Management_AllowSelfJoin" xml:space="preserve"><value>Allow students to self-join</value></data>
+  <data name="Management_CreateButton" xml:space="preserve"><value>Create</value></data>
+  <data name="Management_CreateQueueHint" xml:space="preserve"><value>Subject and date are preserved — convenient for creating several in a row.</value></data>
+  <data name="Management_ColName" xml:space="preserve"><value>Name</value></data>
+  <data name="Management_ColDate" xml:space="preserve"><value>Date</value></data>
+  <data name="Management_ColSelfJoin" xml:space="preserve"><value>Self-join</value></data>
+  <data name="Management_DateHelper" xml:space="preserve"><value>dd.MM.yyyy HH:mm</value></data>
+  <data name="Management_MinPointsLabel" xml:space="preserve"><value>Min points</value></data>
+
+  <!-- ==================== Queue Details ==================== -->
+  <data name="QueueDetails_PageTitle" xml:space="preserve"><value>Queue</value></data>
+
+  <!-- ==================== Admin Queues list ==================== -->
+  <data name="Queues_Title" xml:space="preserve"><value>Queues</value></data>
+  <data name="Queues_Open" xml:space="preserve"><value>Open</value></data>
+
+  <!-- ==================== Admin Management (admins) ==================== -->
+  <data name="AdminMgmt_PageTitle" xml:space="preserve"><value>Administrators</value></data>
+  <data name="AdminMgmt_Title" xml:space="preserve"><value>Administrators</value></data>
+  <data name="AdminMgmt_EmailLabel" xml:space="preserve"><value>Email</value></data>
+  <data name="AdminMgmt_PasswordLabel" xml:space="preserve"><value>Password</value></data>
+  <data name="AdminMgmt_FirstNameLabel" xml:space="preserve"><value>First Name</value></data>
+  <data name="AdminMgmt_LastNameLabel" xml:space="preserve"><value>Last Name</value></data>
+  <data name="AdminMgmt_IsSuperAdmin" xml:space="preserve"><value>Super Admin</value></data>
+
+  <!-- ==================== Student Grading ==================== -->
+  <data name="Grading_PageTitle" xml:space="preserve"><value>Students &amp; Grades</value></data>
+  <data name="Grading_Title" xml:space="preserve"><value>Students &amp; Grades</value></data>
+  <data name="Grading_SelectSubject" xml:space="preserve"><value>Select subject</value></data>
+
+  <!-- ==================== Maintenance ==================== -->
+  <data name="Maintenance_PageTitle" xml:space="preserve"><value>Maintenance</value></data>
+  <data name="Maintenance_Title" xml:space="preserve"><value>Maintenance</value></data>
+  <data name="Maintenance_BackupTitle" xml:space="preserve"><value>Database Backup</value></data>
+
+  <!-- ==================== Student Interaction Dialog ==================== -->
+  <data name="Dialog_TabTasks" xml:space="preserve"><value>Tasks</value></data>
+  <data name="Dialog_TabGrades" xml:space="preserve"><value>Grades</value></data>
+  <data name="Dialog_TabColor" xml:space="preserve"><value>Color</value></data>
+  <data name="Dialog_Accepted" xml:space="preserve"><value>Accepted</value></data>
+  <data name="Dialog_Rework" xml:space="preserve"><value>Rework</value></data>
+  <data name="Dialog_History" xml:space="preserve"><value>History</value></data>
+  <data name="Dialog_HideHistory" xml:space="preserve"><value>Hide history</value></data>
+  <data name="Dialog_NoSubmissions" xml:space="preserve"><value>No submissions yet.</value></data>
+  <data name="Dialog_NoGradeComponents" xml:space="preserve"><value>This subject has no grade columns (exam, coursework).</value></data>
+  <data name="Dialog_ColorSubtitle" xml:space="preserve"><value>Fill color of the student's name cell in the results table.</value></data>
+  <data name="Dialog_ColorPreview" xml:space="preserve"><value>Preview:</value></data>
+  <data name="Dialog_RemoveFill" xml:space="preserve"><value>Remove fill</value></data>
+  <data name="Dialog_Green" xml:space="preserve"><value>Green</value></data>
+  <data name="Dialog_Brown" xml:space="preserve"><value>Brown</value></data>
+  <data name="Dialog_CustomColor" xml:space="preserve"><value>Custom color</value></data>
+  <data name="Dialog_ApplyColor" xml:space="preserve"><value>Apply selected</value></data>
+  <data name="Dialog_StatusFinished" xml:space="preserve"><value>Finished</value></data>
+  <data name="Dialog_StatusSkipped" xml:space="preserve"><value>Skipped</value></data>
+  <data name="Dialog_StatusWaiting" xml:space="preserve"><value>Back to queue</value></data>
+  <data name="Dialog_Collapse" xml:space="preserve"><value>Collapse</value></data>
+
+  <!-- ==================== Comment Dialog ==================== -->
+  <data name="CommentDialog_Title" xml:space="preserve"><value>Comment</value></data>
+  <data name="CommentDialog_Submit" xml:space="preserve"><value>Submit</value></data>
+
+  <!-- ==================== Student Queues ==================== -->
+  <data name="StudentQueues_PageTitle" xml:space="preserve"><value>Queues</value></data>
+  <data name="StudentQueues_Title" xml:space="preserve"><value>Queues</value></data>
+
+  <!-- ==================== Student MyLogs ==================== -->
+  <data name="MyLogs_PageTitle" xml:space="preserve"><value>Submission History</value></data>
+  <data name="MyLogs_SelectSubject" xml:space="preserve"><value>Select subject</value></data>
+
+  <!-- ==================== Public Results ==================== -->
+  <data name="PublicResults_PageTitle" xml:space="preserve"><value>Results</value></data>
+
+  <!-- ==================== SubjectResultsView ==================== -->
+  <data name="Results_ColName" xml:space="preserve"><value>Full Name</value></data>
+  <data name="Results_ColGroup" xml:space="preserve"><value>Group</value></data>
+
+  <!-- ==================== Common (extra) ==================== -->
+  <data name="Common_Add" xml:space="preserve"><value>Add</value></data>
+  <data name="Common_Access" xml:space="preserve"><value>Access</value></data>
+  <data name="Common_Saved" xml:space="preserve"><value>Saved.</value></data>
+  <data name="Common_NetworkError" xml:space="preserve"><value>Network error. Check your connection.</value></data>
+  <data name="Common_EmptyResponseError" xml:space="preserve"><value>the server returned an empty response</value></data>
+  <data name="Common_UnknownError" xml:space="preserve"><value>Unknown error: {0}</value></data>
+  <data name="Common_Subject" xml:space="preserve"><value>Subject</value></data>
+  <data name="Common_ShowPast" xml:space="preserve"><value>Show past</value></data>
+  <data name="Common_Ok" xml:space="preserve"><value>OK</value></data>
+  <data name="Common_PointsAbbr" xml:space="preserve"><value>pts</value></data>
+  <data name="Common_SignalRConnectError" xml:space="preserve"><value>Failed to connect to updates: {0}</value></data>
+  <data name="Common_SignalRReconnectError" xml:space="preserve"><value>Failed to reconnect to updates: {0}</value></data>
+  <data name="Common_LoadResultsError" xml:space="preserve"><value>Failed to load results: {0}</value></data>
+
+  <!-- ==================== Task statuses ==================== -->
+  <data name="Task_StatusAccepted" xml:space="preserve"><value>Accepted</value></data>
+  <data name="Task_StatusRejected" xml:space="preserve"><value>Rework</value></data>
+  <data name="Task_StatusNotSubmitted" xml:space="preserve"><value>Not submitted</value></data>
+
+  <!-- ==================== Queue statuses (extra) ==================== -->
+  <data name="Queue_StatusCheckingWithAdmin" xml:space="preserve"><value>Checking ({0})</value></data>
+
+  <!-- ==================== Admin Dashboard (extra) ==================== -->
+  <data name="Dashboard_PageTitle" xml:space="preserve"><value>Admin · Results</value></data>
+  <data name="Dashboard_ExportDone" xml:space="preserve"><value>XLSX export completed.</value></data>
+  <data name="Dashboard_ExportError" xml:space="preserve"><value>Failed to export: {0}</value></data>
+
+  <!-- ==================== Management (extra) ==================== -->
+  <data name="Management_NewSubjectLabel" xml:space="preserve"><value>New subject</value></data>
+  <data name="Management_GroupAccessLabel" xml:space="preserve"><value>Available to groups</value></data>
+  <data name="Management_GroupAccessPlaceholder" xml:space="preserve"><value>Groups (optional)</value></data>
+  <data name="Management_GroupCount" xml:space="preserve"><value>Groups: {0}</value></data>
+  <data name="Management_NewGroupLabel" xml:space="preserve"><value>New group</value></data>
+  <data name="Management_SubjectAccessLabel" xml:space="preserve"><value>Available subjects</value></data>
+  <data name="Management_SubjectAccessPlaceholder" xml:space="preserve"><value>Subjects (optional)</value></data>
+  <data name="Management_SubjectCount" xml:space="preserve"><value>Subjects: {0}</value></data>
+  <data name="Management_TaskLabel" xml:space="preserve"><value>Task</value></data>
+  <data name="Management_TaskDescriptionLabel" xml:space="preserve"><value>Description</value></data>
+  <data name="Management_TaskPointsLabel" xml:space="preserve"><value>Points</value></data>
+  <data name="Management_ColDescription" xml:space="preserve"><value>Description</value></data>
+  <data name="Management_ColPoints" xml:space="preserve"><value>Points</value></data>
+  <data name="Management_NewComponentLabel" xml:space="preserve"><value>Column (exam/coursework)</value></data>
+  <data name="Management_MaxPointsShortLabel" xml:space="preserve"><value>Max</value></data>
+  <data name="Management_VisibilityTab" xml:space="preserve"><value>Visibility</value></data>
+  <data name="Management_VisibilityHint" xml:space="preserve"><value>Archived (hidden) subjects and groups are not shown in selection — handy for hiding past semesters. Those restricted by a super admin are marked with a lock and cannot be changed.</value></data>
+  <data name="Management_SubjectsTitle" xml:space="preserve"><value>Subjects</value></data>
+  <data name="Management_GroupsTitle" xml:space="preserve"><value>Groups</value></data>
+  <data name="Management_SelectSubjectWarning" xml:space="preserve"><value>Select a subject.</value></data>
+  <data name="Management_DateTimeRequired" xml:space="preserve"><value>Enter date and time.</value></data>
+  <data name="Management_QueueCreated" xml:space="preserve"><value>Queue created.</value></data>
+  <data name="Management_QueueUpdated" xml:space="preserve"><value>Queue updated.</value></data>
+  <data name="Management_QueueDeleted" xml:space="preserve"><value>Queue deleted.</value></data>
+  <data name="Management_SubjectCreated" xml:space="preserve"><value>Subject created.</value></data>
+  <data name="Management_SubjectDeleted" xml:space="preserve"><value>Subject deleted.</value></data>
+  <data name="Management_GroupCreated" xml:space="preserve"><value>Group created.</value></data>
+  <data name="Management_GroupDeleted" xml:space="preserve"><value>Group deleted.</value></data>
+  <data name="Management_TaskCreated" xml:space="preserve"><value>Task created.</value></data>
+  <data name="Management_TaskDeleted" xml:space="preserve"><value>Task deleted.</value></data>
+  <data name="Management_ComponentCreated" xml:space="preserve"><value>Component created.</value></data>
+  <data name="Management_ComponentDeleted" xml:space="preserve"><value>Component deleted.</value></data>
+  <data name="Management_AccessUpdated" xml:space="preserve"><value>Access updated.</value></data>
+  <data name="Management_SubjectArchived" xml:space="preserve"><value>Subject archived.</value></data>
+  <data name="Management_SubjectRestored" xml:space="preserve"><value>Subject restored.</value></data>
+  <data name="Management_GroupArchived" xml:space="preserve"><value>Group archived.</value></data>
+  <data name="Management_GroupRestored" xml:space="preserve"><value>Group restored.</value></data>
+  <data name="Management_SubjectAccessTitle" xml:space="preserve"><value>Subject access «{0}»</value></data>
+  <data name="Management_GroupAccessTitle" xml:space="preserve"><value>Group subjects «{0}»</value></data>
+
+  <!-- ==================== Admin Queues list (extra) ==================== -->
+  <data name="Queues_PageTitleActive" xml:space="preserve"><value>Active queues</value></data>
+  <data name="Queues_Empty" xml:space="preserve"><value>No queues found.</value></data>
+
+  <!-- ==================== Queue Details (extra) ==================== -->
+  <data name="QueueDetails_Subject" xml:space="preserve"><value>Subject: {0}</value></data>
+  <data name="QueueDetails_FilterLabel" xml:space="preserve"><value>Filter (name/group)</value></data>
+  <data name="QueueDetails_SortLabel" xml:space="preserve"><value>Sort (within status)</value></data>
+  <data name="QueueDetails_SortPoints" xml:space="preserve"><value>By points</value></data>
+  <data name="QueueDetails_SortGroup" xml:space="preserve"><value>By group</value></data>
+  <data name="QueueDetails_SortJoinedAt" xml:space="preserve"><value>By join time</value></data>
+  <data name="QueueDetails_NoParticipants" xml:space="preserve"><value>No participants found.</value></data>
+  <data name="QueueDetails_Points" xml:space="preserve"><value>Points: </value></data>
+  <data name="QueueDetails_LoadError" xml:space="preserve"><value>Failed to load queue data.</value></data>
+  <data name="QueueDetails_LoadErrorPrefix" xml:space="preserve"><value>Error loading queue: {0}</value></data>
+  <data name="QueueDetails_WorkTitle" xml:space="preserve"><value>Work with student</value></data>
+
+  <!-- ==================== Student Grading (extra) ==================== -->
+  <data name="Grading_SearchLabel" xml:space="preserve"><value>Search student by last name</value></data>
+  <data name="Grading_SelectSubjectHint" xml:space="preserve"><value>Select a subject to see students and grade them.</value></data>
+  <data name="Grading_NoStudents" xml:space="preserve"><value>No students found.</value></data>
+  <data name="Grading_SelectSubjectFirst" xml:space="preserve"><value>Select a subject first.</value></data>
+  <data name="Grading_DialogTitle" xml:space="preserve"><value>Grading</value></data>
+  <data name="StudentGrading_EditProfileTitle" xml:space="preserve"><value>Edit profile</value></data>
+  <data name="StudentGrading_ProfileUpdated" xml:space="preserve"><value>Profile updated successfully.</value></data>
+
+  <!-- ==================== Admin Management (extra) ==================== -->
+  <data name="AdminMgmt_CreateTitle" xml:space="preserve"><value>Create administrator</value></data>
+  <data name="AdminMgmt_ColorLabel" xml:space="preserve"><value>Color #RRGGBB</value></data>
+  <data name="AdminMgmt_LetterLabel" xml:space="preserve"><value>Letter label</value></data>
+  <data name="AdminMgmt_ListTitle" xml:space="preserve"><value>List</value></data>
+  <data name="AdminMgmt_RestrictionsTitle" xml:space="preserve"><value>Restrictions: {0} {1}</value></data>
+  <data name="AdminMgmt_SubjectsTitle" xml:space="preserve"><value>Subjects</value></data>
+  <data name="AdminMgmt_GroupsTitle" xml:space="preserve"><value>Groups</value></data>
+  <data name="AdminMgmt_Restricted" xml:space="preserve"><value>(restricted)</value></data>
+  <data name="AdminMgmt_EmailPasswordRequired" xml:space="preserve"><value>Enter email and password.</value></data>
+  <data name="AdminMgmt_Created" xml:space="preserve"><value>Administrator created.</value></data>
+  <data name="AdminMgmt_DeleteTitle" xml:space="preserve"><value>Delete administrator</value></data>
+  <data name="AdminMgmt_DeleteConfirm" xml:space="preserve"><value>Delete administrator {0} {1}?</value></data>
+  <data name="AdminMgmt_Deleted" xml:space="preserve"><value>Administrator deleted.</value></data>
+
+  <!-- ==================== Maintenance (extra) ==================== -->
+  <data name="Maintenance_Intro" xml:space="preserve"><value>Entity management (create, edit, delete) is on the Management page.</value></data>
+  <data name="Maintenance_BackupHintServer" xml:space="preserve"><value>Creates a DB dump on the server (pg_dump) into the configured directory.</value></data>
+  <data name="Maintenance_BackupCreated" xml:space="preserve"><value>Created: {0}</value></data>
+  <data name="Maintenance_BackupCreateButton" xml:space="preserve"><value>Create backup</value></data>
+  <data name="Maintenance_BackupDone" xml:space="preserve"><value>Backup created.</value></data>
+
+  <!-- ==================== Comment Dialog (extra) ==================== -->
+  <data name="CommentDialog_ReworkTitle" xml:space="preserve"><value>Rework comment</value></data>
+  <data name="CommentDialog_ReworkLabel" xml:space="preserve"><value>Rework reason</value></data>
+
+  <!-- ==================== Entity Link Dialog (extra) ==================== -->
+  <data name="LinkDialog_Empty" xml:space="preserve"><value>List is empty.</value></data>
+
+  <!-- ==================== Edit Student Dialog (extra) ==================== -->
+  <data name="EditStudent_FirstNameLabel" xml:space="preserve"><value>First Name</value></data>
+  <data name="EditStudent_FirstNameRequired" xml:space="preserve"><value>First name is required</value></data>
+  <data name="EditStudent_LastNameLabel" xml:space="preserve"><value>Last Name</value></data>
+  <data name="EditStudent_LastNameRequired" xml:space="preserve"><value>Last name is required</value></data>
+  <data name="EditStudent_EmailLabel" xml:space="preserve"><value>Email</value></data>
+  <data name="EditStudent_PasswordLabel" xml:space="preserve"><value>New password (leave empty to keep current)</value></data>
+  <data name="EditStudent_GroupLabel" xml:space="preserve"><value>Group</value></data>
+  <data name="EditStudent_NoGroup" xml:space="preserve"><value>No group</value></data>
+
+  <!-- ==================== Student Interaction Dialog (extra) ==================== -->
+  <data name="Dialog_CurrentGrade" xml:space="preserve"><value>Current: {0}</value></data>
+  <data name="Dialog_LoadTasksError" xml:space="preserve"><value>Failed to load tasks: {0}</value></data>
+  <data name="Dialog_LoadGradesError" xml:space="preserve"><value>Failed to load grades: {0}</value></data>
+  <data name="Dialog_StatusUpdated" xml:space="preserve"><value>Status updated.</value></data>
+  <data name="Dialog_TaskStatusUpdated" xml:space="preserve"><value>Task status updated.</value></data>
+  <data name="Dialog_GradeSaved" xml:space="preserve"><value>Grade saved.</value></data>
+  <data name="Dialog_FillRemoved" xml:space="preserve"><value>Fill removed.</value></data>
+  <data name="Dialog_ColorApplied" xml:space="preserve"><value>Color applied.</value></data>
+
+  <!-- ==================== Student Queues (extra) ==================== -->
+  <data name="StudentQueues_QueueTitle" xml:space="preserve"><value>Queue: {0}</value></data>
+  <data name="StudentQueues_Points" xml:space="preserve"><value>Points: {0}</value></data>
+  <data name="StudentQueues_MyQueues" xml:space="preserve"><value>My queues</value></data>
+  <data name="StudentQueues_NoMyQueues" xml:space="preserve"><value>You are not in any queue yet.</value></data>
+  <data name="StudentQueues_Available" xml:space="preserve"><value>Available to join</value></data>
+  <data name="StudentQueues_SignUp" xml:space="preserve"><value>Sign up</value></data>
+  <data name="StudentQueues_NoAvailable" xml:space="preserve"><value>There are no queues to join right now.</value></data>
+  <data name="StudentQueues_LoadError" xml:space="preserve"><value>Failed to load queues: {0}</value></data>
+  <data name="StudentQueues_Joined" xml:space="preserve"><value>You have joined the queue.</value></data>
+
+  <!-- ==================== Student MyLogs (extra) ==================== -->
+  <data name="MyLogs_TitleFull" xml:space="preserve"><value>My results and submission history</value></data>
+  <data name="MyLogs_SubjectTotal" xml:space="preserve"><value>Subject total: {0}</value></data>
+  <data name="MyLogs_TotalPoints" xml:space="preserve"><value>Total points:</value></data>
+  <data name="MyLogs_Grades" xml:space="preserve"><value>Grades</value></data>
+  <data name="MyLogs_Tasks" xml:space="preserve"><value>Tasks</value></data>
+  <data name="MyLogs_CurrentStatus" xml:space="preserve"><value>Current status:</value></data>
+  <data name="MyLogs_ShowHistory" xml:space="preserve"><value>Show review history</value></data>
+  <data name="MyLogs_CheckedBy" xml:space="preserve"><value>Checked by: {0} ({1})</value></data>
+
+  <!-- ==================== Public Results (extra) ==================== -->
+  <data name="PublicResults_LoginButton" xml:space="preserve"><value>Sign in</value></data>
+
+  <!-- ==================== Student Dashboard (extra) ==================== -->
+  <data name="StudentDashboard_PageTitle" xml:space="preserve"><value>Results</value></data>
+
+  <data name="Error_SubjectRestricted" xml:space="preserve"><value>Access to subject {0} is restricted.</value></data>
+  <data name="Error_GroupRestricted" xml:space="preserve"><value>Access to group {0} is restricted.</value></data>
+  <data name="Error_SubjectHidden" xml:space="preserve"><value>Subject {0} is hidden. Restore it before making changes.</value></data>
+  <data name="Error_GroupHidden" xml:space="preserve"><value>Group {0} is hidden. Restore it before making changes.</value></data>
+  <data name="Error_NotFound" xml:space="preserve"><value>The requested resource was not found.</value></data>
+  <data name="Error_Conflict" xml:space="preserve"><value>The operation conflicts with the current state.</value></data>
+  <data name="Error_StudentNotEnrolled" xml:space="preserve"><value>The student is not enrolled in subject {0}.</value></data>
+  <data name="Error_AutofillGroupNotEnrolled" xml:space="preserve"><value>Groups {0} are not linked to this subject.</value></data>
+  <data name="Error_AlreadyInQueue" xml:space="preserve"><value>The student is already in the queue.</value></data>
+  <data name="Error_EmailTaken" xml:space="preserve"><value>This email address is already in use.</value></data>
+  <data name="Error_GroupNameTaken" xml:space="preserve"><value>A group with this name already exists.</value></data>
+  <data name="Error_SubjectNameTaken" xml:space="preserve"><value>A subject with this name already exists.</value></data>
+  <data name="Error_TaskNameTaken" xml:space="preserve"><value>A task with this name already exists in this subject.</value></data>
+  <data name="Error_EmailRateLimited" xml:space="preserve"><value>Please wait {0} seconds before requesting another email.</value></data>
+  <data name="Error_EmailNotConfirmed" xml:space="preserve"><value>Email is not confirmed. Check your inbox for the confirmation code.</value></data>
+  <data name="Error_AccountLocked" xml:space="preserve"><value>The account is temporarily locked due to too many failed attempts. Try again later.</value></data>
+  <data name="Error_InvalidCredentials" xml:space="preserve"><value>Invalid email or password.</value></data>
+  <data name="Error_InvalidResetCode" xml:space="preserve"><value>The reset code is invalid or expired, or the password does not meet requirements.</value></data>
+  <data name="Error_InvalidConfirmationCode" xml:space="preserve"><value>The confirmation code is invalid or expired.</value></data>
+  <data name="Error_MethodNotAllowed" xml:space="preserve"><value>This request method is not allowed.</value></data>
+  <data name="Error_RequestFailed" xml:space="preserve"><value>The request could not be completed.</value></data>
+  <data name="Error_Internal" xml:space="preserve"><value>An unexpected server error occurred.</value></data>
+  <data name="Error_ValidationRequired" xml:space="preserve"><value>This field is required.</value></data>
+  <data name="Error_ValidationEmail" xml:space="preserve"><value>Enter a valid email address.</value></data>
+  <data name="Error_ValidationFailed" xml:space="preserve"><value>Check the entered values.</value></data>
+  <data name="Error_ValidationMaximumLength" xml:space="preserve"><value>Use at most {0} characters.</value></data>
+  <data name="Error_ValidationMinimumLength" xml:space="preserve"><value>Use at least {0} characters.</value></data>
+  <data name="Error_ValidationGreaterThan" xml:space="preserve"><value>The value must be greater than {0}.</value></data>
+  <data name="Error_ValidationGreaterThanOrEqual" xml:space="preserve"><value>The value must be at least {0}.</value></data>
+  <data name="Error_ValidationFormat" xml:space="preserve"><value>The value has an invalid format.</value></data>
+  <data name="Error_ValidationSelection" xml:space="preserve"><value>Select a valid value.</value></data>
+  <data name="Error_ValidationInvalid" xml:space="preserve"><value>The submitted value is invalid.</value></data>
+  <data name="Error_ValidationCulture" xml:space="preserve"><value>Select a supported language.</value></data>
+  <data name="Culture_UnsavedTitle" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="Culture_UnsavedMessage" xml:space="preserve"><value>Changing the language reloads the page and discards unsaved changes. Continue?</value></data>
+  <data name="AdminLayout_Role" xml:space="preserve"><value>Administrator</value></data>
+</root>

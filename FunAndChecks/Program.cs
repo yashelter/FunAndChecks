@@ -1,5 +1,6 @@
 using System.Text;
 using System.Threading.RateLimiting;
+using System.Globalization;
 using FunAndChecks.Application;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Common;
@@ -16,6 +17,7 @@ using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
@@ -87,6 +89,18 @@ builder.Services.AddAuthentication(options =>
                     context.Token = accessToken;
                 return Task.CompletedTask;
             },
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                // RFC 9110 §11.6.1: 401 обязан сопровождаться WWW-Authenticate.
+                context.HttpContext.Response.Headers.WWWAuthenticate = context.AuthenticateFailure is null
+                    ? "Bearer"
+                    : "Bearer error=\"invalid_token\"";
+                await ApiProblemDetails.WriteAsync(context.HttpContext, StatusCodes.Status401Unauthorized,
+                    "Authentication is required.", "auth.unauthorized");
+            },
+            OnForbidden = context => ApiProblemDetails.WriteAsync(context.HttpContext, StatusCodes.Status403Forbidden,
+                "You do not have permission to perform this action.", "access.forbidden"),
         };
     });
 
@@ -100,6 +114,13 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, _) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
+        await ApiProblemDetails.WriteAsync(context.HttpContext, StatusCodes.Status429TooManyRequests,
+            "Too many requests. Try again later.", "rate_limit.exceeded");
+    };
     options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -111,7 +132,10 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+        options.InvalidModelStateResponseFactory = ApiProblemDetails.ValidationResult);
+builder.Services.AddLocalization();
 
 // OpenAPI-документ (отдаётся на /openapi/v1.json), просматривается через Scalar.
 builder.Services.AddOpenApi(options =>
@@ -145,8 +169,38 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Единственный входящий прокси — Caddy в docker-сети. Дефолтные KnownProxies/KnownNetworks
+// (только loopback) заставляют игнорировать X-Forwarded-For от Caddy, и RemoteIpAddress
+// для всех клиентов совпадает с адресом прокси — per-IP rate-limit авторизации
+// (10 req/min) схлопывается в один общий бакет. Доверяем всей сети за портом.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
+var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("ru-RU") };
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("en-US"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures,
+});
+
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseStatusCodePages(async statusContext =>
+{
+    var http = statusContext.HttpContext;
+    if (http.Request.Path.StartsWithSegments("/api"))
+    {
+        var status = http.Response.StatusCode;
+        var code = ApiProblemDetails.CodeForStatus(status);
+        await ApiProblemDetails.WriteAsync(http, status, ApiProblemDetails.DetailForStatus(status), code);
+    }
+});
 
 // OpenAPI + Scalar UI доступны всегда (документация по API на /scalar).
 app.MapOpenApi();
@@ -167,6 +221,23 @@ app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+// Endpoint routing does not produce a status code for an unknown path. Handle it
+// before the SPA fallback, while keeping the framework's proper 405 handling.
+app.Use(async (context, next) =>
+{
+    var endpoint = context.GetEndpoint();
+    var isSpaFallback = endpoint?.Metadata.Any(metadata => metadata.GetType().Name == "FallbackMetadata") == true;
+    if (context.Request.Path.StartsWithSegments("/api") && (endpoint is null || isSpaFallback))
+    {
+        await ApiProblemDetails.WriteAsync(context, StatusCodes.Status404NotFound,
+            ApiProblemDetails.DetailForStatus(StatusCodes.Status404NotFound),
+            ApiProblemDetails.CodeForStatus(StatusCodes.Status404NotFound));
+        return;
+    }
+
+    await next(context);
+});
 
 app.UseCors(corsPolicy);
 
@@ -202,7 +273,8 @@ if (!app.Environment.IsEnvironment("Testing"))
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "An error occurred during database migration or seeding.");
+        logger.LogCritical(ex, "Database migration or seeding failed; application startup is aborted.");
+        throw;
     }
 }
 

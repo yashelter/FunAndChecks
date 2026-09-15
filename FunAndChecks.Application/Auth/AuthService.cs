@@ -1,10 +1,12 @@
 using FluentValidation;
+using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 namespace FunAndChecks.Application.Auth;
 
@@ -14,7 +16,9 @@ public class AuthService(
     ITokenService tokenService,
     IRefreshTokenService refreshTokenService,
     IEmailSender emailSender,
+    IEmailTemplateRenderer emailTemplates,
     IEmailThrottle emailThrottle,
+    IResultsCacheService resultsCacheService,
     IValidator<RegisterStudentRequest> registerValidator,
     IValidator<ResetPasswordRequest> resetPasswordValidator,
     ILogger<AuthService> logger)
@@ -23,6 +27,7 @@ public class AuthService(
     public async Task<Guid> RegisterStudentAsync(RegisterStudentRequest request, CancellationToken cancellationToken = default)
     {
         await registerValidator.ValidateAndThrowAsync(request, cancellationToken);
+        EnsureEmailNotThrottled(request.Email);
 
         var groupExists = await db.Groups.AnyAsync(g => g.Id == request.GroupId, cancellationToken);
         if (!groupExists)
@@ -33,7 +38,16 @@ public class AuthService(
         if (existing is not null)
         {
             if (existing.EmailConfirmed)
-                throw new ConflictException("Этот email уже зарегистрирован.");
+            {
+                var template = emailTemplates.Render(EmailTemplateKind.ExistingAccount,
+                    await GetRecipientCultureAsync(existing.Id));
+                await emailSender.SendAsync(
+                    request.Email,
+                    template.Subject,
+                    template.HtmlBody,
+                    cancellationToken);
+                return Guid.Empty;
+            }
 
             await DeleteAccountAndProfileAsync(existing.Id, cancellationToken);
         }
@@ -48,10 +62,14 @@ public class AuthService(
             cancellationToken);
 
         if (!accountResult.Succeeded)
-            throw new ValidationException(string.Join(" ", accountResult.Errors));
+        {
+            var failures = accountResult.Errors.Select(e => new FluentValidation.Results.ValidationFailure("Password", e));
+            throw new ValidationException(failures);
+        }
 
         try
         {
+            await identityService.SetPreferredCultureAsync(studentId, CurrentSupportedCulture());
             db.Students.Add(new Student
             {
                 Id = studentId,
@@ -78,7 +96,7 @@ public class AuthService(
     public async Task ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default)
     {
         if (!await identityService.ConfirmEmailAsync(request.Email, request.Code))
-            throw new ForbiddenException("Invalid or expired confirmation code.");
+            throw new ForbiddenException("Invalid or expired confirmation code.", "auth.invalid_confirmation_code");
 
         // Активируем профиль студента — теперь он виден в рейтинге и не подлежит очистке.
         var account = await identityService.FindByEmailAsync(request.Email);
@@ -89,14 +107,40 @@ public class AuthService(
             {
                 student.IsActive = true;
                 await db.SaveChangesAsync(cancellationToken);
+                try
+                {
+                    var subjectIds = await db.GroupSubjects
+                        .Where(gs => gs.GroupId == student.GroupId)
+                        .Select(gs => gs.SubjectId)
+                        .ToListAsync(cancellationToken);
+                        
+                    foreach (var subjectId in subjectIds)
+                    {
+                        resultsCacheService.Invalidate(subjectId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to invalidate cache");
+                }
             }
         }
     }
 
     public async Task ResendConfirmationAsync(ResendConfirmationRequest request, CancellationToken cancellationToken = default)
     {
+        // Apply the same observable throttling behavior even when the account does not exist.
+        EnsureEmailNotThrottled(request.Email);
+        var code = await identityService.GenerateEmailConfirmationCodeAsync(request.Email);
+        
         // Намеренно не сообщаем, существует ли такая почта.
-        await SendConfirmationCodeAsync(request.Email, cancellationToken);
+        if (code == null)
+            return;
+
+        var account = await identityService.FindByEmailAsync(request.Email);
+        var template = emailTemplates.Render(EmailTemplateKind.Confirmation,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(request.Email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
@@ -106,9 +150,9 @@ public class AuthService(
         return result.Status switch
         {
             LoginStatus.Success => await IssueTokensAsync(result.UserId!.Value, cancellationToken),
-            LoginStatus.EmailNotConfirmed => throw new ForbiddenException("Email is not confirmed. Check your inbox for the confirmation code."),
-            LoginStatus.LockedOut => throw new ForbiddenException("Account is temporarily locked due to too many failed attempts. Try again later."),
-            _ => throw new ForbiddenException("Invalid credentials."),
+            LoginStatus.EmailNotConfirmed => throw new ForbiddenException("Email is not confirmed. Check your inbox for the confirmation code.", "auth.email_not_confirmed"),
+            LoginStatus.LockedOut => throw new ForbiddenException("Account is temporarily locked due to too many failed attempts. Try again later.", "auth.account_locked"),
+            _ => throw new ForbiddenException("Invalid credentials.", "auth.invalid_credentials"),
         };
     }
 
@@ -135,8 +179,8 @@ public class AuthService(
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
     {
+        // Throttle before lookup so 202/429 cannot be used to enumerate accounts.
         EnsureEmailNotThrottled(request.Email);
-
         var code = await identityService.GeneratePasswordResetCodeAsync(request.Email);
 
         // Намеренно не сообщаем, существует ли такая почта.
@@ -146,11 +190,10 @@ public class AuthService(
             return;
         }
 
-        await emailSender.SendAsync(
-            request.Email,
-            EmailTemplates.PasswordResetSubject,
-            EmailTemplates.PasswordReset(code),
-            cancellationToken);
+        var account = await identityService.FindByEmailAsync(request.Email);
+        var template = emailTemplates.Render(EmailTemplateKind.PasswordReset,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(request.Email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
@@ -159,7 +202,7 @@ public class AuthService(
 
         var result = await identityService.ResetPasswordAsync(request.Email, request.Code, request.NewPassword);
         if (!result.Succeeded)
-            throw new ForbiddenException("Invalid or expired reset code, or the password does not meet requirements.");
+            throw new ForbiddenException("Invalid or expired reset code, or the password does not meet requirements.", "auth.invalid_reset_code");
 
         // Смена пароля обесценивает все ранее выданные refresh-токены (защита при компрометации).
         var account = await identityService.FindByEmailAsync(request.Email);
@@ -169,24 +212,23 @@ public class AuthService(
 
     private async Task SendConfirmationCodeAsync(string email, CancellationToken cancellationToken)
     {
-        EnsureEmailNotThrottled(email);
-
         var code = await identityService.GenerateEmailConfirmationCodeAsync(email);
         if (code == null)
             return; // почты нет или она уже подтверждена
 
-        await emailSender.SendAsync(
-            email,
-            EmailTemplates.ConfirmationSubject,
-            EmailTemplates.Confirmation(code),
-            cancellationToken);
+        var account = await identityService.FindByEmailAsync(email);
+        var template = emailTemplates.Render(EmailTemplateKind.Confirmation,
+            account is null ? CurrentSupportedCulture() : await GetRecipientCultureAsync(account.Id), code);
+        await emailSender.SendAsync(email, template.Subject, template.HtmlBody, cancellationToken);
     }
 
     private void EnsureEmailNotThrottled(string email)
     {
         if (!emailThrottle.TryAcquire(email, out var retryAfter))
             throw new RateLimitException(
-                $"Письмо можно отправлять не чаще одного раза в минуту. Повторите через {Math.Ceiling(retryAfter.TotalSeconds)} с.");
+                $"Email can be sent once per minute. Retry in {Math.Ceiling(retryAfter.TotalSeconds)} seconds.",
+                "email.rate_limited",
+                new Dictionary<string, object?> { ["retryAfterSeconds"] = Math.Ceiling(retryAfter.TotalSeconds) });
     }
 
     private async Task DeleteAccountAndProfileAsync(Guid id, CancellationToken cancellationToken)
@@ -200,4 +242,12 @@ public class AuthService(
 
         await identityService.DeleteAccountAsync(id, cancellationToken);
     }
+
+    private async Task<string> GetRecipientCultureAsync(Guid userId)
+    {
+        var preferred = await identityService.GetPreferredCultureAsync(userId);
+        return SupportedCultures.TryNormalize(preferred) ?? CurrentSupportedCulture();
+    }
+
+    private static string CurrentSupportedCulture() => SupportedCultures.Normalize(CultureInfo.CurrentUICulture.Name);
 }

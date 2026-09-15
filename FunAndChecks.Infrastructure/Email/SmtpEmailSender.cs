@@ -39,7 +39,11 @@ public class SmtpEmailSender(IOptions<SmtpOptions> options, ILogger<SmtpEmailSen
         await client.ConnectAsync(_options.Host, _options.Port, secureOptions, cancellationToken);
 
         if (!string.IsNullOrEmpty(_options.User))
+        {
+            if (string.IsNullOrEmpty(_options.Password))
+                throw new InvalidOperationException("SMTP password must be configured when SMTP user is set.");
             await client.AuthenticateAsync(_options.User, _options.Password, cancellationToken);
+        }
 
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(quit: true, cancellationToken);

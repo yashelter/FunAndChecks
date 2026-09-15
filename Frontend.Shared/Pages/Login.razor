@@ -1,16 +1,16 @@
 @page "/login"
 @layout AuthLayout
 
-<PageTitle>Вход</PageTitle>
+<PageTitle>@Loc["Login_PageTitle"]</PageTitle>
 
 <MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
-    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">Вход в FunAndChecks</MudText>
+    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Login_Title"]</MudText>
 
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="Email" InputType="InputType.Email"
-                      Required="true" RequiredError="Укажите email" Class="mb-3" />
-        <MudTextField @bind-Value="_password" Label="Пароль" InputType="InputType.Password"
-                      Required="true" RequiredError="Укажите пароль"
+        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
+        <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
+                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]"
                       OnKeyDown="HandleKeyDownAsync" />
     </MudForm>
 
@@ -20,21 +20,21 @@
         @if (_emailNotConfirmed)
         {
             <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mt-2"
-                       OnClick="GoToConfirm">Подтвердить почту</MudButton>
+                       OnClick="GoToConfirm">@Loc["Login_ConfirmEmailButton"]</MudButton>
         }
     }
 
     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
                OnClick="SubmitAsync" Disabled="_busy">
         @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-        Войти
+        @Loc["Login_SubmitButton"]
     </MudButton>
 
     <div class="d-flex justify-space-between mt-4">
-        <MudLink Href="/register">Регистрация</MudLink>
-        <MudLink Href="/forgot-password">Забыли пароль?</MudLink>
+        <MudLink Href="/register">@Loc["Login_GoToRegister"]</MudLink>
+        <MudLink Href="/forgot-password">@Loc["Login_ForgotPassword"]</MudLink>
     </div>
     <div class="d-flex justify-center mt-2">
-        <MudLink Href="/results">Посмотреть результаты без входа</MudLink>
+        <MudLink Href="/results">@Loc["Login_ViewResults"]</MudLink>
     </div>
 </MudPaper>

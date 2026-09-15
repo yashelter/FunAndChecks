@@ -23,5 +23,5 @@ public class SubmissionsController(ISubmissionService submissionService) : Contr
     /// <summary>История попыток сдачи задания студентом.</summary>
     [HttpGet("students/{studentId:guid}/tasks/{taskId:int}")]
     public async Task<ActionResult<List<SubmissionLogDto>>> GetLog(Guid studentId, int taskId, CancellationToken cancellationToken) =>
-        Ok(await submissionService.GetLogAsync(studentId, taskId, cancellationToken));
+        Ok(await submissionService.GetLogAsync(User.GetUserId(), studentId, taskId, cancellationToken));
 }

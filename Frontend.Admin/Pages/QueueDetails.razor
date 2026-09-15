@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = Roles.Admin)]
 @implements IAsyncDisposable
 
-<PageTitle>Очередь</PageTitle>
+<PageTitle>@Loc["QueueDetails_PageTitle"]</PageTitle>
 
 @if (_loading)
 {
@@ -17,23 +17,23 @@ else if (_details is not null)
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/queues" Edge="Edge.Start" />
         <MudText Typo="Typo.h4" Class="ml-2">@_details.EventName</MudText>
     </div>
-    <MudText Typo="Typo.subtitle1" GutterBottom="true">Предмет: @_details.SubjectName</MudText>
+    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["QueueDetails_Subject", _details.SubjectName]</MudText>
 
     <div class="d-flex flex-wrap gap-3 align-center mt-2">
-        <MudTextField @bind-Value="_filter" Label="Фильтр (ФИО/группа)" Variant="Variant.Outlined"
+        <MudTextField @bind-Value="_filter" Label="@Loc["QueueDetails_FilterLabel"]" Variant="Variant.Outlined"
                       Margin="Margin.Dense" Clearable="true" Style="max-width: 280px;"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="Сортировка (внутри статуса)" Variant="Variant.Outlined"
+        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="@Loc["QueueDetails_SortLabel"]" Variant="Variant.Outlined"
                    Margin="Margin.Dense" Style="max-width: 240px;">
-            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">По баллам</MudSelectItem>
-            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">По группе</MudSelectItem>
-            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.JoinedAt">По времени записи</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">@Loc["QueueDetails_SortPoints"]</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">@Loc["QueueDetails_SortGroup"]</MudSelectItem>
+            <MudSelectItem T="ParticipantSort" Value="ParticipantSort.JoinedAt">@Loc["QueueDetails_SortJoinedAt"]</MudSelectItem>
         </MudSelect>
     </div>
 
     @if (Visible.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Class="mt-4">Участники не найдены.</MudAlert>
+        <MudAlert Severity="Severity.Info" Class="mt-4">@Loc["QueueDetails_NoParticipants"]</MudAlert>
     }
     else
     {
@@ -47,9 +47,9 @@ else if (_details is not null)
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@p.GroupName</MudChip>
                         </div>
                         <div class="d-flex align-center gap-2">
-                            <MudText>Баллы: <b>@p.TotalPoints</b></MudText>
+                            <MudText>@Loc["QueueDetails_Points"]<b>@p.TotalPoints</b></MudText>
                             <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                                @QueueStyles.StatusText(p.Status, p.CheckingByAdminName)
+                                @QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)
                             </MudChip>
                         </div>
                     </div>
@@ -61,5 +61,5 @@ else if (_details is not null)
 }
 else
 {
-    <MudAlert Severity="Severity.Error">Не удалось загрузить данные очереди.</MudAlert>
+    <MudAlert Severity="Severity.Error">@Loc["QueueDetails_LoadError"]</MudAlert>
 }

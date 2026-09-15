@@ -2,9 +2,9 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
 
-<PageTitle>Управление</PageTitle>
+<PageTitle>@Loc["Management_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Управление</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Management_Title"]</MudText>
 
 @if (_loading)
 {
@@ -12,152 +12,152 @@
 }
 else
 {
-    <MudTabs Elevation="2" Rounded="true" Border="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabs Elevation="2" Rounded="true" Border="true" ApplyEffectsToContainer="true" Class="pa-4">
 
-        <MudTabPanel Text="Очереди">
+        <MudTabPanel Text="@Loc["Management_TabQueues"]">
             <MudCard Class="mb-4">
-                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Создать очередь</MudText></CardHeaderContent></MudCardHeader>
+                <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">@Loc["Management_CreateQueue"]</MudText></CardHeaderContent></MudCardHeader>
                 <MudCardContent>
                     <MudGrid Spacing="2">
                         <MudItem xs="12" sm="6">
-                            <MudSelect T="int?" Value="_queueSubjectId" ValueChanged="OnQueueSubjectChanged" Label="Предмет"
-                                       Variant="Variant.Outlined" Placeholder="Выберите предмет">
+                            <MudSelect T="int?" Value="_queueSubjectId" ValueChanged="OnQueueSubjectChanged" Label="@Loc["Management_SubjectLabel"]"
+                                       Variant="Variant.Outlined" Placeholder="@Loc["Management_SelectSubject"]">
                                 @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6">
-                            <MudTextField @bind-Value="_queueName" Label="Название" Variant="Variant.Outlined"
-                                          HelperText="По умолчанию: предмет + дата" />
+                            <MudTextField @bind-Value="_queueName" Label="@Loc["Management_QueueNameLabel"]" Variant="Variant.Outlined"
+                                          HelperText="@Loc["Management_QueueNameHelper"]" />
                         </MudItem>
-                        <MudItem xs="6" sm="3"><MudDatePicker @bind-Date="_queueDate" Label="Дата" Variant="Variant.Outlined" /></MudItem>
-                        <MudItem xs="6" sm="3"><MudTimePicker @bind-Time="_queueTime" Label="Время" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="6" sm="3"><MudDatePicker @bind-Date="_queueDate" Label="@Loc["Management_DateLabel"]" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="6" sm="3"><MudTimePicker @bind-Time="_queueTime" Label="@Loc["Management_TimeLabel"]" Variant="Variant.Outlined" /></MudItem>
                         <MudItem xs="12" sm="6">
                             <MudSelect T="int" SelectedValues="_autoFillGroupIds" SelectedValuesChanged="@(v => _autoFillGroupIds = v.ToList())"
                                        MultiSelection="true"
-                                       Label="Авто-заполнить группами (необязательно)" Variant="Variant.Outlined"
-                                       Placeholder="Выберите группы"
-                                       MultiSelectionTextFunc="@(items => $"Выбрано групп: {items.Count}")">
+                                       Label="@Loc["Management_AutoFillLabel"]" Variant="Variant.Outlined"
+                                       Placeholder="@Loc["Management_SelectGroups"]"
+                                       MultiSelectionTextFunc="@(items => string.Format(Loc["Management_AutoFillSelected"], items.Count))">
                                 @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12">
                             <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary"
-                                       Disabled="@_autoFillGroupIds.Any()">Разрешить самозапись студентов</MudSwitch>
+                                       Disabled="@_autoFillGroupIds.Any()">@Loc["Management_AllowSelfJoin"]</MudSwitch>
                         </MudItem>
                     </MudGrid>
                 </MudCardContent>
                 <MudCardActions>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateQueueAsync">Создать</MudButton>
-                    <MudText Typo="Typo.caption" Class="ml-3 align-self-center">Форма не сбрасывает предмет/дату — удобно делать несколько подряд.</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateQueueAsync">@Loc["Management_CreateButton"]</MudButton>
+                    <MudText Typo="Typo.caption" Class="ml-3 align-self-center">@Loc["Management_CreateQueueHint"]</MudText>
                 </MudCardActions>
             </MudCard>
 
             <MudTable Items="_queues" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm"
                       CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnQueueCommit">
                 <HeaderContent>
-                    <MudTh>Название</MudTh>
-                    <MudTh>Дата</MudTh>
-                    <MudTh>Самозапись</MudTh>
+                    <MudTh>@Loc["Management_ColName"]</MudTh>
+                    <MudTh>@Loc["Management_ColDate"]</MudTh>
+                    <MudTh>@Loc["Management_ColSelfJoin"]</MudTh>
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Название">@context.Name</MudTd>
-                    <MudTd DataLabel="Дата">@context.EventDateTime.ToLocalTime().ToString("g")</MudTd>
-                    <MudTd DataLabel="Самозапись">@(context.AllowSelfJoin ? "да" : "нет")</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColDate"]">@context.EventDateTime.ToLocalTime().ToString("g")</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">@(context.AllowSelfJoin ? Loc["Common_Yes"] : Loc["Common_No"])</MudTd>
                     <MudTd>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                        OnClick="@(() => DeleteQueueAsync(context))" />
                     </MudTd>
                 </RowTemplate>
                 <RowEditingTemplate>
-                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
-                    <MudTd DataLabel="Дата"><MudTextField @bind-Value="context.LocalDateTimeText" HelperText="дд.ММ.гггг ЧЧ:мм" /></MudTd>
-                    <MudTd DataLabel="Самозапись">@(context.AllowSelfJoin ? "да" : "нет")</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColDate"]"><MudTextField @bind-Value="context.LocalDateTimeText" HelperText="@Loc["Management_DateHelper"]" /></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">@(context.AllowSelfJoin ? Loc["Common_Yes"] : Loc["Common_No"])</MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>
         </MudTabPanel>
 
-        <MudTabPanel Text="Предметы">
+        <MudTabPanel Text="@Loc["Management_TabSubjects"]">
             <div class="d-flex flex-wrap gap-2 mb-3 align-center" style="max-width: 720px;">
-                <MudTextField @bind-Value="_newSubjectName" Label="Новый предмет" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <MudTextField @bind-Value="_newSubjectName" Label="@Loc["Management_NewSubjectLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 <MudSelect T="int" SelectedValues="_newSubjectGroupIds" SelectedValuesChanged="@(v => _newSubjectGroupIds = v.ToList())"
                            MultiSelection="true"
-                           Label="Доступен группам" Variant="Variant.Outlined" Margin="Margin.Dense"
-                           Placeholder="Группы (необязательно)" Style="min-width: 220px;"
-                           MultiSelectionTextFunc="@(items => $"Групп: {items.Count}")">
+                           Label="@Loc["Management_GroupAccessLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Placeholder="@Loc["Management_GroupAccessPlaceholder"]" Style="min-width: 220px;"
+                           MultiSelectionTextFunc="@(items => string.Format(Loc["Management_GroupCount"], items.Count))">
                     @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
                 </MudSelect>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">Добавить</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">@Loc["Common_Add"]</MudButton>
             </div>
             <MudTable Items="_subjects" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnSubjectCommit">
-                <HeaderContent><MudTh>Название</MudTh><MudTh></MudTh></HeaderContent>
+                <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
                     <MudTd>
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.GroupWork"
-                                   OnClick="@(() => OpenSubjectAccessAsync(context))">Доступ</MudButton>
+                                   OnClick="@(() => OpenSubjectAccessAsync(context))">@Loc["Common_Access"]</MudButton>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                        OnClick="@(() => DeleteSubjectAsync(context))" />
                     </MudTd>
                 </RowTemplate>
                 <RowEditingTemplate>
-                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" /></MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>
         </MudTabPanel>
 
-        <MudTabPanel Text="Группы">
+        <MudTabPanel Text="@Loc["Management_TabGroups"]">
             <div class="d-flex flex-wrap gap-2 mb-3 align-center" style="max-width: 720px;">
-                <MudTextField @bind-Value="_newGroupName" Label="Новая группа" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <MudTextField @bind-Value="_newGroupName" Label="@Loc["Management_NewGroupLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
                 <MudSelect T="int" SelectedValues="_newGroupSubjectIds" SelectedValuesChanged="@(v => _newGroupSubjectIds = v.ToList())"
                            MultiSelection="true"
-                           Label="Доступные предметы" Variant="Variant.Outlined" Margin="Margin.Dense"
-                           Placeholder="Предметы (необязательно)" Style="min-width: 220px;"
-                           MultiSelectionTextFunc="@(items => $"Предметов: {items.Count}")">
+                           Label="@Loc["Management_SubjectAccessLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                           Placeholder="@Loc["Management_SubjectAccessPlaceholder"]" Style="min-width: 220px;"
+                           MultiSelectionTextFunc="@(items => string.Format(Loc["Management_SubjectCount"], items.Count))">
                     @foreach (var s in _subjects) { <MudSelectItem T="int" Value="@s.Id">@s.Name</MudSelectItem> }
                 </MudSelect>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateGroupAsync">Добавить</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateGroupAsync">@Loc["Common_Add"]</MudButton>
             </div>
             <MudTable Items="_groups" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnGroupCommit">
-                <HeaderContent><MudTh>Название</MudTh><MudTh></MudTh></HeaderContent>
+                <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
                     <MudTd>
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.MenuBook"
-                                   OnClick="@(() => OpenGroupAccessAsync(context))">Доступ</MudButton>
+                                   OnClick="@(() => OpenGroupAccessAsync(context))">@Loc["Common_Access"]</MudButton>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                        OnClick="@(() => DeleteGroupAsync(context))" />
                     </MudTd>
                 </RowTemplate>
                 <RowEditingTemplate>
-                    <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" /></MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>
         </MudTabPanel>
 
-        <MudTabPanel Text="Задачи">
-            <MudSelect T="int?" Value="_taskSubjectId" ValueChanged="OnTaskSubjectChanged" Label="Предмет"
-                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;" Placeholder="Выберите предмет">
+        <MudTabPanel Text="@Loc["Management_TabTasks"]">
+            <MudSelect T="int?" Value="_taskSubjectId" ValueChanged="OnTaskSubjectChanged" Label="@Loc["Common_Subject"]"
+                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;" Placeholder="@Loc["Management_SelectSubject"]">
                 @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
             </MudSelect>
 
             @if (_taskSubjectId is not null)
             {
                 <div class="d-flex flex-wrap gap-2 mb-3 align-end">
-                    <MudTextField @bind-Value="_newTaskName" Label="Задача" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    <MudTextField @bind-Value="_newTaskDescription" Label="Описание" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    <MudNumericField @bind-Value="_newTaskMaxPoints" Label="Баллы" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 100px;" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTaskAsync">Добавить</MudButton>
+                    <MudTextField @bind-Value="_newTaskName" Label="@Loc["Management_TaskLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudTextField @bind-Value="_newTaskDescription" Label="@Loc["Management_TaskDescriptionLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="_newTaskMaxPoints" Label="@Loc["Management_TaskPointsLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 100px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTaskAsync">@Loc["Common_Add"]</MudButton>
                 </div>
                 <MudTable Items="_tasks" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnTaskCommit">
-                    <HeaderContent><MudTh>Название</MudTh><MudTh>Описание</MudTh><MudTh>Баллы</MudTh><MudTh></MudTh></HeaderContent>
+                    <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh>@Loc["Management_ColDescription"]</MudTh><MudTh>@Loc["Management_ColPoints"]</MudTh><MudTh></MudTh></HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="Название">@context.Name</MudTd>
-                        <MudTd DataLabel="Описание">@context.Description</MudTd>
-                        <MudTd DataLabel="Баллы">@context.MaxPoints</MudTd>
+                        <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
+                        <MudTd DataLabel="@Loc["Management_ColDescription"]">@context.Description</MudTd>
+                        <MudTd DataLabel="@Loc["Management_ColPoints"]">@context.MaxPoints</MudTd>
                         <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                               OnClick="@(() => DeleteTaskAsync(context))" /></MudTd>
                     </RowTemplate>
@@ -171,26 +171,26 @@ else
             }
         </MudTabPanel>
 
-        <MudTabPanel Text="Оценки">
-            <MudSelect T="int?" Value="_componentSubjectId" ValueChanged="OnComponentSubjectChanged" Label="Предмет"
-                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;" Placeholder="Выберите предмет">
+        <MudTabPanel Text="@Loc["Management_TabGradeComponents"]">
+            <MudSelect T="int?" Value="_componentSubjectId" ValueChanged="OnComponentSubjectChanged" Label="@Loc["Common_Subject"]"
+                       Variant="Variant.Outlined" Class="mb-3" Style="max-width: 360px;" Placeholder="@Loc["Management_SelectSubject"]">
                 @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
             </MudSelect>
 
             @if (_componentSubjectId is not null)
             {
                 <div class="d-flex flex-wrap gap-2 mb-3 align-end">
-                    <MudTextField @bind-Value="_newComponentName" Label="Колонка (билет/курсовая)" Variant="Variant.Outlined" Margin="Margin.Dense" />
-                    <MudNumericField @bind-Value="_newComponentMin" Label="Мин" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 90px;" />
-                    <MudNumericField @bind-Value="_newComponentMax" Label="Макс" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Style="width: 90px;" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateComponentAsync">Добавить</MudButton>
+                    <MudTextField @bind-Value="_newComponentName" Label="@Loc["Management_NewComponentLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField @bind-Value="_newComponentMin" Label="@Loc["Management_MinPointsLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Style="width: 90px;" />
+                    <MudNumericField @bind-Value="_newComponentMax" Label="@Loc["Management_MaxPointsShortLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" Min="1" Style="width: 90px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateComponentAsync">@Loc["Common_Add"]</MudButton>
                 </div>
                 <MudTable Items="_components" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnComponentCommit">
-                    <HeaderContent><MudTh>Название</MudTh><MudTh>Мин</MudTh><MudTh>Макс</MudTh><MudTh></MudTh></HeaderContent>
+                    <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh>@Loc["Management_MinPointsLabel"]</MudTh><MudTh>@Loc["Management_MaxPointsShortLabel"]</MudTh><MudTh></MudTh></HeaderContent>
                     <RowTemplate>
-                        <MudTd DataLabel="Название">@context.Name</MudTd>
-                        <MudTd DataLabel="Мин">@context.MinPoints</MudTd>
-                        <MudTd DataLabel="Макс">@context.MaxPoints</MudTd>
+                        <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
+                        <MudTd DataLabel="@Loc["Management_MinPointsLabel"]">@context.MinPoints</MudTd>
+                        <MudTd DataLabel="@Loc["Management_MaxPointsShortLabel"]">@context.MaxPoints</MudTd>
                         <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                               OnClick="@(() => DeleteComponentAsync(context))" /></MudTd>
                     </RowTemplate>
@@ -204,15 +204,14 @@ else
             }
         </MudTabPanel>
 
-        <MudTabPanel Text="Видимость">
+        <MudTabPanel Text="@Loc["Management_VisibilityTab"]">
             <MudText Typo="Typo.body2" Class="mb-3">
-                Архивные (скрытые) предметы и группы не показываются при выборе в работе — удобно прятать прошедшие семестры.
-                Запрещённые супер-админом помечены замком и недоступны для изменения.
+                @Loc["Management_VisibilityHint"]
             </MudText>
 
             <MudGrid>
                 <MudItem xs="12" md="6">
-                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Предметы</MudText>
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["Management_SubjectsTitle"]</MudText>
                     @foreach (var s in _subjects)
                     {
                         <div class="d-flex align-center gap-2">
@@ -227,7 +226,7 @@ else
                     }
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudText Typo="Typo.subtitle1" GutterBottom="true">Группы</MudText>
+                    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["Management_GroupsTitle"]</MudText>
                     @foreach (var g in _groups)
                     {
                         <div class="d-flex align-center gap-2">

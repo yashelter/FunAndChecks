@@ -11,5 +11,5 @@ public abstract class User
     public required string FirstName { get; set; }
     public required string LastName { get; set; }
 
-    public string FullName => $"{FirstName} {LastName}";
+    public string FullName => $"{LastName} {FirstName}";
 }

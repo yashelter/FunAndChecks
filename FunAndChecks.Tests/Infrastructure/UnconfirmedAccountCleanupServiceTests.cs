@@ -1,0 +1,73 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using FunAndChecks.Infrastructure.Workers;
+using FunAndChecks.Tests.Common;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Xunit;
+
+namespace FunAndChecks.Tests;
+
+public class UnconfirmedAccountCleanupServiceTests : IDisposable
+{
+    private readonly TestDatabase _db = new();
+
+    [Fact]
+    public async Task CleanupAsync_DeletesOnlyOldUnconfirmedUsers()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group();
+        await ctx.SaveChangesAsync();
+        
+        var confirmedUser = ctx.Student(group, "Confirmed");
+        confirmedUser.IsActive = true;
+        
+        var recentUnconfirmed = ctx.Student(group, "RecentUnconfirmed");
+        recentUnconfirmed.IsActive = false;
+        recentUnconfirmed.CreatedAt = DateTime.UtcNow.AddMinutes(-10);
+        
+        var oldUnconfirmed = ctx.Student(group, "OldUnconfirmed");
+        oldUnconfirmed.IsActive = false;
+        oldUnconfirmed.CreatedAt = DateTime.UtcNow.AddHours(-25);
+        ctx.Users.Local.Single(u => u.Id == oldUnconfirmed.Id).EmailConfirmed = false;
+
+        // Подтверждённый, но не активированный аккаунт (сбой между ConfirmEmail и IsActive=true) — удалять нельзя.
+        var oldConfirmedInactive = ctx.Student(group, "OldConfirmedInactive");
+        oldConfirmedInactive.IsActive = false;
+        oldConfirmedInactive.CreatedAt = DateTime.UtcNow.AddHours(-25);
+
+        await ctx.SaveChangesAsync();
+
+        var services = new ServiceCollection();
+        services.AddSingleton(ctx);
+        var sp = services.BuildServiceProvider();
+
+        var scope = Substitute.For<IServiceScope>();
+        scope.ServiceProvider.Returns(sp);
+
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        scopeFactory.CreateScope().Returns(scope);
+
+        var sut = new UnconfirmedAccountCleanupService(
+            scopeFactory,
+            NullLogger<UnconfirmedAccountCleanupService>.Instance);
+
+        var cleanupMethod = typeof(UnconfirmedAccountCleanupService)
+            .GetMethod("CleanupAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+            
+        await (Task)cleanupMethod!.Invoke(sut, [CancellationToken.None])!;
+
+        var usersAfter = ctx.Users.ToList();
+        usersAfter.Should().Contain(u => u.Id == confirmedUser.Id);
+        usersAfter.Should().Contain(u => u.Id == recentUnconfirmed.Id);
+        usersAfter.Should().NotContain(u => u.Id == oldUnconfirmed.Id);
+        usersAfter.Should().Contain(u => u.Id == oldConfirmedInactive.Id);
+    }
+
+    public void Dispose() => _db.Dispose();
+}

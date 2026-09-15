@@ -1,9 +1,11 @@
 using Frontend.Shared.Auth;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Shared.Pages;
@@ -13,6 +15,7 @@ public partial class Login
     [Inject] private AuthService Auth { get; set; } = null!;
     [Inject] private JwtAuthenticationStateProvider AuthState { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private MudForm _form = null!;
     private string _email = string.Empty;
@@ -29,26 +32,33 @@ public partial class Login
 
     private async Task SubmitAsync()
     {
-        await _form.Validate();
-        if (!_form.IsValid)
-            return;
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
 
         _busy = true;
-        _error = null;
-        _emailNotConfirmed = false;
-
-        var result = await Auth.LoginAsync(new Models.LoginRequest(_email.Trim(), _password));
-        if (!result.Success)
+        try
         {
-            _error = result.Error;
-            _emailNotConfirmed = result.Error?.Contains("not confirmed", StringComparison.OrdinalIgnoreCase) == true
-                                 || result.Error?.Contains("подтвержд", StringComparison.OrdinalIgnoreCase) == true;
-            _busy = false;
-            return;
-        }
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
 
-        AuthState.NotifyAuthenticationStateChanged();
-        await RedirectByRoleAsync();
+            _error = null;
+            _emailNotConfirmed = false;
+
+            var result = await Auth.LoginAsync(new Models.LoginRequest(_email.Trim(), _password));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                _emailNotConfirmed = result.Code == "auth.email_not_confirmed";
+                return;
+            }
+
+            AuthState.NotifyAuthenticationStateChanged();
+            await RedirectByRoleAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task RedirectByRoleAsync()

@@ -2,11 +2,11 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
 
-<PageTitle>Активные очереди</PageTitle>
+<PageTitle>@Loc["Queues_PageTitleActive"]</PageTitle>
 
 <div class="d-flex justify-space-between align-center flex-wrap gap-2">
-    <MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
-    <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">Показать прошедшие</MudSwitch>
+    <MudText Typo="Typo.h4" GutterBottom="true">@Loc["Queues_Title"]</MudText>
+    <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
 </div>
 
 @if (_loading)
@@ -15,7 +15,7 @@
 }
 else if (_queues.Count == 0)
 {
-    <MudAlert Severity="Severity.Info">Очередей не найдено.</MudAlert>
+    <MudAlert Severity="Severity.Info">@Loc["Queues_Empty"]</MudAlert>
 }
 else
 {

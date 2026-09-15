@@ -1,11 +1,13 @@
+@inject IStringLocalizer<AppStrings> Loc
+
 <MudNavMenu>
     <MudNavLink Href="/student" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
-        Мои предметы
+        @Loc["StudentNav_MySubjects"]
     </MudNavLink>
     <MudNavLink Href="/student/queues" Icon="@Icons.Material.Filled.Groups">
-        Очереди
+        @Loc["StudentNav_Queues"]
     </MudNavLink>
     <MudNavLink Href="/student/logs" Icon="@Icons.Material.Filled.History">
-        История сдач
+        @Loc["StudentNav_History"]
     </MudNavLink>
 </MudNavMenu>

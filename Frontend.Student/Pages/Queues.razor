@@ -3,13 +3,13 @@
 @attribute [Authorize(Roles = Roles.Student)]
 @implements IAsyncDisposable
 
-<PageTitle>Очереди</PageTitle>
+<PageTitle>@Loc["StudentQueues_PageTitle"]</PageTitle>
 
 <div class="d-flex justify-space-between align-center flex-wrap gap-2">
-    <MudText Typo="Typo.h4" GutterBottom="true">Очереди</MudText>
+    <MudText Typo="Typo.h4" GutterBottom="true">@Loc["StudentQueues_Title"]</MudText>
     @if (_details is null)
     {
-        <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">Показать прошедшие</MudSwitch>
+        <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
     }
 </div>
 
@@ -21,7 +21,7 @@ else if (_details is not null)
 {
     <div class="d-flex align-center mb-4">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="BackToList" Edge="Edge.Start" />
-        <MudText Typo="Typo.h5" Class="ml-2">Очередь: <b>@_details.EventName</b></MudText>
+        <MudText Typo="Typo.h5" Class="ml-2">@Loc["StudentQueues_QueueTitle", _details.EventName]</MudText>
     </div>
 
     <MudList T="QueueParticipantDto" ReadOnly="true">
@@ -31,9 +31,9 @@ else if (_details is not null)
                 <div class="d-flex justify-space-between align-center flex-grow-1">
                     <span style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
                     <div class="d-flex align-center gap-2">
-                        <MudText Class="mr-2">Баллы: <b>@p.TotalPoints</b></MudText>
+                        <MudText Class="mr-2">@Loc["StudentQueues_Points", p.TotalPoints]</MudText>
                         <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                            @QueueStyles.StatusText(p.Status, p.CheckingByAdminName)
+                            @QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)
                         </MudChip>
                     </div>
                 </div>
@@ -46,7 +46,7 @@ else
 {
     <MudStack Spacing="4">
         <div>
-            <MudText Typo="Typo.h5" GutterBottom="true">Мои очереди</MudText>
+            <MudText Typo="Typo.h5" GutterBottom="true">@Loc["StudentQueues_MyQueues"]</MudText>
             @if (_myEvents.Count > 0)
             {
                 <MudStack Spacing="2">
@@ -58,21 +58,21 @@ else
                                 <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
                             </div>
                             <MudButton Variant="Variant.Text" Color="Color.Primary"
-                                       OnClick="@(() => ViewQueueAsync(ev.Id))">Открыть</MudButton>
+                                       OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
                         </MudPaper>
                     }
                 </MudStack>
             }
             else
             {
-                <MudText>Вы пока не записаны ни в одну очередь.</MudText>
+                <MudText>@Loc["StudentQueues_NoMyQueues"]</MudText>
             }
         </div>
 
         <MudDivider />
 
         <div>
-            <MudText Typo="Typo.h5" GutterBottom="true">Доступные для записи</MudText>
+            <MudText Typo="Typo.h5" GutterBottom="true">@Loc["StudentQueues_Available"]</MudText>
             @if (_availableEvents.Count > 0)
             {
                 <MudStack Spacing="2">
@@ -85,11 +85,11 @@ else
                             </div>
                             <div class="d-flex gap-1">
                                 <MudButton Variant="Variant.Text" Color="Color.Primary"
-                                           OnClick="@(() => ViewQueueAsync(ev.Id))">Открыть</MudButton>
+                                           OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
                                 @if (ev.AllowSelfJoin)
                                 {
                                     <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                               OnClick="@(() => JoinAsync(ev.Id))">Записаться</MudButton>
+                                               OnClick="@(() => JoinAsync(ev.Id))">@Loc["StudentQueues_SignUp"]</MudButton>
                                 }
                             </div>
                         </MudPaper>
@@ -98,7 +98,7 @@ else
             }
             else
             {
-                <MudText>Сейчас нет очередей, в которые можно записаться.</MudText>
+                <MudText>@Loc["StudentQueues_NoAvailable"]</MudText>
             }
         </div>
     </MudStack>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en-US">
 
 <head>
     <meta charset="utf-8" />
@@ -41,18 +41,42 @@
     <div id="app">
         <div id="app-loading">
             <div id="app-loading-media"></div>
-            <div class="loading-text">Загрузка<span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
+            <div class="loading-text"><span id="loading-label">Loading</span><span class="dots"><span>.</span><span>.</span><span>.</span></span></div>
             <div class="loading-bar"></div>
         </div>
     </div>
 
     <div id="blazor-error-ui">
-        Произошла непредвиденная ошибка.
-        <a href="." class="reload">Перезагрузить</a>
+        <span id="fatal-label">An unexpected error occurred.</span>
+        <a href="." class="reload" id="reload-label">Reload</a>
         <span class="dismiss">🗙</span>
     </div>
 
     <script>
+        window.culturePreference = {
+            get: () => {
+                let stored = null;
+                try { stored = localStorage.getItem('culture_preference'); } catch { }
+                if (stored === 'en-US' || stored === 'ru-RU') return stored;
+                const languages = navigator.languages || [navigator.language || 'en-US'];
+                return languages.some(language => language && language.toLowerCase().startsWith('ru')) ? 'ru-RU' : 'en-US';
+            },
+            set: culture => {
+                if (culture !== 'en-US' && culture !== 'ru-RU') return false;
+                try { localStorage.setItem('culture_preference', culture); } catch { return false; }
+                document.documentElement.lang = culture;
+                return true;
+            }
+        };
+
+        const startupCulture = window.culturePreference.get();
+        document.documentElement.lang = startupCulture;
+        if (startupCulture === 'ru-RU') {
+            document.getElementById('loading-label').textContent = 'Загрузка';
+            document.getElementById('fatal-label').textContent = 'Произошла непредвиденная ошибка.';
+            document.getElementById('reload-label').textContent = 'Перезагрузить';
+        }
+
         // Случайный ассет экрана загрузки из папки wwwroot/loading (gif/mp4/webm/png/...).
         (function () {
             const fallback = 'loading/loading.mp4';
@@ -86,7 +110,8 @@
     </script>
 
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
-    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+    <script>Blazor.start({ applicationCulture: window.culturePreference.get() });</script>
     <script>
         window.downloadFileFromStream = async (fileName, contentStreamReference) => {
             const arrayBuffer = await contentStreamReference.arrayBuffer();

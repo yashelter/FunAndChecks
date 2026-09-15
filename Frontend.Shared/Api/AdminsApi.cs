@@ -1,9 +1,11 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
 /// <summary>Эндпоинты управления админами — /api/admins.</summary>
-public class AdminsApi(HttpClient http) : ApiClientBase(http)
+public class AdminsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     private sealed record IdResponse(Guid Id);
 
