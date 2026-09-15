@@ -24,7 +24,18 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
         ApiClientBase.GuardAsync(async () =>
         {
             var response = await http.PostAsJsonAsync("api/auth/login", request);
-            return await ReadResultAsync(response);
+            if (!response.IsSuccessStatusCode)
+            {
+                var (message, code) = await response.ReadErrorInfoAsync(loc);
+                return new AuthResult(false, message, code);
+            }
+
+            var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
+            if (string.IsNullOrEmpty(auth?.AccessToken) || string.IsNullOrEmpty(auth.RefreshToken))
+                return new AuthResult(false, loc["Auth_EmptyTokensError"]);
+
+            await tokenStore.SetTokensAsync(auth.AccessToken, auth.RefreshToken);
+            return AuthResult.Ok;
         }, loc);
 
     /// <summary>Регистрация студента. На почту уходит код подтверждения. Ошибки — через <see cref="ApiException"/>.</summary>
