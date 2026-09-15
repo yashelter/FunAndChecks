@@ -11,6 +11,7 @@ namespace FunAndChecks.Application.Admins;
 public class AdminService(
     IApplicationDbContext db,
     IIdentityService identityService,
+    IResultsCacheService cache,
     IValidator<CreateAdminRequest> createValidator,
     IValidator<UpdateAdminRequest> updateValidator)
     : IAdminService
@@ -72,6 +73,20 @@ public class AdminService(
         admin.Color = request.Color;
         admin.Letter = request.Letter;
         await db.SaveChangesAsync(cancellationToken);
+
+        // Буква/цвет админа зашиты в ячейки таблиц результатов (кэш без TTL) —
+        // сбрасываем кэш предметов, где этот админ отмечал сдачи или оценки.
+        var affectedSubjectIds = await db.Submissions
+            .Where(s => s.AdminId == adminId)
+            .Select(s => s.Task.SubjectId)
+            .Concat(db.StudentGrades
+                .Where(g => g.AdminId == adminId)
+                .Select(g => g.GradeComponent.SubjectId))
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        foreach (var subjectId in affectedSubjectIds)
+            cache.Invalidate(subjectId);
     }
 
     public async Task DeleteAsync(Guid actingAdminId, Guid adminId, CancellationToken cancellationToken = default)

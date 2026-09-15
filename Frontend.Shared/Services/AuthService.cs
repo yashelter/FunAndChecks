@@ -34,12 +34,11 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
         return AuthResult.Ok;
     }
 
-    /// <summary>Регистрация студента. На почту уходит код подтверждения.</summary>
-    public async Task<AuthResult> RegisterAsync(RegisterStudentRequest request)
+    /// <summary>Регистрация студента. На почту уходит код подтверждения. Ошибки — через <see cref="ApiException"/>.</summary>
+    public async Task RegisterAsync(RegisterStudentRequest request)
     {
         var response = await http.PostAsJsonAsync("api/auth/register", request);
         await response.EnsureSuccessAsync(loc);
-        return AuthResult.Ok;
     }
 
     public async Task<AuthResult> ConfirmEmailAsync(ConfirmEmailRequest request)

@@ -63,12 +63,7 @@ public partial class Register
 
         try
         {
-            var result = await Auth.RegisterAsync(request);
-            if (!result.Success)
-            {
-                _error = result.Error;
-                return;
-            }
+            await Auth.RegisterAsync(request);
 
             // Подтверждение почты обязательно — ведём на ввод кода из письма.
             Nav.NavigateTo($"/confirm-email?email={Uri.EscapeDataString(_model.Email.Trim())}");

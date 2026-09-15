@@ -46,6 +46,7 @@ public class StudentsController(
 
     /// <summary>Задания предмета со статусами сдачи конкретного студента.</summary>
     [HttpGet("{studentId:guid}/subjects/{subjectId:int}/tasks")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<TaskWithStatusDto>>> GetTasksWithStatus(
         Guid studentId, int subjectId, CancellationToken cancellationToken) =>
         Ok(await subjectService.GetTasksWithStatusAsync(subjectId, studentId, cancellationToken));

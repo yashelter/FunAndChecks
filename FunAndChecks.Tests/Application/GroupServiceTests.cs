@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Groups;
@@ -79,6 +80,52 @@ public class GroupServiceTests : IDisposable
         links.Should().BeEmpty();
 
         _cache.Received(1).Invalidate(subject.Id);
+    }
+
+    [Fact]
+    public async Task Create_DuplicateName_ThrowsConflictWithCode()
+    {
+        await using var ctx = _db.NewContext();
+        ctx.Group("Duplicate");
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+
+        var act = () => sut.CreateAsync(new CreateGroupRequest("Duplicate"));
+
+        (await act.Should().ThrowAsync<ConflictException>())
+            .Which.Code.Should().Be("groups.name_taken");
+        ctx.Groups.Count(g => g.Name == "Duplicate").Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Update_DuplicateName_ThrowsConflict()
+    {
+        await using var ctx = _db.NewContext();
+        var first = ctx.Group("First");
+        var second = ctx.Group("Second");
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+
+        var act = () => sut.UpdateAsync(Guid.NewGuid(), second.Id, new UpdateGroupRequest("First"));
+
+        await act.Should().ThrowAsync<ConflictException>();
+        (await ctx.Groups.FindAsync(second.Id))!.Name.Should().Be("Second");
+    }
+
+    [Fact]
+    public async Task Update_ToOwnName_Succeeds()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group("Same");
+        await ctx.SaveChangesAsync();
+
+        var sut = CreateSut(ctx);
+
+        await sut.UpdateAsync(Guid.NewGuid(), group.Id, new UpdateGroupRequest("Same"));
+
+        (await ctx.Groups.FindAsync(group.Id))!.Name.Should().Be("Same");
     }
 
     public void Dispose() => _db.Dispose();

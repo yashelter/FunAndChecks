@@ -163,10 +163,17 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Единственный входящий прокси — Caddy в docker-сети. Дефолтные KnownProxies/KnownNetworks
+// (только loopback) заставляют игнорировать X-Forwarded-For от Caddy, и RemoteIpAddress
+// для всех клиентов совпадает с адресом прокси — per-IP rate-limit авторизации
+// (10 req/min) схлопывается в один общий бакет. Доверяем всей сети за портом.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+};
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
 
 var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("ru-RU") };
 app.UseRequestLocalization(new RequestLocalizationOptions

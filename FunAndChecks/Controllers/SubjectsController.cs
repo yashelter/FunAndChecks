@@ -51,7 +51,9 @@ public class SubjectsController(
         return NoContent();
     }
 
+    /// <summary>Задания предмета (название, описание, максимум баллов).</summary>
     [HttpGet("{subjectId:int}/tasks")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<TaskDto>>> GetTasks(int subjectId, CancellationToken cancellationToken) =>
         Ok(await subjectService.GetTasksAsync(subjectId, cancellationToken));
 
@@ -72,6 +74,7 @@ public class SubjectsController(
 
     /// <summary>Оценочные колонки предмета (билет, курсовая и т.п.).</summary>
     [HttpGet("{subjectId:int}/grade-components")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<List<GradeComponentDto>>> GetGradeComponents(int subjectId, CancellationToken cancellationToken) =>
         Ok(await gradeService.GetComponentsAsync(subjectId, cancellationToken));
 

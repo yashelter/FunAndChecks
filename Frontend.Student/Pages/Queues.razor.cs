@@ -157,7 +157,20 @@ public partial class Queues : IAsyncDisposable
         _ => Color.Error,
     };
 
-    public async ValueTask DisposeAsync() => await DisposeHubAsync();
+    public async ValueTask DisposeAsync()
+    {
+        // Под замком, чтобы не пересечься с идущей (пере)инициализацией хаба.
+        await _hubLock.WaitAsync();
+        try
+        {
+            await DisposeHubAsync();
+        }
+        finally
+        {
+            _hubLock.Release();
+        }
+        _hubLock.Dispose();
+    }
 
     private async Task DisposeHubAsync()
     {

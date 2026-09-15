@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="ConfirmationSubject" xml:space="preserve"><value>FunAndChecks — email confirmation</value></data>
+  <data name="ConfirmationBody" xml:space="preserve"><value>&lt;p&gt;Hello!&lt;/p&gt;&lt;p&gt;Your FunAndChecks email confirmation code:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;The code is valid for about 10 minutes. If you didn't register, ignore this email.&lt;/p&gt;</value></data>
+  <data name="PasswordResetSubject" xml:space="preserve"><value>FunAndChecks — password reset</value></data>
+  <data name="PasswordResetBody" xml:space="preserve"><value>&lt;p&gt;Hello!&lt;/p&gt;&lt;p&gt;Your FunAndChecks password reset code:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;The code is valid for about 10 minutes. If you didn't request it, ignore this email.&lt;/p&gt;</value></data>
+  <data name="ExistingAccountSubject" xml:space="preserve"><value>FunAndChecks — registration attempt</value></data>
+  <data name="ExistingAccountBody" xml:space="preserve"><value>&lt;p&gt;Someone tried to register with this email, but the account already exists. If this wasn't you, ignore this email.&lt;/p&gt;</value></data>
+</root>

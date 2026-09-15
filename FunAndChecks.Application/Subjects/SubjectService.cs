@@ -53,9 +53,20 @@ public class SubjectService(
     {
         await createSubjectValidator.ValidateAndThrowAsync(request, cancellationToken);
 
+        await EnsureNameNotTakenAsync(request.Name, null, cancellationToken);
+
         var subject = new Subject { Name = request.Name };
         db.Subjects.Add(subject);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Гонка с параллельным созданием: уникальный индекс IX_Subjects_Name отклонил повтор.
+            await EnsureNameNotTakenAsync(request.Name, null, cancellationToken);
+            throw;
+        }
 
         return new SubjectDto(subject.Id, subject.Name);
     }
@@ -68,11 +79,42 @@ public class SubjectService(
         var subject = await db.Subjects.FindAsync([subjectId], cancellationToken)
                       ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
 
+        await EnsureNameNotTakenAsync(request.Name, subject.Id, cancellationToken);
+
         subject.Name = request.Name;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            await EnsureNameNotTakenAsync(request.Name, subject.Id, cancellationToken);
+            throw;
+        }
 
         cache.Invalidate(subjectId);
         return new SubjectDto(subject.Id, subject.Name);
+    }
+
+    /// <summary>Имя предмета уникально (IX_Subjects_Name) — повтор даёт 409 вместо ошибки БД.</summary>
+    private async Task EnsureNameNotTakenAsync(string name, int? excludingSubjectId, CancellationToken cancellationToken)
+    {
+        var taken = await db.Subjects
+            .AsNoTracking()
+            .AnyAsync(s => s.Name == name && (excludingSubjectId == null || s.Id != excludingSubjectId), cancellationToken);
+        if (taken)
+            throw new ConflictException($"Subject name '{name}' is already in use.", "subjects.name_taken");
+    }
+
+    /// <summary>Имя задания уникально в пределах предмета (IX_Tasks_SubjectId_Name).</summary>
+    private async Task EnsureTaskNameNotTakenAsync(int subjectId, string name, int? excludingTaskId, CancellationToken cancellationToken)
+    {
+        var taken = await db.Tasks
+            .AsNoTracking()
+            .AnyAsync(t => t.SubjectId == subjectId && t.Name == name
+                           && (excludingTaskId == null || t.Id != excludingTaskId), cancellationToken);
+        if (taken)
+            throw new ConflictException($"Task name '{name}' is already in use in this subject.", "tasks.name_taken");
     }
 
     public async Task DeleteAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
@@ -137,6 +179,8 @@ public class SubjectService(
         if (!subjectExists)
             throw new NotFoundException($"Subject with ID {subjectId} not found.");
 
+        await EnsureTaskNameNotTakenAsync(subjectId, request.Name, null, cancellationToken);
+
         var task = new CourseTask
         {
             Name = request.Name,
@@ -145,7 +189,16 @@ public class SubjectService(
             SubjectId = subjectId,
         };
         db.Tasks.Add(task);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Гонка: уникальный индекс IX_Tasks_SubjectId_Name отклонил повтор внутри предмета.
+            await EnsureTaskNameNotTakenAsync(subjectId, request.Name, null, cancellationToken);
+            throw;
+        }
 
         cache.Invalidate(subjectId);
         return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
@@ -160,10 +213,20 @@ public class SubjectService(
 
         await accessService.EnsureSubjectAllowedAsync(adminId, task.SubjectId, cancellationToken);
 
+        await EnsureTaskNameNotTakenAsync(task.SubjectId, request.Name, task.Id, cancellationToken);
+
         task.Name = request.Name;
         task.Description = request.Description;
         task.MaxPoints = request.MaxPoints;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            await EnsureTaskNameNotTakenAsync(task.SubjectId, request.Name, task.Id, cancellationToken);
+            throw;
+        }
 
         cache.Invalidate(task.SubjectId);
         return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);

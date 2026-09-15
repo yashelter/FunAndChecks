@@ -11,6 +11,13 @@ namespace FunAndChecks.Infrastructure.Caching;
 /// </summary>
 public class ResultsCacheService : IResultsCacheService
 {
+    /// <summary>
+    /// Верхняя граница перестроений одного предмета за вызов: при непрерывном шторме
+    /// инвалидаций лучше отдать свежепостроенный (возможно, чуть устаревший) результат,
+    /// чем строить бесконечно.
+    /// </summary>
+    private const int MaxRebuildAttempts = 5;
+
     private readonly ConcurrentDictionary<int, SubjectResultsDto> _cache = new();
     private readonly ConcurrentDictionary<int, Lazy<SemaphoreSlim>> _locks = new();
     private readonly ConcurrentDictionary<int, long> _generations = new();
@@ -31,7 +38,7 @@ public class ResultsCacheService : IResultsCacheService
             if (_cache.TryGetValue(subjectId, out cached))
                 return cached;
 
-            while (true)
+            for (var attempt = 1; ; attempt++)
             {
                 var subjectGeneration = _generations.GetOrAdd(subjectId, 0);
                 var globalGeneration = Volatile.Read(ref _globalGeneration);
@@ -46,6 +53,13 @@ public class ResultsCacheService : IResultsCacheService
 
                 if (_cache.TryGetValue(subjectId, out cached))
                     return cached;
+
+                if (attempt >= MaxRebuildAttempts)
+                {
+                    // Не публикуем в кэш: последнее построение могло устареть
+                    // во время шторма инвалидаций — просто отдаём его вызывающему.
+                    return results;
+                }
             }
         }
         finally

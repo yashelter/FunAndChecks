@@ -51,9 +51,20 @@ public class GroupService(
     {
         await createGroupValidator.ValidateAndThrowAsync(request, cancellationToken);
 
+        await EnsureNameNotTakenAsync(request.Name, null, cancellationToken);
+
         var group = new Group { Name = request.Name };
         db.Groups.Add(group);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Гонка с параллельным созданием: уникальный индекс IX_Groups_Name отклонил повтор.
+            await EnsureNameNotTakenAsync(request.Name, null, cancellationToken);
+            throw;
+        }
 
         return new GroupDto(group.Id, group.Name);
     }
@@ -66,8 +77,18 @@ public class GroupService(
         var group = await db.Groups.FindAsync([groupId], cancellationToken)
                     ?? throw new NotFoundException($"Group with ID {groupId} not found.");
 
+        await EnsureNameNotTakenAsync(request.Name, group.Id, cancellationToken);
+
         group.Name = request.Name;
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            await EnsureNameNotTakenAsync(request.Name, group.Id, cancellationToken);
+            throw;
+        }
 
         // Имя группы отображается в таблицах результатов — сбрасываем кэш затронутых предметов.
         await InvalidateGroupSubjectsCacheAsync(groupId, cancellationToken);
@@ -166,6 +187,16 @@ public class GroupService(
         return students
             .Select(s => s with { Email = emails.GetValueOrDefault(s.Id) })
             .ToList();
+    }
+
+    /// <summary>Имя группы уникально (IX_Groups_Name) — повтор даёт 409 вместо ошибки БД.</summary>
+    private async Task EnsureNameNotTakenAsync(string name, int? excludingGroupId, CancellationToken cancellationToken)
+    {
+        var taken = await db.Groups
+            .AsNoTracking()
+            .AnyAsync(g => g.Name == name && (excludingGroupId == null || g.Id != excludingGroupId), cancellationToken);
+        if (taken)
+            throw new ConflictException($"Group name '{name}' is already in use.", "groups.name_taken");
     }
 
     private async Task InvalidateGroupSubjectsCacheAsync(int groupId, CancellationToken cancellationToken)

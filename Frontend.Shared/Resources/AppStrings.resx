@@ -241,6 +241,7 @@
   <data name="Common_Access" xml:space="preserve"><value>Access</value></data>
   <data name="Common_Saved" xml:space="preserve"><value>Saved.</value></data>
   <data name="Common_NetworkError" xml:space="preserve"><value>Network error. Check your connection.</value></data>
+  <data name="Common_EmptyResponseError" xml:space="preserve"><value>the server returned an empty response</value></data>
   <data name="Common_UnknownError" xml:space="preserve"><value>Unknown error: {0}</value></data>
   <data name="Common_Subject" xml:space="preserve"><value>Subject</value></data>
   <data name="Common_ShowPast" xml:space="preserve"><value>Show past</value></data>
@@ -416,6 +417,9 @@
   <data name="Error_AutofillGroupNotEnrolled" xml:space="preserve"><value>Groups {0} are not linked to this subject.</value></data>
   <data name="Error_AlreadyInQueue" xml:space="preserve"><value>The student is already in the queue.</value></data>
   <data name="Error_EmailTaken" xml:space="preserve"><value>This email address is already in use.</value></data>
+  <data name="Error_GroupNameTaken" xml:space="preserve"><value>A group with this name already exists.</value></data>
+  <data name="Error_SubjectNameTaken" xml:space="preserve"><value>A subject with this name already exists.</value></data>
+  <data name="Error_TaskNameTaken" xml:space="preserve"><value>A task with this name already exists in this subject.</value></data>
   <data name="Error_EmailRateLimited" xml:space="preserve"><value>Please wait {0} seconds before requesting another email.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>This request method is not allowed.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>An unexpected server error occurred.</value></data>

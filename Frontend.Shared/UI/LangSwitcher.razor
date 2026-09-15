@@ -1,6 +1,7 @@
 @inject CultureService CultureSvc
 @inject UnsavedChangesTracker Dirty
 @inject IDialogService Dialogs
+@inject ISnackbar Snackbar
 @inject IStringLocalizer<AppStrings> Loc
 @inject AuthenticationStateProvider AuthState
 @inject MeApi Me
@@ -38,9 +39,12 @@
             if (state.User.Identity?.IsAuthenticated == true)
                 await Me.SetPreferredCultureAsync(culture);
         }
-        catch
+        catch (ApiException ex)
         {
-            // Local language switching remains available while the API is unavailable.
+            // Выбор не сохранился в аккаунте: после перезагрузки синхронизация культуры
+            // молча откатила бы язык обратно — сообщаем об ошибке и не переключаем.
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
         }
 
         Dirty.ClearAll();

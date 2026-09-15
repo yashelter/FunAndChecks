@@ -8,7 +8,7 @@ using FunAndChecks.Infrastructure.Workers;
 using FunAndChecks.Tests.Common;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
+using NSubstitute;
 using Xunit;
 
 namespace FunAndChecks.Tests;
@@ -41,14 +41,14 @@ public class UnconfirmedAccountCleanupServiceTests : IDisposable
         services.AddSingleton(ctx);
         var sp = services.BuildServiceProvider();
 
-        var scopeMock = new Mock<IServiceScope>();
-        scopeMock.Setup(s => s.ServiceProvider).Returns(sp);
+        var scope = Substitute.For<IServiceScope>();
+        scope.ServiceProvider.Returns(sp);
 
-        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-        scopeFactoryMock.Setup(f => f.CreateScope()).Returns(scopeMock.Object);
+        var scopeFactory = Substitute.For<IServiceScopeFactory>();
+        scopeFactory.CreateScope().Returns(scope);
 
         var sut = new UnconfirmedAccountCleanupService(
-            scopeFactoryMock.Object, 
+            scopeFactory,
             NullLogger<UnconfirmedAccountCleanupService>.Instance);
 
         var cleanupMethod = typeof(UnconfirmedAccountCleanupService)

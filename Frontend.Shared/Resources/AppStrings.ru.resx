@@ -241,6 +241,7 @@
   <data name="Common_Access" xml:space="preserve"><value>Доступ</value></data>
   <data name="Common_Saved" xml:space="preserve"><value>Сохранено.</value></data>
   <data name="Common_NetworkError" xml:space="preserve"><value>Ошибка сети. Проверьте подключение.</value></data>
+  <data name="Common_EmptyResponseError" xml:space="preserve"><value>сервер вернул пустой ответ</value></data>
   <data name="Common_UnknownError" xml:space="preserve"><value>Неизвестная ошибка: {0}</value></data>
   <data name="Common_Subject" xml:space="preserve"><value>Предмет</value></data>
   <data name="Common_ShowPast" xml:space="preserve"><value>Показать прошедшие</value></data>
@@ -416,6 +417,9 @@
   <data name="Error_AutofillGroupNotEnrolled" xml:space="preserve"><value>Группы {0} не привязаны к этому предмету.</value></data>
   <data name="Error_AlreadyInQueue" xml:space="preserve"><value>Студент уже находится в очереди.</value></data>
   <data name="Error_EmailTaken" xml:space="preserve"><value>Этот адрес электронной почты уже используется.</value></data>
+  <data name="Error_GroupNameTaken" xml:space="preserve"><value>Группа с таким названием уже существует.</value></data>
+  <data name="Error_SubjectNameTaken" xml:space="preserve"><value>Предмет с таким названием уже существует.</value></data>
+  <data name="Error_TaskNameTaken" xml:space="preserve"><value>Задание с таким названием уже есть в этом предмете.</value></data>
   <data name="Error_EmailRateLimited" xml:space="preserve"><value>Подождите {0} секунд перед повторной отправкой письма.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>Этот метод запроса не поддерживается.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>Произошла непредвиденная ошибка сервера.</value></data>

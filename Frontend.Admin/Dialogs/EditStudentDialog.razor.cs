@@ -13,6 +13,7 @@ public partial class EditStudentDialog : ComponentBase, IDisposable
 {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
     [Inject] IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] ISnackbar Snackbar { get; set; } = null!;
     [Inject] UnsavedChangesTracker Dirty { get; set; } = null!;
     [Parameter] public Guid StudentId { get; set; }
     [Parameter] public StudentDetailsDto CurrentDetails { get; set; } = null!;
@@ -55,9 +56,10 @@ public partial class EditStudentDialog : ComponentBase, IDisposable
         }
         catch (ApiException ex)
         {
-            _serverValidator.DisplayErrors(ex.ValidationErrors);
-            if (ex.ValidationErrors.Count == 0)
-                _serverValidator.DisplayErrors(new Dictionary<string, string[]> { [""] = new[] { ex.Message } });
+            if (ex.ValidationErrors.Count > 0)
+                _serverValidator.DisplayErrors(ex.ValidationErrors);
+            else
+                Snackbar.Add(ex.Message, Severity.Error);
         }
         finally
         {

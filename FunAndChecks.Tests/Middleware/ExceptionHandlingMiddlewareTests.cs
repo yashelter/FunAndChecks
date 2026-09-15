@@ -7,7 +7,7 @@ using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
+using NSubstitute;
 using Xunit;
 
 namespace FunAndChecks.Tests;
@@ -56,32 +56,31 @@ public class ExceptionHandlingMiddlewareTests
     public async Task InvokeAsync_WhenResponseHasStarted_RethrowsException_AndDoesNotModifyStatusCode()
     {
         // Arrange
-        var contextMock = new Mock<HttpContext>();
-        var responseMock = new Mock<HttpResponse>();
-        
-        responseMock.Setup(r => r.HasStarted).Returns(true);
+        var response = Substitute.For<HttpResponse>();
+        response.HasStarted.Returns(true);
 
-        contextMock.Setup(c => c.Response).Returns(responseMock.Object);
-        
-        var requestMock = new Mock<HttpRequest>();
-        requestMock.Setup(r => r.Method).Returns("GET");
-        requestMock.Setup(r => r.Path).Returns("/test");
-        contextMock.Setup(c => c.Request).Returns(requestMock.Object);
+        var request = Substitute.For<HttpRequest>();
+        request.Method.Returns("GET");
+        request.Path.Returns(new PathString("/test"));
+
+        var context = Substitute.For<HttpContext>();
+        context.Response.Returns(response);
+        context.Request.Returns(request);
 
         var exceptionToThrow = new InvalidOperationException("Test exception");
-        
+
         RequestDelegate next = _ => throw exceptionToThrow;
 
         var sut = new ExceptionHandlingMiddleware(next, NullLogger<ExceptionHandlingMiddleware>.Instance);
 
         // Act
-        var act = () => sut.InvokeAsync(contextMock.Object);
+        var act = () => sut.InvokeAsync(context);
 
         // Assert
         var thrown = await act.Should().ThrowAsync<InvalidOperationException>();
         thrown.WithMessage("Test exception");
 
-        // Verify status code was not modified to 500
-        responseMock.VerifySet(r => r.StatusCode = 500, Times.Never);
+        // Verify status code was not modified to 500 (0 — дефолт незатронутого заместителя)
+        response.StatusCode.Should().Be(0);
     }
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -31,13 +32,22 @@ public class CultureService(IJSRuntime js, NavigationManager nav)
     /// <summary>
     /// Сохраняет выбранную культуру в localStorage и перезагружает страницу
     /// (forceLoad необходим для применения новой культуры в WASM-рантайме).
+    /// Если localStorage недоступен, перезагрузка лишь зациклила бы повторную
+    /// синхронизацию культуры с аккаунтом — в этом случае применяем без reload.
     /// </summary>
     public async Task SetCultureAsync(string culture)
     {
         if (culture is not ("en-US" or "ru-RU"))
             throw new ArgumentOutOfRangeException(nameof(culture));
-        await js.InvokeVoidAsync("culturePreference.set", culture);
-        nav.NavigateTo(nav.Uri, forceLoad: true);
+
+        var stored = await js.InvokeAsync<bool>("culturePreference.set", culture);
+        CurrentCulture = culture;
+        var info = CultureInfo.GetCultureInfo(culture);
+        CultureInfo.CurrentCulture = info;
+        CultureInfo.CurrentUICulture = info;
+
+        if (stored)
+            nav.NavigateTo(nav.Uri, forceLoad: true);
     }
 
     public async Task SynchronizeAccountCultureAsync(string? culture)

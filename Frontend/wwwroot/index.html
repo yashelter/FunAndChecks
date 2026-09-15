@@ -62,9 +62,10 @@
                 return languages.some(language => language && language.toLowerCase().startsWith('ru')) ? 'ru-RU' : 'en-US';
             },
             set: culture => {
-                if (culture !== 'en-US' && culture !== 'ru-RU') return;
-                try { localStorage.setItem('culture_preference', culture); } catch { }
+                if (culture !== 'en-US' && culture !== 'ru-RU') return false;
+                try { localStorage.setItem('culture_preference', culture); } catch { return false; }
                 document.documentElement.lang = culture;
+                return true;
             }
         };
 

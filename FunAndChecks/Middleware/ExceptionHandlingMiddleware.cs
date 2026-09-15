@@ -70,6 +70,8 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             foreach (var (name, value) in failure.FormattedMessagePlaceholderValues)
             {
+                if (name.Length == 0)
+                    continue;
                 if (value is null or string or bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal)
                     arguments[char.ToLowerInvariant(name[0]) + name[1..]] = value;
             }
