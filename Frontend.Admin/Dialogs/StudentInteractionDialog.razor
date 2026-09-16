@@ -123,7 +123,7 @@
 
                     <MudColorPicker Value="_pickerMudColor" ValueChanged="OnColorPickerChanged" Label="@Loc["Dialog_CustomColor"]" PickerVariant="PickerVariant.Static"
                                     ColorPickerMode="ColorPickerMode.HEX" />
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@string.IsNullOrEmpty(_pickerColor)"
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="!_pickerTouched"
                                OnClick="@(() => ApplyColorAsync(_pickerColor))">@Loc["Dialog_ApplyColor"]</MudButton>
                 </MudStack>
             </MudTabPanel>

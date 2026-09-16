@@ -130,7 +130,7 @@
   <data name="AdminNav_Maintenance" xml:space="preserve"><value>Maintenance</value></data>
 
   <!-- ==================== Student Nav ==================== -->
-  <data name="StudentNav_MySubjects" xml:space="preserve"><value>My Subjects</value></data>
+  <data name="StudentNav_Results" xml:space="preserve"><value>Results</value></data>
   <data name="StudentNav_Queues" xml:space="preserve"><value>Queues</value></data>
   <data name="StudentNav_History" xml:space="preserve"><value>Submission History</value></data>
 

@@ -130,7 +130,7 @@
   <data name="AdminNav_Maintenance" xml:space="preserve"><value>Обслуживание</value></data>
 
   <!-- ==================== Student Nav ==================== -->
-  <data name="StudentNav_MySubjects" xml:space="preserve"><value>Мои предметы</value></data>
+  <data name="StudentNav_Results" xml:space="preserve"><value>Результаты</value></data>
   <data name="StudentNav_Queues" xml:space="preserve"><value>Очереди</value></data>
   <data name="StudentNav_History" xml:space="preserve"><value>История сдач</value></data>
 
