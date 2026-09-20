@@ -126,7 +126,7 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 10,
+                PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
@@ -172,7 +172,7 @@ var app = builder.Build();
 // Единственный входящий прокси — Caddy в docker-сети. Дефолтные KnownProxies/KnownNetworks
 // (только loopback) заставляют игнорировать X-Forwarded-For от Caddy, и RemoteIpAddress
 // для всех клиентов совпадает с адресом прокси — per-IP rate-limit авторизации
-// (10 req/min) схлопывается в один общий бакет. Доверяем всей сети за портом.
+// (20 req/min) схлопывается в один общий бакет. Доверяем всей сети за портом.
 var forwardedHeadersOptions = new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,

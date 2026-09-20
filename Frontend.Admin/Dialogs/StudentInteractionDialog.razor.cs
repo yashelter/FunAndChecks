@@ -41,18 +41,22 @@ public partial class StudentInteractionDialog : IDisposable
     private bool _loadingTasks = true;
     private string? _pickerColor;
     private MudBlazor.Utilities.MudColor? _pickerMudColor;
+    // Выбран ли цвет (включая сброс в null) — до выбора «Применить» неактивна.
+    private bool _pickerTouched;
     private UnsavedChangesTracker.Registration _edits = null!;
 
     private void SetPickerColor(string? hex)
     {
         _pickerColor = hex;
         _pickerMudColor = hex is null ? null : new MudBlazor.Utilities.MudColor(hex);
+        _pickerTouched = true;
     }
 
     private void OnColorPickerChanged(MudBlazor.Utilities.MudColor? color)
     {
         _pickerMudColor = color;
         _pickerColor = color?.Value;
+        _pickerTouched = true;
     }
     protected override async Task OnInitializedAsync()
     {

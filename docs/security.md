@@ -56,10 +56,10 @@ forgot-password → на почту уходит 6-значный код → res
 
 ## Защита от перебора
 
-- **Identity lockout**: 5 неудачных попыток входа → блокировка на 15 минут
+- **Identity lockout**: 10 неудачных попыток входа → блокировка на 15 минут
   (`Lockout.MaxFailedAccessAttempts` / `DefaultLockoutTimeSpan`). Реализовано в
   `IdentityService.ValidateCredentialsAsync` (`AccessFailedAsync` / `IsLockedOutAsync`).
-- **Rate limiting**: все `/api/auth/*` под политикой `auth` — фиксированное окно 10 запросов/мин
+- **Rate limiting**: все `/api/auth/*` под политикой `auth` — фиксированное окно 20 запросов/мин
   с одного IP, превышение → `429`. См. `RateLimitPolicies.Auth` и настройку в `Program.cs`.
 - Ответы логина не различают «нет пользователя» и «неверный пароль» (`InvalidCredentials`),
   отдельно сигнализируются `EmailNotConfirmed` и `LockedOut`.
