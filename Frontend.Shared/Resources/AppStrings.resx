@@ -166,7 +166,7 @@
   <data name="Management_ColName" xml:space="preserve"><value>Name</value></data>
   <data name="Management_ColDate" xml:space="preserve"><value>Date</value></data>
   <data name="Management_ColSelfJoin" xml:space="preserve"><value>Self-join</value></data>
-  <data name="Management_DateHelper" xml:space="preserve"><value>dd.MM.yyyy HH:mm</value></data>
+  <data name="Management_DateHelper" xml:space="preserve"><value>MM/dd/yyyy hh:mm tt</value></data>
   <data name="Management_MinPointsLabel" xml:space="preserve"><value>Min points</value></data>
 
   <!-- ==================== Queue Details ==================== -->
