@@ -90,8 +90,7 @@ public class GradeService(
         if (request.Points < component.MinPoints || request.Points > component.MaxPoints)
             throw new ConflictException($"Points must be between {component.MinPoints} and {component.MaxPoints}.");
 
-        if (!await db.Students.AnyAsync(s => s.Id == studentId, cancellationToken))
-            throw new NotFoundException($"Student with ID {studentId} not found.");
+        await accessService.EnsureStudentAllowedAsync(adminId, studentId, cancellationToken);
 
         var grade = await db.StudentGrades
             .FirstOrDefaultAsync(g => g.GradeComponentId == componentId && g.StudentId == studentId, cancellationToken);
@@ -123,6 +122,7 @@ public class GradeService(
             ?? throw new NotFoundException("Grade not found.");
 
         await accessService.EnsureSubjectAllowedAsync(adminId, grade.GradeComponent.SubjectId, cancellationToken);
+        await accessService.EnsureStudentAllowedAsync(adminId, studentId, cancellationToken);
 
         var subjectId = grade.GradeComponent.SubjectId;
         db.StudentGrades.Remove(grade);

@@ -95,7 +95,7 @@ public class QueueServiceTests : IDisposable
         var created = await sut.CreateEventAsync(AdminId,
             new CreateQueueEventRequest("Temp", DateTime.UtcNow.AddDays(1), subject.Id));
 
-        await sut.DeleteEventAsync(created.Id);
+        await sut.DeleteEventAsync(AdminId, created.Id);
 
         var act = () => sut.GetDetailsAsync(created.Id);
         await act.Should().ThrowAsync<NotFoundException>();

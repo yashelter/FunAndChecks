@@ -33,6 +33,20 @@ public class AdminAccessService(IApplicationDbContext db) : IAdminAccessService
         db.AdminSubjectAccesses
             .AnyAsync(a => a.AdminId == adminId && a.SubjectId == subjectId && a.IsRestricted, cancellationToken);
 
+    public async Task EnsureStudentAllowedAsync(Guid adminId, Guid studentId, CancellationToken cancellationToken = default)
+    {
+        var student = await db.Students
+            .Where(s => s.Id == studentId)
+            .Select(s => new { s.GroupId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+
+        if (student.GroupId.HasValue && await db.AdminGroupAccesses.AnyAsync(
+                a => a.AdminId == adminId && a.GroupId == student.GroupId.Value && a.IsRestricted,
+                cancellationToken))
+            throw new ForbiddenException("Приём и оценивание студентов этой группы вам запрещены.");
+    }
+
     public Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default) =>
         UpsertSubjectAsync(adminId, subjectId, a => a.IsRestricted = restricted, cancellationToken);
 

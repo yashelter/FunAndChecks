@@ -19,23 +19,38 @@ public class QueueService(
     /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
     private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
 
-    public Task<List<QueueEventDto>> GetActiveEventsAsync(CancellationToken cancellationToken = default)
+    private IQueryable<QueueEvent> VisibleEvents(Guid? adminId) =>
+        db.QueueEvents.Where(qe => !adminId.HasValue || !db.AdminSubjectAccesses.Any(
+            a => a.AdminId == adminId && a.SubjectId == qe.SubjectId && a.IsRestricted));
+
+    public Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default)
     {
         var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
-        return db.QueueEvents
+        return VisibleEvents(adminId)
             .Where(qe => qe.EventDateTime > threshold)
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
     }
 
-    public Task<List<QueueEventDto>> GetAllEventsAsync(CancellationToken cancellationToken = default) =>
-        db.QueueEvents
+    public Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>
+        VisibleEvents(adminId)
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
 
-    public async Task<QueueDetailsDto> GetDetailsAsync(int eventId, CancellationToken cancellationToken = default)
+    public async Task EnsureEventAllowedAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
+    {
+        var subjectId = await db.QueueEvents
+            .Where(qe => qe.Id == eventId)
+            .Select(qe => (int?)qe.SubjectId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+    }
+
+    public async Task<QueueDetailsDto> GetDetailsAsync(int eventId, Guid? adminId = null, CancellationToken cancellationToken = default)
     {
         var queueEvent = await db.QueueEvents
             .Where(qe => qe.Id == eventId)
@@ -51,6 +66,9 @@ public class QueueService(
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
 
+        if (adminId.HasValue)
+            await accessService.EnsureSubjectAllowedAsync(adminId.Value, queueEvent.SubjectId, cancellationToken);
+
         var entries = await db.QueueEntries
             .Where(p => p.QueueEventId == eventId)
             .OrderBy(p => p.JoinedAt)
@@ -64,6 +82,8 @@ public class QueueService(
                 AdminName = p.CurrentAdmin != null ? p.CurrentAdmin.FirstName : null,
                 p.JoinedAt,
                 p.Student.Color,
+                CanManage = adminId.HasValue && !db.AdminGroupAccesses.Any(a =>
+                    a.AdminId == adminId && a.GroupId == p.Student.GroupId && a.IsRestricted),
             })
             .ToListAsync(cancellationToken);
 
@@ -93,7 +113,8 @@ public class QueueService(
                 e.Status,
                 e.AdminName,
                 e.JoinedAt,
-                e.Color))
+                e.Color,
+                e.CanManage))
             .ToList();
 
         return new QueueDetailsDto(
@@ -182,10 +203,12 @@ public class QueueService(
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
 
-    public async Task DeleteEventAsync(int eventId, CancellationToken cancellationToken = default)
+    public async Task DeleteEventAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
     {
         var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
 
         db.QueueEvents.Remove(queueEvent);
         await db.SaveChangesAsync(cancellationToken);
@@ -243,6 +266,7 @@ public class QueueService(
                     ?? throw new ForbiddenException("Admin profile not found.");
 
         await accessService.EnsureSubjectAllowedAsync(adminId, entry.QueueEvent.SubjectId, cancellationToken);
+        await accessService.EnsureStudentAllowedAsync(adminId, studentId, cancellationToken);
 
         entry.Status = status;
         entry.CurrentAdminId = admin.Id;

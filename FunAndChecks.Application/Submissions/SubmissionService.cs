@@ -25,9 +25,7 @@ public class SubmissionService(
 
         await accessService.EnsureSubjectAllowedAsync(adminId, task.SubjectId, cancellationToken);
 
-        var studentExists = await db.Students.AnyAsync(s => s.Id == request.StudentId, cancellationToken);
-        if (!studentExists)
-            throw new NotFoundException($"Student with ID {request.StudentId} not found.");
+        await accessService.EnsureStudentAllowedAsync(adminId, request.StudentId, cancellationToken);
 
         db.Submissions.Add(new Submission
         {

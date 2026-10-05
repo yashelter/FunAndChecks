@@ -28,10 +28,14 @@ else if (_results.Count > 0)
     <MudList T="StudentDetailsDto" Class="mt-2">
         @foreach (var student in _results)
         {
-            <MudListItem T="StudentDetailsDto" OnClick="@(() => OpenAsync(student))">
+            <MudListItem T="StudentDetailsDto" Disabled="@IsGroupRestricted(student)" OnClick="@(() => OpenAsync(student))">
                 <div class="d-flex justify-space-between align-center flex-grow-1">
                     <span style="@QueueStyles.NameStyle(student.Color)">@student.LastName @student.FirstName</span>
                     <MudText Typo="Typo.caption">@student.Email</MudText>
+                    @if (IsGroupRestricted(student))
+                    {
+                        <MudText Typo="Typo.caption">Приём запрещён</MudText>
+                    }
                 </div>
             </MudListItem>
             <MudDivider />

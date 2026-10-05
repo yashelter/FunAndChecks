@@ -22,7 +22,7 @@ else
                         <MudItem xs="12" sm="6">
                             <MudSelect T="int?" Value="_queueSubjectId" ValueChanged="OnQueueSubjectChanged" Label="Предмет"
                                        Variant="Variant.Outlined" Placeholder="Выберите предмет">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
+                                @foreach (var s in _subjects.Where(s => !IsSubjectRestricted(s.Id))) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6">

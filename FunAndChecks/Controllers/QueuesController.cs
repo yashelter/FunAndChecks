@@ -10,20 +10,22 @@ namespace FunAndChecks.Controllers;
 [Route("api/queues")]
 public class QueuesController(IQueueService queueService) : ControllerBase
 {
-    /// <summary>События, чья дата не истекла больше чем на 2 дня.</summary>
+    private Guid? CurrentAdminId => User.IsInRole(Roles.Admin) ? User.GetUserId() : null;
+
+    /// <summary>Активные события, доступные текущему пользователю.</summary>
     [HttpGet]
     public async Task<ActionResult<List<QueueEventDto>>> GetActive(CancellationToken cancellationToken) =>
-        Ok(await queueService.GetActiveEventsAsync(cancellationToken));
+        Ok(await queueService.GetActiveEventsAsync(CurrentAdminId, cancellationToken));
 
     /// <summary>Все события за всю историю.</summary>
     [HttpGet("all")]
     public async Task<ActionResult<List<QueueEventDto>>> GetAll(CancellationToken cancellationToken) =>
-        Ok(await queueService.GetAllEventsAsync(cancellationToken));
+        Ok(await queueService.GetAllEventsAsync(CurrentAdminId, cancellationToken));
 
     /// <summary>Состав очереди с баллами и статусами участников.</summary>
     [HttpGet("{eventId:int}")]
     public async Task<ActionResult<QueueDetailsDto>> GetDetails(int eventId, CancellationToken cancellationToken) =>
-        Ok(await queueService.GetDetailsAsync(eventId, cancellationToken));
+        Ok(await queueService.GetDetailsAsync(eventId, CurrentAdminId, cancellationToken));
 
     [HttpPost]
     [Authorize(Roles = Roles.Admin)]
@@ -48,7 +50,7 @@ public class QueuesController(IQueueService queueService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int eventId, CancellationToken cancellationToken)
     {
-        await queueService.DeleteEventAsync(eventId, cancellationToken);
+        await queueService.DeleteEventAsync(User.GetUserId(), eventId, cancellationToken);
         return NoContent();
     }
 

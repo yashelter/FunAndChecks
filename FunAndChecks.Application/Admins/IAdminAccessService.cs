@@ -13,6 +13,9 @@ public interface IAdminAccessService
     /// <summary>Кидает ForbiddenException, если предмет глобально запрещён админу.</summary>
     Task EnsureSubjectAllowedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
 
+    /// <summary>Проверяет, разрешено ли админу работать с текущей группой студента.</summary>
+    Task EnsureStudentAllowedAsync(Guid adminId, Guid studentId, CancellationToken cancellationToken = default);
+
     Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
 
     // --- Глобальные ограничения (только супер-админ) ---

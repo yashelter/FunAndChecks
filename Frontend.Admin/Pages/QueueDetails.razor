@@ -40,11 +40,15 @@ else if (_details is not null)
         <MudList T="QueueParticipantDto" Class="mt-2">
             @foreach (var p in Visible)
             {
-                <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))" Style="@QueueStyles.RowStyle(p.Status)">
+                <MudListItem T="QueueParticipantDto" Disabled="@(!p.CanManage)" OnClick="@(() => OpenStudentAsync(p))" Style="@QueueStyles.RowStyle(p.Status)">
                     <div class="d-flex justify-space-between align-center flex-grow-1">
                         <div class="d-flex align-center gap-2">
                             <span style="@QueueStyles.NameStyle(p.StudentColor)"><b>@p.LastName @p.FirstName</b></span>
                             <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@p.GroupName</MudChip>
+                            @if (!p.CanManage)
+                            {
+                                <MudText Typo="Typo.caption">Приём запрещён</MudText>
+                            }
                         </div>
                         <div class="d-flex align-center gap-2">
                             <MudText>Баллы: <b>@p.TotalPoints</b></MudText>
