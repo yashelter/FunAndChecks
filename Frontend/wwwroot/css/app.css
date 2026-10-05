@@ -35,3 +35,61 @@ html, body {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+.queue-participants .mud-list-item-text {
+    min-width: 0;
+}
+
+.queue-participant-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px 16px;
+    min-width: 0;
+}
+
+.queue-participant-identity,
+.queue-participant-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.queue-participant-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.queue-participant-points {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.queue-participant-status.mud-chip {
+    height: auto;
+    min-height: 24px;
+    max-width: 100%;
+    margin: 0;
+    white-space: normal;
+}
+
+.queue-participant-status .mud-chip-content {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 599.98px) {
+    .queue-participant-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .queue-participant-details {
+        width: 100%;
+    }
+}
