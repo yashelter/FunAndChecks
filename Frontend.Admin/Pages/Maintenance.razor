@@ -1,6 +1,7 @@
 @page "/admin/maintenance"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.SuperAdmin)]
+@implements IDisposable
 
 <PageTitle>@Loc["Maintenance_PageTitle"]</PageTitle>
 
@@ -20,11 +21,49 @@
     </MudCardContent>
     <MudCardActions>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Backup"
-                   OnClick="BackupAsync" Disabled="_backupRunning">
+                   OnClick="BackupAsync" Disabled="Busy">
             @if (_backupRunning) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
             @Loc["Maintenance_BackupCreateButton"]
         </MudButton>
     </MudCardActions>
 </MudCard>
+
+<section class="fc-panel fc-backup-list mt-4">
+    <div class="fc-backup-heading">
+        <div><MudText Typo="Typo.h6">@Loc["Maintenance_BackupListTitle"]</MudText><MudText Typo="Typo.caption" Class="fc-muted">@Loc["Maintenance_BackupCount", _backups.Count]</MudText></div>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Refresh" Size="Size.Small" OnClick="LoadAsync" Disabled="Busy">@Loc["Maintenance_BackupRefresh"]</MudButton>
+    </div>
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Class="mb-3" aria-label="@Loc["Maintenance_BackupLoading"]" />
+    }
+    @if (_loadFailed)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">@Loc["Maintenance_BackupLoadFailed"]</MudAlert>
+    }
+    <MudTable T="BackupFileDto" Items="_backups" Class="fc-management-table fc-backup-table" Breakpoint="Breakpoint.Sm" Dense="true" Hover="true" Elevation="0">
+        <HeaderContent>
+            <MudTh>@Loc["Maintenance_BackupFile"]</MudTh><MudTh>@Loc["Maintenance_BackupDate"]</MudTh><MudTh>@Loc["Maintenance_BackupSize"]</MudTh><MudTh>@Loc["Maintenance_BackupActions"]</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="@Loc["Maintenance_BackupFile"]"><span class="fc-backup-name">@context.FileName</span></MudTd>
+            <MudTd DataLabel="@Loc["Maintenance_BackupDate"]"><span class="fc-backup-date">@context.LastModifiedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</span></MudTd>
+            <MudTd DataLabel="@Loc["Maintenance_BackupSize"]">@FormatSize(context.SizeBytes)</MudTd>
+            <MudTd DataLabel="@Loc["Maintenance_BackupActions"]">
+                <div class="fc-backup-actions">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="Busy" OnClick="@(() => DownloadAsync(context))" aria-label="@Loc["Maintenance_BackupDownloadLabel", context.FileName]">
+                        @if (_busyFile == context.FileName && _downloading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" /> }
+                        @Loc["Maintenance_BackupDownload"]
+                    </MudButton>
+                    <MudTooltip Text="@Loc["Maintenance_BackupDelete"]">
+                        <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(context))" aria-label="@Loc["Maintenance_BackupDeleteLabel", context.FileName]" />
+                    </MudTooltip>
+                </div>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-4 fc-muted">@(_loading ? Loc["Maintenance_BackupLoading"] : _loadFailed ? Loc["Maintenance_BackupLoadFailed"] : Loc["Maintenance_BackupEmpty"])</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager PageSizeOptions="@(new[] { 10, 25, 50 })" RowsPerPageString="@Loc["Maintenance_BackupRowsPerPage"]" /></PagerContent>
+    </MudTable>
+</section>
 
 </div>

@@ -21,6 +21,17 @@
 .fc-admin-actions { display: flex; flex-shrink: 0; gap: 6px; align-items: center; }
 .fc-maintenance { max-width: 840px; }
 .fc-maintenance .mud-alert { overflow-wrap: anywhere; }
+.fc-backup-list { padding: 18px; }
+.fc-backup-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.fc-backup-name { overflow-wrap: anywhere; font-family: var(--fc-font-mono, monospace); font-size: 12px; }
+.fc-backup-date { white-space: nowrap; font-size: 12px; color: var(--mud-palette-text-secondary); }
+.fc-backup-delete-copy { overflow-wrap: anywhere; }
+.fc-backup-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+@media (max-width: 600px) {
+    .fc-backup-list { padding: 12px; }
+    .fc-backup-table .mud-table-cell::before { flex-shrink: 0; margin-right: 12px; }
+    .fc-backup-table .mud-table-cell > .fc-backup-name { min-width: 0; }
+}
 
 .fc-visibility-list { min-width: 0; border: 1px solid var(--mud-palette-lines-default); border-radius: 10px; padding: 16px; }
 .fc-access-list-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; justify-content: space-between; margin-bottom: 12px; }

@@ -39,6 +39,8 @@ public static class HttpResponseExtensions
             ["access.subject_hidden"] = ("Error_SubjectHidden", ["subjectId"]),
             ["access.group_hidden"] = ("Error_GroupHidden", ["groupId"]),
             ["resource.not_found"] = ("Error_NotFound", []),
+            ["backup.not_found"] = ("Maintenance_BackupNotFound", []),
+            ["validation.backup_file_name_invalid"] = ("Maintenance_BackupInvalidName", []),
             ["state.conflict"] = ("Error_Conflict", []),
             ["student.not_enrolled"] = ("Error_StudentNotEnrolled", ["subjectId"]),
             ["queue.autofill_group_not_enrolled"] = ("Error_AutofillGroupNotEnrolled", ["groupIds"]),

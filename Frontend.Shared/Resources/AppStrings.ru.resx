@@ -481,4 +481,24 @@
   <data name="Error_QueueCheckedByOther" xml:space="preserve"><value>Студента проверяет другой преподаватель. Обновите очередь.</value></data>
   <data name="Results_AveragePoints" xml:space="preserve"><value>Средний балл</value></data>
   <data name="QueueDetails_OtherTeacherWarning" xml:space="preserve"><value>При открытии окна студента уже принимал преподаватель {0}. Вы можете продолжить проверку.</value></data>
+  <data name="Maintenance_BackupListTitle" xml:space="preserve"><value>Бэкапы на сервере</value></data>
+  <data name="Maintenance_BackupCount" xml:space="preserve"><value>Файлов: {0}</value></data>
+  <data name="Maintenance_BackupRefresh" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Maintenance_BackupLoading" xml:space="preserve"><value>Загрузка бэкапов…</value></data>
+  <data name="Maintenance_BackupLoadFailed" xml:space="preserve"><value>Не удалось загрузить список бэкапов. Попробуйте обновить.</value></data>
+  <data name="Maintenance_BackupEmpty" xml:space="preserve"><value>На сервере пока нет бэкапов.</value></data>
+  <data name="Maintenance_BackupFile" xml:space="preserve"><value>Файл</value></data>
+  <data name="Maintenance_BackupDate" xml:space="preserve"><value>Дата</value></data>
+  <data name="Maintenance_BackupSize" xml:space="preserve"><value>Размер</value></data>
+  <data name="Maintenance_BackupActions" xml:space="preserve"><value>Действия</value></data>
+  <data name="Maintenance_BackupDownload" xml:space="preserve"><value>Скачать</value></data>
+  <data name="Maintenance_BackupDownloadLabel" xml:space="preserve"><value>Скачать бэкап: {0}</value></data>
+  <data name="Maintenance_BackupDelete" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Maintenance_BackupDeleteLabel" xml:space="preserve"><value>Удалить бэкап: {0}</value></data>
+  <data name="Maintenance_BackupDeleteTitle" xml:space="preserve"><value>Удалить бэкап?</value></data>
+  <data name="Maintenance_BackupDeleteConfirm" xml:space="preserve"><value>Файл «{0}» будет удалён с сервера без возможности восстановления. Уже скачанные копии останутся.</value></data>
+  <data name="Maintenance_BackupDeleted" xml:space="preserve"><value>Бэкап удалён с сервера.</value></data>
+  <data name="Maintenance_BackupRowsPerPage" xml:space="preserve"><value>Файлов на странице</value></data>
+  <data name="Maintenance_BackupNotFound" xml:space="preserve"><value>Этого бэкапа больше нет на сервере. Обновите список.</value></data>
+  <data name="Maintenance_BackupInvalidName" xml:space="preserve"><value>Недопустимое имя файла бэкапа.</value></data>
 </root>

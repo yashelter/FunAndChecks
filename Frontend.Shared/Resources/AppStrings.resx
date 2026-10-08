@@ -481,4 +481,24 @@
   <data name="Error_QueueCheckedByOther" xml:space="preserve"><value>Another teacher is checking this student. Refresh the queue.</value></data>
   <data name="Results_AveragePoints" xml:space="preserve"><value>Average score</value></data>
   <data name="QueueDetails_OtherTeacherWarning" xml:space="preserve"><value>When this window opened, {0} was reviewing this student. You can continue the review.</value></data>
+  <data name="Maintenance_BackupListTitle" xml:space="preserve"><value>Backups on the server</value></data>
+  <data name="Maintenance_BackupCount" xml:space="preserve"><value>Files: {0}</value></data>
+  <data name="Maintenance_BackupRefresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Maintenance_BackupLoading" xml:space="preserve"><value>Loading backups…</value></data>
+  <data name="Maintenance_BackupLoadFailed" xml:space="preserve"><value>Could not load the backup list. Try refreshing.</value></data>
+  <data name="Maintenance_BackupEmpty" xml:space="preserve"><value>No backups on the server yet.</value></data>
+  <data name="Maintenance_BackupFile" xml:space="preserve"><value>File</value></data>
+  <data name="Maintenance_BackupDate" xml:space="preserve"><value>Date</value></data>
+  <data name="Maintenance_BackupSize" xml:space="preserve"><value>Size</value></data>
+  <data name="Maintenance_BackupActions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Maintenance_BackupDownload" xml:space="preserve"><value>Download</value></data>
+  <data name="Maintenance_BackupDownloadLabel" xml:space="preserve"><value>Download backup: {0}</value></data>
+  <data name="Maintenance_BackupDelete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Maintenance_BackupDeleteLabel" xml:space="preserve"><value>Delete backup: {0}</value></data>
+  <data name="Maintenance_BackupDeleteTitle" xml:space="preserve"><value>Delete backup?</value></data>
+  <data name="Maintenance_BackupDeleteConfirm" xml:space="preserve"><value>The file “{0}” will be permanently deleted from the server. Copies you have downloaded will remain.</value></data>
+  <data name="Maintenance_BackupDeleted" xml:space="preserve"><value>Backup deleted from the server.</value></data>
+  <data name="Maintenance_BackupRowsPerPage" xml:space="preserve"><value>Files per page</value></data>
+  <data name="Maintenance_BackupNotFound" xml:space="preserve"><value>This backup no longer exists on the server. Refresh the list.</value></data>
+  <data name="Maintenance_BackupInvalidName" xml:space="preserve"><value>Invalid backup file name.</value></data>
 </root>

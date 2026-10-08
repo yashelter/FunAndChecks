@@ -25,3 +25,5 @@ public record SetHiddenRequest(bool Hidden);
 
 /// <summary>Путь к созданному дампу БД.</summary>
 public record BackupResultDto(string Path);
+
+public record BackupFileDto(string FileName, long SizeBytes, DateTime LastModifiedUtc);
