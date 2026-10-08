@@ -7,6 +7,7 @@ public class Subject
 {
     public int Id { get; set; }
     public required string Name { get; set; }
+    public bool AttendanceEnabled { get; set; }
 
     public ICollection<CourseTask> Tasks { get; set; } = new List<CourseTask>();
     public ICollection<GradeComponent> GradeComponents { get; set; } = new List<GradeComponent>();

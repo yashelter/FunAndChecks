@@ -63,6 +63,16 @@ else if (_results is not null)
             }
 
             <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+            @if (_attendance is not null)
+            {
+                <TemplateColumn Title="Посещаемость" Sortable="false">
+                    <CellTemplate>
+                        @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
+                        <MudLink Href="@($"/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
+                        @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
         </Columns>
     </MudDataGrid>
 }

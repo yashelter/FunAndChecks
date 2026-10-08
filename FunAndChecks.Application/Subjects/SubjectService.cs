@@ -22,7 +22,7 @@ public class SubjectService(
     public Task<List<SubjectDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
         db.Subjects
             .OrderBy(s => s.Name)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .ToListAsync(cancellationToken);
 
     public async Task<List<SubjectDto>> GetVisibleForAdminAsync(Guid adminId, CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ public class SubjectService(
         return await db.Subjects
             .Where(s => !blocked.Contains(s.Id))
             .OrderBy(s => s.Name)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .ToListAsync(cancellationToken);
     }
 
@@ -43,7 +43,7 @@ public class SubjectService(
     {
         var subject = await db.Subjects
             .Where(s => s.Id == subjectId)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .FirstOrDefaultAsync(cancellationToken);
 
         return subject ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
@@ -57,7 +57,7 @@ public class SubjectService(
         db.Subjects.Add(subject);
         await db.SaveChangesAsync(cancellationToken);
 
-        return new SubjectDto(subject.Id, subject.Name);
+        return new SubjectDto(subject.Id, subject.Name, subject.AttendanceEnabled);
     }
 
     public async Task<SubjectDto> UpdateAsync(Guid adminId, int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default)
@@ -72,7 +72,7 @@ public class SubjectService(
         await db.SaveChangesAsync(cancellationToken);
 
         cache.Invalidate(subjectId);
-        return new SubjectDto(subject.Id, subject.Name);
+        return new SubjectDto(subject.Id, subject.Name, subject.AttendanceEnabled);
     }
 
     public async Task DeleteAsync(int subjectId, CancellationToken cancellationToken = default)

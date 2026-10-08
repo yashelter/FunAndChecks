@@ -91,9 +91,10 @@ else
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">Добавить</MudButton>
             </div>
             <MudTable Items="_subjects" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnSubjectCommit">
-                <HeaderContent><MudTh>Название</MudTh><MudTh></MudTh></HeaderContent>
+                <HeaderContent><MudTh>Название</MudTh><MudTh>Посещаемость</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Название">@context.Name</MudTd>
+                    <MudTd DataLabel="Посещаемость"><MudSwitch T="bool" Value="context.AttendanceEnabled" ValueChanged="@(v => SetAttendanceEnabledAsync(context, v))" Disabled="IsSubjectRestricted(context.Id)" Color="Color.Primary" aria-label="Учитывать посещаемость">Учёт</MudSwitch></MudTd>
                     <MudTd>
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.GroupWork"
                                    OnClick="@(() => OpenSubjectAccessAsync(context))">Доступ</MudButton>
@@ -103,6 +104,7 @@ else
                 </RowTemplate>
                 <RowEditingTemplate>
                     <MudTd DataLabel="Название"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="Посещаемость">@(context.AttendanceEnabled ? "Включён" : "Выключен")</MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>
