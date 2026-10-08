@@ -12,6 +12,7 @@ public partial class Dashboard
 {
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private ResultsApi Results { get; set; } = null!;
+    [Inject] private AttendanceApi Attendance { get; set; } = null!;
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
@@ -20,6 +21,7 @@ public partial class Dashboard
     private SubjectResultsDto? _results;
     private MudDataGrid<StudentResultRowDto>? _grid;
     private bool _loading;
+    private Dictionary<Guid, (int Present, int Absent, int Unmarked)>? _attendance;
 
     protected override async Task OnInitializedAsync()
     {
@@ -40,10 +42,15 @@ public partial class Dashboard
 
         _loading = true;
         _results = null;
+        _attendance = null;
 
         try
         {
             _results = await Results.GetSubjectResultsAsync(subject.Id);
+            var journal = await Attendance.GetJournalAsync(subject.Id);
+            if (journal.Enabled || journal.Sessions.Count > 0)
+                _attendance = journal.Students.GroupBy(s => s.StudentId).ToDictionary(g => g.Key,
+                    g => (g.Sum(s => s.Present), g.Sum(s => s.Absent), g.Sum(s => s.Unmarked)));
         }
         catch (ApiException ex)
         {

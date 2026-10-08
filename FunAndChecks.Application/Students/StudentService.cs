@@ -139,7 +139,7 @@ public class StudentService(
 
         return await db.Subjects
             .Where(s => s.GroupSubjects.Any(gs => gs.GroupId == groupId))
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .ToListAsync(cancellationToken);
     }
 

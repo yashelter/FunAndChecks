@@ -25,6 +25,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<StudentGrade> StudentGrades => Set<StudentGrade>();
     public DbSet<AdminSubjectAccess> AdminSubjectAccesses => Set<AdminSubjectAccess>();
     public DbSet<AdminGroupAccess> AdminGroupAccesses => Set<AdminGroupAccess>();
+    public DbSet<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     public async Task ExecuteSerializableAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)

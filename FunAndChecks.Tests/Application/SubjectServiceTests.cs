@@ -17,8 +17,8 @@ public class SubjectServiceTests : IDisposable
     private readonly IAdminAccessService _access = Substitute.For<IAdminAccessService>();
 
     private SubjectService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _cache, _access, 
-            new CreateSubjectRequestValidator(), 
+        new(ctx, _cache, _access,
+            new CreateSubjectRequestValidator(),
             new UpdateSubjectRequestValidator(),
             new CreateTaskRequestValidator(),
             new UpdateTaskRequestValidator());

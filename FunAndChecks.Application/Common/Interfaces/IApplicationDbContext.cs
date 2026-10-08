@@ -22,6 +22,8 @@ public interface IApplicationDbContext
     DbSet<StudentGrade> StudentGrades { get; }
     DbSet<AdminSubjectAccess> AdminSubjectAccesses { get; }
     DbSet<AdminGroupAccess> AdminGroupAccesses { get; }
+    DbSet<AttendanceSession> AttendanceSessions { get; }
+    DbSet<AttendanceRecord> AttendanceRecords { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

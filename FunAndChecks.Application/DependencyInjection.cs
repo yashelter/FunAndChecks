@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Application.Attendance;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Auth;
 using FunAndChecks.Application.Grades;
@@ -29,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IAdminAccessService, AdminAccessService>();
+        services.AddScoped<IAttendanceService, AttendanceService>();
 
         return services;
     }

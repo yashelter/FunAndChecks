@@ -19,11 +19,12 @@ public partial class Management
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private AttendanceApi Attendance { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private UnsavedChangesTracker Dirty { get; set; } = null!;
 
     // ----- Мутабельные модели строк для inline-редактирования таблиц -----
-    private sealed class SubjectRow { public int Id; public string Name = ""; }
+    private sealed class SubjectRow { public int Id; public string Name = ""; public bool AttendanceEnabled; }
     private sealed class GroupRow { public int Id; public string Name = ""; }
     private sealed class TaskRow { public int Id; public string Name = ""; public string Description = ""; public int MaxPoints; }
     private sealed class ComponentRow { public int Id; public string Name = ""; public int MinPoints; public int MaxPoints; }
@@ -94,7 +95,7 @@ public partial class Management
     {
         try
         {
-            _subjects = (await Subjects.GetAllAsync()).Select(s => new SubjectRow { Id = s.Id, Name = s.Name }).ToList();
+            _subjects = (await Subjects.GetAllAsync()).Select(s => new SubjectRow { Id = s.Id, Name = s.Name, AttendanceEnabled = s.AttendanceEnabled }).ToList();
             _groups = (await Groups.GetAllAsync()).Select(g => new GroupRow { Id = g.Id, Name = g.Name }).ToList();
 
             var access = await Me.GetMyAccessAsync();
@@ -170,6 +171,17 @@ public partial class Management
         await RunAsync(() => QueuesApi.DeleteAsync(row.Id), Loc["Management_QueueDeleted"], ReloadQueuesAsync);
 
     // ----- Предметы -----
+    private async Task SetAttendanceEnabledAsync(SubjectRow row, bool enabled)
+    {
+        try
+        {
+            await Attendance.SetEnabledAsync(row.Id, enabled);
+            row.AttendanceEnabled = enabled;
+            Snackbar.Add(enabled ? "Учёт посещаемости включён." : "Учёт выключен, история сохранена.", Severity.Success);
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
     private async Task CreateSubjectAsync()
     {
         if (string.IsNullOrWhiteSpace(_newSubjectName)) return;

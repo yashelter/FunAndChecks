@@ -22,6 +22,7 @@ JWT-аутентификация, SignalR для realtime, собственна�
 | [Безопасность](docs/security.md) | Аутентификация, подтверждение почты, сброс пароля, роли и политики, видимость |
 | [Конфигурация](docs/configuration.md) | appsettings, секреты, переменные окружения, Options |
 | [Тестирование](docs/testing.md) | Структура тестов, как запускать |
+| [Посещаемость](docs/attendance.md) | Необязательный журнал, перекличка, личная история и XLSX |
 | [Развёртывание](DEPLOY.md) | Docker Compose, Postfix, DNS (SPF/DKIM/DMARC/PTR), бэкапы |
 
 ---

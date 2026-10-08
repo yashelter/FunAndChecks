@@ -22,7 +22,7 @@ else
                         <MudItem xs="12" sm="6">
                             <MudSelect T="int?" Value="_queueSubjectId" ValueChanged="OnQueueSubjectChanged" Label="@Loc["Management_SubjectLabel"]"
                                        Variant="Variant.Outlined" Placeholder="@Loc["Management_SelectSubject"]">
-                                @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
+                                @foreach (var s in _subjects.Where(s => !IsSubjectRestricted(s.Id))) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="6">
@@ -91,9 +91,10 @@ else
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateSubjectAsync">@Loc["Common_Add"]</MudButton>
             </div>
             <MudTable Items="_subjects" Hover="true" Dense="true" CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnSubjectCommit">
-                <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh></MudTh></HeaderContent>
+                <HeaderContent><MudTh>@Loc["Management_ColName"]</MudTh><MudTh>@Loc["Management_ColAttendance"]</MudTh><MudTh></MudTh></HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="@Loc["Management_ColName"]">@context.Name</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColAttendance"]"><MudSwitch T="bool" Value="context.AttendanceEnabled" ValueChanged="@(v => SetAttendanceEnabledAsync(context, v))" Disabled="IsSubjectRestricted(context.Id)" Color="Color.Primary" aria-label="@Loc["Management_AttendanceLabel"]">@Loc["Management_AttendanceTracking"]</MudSwitch></MudTd>
                     <MudTd>
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.GroupWork"
                                    OnClick="@(() => OpenSubjectAccessAsync(context))">@Loc["Common_Access"]</MudButton>
@@ -103,6 +104,7 @@ else
                 </RowTemplate>
                 <RowEditingTemplate>
                     <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" /></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColAttendance"]">@(context.AttendanceEnabled ? Loc["Common_Enabled"] : Loc["Common_Disabled"])</MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>

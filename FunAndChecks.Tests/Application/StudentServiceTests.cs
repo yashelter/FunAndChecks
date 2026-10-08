@@ -164,13 +164,13 @@ public class StudentServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
         var req = new UpdateStudentAccountRequest("NewFirst", "NewLast", group.Id, "new@test.com", "newpass");
-        
+
         await sut.UpdateStudentAccountAsync(Guid.NewGuid(), student.Id, req);
 
         var updated = await ctx.Students.FindAsync(student.Id);
         updated!.FirstName.Should().Be("NewFirst");
         updated.LastName.Should().Be("NewLast");
-        
+
         await _identity.Received(1).UpdateAccountAdminAsync(student.Id, "new@test.com", "newpass");
     }
 

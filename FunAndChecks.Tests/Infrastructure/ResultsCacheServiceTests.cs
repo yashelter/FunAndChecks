@@ -16,7 +16,7 @@ public class ResultsCacheServiceTests
         var sut = new ResultsCacheService();
         int subjectId = 1;
         int callCount = 0;
-        
+
         Task<SubjectResultsDto> Factory()
         {
             Interlocked.Increment(ref callCount);

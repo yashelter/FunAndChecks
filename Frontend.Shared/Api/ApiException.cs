@@ -54,7 +54,7 @@ public static class HttpResponseExtensions
             ["auth.invalid_reset_code"] = ("Error_InvalidResetCode", []),
             ["auth.invalid_confirmation_code"] = ("Error_InvalidConfirmationCode", []),
             ["rate_limit.exceeded"] = ("Error_TooManyRequests", []),
-            ["request.failed"] = ("Error_RequestFailed", []),
+            ["request.failed"] = ("Error_GenericRequestFailed", []),
             ["request.method_not_allowed"] = ("Error_MethodNotAllowed", []),
             ["server.internal_error"] = ("Error_Internal", []),
             ["validation.NotEmptyValidator"] = ("Error_ValidationRequired", []),

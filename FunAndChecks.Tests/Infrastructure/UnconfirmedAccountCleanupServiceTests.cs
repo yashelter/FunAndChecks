@@ -23,14 +23,14 @@ public class UnconfirmedAccountCleanupServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         await ctx.SaveChangesAsync();
-        
+
         var confirmedUser = ctx.Student(group, "Confirmed");
         confirmedUser.IsActive = true;
-        
+
         var recentUnconfirmed = ctx.Student(group, "RecentUnconfirmed");
         recentUnconfirmed.IsActive = false;
         recentUnconfirmed.CreatedAt = DateTime.UtcNow.AddMinutes(-10);
-        
+
         var oldUnconfirmed = ctx.Student(group, "OldUnconfirmed");
         oldUnconfirmed.IsActive = false;
         oldUnconfirmed.CreatedAt = DateTime.UtcNow.AddHours(-25);
@@ -59,7 +59,7 @@ public class UnconfirmedAccountCleanupServiceTests : IDisposable
 
         var cleanupMethod = typeof(UnconfirmedAccountCleanupService)
             .GetMethod("CleanupAsync", BindingFlags.NonPublic | BindingFlags.Instance);
-            
+
         await (Task)cleanupMethod!.Invoke(sut, [CancellationToken.None])!;
 
         var usersAfter = ctx.Users.ToList();

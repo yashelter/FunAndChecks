@@ -113,7 +113,7 @@ public class AuthService(
                         .Where(gs => gs.GroupId == student.GroupId)
                         .Select(gs => gs.SubjectId)
                         .ToListAsync(cancellationToken);
-                        
+
                     foreach (var subjectId in subjectIds)
                     {
                         resultsCacheService.Invalidate(subjectId);
@@ -132,7 +132,7 @@ public class AuthService(
         // Apply the same observable throttling behavior even when the account does not exist.
         EnsureEmailNotThrottled(request.Email);
         var code = await identityService.GenerateEmailConfirmationCodeAsync(request.Email);
-        
+
         // Намеренно не сообщаем, существует ли такая почта.
         if (code == null)
             return;

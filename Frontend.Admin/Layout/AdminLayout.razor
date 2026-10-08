@@ -9,12 +9,12 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        OnClick="ToggleDrawer" />
-        <MudText Typo="Typo.h6">FunAndChecks · @Loc["AdminLayout_Role"]</MudText>
+        <MudText Typo="Typo.h6" Class="app-toolbar-title">FunAndChecks · @Loc["AdminLayout_Role"]</MudText>
         <MudSpacer />
         <LangSwitcher />
         <MudIconButton Color="Color.Inherit" OnClick="ToggleThemeAsync"
                        Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" />
-        <MudText Typo="Typo.body2" Class="mr-4">@_userName</MudText>
+        <MudText Typo="Typo.body2" Class="mr-4 d-none d-sm-block">@_userName</MudText>
         <MudButton Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout" OnClick="LogoutAsync">
             @Loc["App_Logout"]
         </MudButton>

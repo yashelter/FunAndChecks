@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<GradesApi>();
         services.AddScoped<AdminsApi>();
         services.AddScoped<BackupApi>();
+        services.AddScoped<AttendanceApi>();
 
         return services;
     }

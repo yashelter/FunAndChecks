@@ -81,6 +81,18 @@ public class AdminAccessService(IApplicationDbContext db) : IAdminAccessService
         db.AdminSubjectAccesses
             .AnyAsync(a => a.AdminId == adminId && a.SubjectId == subjectId && a.IsRestricted, cancellationToken);
 
+    public async Task EnsureStudentAllowedAsync(Guid adminId, Guid studentId, CancellationToken cancellationToken = default)
+    {
+        var student = await db.Students
+            .Where(s => s.Id == studentId)
+            .Select(s => new { s.GroupId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+
+        if (student.GroupId is int groupId)
+            await EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+    }
+
     public Task<bool> IsGroupRestrictedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default) =>
         db.AdminGroupAccesses
             .AnyAsync(a => a.AdminId == adminId && a.GroupId == groupId && a.IsRestricted, cancellationToken);

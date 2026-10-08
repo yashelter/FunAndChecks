@@ -427,7 +427,7 @@
   <data name="Error_InvalidResetCode" xml:space="preserve"><value>The reset code is invalid or expired, or the password does not meet requirements.</value></data>
   <data name="Error_InvalidConfirmationCode" xml:space="preserve"><value>The confirmation code is invalid or expired.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>This request method is not allowed.</value></data>
-  <data name="Error_RequestFailed" xml:space="preserve"><value>The request could not be completed.</value></data>
+  <data name="Error_GenericRequestFailed" xml:space="preserve"><value>The request could not be completed.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>An unexpected server error occurred.</value></data>
   <data name="Error_ValidationRequired" xml:space="preserve"><value>This field is required.</value></data>
   <data name="Error_ValidationEmail" xml:space="preserve"><value>Enter a valid email address.</value></data>
@@ -443,4 +443,10 @@
   <data name="Culture_UnsavedTitle" xml:space="preserve"><value>Unsaved changes</value></data>
   <data name="Culture_UnsavedMessage" xml:space="preserve"><value>Changing the language reloads the page and discards unsaved changes. Continue?</value></data>
   <data name="AdminLayout_Role" xml:space="preserve"><value>Administrator</value></data>
+  <data name="Management_ColAttendance" xml:space="preserve"><value>Attendance</value></data>
+  <data name="Management_AttendanceLabel" xml:space="preserve"><value>Track attendance</value></data>
+  <data name="Management_AttendanceTracking" xml:space="preserve"><value>Tracking</value></data>
+  <data name="Common_Enabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="Common_Disabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Common_GradingRestricted" xml:space="preserve"><value>Grading is restricted</value></data>
 </root>

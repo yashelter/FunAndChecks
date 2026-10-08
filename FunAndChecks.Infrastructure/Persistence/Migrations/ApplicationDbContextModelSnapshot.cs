@@ -22,6 +22,21 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AttendanceSessionGroups", b =>
+                {
+                    b.Property<int>("AttendanceSessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GroupsId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AttendanceSessionId", "GroupsId");
+
+                    b.HasIndex("GroupsId");
+
+                    b.ToTable("AttendanceSessionGroups");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>
                 {
                     b.Property<Guid>("AdminId")
@@ -62,6 +77,80 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasIndex("SubjectId");
 
                     b.ToTable("AdminSubjectAccesses");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("MarkedByAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SessionId", "StudentId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("MarkedByAdminId");
+
+                    b.HasIndex("StudentId", "SessionId");
+
+                    b.ToTable("AttendanceRecords");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByAdminId");
+
+                    b.HasIndex("SubjectId", "StartsAt");
+
+                    b.ToTable("AttendanceSessions");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.CourseTask", b =>
@@ -272,6 +361,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AttendanceEnabled")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -621,6 +713,21 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("Students", (string)null);
                 });
 
+            modelBuilder.Entity("AttendanceSessionGroups", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AttendanceSession", null)
+                        .WithMany()
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Group", null)
+                        .WithMany()
+                        .HasForeignKey("GroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>
                 {
                     b.HasOne("FunAndChecks.Domain.Entities.Admin", "Admin")
@@ -655,6 +762,50 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Admin");
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "MarkedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("MarkedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.AttendanceSession", "Session")
+                        .WithMany("Records")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MarkedByAdmin");
+
+                    b.Navigation("Session");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "CreatedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByAdmin");
 
                     b.Navigation("Subject");
                 });
@@ -883,6 +1034,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Navigation("Records");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.CourseTask", b =>

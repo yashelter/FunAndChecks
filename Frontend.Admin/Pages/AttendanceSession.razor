@@ -1,0 +1,82 @@
+@page "/admin/attendance/sessions/{SessionId:int}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>Перекличка · посещаемость</PageTitle>
+
+<div class="attendance-page">
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_details is null)
+    {
+        <MudAlert Severity="Severity.Error">@(_error ?? "Не удалось загрузить занятие.")</MudAlert>
+        <MudButton Href="/admin/attendance" Class="mt-4">Вернуться к журналу</MudButton>
+    }
+    else
+    {
+        <MudButton Href="@($"/admin/attendance?subjectId={_details.SubjectId}")" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-3">Журнал посещаемости</MudButton>
+        <div class="attendance-heading">
+            <div><span class="attendance-eyebrow">ПЕРЕКЛИЧКА</span><MudText Typo="Typo.h4">@_details.Name</MudText><MudText Typo="Typo.body2">@_details.SubjectName · @AttendanceStyles.Moscow(_details.StartsAt).ToString("dd.MM.yyyy HH:mm") · Москва</MudText></div>
+            <div class="attendance-actions">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@_busy">Обновить</MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="ToggleAddAsync" Disabled="@(_busy || !_details.Enabled)">Добавить студента</MudButton>
+            </div>
+        </div>
+        @if (!_details.Enabled) { <MudAlert Severity="Severity.Info" Class="mb-4">Учёт по предмету выключен. Журнал доступен для просмотра; включить учёт можно на странице посещаемости.</MudAlert> }
+        <div class="attendance-stats">
+            <div class="attendance-stat present"><span>Присутствовали</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Present)</strong></div>
+            <div class="attendance-stat absent"><span>Отсутствовали</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Absent)</strong></div>
+            <div class="attendance-stat unmarked"><span>Не отмечены</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Unmarked)</strong></div>
+        </div>
+        @if (_adding)
+        {
+            <MudPaper Class="attendance-panel" Elevation="0">
+                <MudText Typo="Typo.h6">Добавить в состав занятия</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Для студентов, зарегистрировавшихся после создания занятия. Начальная отметка — «Не отмечен».</MudText>
+                <div class="attendance-toolbar">
+                    <MudSelect T="Guid?" @bind-Value="_addStudentId" Label="Студент" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_busy">
+                        @foreach (var student in _candidates) { <MudSelectItem T="Guid?" Value="@student.Id">@student.LastName @student.FirstName</MudSelectItem> }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddAsync" Disabled="@(_busy || _addStudentId is null)">Добавить</MudButton>
+                    <MudButton OnClick="@(() => _adding = false)" Disabled="@_busy">Закрыть</MudButton>
+                </div>
+                @if (_candidates.Count == 0) { <MudText Typo="Typo.caption">Новых подтверждённых студентов в доступных группах занятия нет.</MudText> }
+            </MudPaper>
+        }
+        <MudPaper Class="attendance-panel" Elevation="0">
+            <div class="attendance-toolbar">
+                <MudTextField @bind-Value="_search" Immediate="true" Label="Фамилия или группа" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                <MudCheckBox T="bool" @bind-Value="_onlyUnmarked" Label="Только не отмеченные" Color="Color.Primary" />
+                <MudText Typo="Typo.caption" Class="attendance-save-state" role="status">@(_busy ? "Сохраняем…" : _saveError ? "Изменение не сохранено" : "Отметки сохраняются сразу")</MudText>
+            </div>
+            <div class="attendance-rollcall">
+                @foreach (var participant in Visible)
+                {
+                    <div class="attendance-person">
+                        <span class="@AttendanceStyles.Css(participant.Status)">@AttendanceStyles.Symbol(participant.Status)</span>
+                        <div class="attendance-person-identity">
+                            <strong>@participant.FullName</strong><small>@participant.GroupName · @AttendanceStyles.Text(participant.Status)</small>
+                            @if (participant.UpdatedAt.HasValue)
+                            {
+                                <small>@(participant.MarkedBy ?? "Преподаватель удалён") · @AttendanceStyles.Moscow(participant.UpdatedAt.Value).ToString("dd.MM.yyyy HH:mm")</small>
+                            }
+                            @if (!participant.CanManage) { <small>Изменение отметок этой группы вам запрещено</small> }
+                        </div>
+                        <div class="attendance-person-actions">
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Present ? Variant.Filled : Variant.Outlined)" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Present))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Присутствовал</MudButton>
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Absent ? Variant.Filled : Variant.Outlined)" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Absent))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Отсутствовал</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" Size="Size.Small" title="Сбросить в «Не отмечен»" aria-label="Сбросить отметку" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Unmarked))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage || participant.Status == AttendanceStatus.Unmarked)" />
+                        </div>
+                    </div>
+                }
+                @if (!Visible.Any()) { <div class="attendance-empty"><MudText Typo="Typo.h6">@(_details.Participants.Count == 0 ? "В занятии пока нет студентов" : "Все отметки выставлены или студенты не найдены")</MudText><MudText>Измените фильтр или добавьте студента в состав занятия.</MudText></div> }
+            </div>
+        </MudPaper>
+        <div class="attendance-bulk">
+            <div><strong>Завершить перекличку</strong><small>Отметить отсутствующими всех оставшихся доступных студентов занятия. Поиск и фильтры на это действие не влияют.</small></div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="MarkRemainingAsync" Disabled="@(_busy || !_details.Enabled || Remaining.Count == 0)">Оставшихся нет (@Remaining.Count)</MudButton>
+        </div>
+    }
+</div>

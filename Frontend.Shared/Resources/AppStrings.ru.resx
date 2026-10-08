@@ -427,7 +427,7 @@
   <data name="Error_InvalidResetCode" xml:space="preserve"><value>Код сброса неверен или истёк, либо пароль не соответствует требованиям.</value></data>
   <data name="Error_InvalidConfirmationCode" xml:space="preserve"><value>Код подтверждения неверен или истёк.</value></data>
   <data name="Error_MethodNotAllowed" xml:space="preserve"><value>Этот метод запроса не поддерживается.</value></data>
-  <data name="Error_RequestFailed" xml:space="preserve"><value>Не удалось выполнить запрос.</value></data>
+  <data name="Error_GenericRequestFailed" xml:space="preserve"><value>Не удалось выполнить запрос.</value></data>
   <data name="Error_Internal" xml:space="preserve"><value>Произошла непредвиденная ошибка сервера.</value></data>
   <data name="Error_ValidationRequired" xml:space="preserve"><value>Обязательное поле.</value></data>
   <data name="Error_ValidationEmail" xml:space="preserve"><value>Введите корректный адрес электронной почты.</value></data>
@@ -443,4 +443,10 @@
   <data name="Culture_UnsavedTitle" xml:space="preserve"><value>Несохранённые изменения</value></data>
   <data name="Culture_UnsavedMessage" xml:space="preserve"><value>Смена языка перезагрузит страницу и удалит несохранённые изменения. Продолжить?</value></data>
   <data name="AdminLayout_Role" xml:space="preserve"><value>Администратор</value></data>
+  <data name="Management_ColAttendance" xml:space="preserve"><value>Посещаемость</value></data>
+  <data name="Management_AttendanceLabel" xml:space="preserve"><value>Учитывать посещаемость</value></data>
+  <data name="Management_AttendanceTracking" xml:space="preserve"><value>Учёт</value></data>
+  <data name="Common_Enabled" xml:space="preserve"><value>Включён</value></data>
+  <data name="Common_Disabled" xml:space="preserve"><value>Выключен</value></data>
+  <data name="Common_GradingRestricted" xml:space="preserve"><value>Приём запрещён</value></data>
 </root>

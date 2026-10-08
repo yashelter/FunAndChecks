@@ -24,15 +24,15 @@ else if (_details is not null)
         <MudText Typo="Typo.h5" Class="ml-2">@Loc["StudentQueues_QueueTitle", _details.EventName]</MudText>
     </div>
 
-    <MudList T="QueueParticipantDto" ReadOnly="true">
+    <MudList T="QueueParticipantDto" ReadOnly="true" Class="queue-participants">
         @foreach (var p in _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status)).ThenByDescending(x => x.TotalPoints))
         {
             <MudListItem T="QueueParticipantDto" Style="@QueueStyles.RowStyle(p.Status)">
-                <div class="d-flex justify-space-between align-center flex-grow-1">
-                    <span style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
-                    <div class="d-flex align-center gap-2">
-                        <MudText Class="mr-2">@Loc["StudentQueues_Points", p.TotalPoints]</MudText>
-                        <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
+                <div class="queue-participant-row">
+                    <span class="queue-participant-name" style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
+                    <div class="queue-participant-details">
+                        <MudText Class="queue-participant-points">@Loc["StudentQueues_Points", p.TotalPoints]</MudText>
+                        <MudChip T="string" Class="queue-participant-status" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
                             @QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)
                         </MudChip>
                     </div>

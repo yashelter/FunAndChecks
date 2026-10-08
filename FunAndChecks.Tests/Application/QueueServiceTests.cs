@@ -216,7 +216,7 @@ public class QueueServiceTests : IDisposable
             TaskId = task.Id,
             AdminId = admin.Id
         });
-        
+
         // Newer Rejected submission
         ctx.Submissions.Add(new FunAndChecks.Domain.Entities.Submission
         {
@@ -230,7 +230,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var details = await sut.GetDetailsAsync(created.Id);
-        
+
         details.Participants.Should().ContainSingle();
         details.Participants[0].TotalPoints.Should().Be(0);
     }

@@ -35,7 +35,8 @@ public partial class QueueDetails : IAsyncDisposable
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
-        await InitializeSignalRAsync();
+        if (_details is not null)
+            await InitializeSignalRAsync();
     }
 
     private List<QueueParticipantDto> Visible => VisibleParticipants();
@@ -74,6 +75,8 @@ public partial class QueueDetails : IAsyncDisposable
         }
         catch (ApiException ex)
         {
+            _details = null;
+            _participants = [];
             Snackbar.Add(string.Format(Loc["QueueDetails_LoadErrorPrefix"], ex.Message), Severity.Error);
         }
         finally
@@ -120,7 +123,7 @@ public partial class QueueDetails : IAsyncDisposable
 
     private async Task OpenStudentAsync(QueueParticipantDto participant)
     {
-        if (_details is null)
+        if (_details is null || !participant.CanManage)
             return;
 
         // Клик по студенту = начать приём: сразу ставим статус «Сдаёт».
@@ -135,8 +138,13 @@ public partial class QueueDetails : IAsyncDisposable
             catch (ApiException ex)
             {
                 Snackbar.Add(ex.Message, Severity.Error);
+                await LoadAsync();
+                return;
             }
         }
+
+        if (_details is null || !participant.CanManage)
+            return;
 
         var parameters = new DialogParameters<StudentInteractionDialog>
         {

@@ -147,6 +147,7 @@ public class GradeService(
             ?? throw new NotFoundException("Grade not found.");
 
         await accessService.EnsureSubjectAllowedAsync(adminId, grade.GradeComponent.SubjectId, cancellationToken);
+        await accessService.EnsureStudentAllowedAsync(adminId, studentId, cancellationToken);
 
         var subjectId = grade.GradeComponent.SubjectId;
         db.StudentGrades.Remove(grade);

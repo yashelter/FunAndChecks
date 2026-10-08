@@ -1,6 +1,6 @@
 namespace Frontend.Shared.Models;
 
-public record SubjectDto(int Id, string Name);
+public record SubjectDto(int Id, string Name, bool AttendanceEnabled = false);
 
 public record CreateSubjectRequest(string Name);
 

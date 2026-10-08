@@ -18,6 +18,7 @@ public partial class StudentGrading
 
     private List<SubjectDto> _subjects = [];
     private List<StudentDetailsDto> _results = [];
+    private HashSet<int> _restrictedGroups = [];
     private int? _subjectId;
     private string _query = "";
     private bool _searching;
@@ -40,6 +41,8 @@ public partial class StudentGrading
         _searching = true;
         try
         {
+            var access = await Me.GetMyAccessAsync();
+            _restrictedGroups = [.. access.RestrictedGroupIds];
             if (_subjectId is null)
             {
                 _results = [];
@@ -64,6 +67,9 @@ public partial class StudentGrading
 
     private async Task OpenAsync(StudentDetailsDto student)
     {
+        if (IsGroupRestricted(student))
+            return;
+
         if (_subjectId is null)
         {
             Snackbar.Add(Loc["Grading_SelectSubjectFirst"], Severity.Warning);
@@ -85,6 +91,9 @@ public partial class StudentGrading
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
     }
+
+    private bool IsGroupRestricted(StudentDetailsDto student) =>
+        student.GroupId is int groupId && _restrictedGroups.Contains(groupId);
 
     private async Task EditAsync(StudentDetailsDto student)
     {
