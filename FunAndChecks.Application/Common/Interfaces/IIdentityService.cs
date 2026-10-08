@@ -50,6 +50,10 @@ public interface IIdentityService
 
     Task<string?> GetEmailAsync(Guid userId);
 
+    Task<string?> GetPreferredCultureAsync(Guid userId);
+
+    Task SetPreferredCultureAsync(Guid userId, string culture);
+
     /// <summary>Email-адреса по набору Id (для списков). Отсутствующие — без записи в словаре.</summary>
     Task<IReadOnlyDictionary<Guid, string?>> GetEmailsAsync(IEnumerable<Guid> userIds);
 
@@ -67,4 +71,9 @@ public interface IIdentityService
     /// (владение ящиком доказано).
     /// </summary>
     Task<AccountResult> ResetPasswordAsync(string email, string code, string newPassword);
+
+    /// <summary>
+    /// Редактирование учётки админом: смена email, пароля, разбан и подтверждение.
+    /// </summary>
+    Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword);
 }

@@ -202,6 +202,62 @@ public class AttendanceServiceTests : IDisposable
         journal.Students.Sum(s => s.Unmarked).Should().Be(0);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UnavailableGroup_BlocksAllWritesAndCandidates_PreservesHistoryAndOtherGroups(bool hidden)
+    {
+        var data = await SeedAsync();
+        await using var db = _db.NewContext();
+        var allowedGroup = db.Group("Allowed");
+        await db.SaveChangesAsync();
+        db.LinkGroupSubject(allowedGroup, (await db.Subjects.FindAsync(data.SubjectId))!);
+        var allowedStudent = db.Student(allowedGroup, "Allowed student");
+        await db.SaveChangesAsync();
+        var service = Service(db);
+        var session = await service.CreateSessionAsync(data.AdminId, data.SubjectId,
+            new(null, DateTime.UtcNow, [allowedGroup.Id, data.GroupId]));
+        var late = db.Student((await db.Groups.FindAsync(data.GroupId))!, "Late student");
+        await db.SaveChangesAsync();
+        var access = new AdminAccessService(db);
+        if (hidden) await access.SetGroupHiddenAsync(data.AdminId, data.GroupId, true);
+        else await access.SetGroupRestrictedAsync(data.AdminId, data.GroupId, true);
+
+        (await service.GetGroupsAsync(data.AdminId, data.SubjectId)).Should().ContainSingle().Which.Id.Should().Be(allowedGroup.Id);
+        (await service.GetAvailableStudentsAsync(data.AdminId, session.Id)).Should().BeEmpty();
+        var participants = (await service.GetSessionAsync(data.AdminId, session.Id)).Participants;
+        var blocked = participants.Single(p => p.StudentId == data.StudentId);
+        blocked.CanManage.Should().BeFalse();
+        participants.Single(p => p.StudentId == allowedStudent.Id).CanManage.Should().BeTrue();
+        (await service.GetJournalAsync(data.AdminId, data.SubjectId)).Students.Should().HaveCount(2);
+        (await service.GetStudentHistoryAsync(data.StudentId, data.SubjectId)).Should().ContainSingle();
+
+        var create = () => service.CreateSessionAsync(data.AdminId, data.SubjectId,
+            new(null, DateTime.UtcNow, [allowedGroup.Id, data.GroupId]));
+        await create.Should().ThrowAsync<ForbiddenException>();
+        var mark = () => service.SetMarkAsync(data.AdminId, session.Id, data.StudentId,
+            new(AttendanceStatus.Present, blocked.Version));
+        await mark.Should().ThrowAsync<ForbiddenException>();
+        var add = () => service.AddStudentAsync(data.AdminId, session.Id, late.Id);
+        await add.Should().ThrowAsync<ForbiddenException>();
+        var bulk = () => service.MarkRemainingAbsentAsync(data.AdminId, session.Id,
+            new(participants.Select(p => new RemainingAttendanceStudent(p.StudentId, p.Version)).ToList()));
+        await bulk.Should().ThrowAsync<ForbiddenException>();
+        (await db.AttendanceSessions.CountAsync()).Should().Be(1);
+        (await db.AttendanceRecords.ToListAsync()).Should().HaveCount(2)
+            .And.OnlyContain(r => r.Status == AttendanceStatus.Unmarked);
+
+        var allowed = participants.Single(p => p.StudentId == allowedStudent.Id);
+        await service.SetMarkAsync(data.AdminId, session.Id, allowedStudent.Id,
+            new(AttendanceStatus.Present, allowed.Version));
+        if (hidden) await access.SetGroupHiddenAsync(data.AdminId, data.GroupId, false);
+        else await access.SetGroupRestrictedAsync(data.AdminId, data.GroupId, false);
+        (await service.GetAvailableStudentsAsync(data.AdminId, session.Id)).Should().ContainSingle().Which.Id.Should().Be(late.Id);
+        await service.AddStudentAsync(data.AdminId, session.Id, late.Id);
+        await service.SetMarkAsync(data.AdminId, session.Id, data.StudentId,
+            new(AttendanceStatus.Present, blocked.Version));
+    }
+
     [Fact]
     public async Task JournalPeriod_UsesInclusiveMoscowDates_AndPreservesMultipleSessionsPerDay()
     {

@@ -18,5 +18,5 @@ public interface IGradeService
     Task DeleteGradeAsync(Guid adminId, int componentId, Guid studentId, CancellationToken cancellationToken = default);
 
     /// <summary>Оценки студента по всем колонкам предмета.</summary>
-    Task<List<StudentGradeDto>> GetStudentGradesAsync(Guid studentId, int subjectId, CancellationToken cancellationToken = default);
+    Task<List<StudentGradeDto>> GetStudentGradesAsync(Guid adminId, Guid studentId, int subjectId, CancellationToken cancellationToken = default);
 }

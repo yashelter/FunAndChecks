@@ -1,6 +1,8 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Student.Pages;
@@ -10,6 +12,7 @@ public partial class Dashboard
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private ResultsApi Results { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
     private SubjectResultsDto? _results;
@@ -41,7 +44,7 @@ public partial class Dashboard
         }
         catch (ApiException ex)
         {
-            Snackbar.Add($"Не удалось загрузить результаты: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(Loc["Common_LoadResultsError"], ex.Message), Severity.Error);
         }
         finally
         {

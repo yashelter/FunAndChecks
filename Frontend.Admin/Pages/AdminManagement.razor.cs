@@ -1,6 +1,8 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -12,6 +14,7 @@ public partial class AdminManagement
     [Inject] private GroupsApi Groups { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<AdminDto> _admins = [];
     private List<SubjectDto> _subjects = [];
@@ -54,7 +57,7 @@ public partial class AdminManagement
     {
         if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
         {
-            Snackbar.Add("Укажите email и пароль.", Severity.Warning);
+            Snackbar.Add(Loc["AdminMgmt_EmailPasswordRequired"], Severity.Warning);
             return;
         }
 
@@ -66,7 +69,7 @@ public partial class AdminManagement
                 string.IsNullOrWhiteSpace(_letter) ? null : _letter.Trim(),
                 _isSuperAdmin));
 
-            Snackbar.Add("Администратор создан.", Severity.Success);
+            Snackbar.Add(Loc["AdminMgmt_Created"], Severity.Success);
             _firstName = _lastName = _email = _password = string.Empty;
             _color = _letter = null;
             _isSuperAdmin = false;
@@ -81,9 +84,9 @@ public partial class AdminManagement
     private async Task DeleteAsync(AdminDto admin)
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Удаление администратора",
-            $"Удалить администратора {admin.LastName} {admin.FirstName}?",
-            yesText: "Удалить", cancelText: "Отмена");
+            Loc["AdminMgmt_DeleteTitle"],
+            string.Format(Loc["AdminMgmt_DeleteConfirm"], admin.LastName, admin.FirstName),
+            yesText: Loc["Common_Delete"], cancelText: Loc["Common_Cancel"]);
 
         if (confirmed != true)
             return;
@@ -91,7 +94,7 @@ public partial class AdminManagement
         try
         {
             await Admins.DeleteAsync(admin.Id);
-            Snackbar.Add("Администратор удалён.", Severity.Success);
+            Snackbar.Add(Loc["AdminMgmt_Deleted"], Severity.Success);
             if (_accessAdmin?.Id == admin.Id)
                 _accessAdmin = null;
             await ReloadAdminsAsync();

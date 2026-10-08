@@ -18,10 +18,14 @@ public class AuthServiceTests : IDisposable
     private readonly ITokenService _token = Substitute.For<ITokenService>();
     private readonly IRefreshTokenService _refresh = Substitute.For<IRefreshTokenService>();
     private readonly IEmailSender _email = Substitute.For<IEmailSender>();
+    private readonly IEmailTemplateRenderer _templates = Substitute.For<IEmailTemplateRenderer>();
     private readonly IEmailThrottle _throttle = Substitute.For<IEmailThrottle>();
+    private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     public AuthServiceTests()
     {
+        _templates.Render(Arg.Any<EmailTemplateKind>(), Arg.Any<string>(), Arg.Any<string?>())
+            .Returns(call => new EmailTemplate("subject", $"body {call.ArgAt<string?>(2)}"));
         // По умолчанию троттлинг пропускает.
         _throttle.TryAcquire(Arg.Any<string>(), out Arg.Any<TimeSpan>())
             .Returns(ci => { ci[1] = TimeSpan.Zero; return true; });
@@ -30,7 +34,7 @@ public class AuthServiceTests : IDisposable
     }
 
     private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _token, _refresh, _email, _throttle,
+        new(ctx, _identity, _token, _refresh, _email, _templates, _throttle, _cache,
             new RegisterStudentRequestValidator(),
             new ResetPasswordRequestValidator(),
             NullLogger<AuthService>.Instance);
@@ -110,7 +114,7 @@ public class AuthServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RegisterStudent_ConfirmedEmailExists_ThrowsConflict()
+    public async Task RegisterStudent_ConfirmedEmailExists_ReturnsEmptyGuid_AndSendsEmail()
     {
         var groupId = await SeedGroupAsync();
         _identity.FindByEmailAsync("taken@example.com").Returns(new AccountInfo(Guid.NewGuid(), EmailConfirmed: true));
@@ -119,8 +123,10 @@ public class AuthServiceTests : IDisposable
         var sut = CreateSut(ctx);
 
         var request = new RegisterStudentRequest("Ann", "Smith", "taken@example.com", "secret", groupId);
-        var act = () => sut.RegisterStudentAsync(request);
-        await act.Should().ThrowAsync<ConflictException>();
+        var result = await sut.RegisterStudentAsync(request);
+
+        result.Should().Be(Guid.Empty);
+        await _email.Received(1).SendAsync("taken@example.com", Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -195,10 +201,10 @@ public class AuthServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData(LoginStatus.EmailNotConfirmed)]
-    [InlineData(LoginStatus.LockedOut)]
-    [InlineData(LoginStatus.InvalidCredentials)]
-    public async Task Login_Failure_Throws(LoginStatus status)
+    [InlineData(LoginStatus.EmailNotConfirmed, "auth.email_not_confirmed")]
+    [InlineData(LoginStatus.LockedOut, "auth.account_locked")]
+    [InlineData(LoginStatus.InvalidCredentials, "auth.invalid_credentials")]
+    public async Task Login_Failure_ThrowsCodedForbidden(LoginStatus status, string expectedCode)
     {
         _identity.ValidateCredentialsAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(new LoginResult(status, null));
@@ -207,7 +213,8 @@ public class AuthServiceTests : IDisposable
         var sut = CreateSut(ctx);
 
         var act = () => sut.LoginAsync(new LoginRequest("a@b.c", "pwd"));
-        await act.Should().ThrowAsync<ForbiddenException>();
+        var thrown = await act.Should().ThrowAsync<ForbiddenException>();
+        thrown.Which.Code.Should().Be(expectedCode);
     }
 
     [Fact]

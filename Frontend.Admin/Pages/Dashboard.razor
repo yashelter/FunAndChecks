@@ -2,13 +2,13 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
 
-<PageTitle>Админ · результаты</PageTitle>
+<PageTitle>@Loc["Dashboard_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Результаты</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Dashboard_Title"]</MudText>
 
-<MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="my-4">
+<MudGrid Justify="Justify.SpaceBetween" Class="my-4" Style="align-items:center;">
     <MudItem xs="12" sm="6" md="4">
-        <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+        <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
                    Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
             @foreach (var subject in _subjects)
             {
@@ -19,7 +19,7 @@
     <MudItem>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudDownload"
                    OnClick="ExportXlsxAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
-            Скачать XLSX
+            @Loc["Common_Download"]
         </MudButton>
     </MudItem>
 </MudGrid>
@@ -31,14 +31,14 @@
 else if (_results is not null)
 {
     <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
-                 Sortable="true" Filterable="true" Dense="true" Hover="true">
+                 Filterable="true" Dense="true" Hover="true">
         <Columns>
-            <TemplateColumn Title="ФИО" SortBy="@(x => x.FullName)">
+            <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)">
                 <CellTemplate>
                     <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
                 </CellTemplate>
             </TemplateColumn>
-            <PropertyColumn Property="x => x.GroupName" Title="Группа" />
+            <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
 
             @foreach (var task in _results.TaskHeaders)
             {

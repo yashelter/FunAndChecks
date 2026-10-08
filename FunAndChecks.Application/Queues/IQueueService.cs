@@ -4,7 +4,7 @@ namespace FunAndChecks.Application.Queues;
 
 public interface IQueueService
 {
-    /// <summary>Активные события с учётом запретов предметов для админа.</summary>
+    /// <summary>События за последние 24 часа и будущие с учётом запретов предметов для админа.</summary>
     Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default);
 
     Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default);

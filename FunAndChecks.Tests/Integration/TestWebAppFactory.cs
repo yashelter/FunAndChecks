@@ -2,6 +2,7 @@ using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Infrastructure.Workers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -57,6 +58,16 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(Email);
+
+            // The cleanup worker can open the shared in-memory SQLite connection while
+            // CreateHost is still initializing its provider-specific functions.
+            services.RemoveAll<UnconfirmedAccountCleanupService>();
+            var cleanupWorkers = services
+                .Where(d => d.ServiceType == typeof(IHostedService) &&
+                            d.ImplementationType == typeof(UnconfirmedAccountCleanupService))
+                .ToList();
+            foreach (var worker in cleanupWorkers)
+                services.Remove(worker);
         });
     }
 

@@ -16,7 +16,7 @@ using Xunit;
 
 namespace FunAndChecks.Tests.Integration;
 
-[Collection("API integration")]
+[Collection("Integration")]
 public class AttendanceFlowTests : IDisposable
 {
     private readonly TestWebAppFactory _factory = new();

@@ -42,7 +42,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         if (groups.Count != ids.Count) throw new NotFoundException("Одна из выбранных групп не найдена.");
         var linked = await db.GroupSubjects.Where(gs => gs.SubjectId == subjectId && ids.Contains(gs.GroupId)).CountAsync(ct);
         if (linked != ids.Count) throw new ConflictException("Выбранные группы должны быть связаны с предметом.");
-        foreach (var groupId in ids) await EnsureGroupAllowedAsync(adminId, groupId, ct);
+        await access.EnsureGroupsAllowedAsync(adminId, ids, ct);
         var students = await db.Students.Where(s => s.IsActive && s.GroupId.HasValue && ids.Contains(s.GroupId.Value))
             .Include(s => s.Group).ToListAsync(ct);
         var session = new AttendanceSession
@@ -61,7 +61,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
     public async Task<AttendanceSessionDetailsDto> GetSessionAsync(Guid adminId, int sessionId, CancellationToken ct = default)
     {
         var session = await GetSessionEntityAsync(adminId, sessionId, ct);
-        var restricted = await RestrictedGroupsAsync(adminId, ct);
+        var unavailable = await UnavailableGroupsAsync(adminId, ct);
         var records = await db.AttendanceRecords.AsNoTracking().Where(r => r.SessionId == sessionId)
             .Include(r => r.Student).Include(r => r.MarkedByAdmin).OrderBy(r => r.Student.LastName)
             .ThenBy(r => r.Student.FirstName).ToListAsync(ct);
@@ -69,7 +69,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
             session.Subject.AttendanceEnabled,
             await db.AttendanceSessions.Where(s => s.Id == sessionId).SelectMany(s => s.Groups)
                 .Select(g => new GroupDto(g.Id, g.Name)).ToListAsync(ct),
-            records.Select(r => ToParticipant(r, !restricted.Contains(r.GroupId))).ToList());
+            records.Select(r => ToParticipant(r, !unavailable.Contains(r.GroupId))).ToList());
     }
 
     public async Task<AttendanceParticipantDto> SetMarkAsync(Guid adminId, int sessionId, Guid studentId,
@@ -81,7 +81,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         var record = await db.AttendanceRecords.Include(r => r.Student).Include(r => r.MarkedByAdmin)
             .SingleOrDefaultAsync(r => r.SessionId == sessionId && r.StudentId == studentId, ct)
             ?? throw new NotFoundException("Студент не включён в это занятие.");
-        await EnsureGroupAllowedAsync(adminId, record.GroupId, ct);
+        await access.EnsureGroupAllowedAsync(adminId, record.GroupId, ct);
         if (record.Version != request.Version) throw ChangedException();
         ApplyMark(record, adminId, request.Status);
         await SaveMarksAsync(ct);
@@ -100,7 +100,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         var records = await db.AttendanceRecords.Where(r => r.SessionId == sessionId && ids.Contains(r.StudentId)).ToListAsync(ct);
         if (records.Count != ids.Count) throw new NotFoundException("Один из студентов не включён в занятие.");
         var expected = request.Students.ToDictionary(s => s.StudentId, s => s.Version);
-        foreach (var groupId in records.Select(r => r.GroupId).Distinct()) await EnsureGroupAllowedAsync(adminId, groupId, ct);
+        await access.EnsureGroupsAllowedAsync(adminId, records.Select(r => r.GroupId), ct);
         // Проверяем весь пакет до изменений; при конфликте не сохраняется ни одна отметка.
         if (records.Any(r => r.Version != expected[r.StudentId] || r.Status != AttendanceStatus.Unmarked)) throw ChangedException();
         foreach (var record in records) ApplyMark(record, adminId, AttendanceStatus.Absent);
@@ -116,7 +116,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         if (!student.GroupId.HasValue || !await db.AttendanceSessions.Where(s => s.Id == sessionId)
                 .AnyAsync(s => s.Groups.Any(g => g.Id == student.GroupId.Value), ct))
             throw new ConflictException("Студент должен принадлежать одной из групп занятия.");
-        await EnsureGroupAllowedAsync(adminId, student.GroupId.Value, ct);
+        await access.EnsureGroupAllowedAsync(adminId, student.GroupId.Value, ct);
         if (await db.AttendanceRecords.AnyAsync(r => r.SessionId == sessionId && r.StudentId == studentId, ct))
             throw new ConflictException("Студент уже включён в занятие.");
         var record = NewRecord(student);
@@ -131,7 +131,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         return await db.Students.Where(s => s.IsActive && s.GroupId.HasValue
                 && db.AttendanceSessions.Any(session => session.Id == sessionId && session.Groups.Any(g => g.Id == s.GroupId))
                 && !db.AttendanceRecords.Any(r => r.SessionId == sessionId && r.StudentId == s.Id)
-                && !db.AdminGroupAccesses.Any(a => a.AdminId == adminId && a.GroupId == s.GroupId && a.IsRestricted))
+                && !db.AdminGroupAccesses.Any(a => a.AdminId == adminId && a.GroupId == s.GroupId && (a.IsRestricted || a.IsHidden)))
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
             .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.Color)).ToListAsync(ct);
     }
@@ -196,14 +196,8 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         return session;
     }
 
-    private Task<List<int>> RestrictedGroupsAsync(Guid adminId, CancellationToken ct) =>
-        db.AdminGroupAccesses.Where(a => a.AdminId == adminId && a.IsRestricted).Select(a => a.GroupId).ToListAsync(ct);
-
-    private async Task EnsureGroupAllowedAsync(Guid adminId, int groupId, CancellationToken ct)
-    {
-        if (await db.AdminGroupAccesses.AnyAsync(a => a.AdminId == adminId && a.GroupId == groupId && a.IsRestricted, ct))
-            throw new ForbiddenException("Учёт посещаемости этой группы вам запрещён.");
-    }
+    private Task<List<int>> UnavailableGroupsAsync(Guid adminId, CancellationToken ct) =>
+        db.AdminGroupAccesses.Where(a => a.AdminId == adminId && (a.IsRestricted || a.IsHidden)).Select(a => a.GroupId).ToListAsync(ct);
 
     private static AttendanceRecord NewRecord(Student student) => new()
     {

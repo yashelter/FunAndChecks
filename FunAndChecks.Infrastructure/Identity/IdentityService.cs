@@ -1,12 +1,17 @@
 using FunAndChecks.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using FunAndChecks.Infrastructure.Persistence;
 
 namespace FunAndChecks.Infrastructure.Identity;
 
-public class IdentityService(UserManager<ApplicationUser> userManager) : IIdentityService
+public class IdentityService(
+    UserManager<ApplicationUser> userManager,
+    IRefreshTokenService refreshTokenService,
+    ApplicationDbContext dbContext) : IIdentityService
 {
-    // Назначения токенов (TOTP-провайдер «Email» даёт короткие 6-значные коды).
+    // Назначения токенов (провайдер «Email» — EmailCodeTokenProvider — даёт короткие
+    // 6-значные коды со сроком жизни 10 минут).
     private const string EmailConfirmationPurpose = "EmailConfirmation";
     private const string PasswordResetPurpose = "ResetPassword";
 
@@ -84,6 +89,22 @@ public class IdentityService(UserManager<ApplicationUser> userManager) : IIdenti
         return user?.Email;
     }
 
+    public async Task<string?> GetPreferredCultureAsync(Guid userId)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        return user?.PreferredCulture;
+    }
+
+    public async Task SetPreferredCultureAsync(Guid userId, string culture)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+                   ?? throw new FunAndChecks.Application.Common.Exceptions.NotFoundException("User account not found.", "account.not_found");
+        user.PreferredCulture = culture;
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            throw new InvalidOperationException(string.Join("; ", result.Errors.Select(e => e.Description)));
+    }
+
     public async Task<IReadOnlyDictionary<Guid, string?>> GetEmailsAsync(IEnumerable<Guid> userIds)
     {
         var ids = userIds.ToList();
@@ -145,22 +166,70 @@ public class IdentityService(UserManager<ApplicationUser> userManager) : IIdenti
         if (!valid)
             return AccountResult.Failure(["Invalid or expired reset code."]);
 
-        // Код проверен нашим TOTP-провайдером — меняем пароль напрямую
-        // (без DataProtector-токена). Смена пароля обновит security stamp,
-        // что инвалидирует уже выданные коды.
-        await userManager.RemovePasswordAsync(user);
-        var result = await userManager.AddPasswordAsync(user, newPassword);
-        if (!result.Succeeded)
-            return AccountResult.Failure(result.Errors.Select(e => e.Description));
-
-        // Владение ящиком доказано — подтверждаем почту, если не была, и снимаем блокировку.
-        if (!user.EmailConfirmed)
+        AccountResult outcome = AccountResult.Success();
+        await dbContext.ExecuteSerializableAsync(async _ =>
         {
-            user.EmailConfirmed = true;
-            await userManager.UpdateAsync(user);
-        }
-        await userManager.ResetAccessFailedCountAsync(user);
+            var resetResult = await userManager.ResetPasswordAsync(user, code, newPassword);
+            if (!resetResult.Succeeded)
+            {
+                outcome = AccountResult.Failure(resetResult.Errors.Select(e => e.Description));
+                return;
+            }
 
-        return AccountResult.Success();
+            user.EmailConfirmed = true;
+            var updateResult = await userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", updateResult.Errors.Select(e => e.Description)));
+
+            var unlockResult = await userManager.ResetAccessFailedCountAsync(user);
+            if (!unlockResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", unlockResult.Errors.Select(e => e.Description)));
+        });
+
+        return outcome;
+    }
+
+    public async Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword)
+    {
+        await dbContext.ExecuteSerializableAsync(async _ =>
+        {
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+                throw new FunAndChecks.Application.Common.Exceptions.NotFoundException($"User {userId} not found.");
+
+            if (!string.Equals(user.Email, email, StringComparison.OrdinalIgnoreCase))
+            {
+                var existing = await userManager.FindByEmailAsync(email);
+                if (existing != null && existing.Id != userId)
+                    throw new FunAndChecks.Application.Common.Exceptions.ConflictException(
+                        $"Email '{email}' is already taken.", "account.email_taken");
+                user.Email = email;
+                user.UserName = email;
+            }
+
+            user.EmailConfirmed = true;
+            var updateResult = await userManager.UpdateAsync(user);
+            EnsureSucceeded(updateResult, "Account");
+
+            if (!string.IsNullOrEmpty(newPassword))
+            {
+                var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);
+                var passwordResult = await userManager.ResetPasswordAsync(user, resetToken, newPassword);
+                EnsureSucceeded(passwordResult, "Password");
+            }
+
+            EnsureSucceeded(await userManager.SetLockoutEndDateAsync(user, null), "Account");
+            EnsureSucceeded(await userManager.ResetAccessFailedCountAsync(user), "Account");
+            await refreshTokenService.RevokeAllAsync(userId);
+        });
+    }
+
+    private static void EnsureSucceeded(IdentityResult result, string property)
+    {
+        if (result.Succeeded)
+            return;
+
+        throw new FluentValidation.ValidationException(result.Errors.Select(e =>
+            new FluentValidation.Results.ValidationFailure(property, e.Description)).ToList());
     }
 }

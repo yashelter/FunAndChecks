@@ -14,6 +14,7 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddFrontendShared(this IServiceCollection services, string apiBaseAddress)
     {
+        services.AddLocalization();
         services.AddMudServices();
 
         // Хранение токенов и аутентификация.
@@ -23,6 +24,8 @@ public static class DependencyInjection
         services.AddScoped<AuthService>();
         services.AddScoped<ThemeService>();
         services.AddScoped<FileDownloader>();
+        services.AddScoped<CultureService>();
+        services.AddScoped<UnsavedChangesTracker>();
 
         services.AddAuthorizationCore();
         services.AddScoped<JwtAuthenticationStateProvider>();

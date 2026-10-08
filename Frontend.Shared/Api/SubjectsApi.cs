@@ -1,9 +1,11 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
 /// <summary>Эндпоинты предметов, задач и оценочных колонок — /api/subjects.</summary>
-public class SubjectsApi(HttpClient http) : ApiClientBase(http)
+public class SubjectsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public Task<List<SubjectDto>> GetAllAsync(CancellationToken ct = default) =>
         GetAsync<List<SubjectDto>>("api/subjects", ct);

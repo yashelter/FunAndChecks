@@ -2,27 +2,27 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.SuperAdmin)]
 
-<PageTitle>Обслуживание</PageTitle>
+<PageTitle>@Loc["Maintenance_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Обслуживание</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Maintenance_Title"]</MudText>
 <MudText Typo="Typo.body2" GutterBottom="true">
-    Управление сущностями (создание, изменение, удаление) — на странице «Управление».
+    @Loc["Maintenance_Intro"]
 </MudText>
 
 <MudCard Elevation="4" Class="mt-4" Style="max-width: 640px;">
-    <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">Резервная копия БД</MudText></CardHeaderContent></MudCardHeader>
+    <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">@Loc["Maintenance_BackupTitle"]</MudText></CardHeaderContent></MudCardHeader>
     <MudCardContent>
-        <MudText Typo="Typo.body2">Создаёт дамп БД на сервере (pg_dump) в настроенный каталог.</MudText>
+        <MudText Typo="Typo.body2">@Loc["Maintenance_BackupHintServer"]</MudText>
         @if (_lastBackupPath is not null)
         {
-            <MudAlert Severity="Severity.Success" Class="mt-2">Создан: @_lastBackupPath</MudAlert>
+            <MudAlert Severity="Severity.Success" Class="mt-2">@Loc["Maintenance_BackupCreated", _lastBackupPath]</MudAlert>
         }
     </MudCardContent>
     <MudCardActions>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Backup"
                    OnClick="BackupAsync" Disabled="_backupRunning">
             @if (_backupRunning) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-            Создать бэкап
+            @Loc["Maintenance_BackupCreateButton"]
         </MudButton>
     </MudCardActions>
 </MudCard>

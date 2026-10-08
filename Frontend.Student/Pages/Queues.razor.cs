@@ -1,8 +1,10 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Student.Pages;
@@ -14,6 +16,7 @@ public partial class Queues : IAsyncDisposable
     [Inject] private AuthService Auth { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<QueueEventDto> _myEvents = [];
     private List<QueueEventDto> _availableEvents = [];
@@ -23,6 +26,7 @@ public partial class Queues : IAsyncDisposable
     private bool _showPast;
 
     private HubConnection? _hub;
+    private readonly SemaphoreSlim _hubLock = new(1, 1);
 
     protected override async Task OnInitializedAsync() => await LoadAllAsync();
 
@@ -46,7 +50,7 @@ public partial class Queues : IAsyncDisposable
         }
         catch (ApiException ex)
         {
-            Snackbar.Add($"Не удалось загрузить очереди: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(Loc["StudentQueues_LoadError"], ex.Message), Severity.Error);
         }
         finally
         {
@@ -59,7 +63,7 @@ public partial class Queues : IAsyncDisposable
         try
         {
             await QueuesApi.JoinAsync(eventId);
-            Snackbar.Add("Вы записались в очередь.", Severity.Success);
+            Snackbar.Add(Loc["StudentQueues_Joined"], Severity.Success);
             await LoadAllAsync();
         }
         catch (ApiException ex)
@@ -81,45 +85,69 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
+    // Вызывается в том числе из SignalR-колбэков — любые сбои гасим здесь,
+    // иначе необработанное исключение уронит весь компонент.
     private async Task LoadDetailsAsync(int eventId)
     {
-        _details = await QueuesApi.GetDetailsAsync(eventId);
-        _participants = _details.Participants
-            .OrderBy(p => p.Status)
-            .ThenByDescending(p => p.TotalPoints)
-            .ToList();
-        StateHasChanged();
+        try
+        {
+            _details = await QueuesApi.GetDetailsAsync(eventId);
+            _participants = _details.Participants
+                .OrderBy(p => p.Status)
+                .ThenByDescending(p => p.TotalPoints)
+                .ToList();
+            StateHasChanged();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task InitializeSignalRAsync(int eventId)
     {
-        await DisposeHubAsync();
-
-        _hub = new HubConnectionBuilder()
-            .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
-                options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
-            .WithAutomaticReconnect()
-            .Build();
-
-        // На любое обновление очереди перечитываем её состав.
-        _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-
-        // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
-        // иначе очередь «зависает» и перестаёт обновляться.
-        _hub.Reconnected += async _ =>
-        {
-            await _hub.InvokeAsync("SubscribeToQueue", eventId);
-            await InvokeAsync(() => LoadDetailsAsync(eventId));
-        };
-
+        await _hubLock.WaitAsync();
         try
         {
-            await _hub.StartAsync();
-            await _hub.InvokeAsync("SubscribeToQueue", eventId);
+            await DisposeHubAsync();
+
+            _hub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
+                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
+                .WithAutomaticReconnect()
+                .Build();
+
+            // На любое обновление очереди перечитываем её состав.
+            _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
+
+            // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
+            // иначе очередь «зависает» и перестаёт обновляться.
+            _hub.Reconnected += async _ =>
+            {
+                try
+                {
+                    await _hub.InvokeAsync("SubscribeToQueue", eventId);
+                    await InvokeAsync(() => LoadDetailsAsync(eventId));
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
+                }
+            };
+
+            try
+            {
+                await _hub.StartAsync();
+                await _hub.InvokeAsync("SubscribeToQueue", eventId);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            Snackbar.Add($"Не удалось подключиться к обновлениям: {ex.Message}", Severity.Warning);
+            _hubLock.Release();
         }
     }
 
@@ -138,16 +166,20 @@ public partial class Queues : IAsyncDisposable
         _ => Color.Error,
     };
 
-    private static string StatusText(QueueEntryStatus status, string? adminName) => status switch
+    public async ValueTask DisposeAsync()
     {
-        QueueEntryStatus.Waiting => "В очереди",
-        QueueEntryStatus.Skipped => "Пропущен",
-        QueueEntryStatus.Checking => $"Сдаёт ({adminName ?? "админ"})",
-        QueueEntryStatus.Finished => "Завершил",
-        _ => "Неизвестно",
-    };
-
-    public async ValueTask DisposeAsync() => await DisposeHubAsync();
+        // Под замком, чтобы не пересечься с идущей (пере)инициализацией хаба.
+        await _hubLock.WaitAsync();
+        try
+        {
+            await DisposeHubAsync();
+        }
+        finally
+        {
+            _hubLock.Release();
+        }
+        _hubLock.Dispose();
+    }
 
     private async Task DisposeHubAsync()
     {

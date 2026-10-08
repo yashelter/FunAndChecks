@@ -5,5 +5,5 @@ public interface ISubmissionService
     Task CreateAsync(Guid adminId, CreateSubmissionRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>История попыток сдачи задания студентом (старые — первыми).</summary>
-    Task<List<SubmissionLogDto>> GetLogAsync(Guid studentId, int taskId, CancellationToken cancellationToken = default);
+    Task<List<SubmissionLogDto>> GetLogAsync(Guid adminId, Guid studentId, int taskId, CancellationToken cancellationToken = default);
 }

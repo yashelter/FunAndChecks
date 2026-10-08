@@ -16,8 +16,9 @@ public class AuthController(IAuthService authService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register(RegisterStudentRequest request, CancellationToken cancellationToken)
     {
-        var studentId = await authService.RegisterStudentAsync(request, cancellationToken);
-        return StatusCode(StatusCodes.Status201Created, new { id = studentId });
+        await authService.RegisterStudentAsync(request, cancellationToken);
+        // A neutral body avoids disclosing whether this address already had an account.
+        return StatusCode(StatusCodes.Status201Created);
     }
 
     /// <summary>Подтверждение почты по коду из письма.</summary>

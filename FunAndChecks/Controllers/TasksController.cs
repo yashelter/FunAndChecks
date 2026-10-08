@@ -24,7 +24,7 @@ public class TasksController(ISubjectService subjectService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int taskId, CancellationToken cancellationToken)
     {
-        await subjectService.DeleteTaskAsync(taskId, cancellationToken);
+        await subjectService.DeleteTaskAsync(User.GetUserId(), taskId, cancellationToken);
         return NoContent();
     }
 }

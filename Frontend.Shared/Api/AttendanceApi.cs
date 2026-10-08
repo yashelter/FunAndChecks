@@ -1,8 +1,10 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.Api;
 
-public class AttendanceApi(HttpClient http) : ApiClientBase(http)
+public class AttendanceApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public Task SetEnabledAsync(int subjectId, bool enabled) =>
         PutAsync($"api/attendance/subjects/{subjectId}/settings", new AttendanceSettingsDto(enabled));
@@ -29,7 +31,7 @@ public class AttendanceApi(HttpClient http) : ApiClientBase(http)
     public async Task<byte[]> ExportAsync(int subjectId, int? groupId, DateOnly? from, DateOnly? to)
     {
         using var response = await Http.GetAsync($"api/attendance/subjects/{subjectId}/export{Query(groupId, from, to)}");
-        await response.EnsureSuccessAsync();
+        await response.EnsureSuccessAsync(Loc);
         return await response.Content.ReadAsByteArrayAsync();
     }
     private static string Query(int? groupId, DateOnly? from, DateOnly? to) =>

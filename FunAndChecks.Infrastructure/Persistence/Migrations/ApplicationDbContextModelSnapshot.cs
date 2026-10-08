@@ -178,7 +178,8 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SubjectId");
+                    b.HasIndex("SubjectId", "Name")
+                        .IsUnique();
 
                     b.ToTable("Tasks", (string)null);
                 });
@@ -226,6 +227,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
 
                     b.ToTable("Groups");
                 });
@@ -368,6 +372,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("Subjects");
                 });
 
@@ -504,6 +511,12 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("PreferredCulture")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasDefaultValue("en-US");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");

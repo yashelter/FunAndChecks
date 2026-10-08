@@ -1,4 +1,6 @@
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Microsoft.Extensions.Localization;
 
 namespace Frontend.Shared.UI;
 
@@ -23,13 +25,13 @@ public static class QueueStyles
                "padding:2px 8px;border-radius:6px;display:inline-block;font-weight:600;";
     }
 
-    public static string StatusText(QueueEntryStatus status, string? adminName) => status switch
+    public static string StatusText(QueueEntryStatus status, string? adminName, IStringLocalizer<AppStrings> loc) => status switch
     {
-        QueueEntryStatus.Waiting => "В очереди",
-        QueueEntryStatus.Skipped => "Пропущен",
-        QueueEntryStatus.Checking => $"Сдаёт{(adminName is null ? "" : $" ({adminName})")}",
-        QueueEntryStatus.Finished => "Завершил",
-        _ => "Неизвестно",
+        QueueEntryStatus.Waiting => loc["Queue_StatusWaiting"],
+        QueueEntryStatus.Skipped => loc["Queue_StatusSkipped"],
+        QueueEntryStatus.Checking => adminName is null ? loc["Queue_StatusChecking"] : loc["Queue_StatusCheckingWithAdmin", adminName],
+        QueueEntryStatus.Finished => loc["Queue_StatusFinished"],
+        _ => loc["Queue_StatusUnknown"],
     };
 
     /// <summary>Порядок статусов: сдают → в очереди → пропущенные → завершившие.</summary>

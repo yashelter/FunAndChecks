@@ -48,6 +48,9 @@ services:
       - caddy_config:/config
     depends_on:
       - funandchecks-api
+    networks:
+      - default
+      - caddy_net
 
   funandchecks-api:
     container_name: funandchecks-api
@@ -102,3 +105,8 @@ volumes:
   caddy_config:
   maildkim:
   backups:
+
+
+networks:
+  caddy_net:
+    external: true

@@ -6,4 +6,7 @@ namespace FunAndChecks.Infrastructure.Identity;
 /// Учётная запись (логин, email, пароль, роли). Только аутентификация —
 /// доменные данные лежат в профилях Student/Admin с тем же Id.
 /// </summary>
-public class ApplicationUser : IdentityUser<Guid>;
+public class ApplicationUser : IdentityUser<Guid>
+{
+    public string PreferredCulture { get; set; } = "en-US";
+}

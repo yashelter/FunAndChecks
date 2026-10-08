@@ -4,6 +4,7 @@ using FunAndChecks.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Infrastructure.Persistence.Seeding;
 
@@ -28,7 +29,7 @@ public class DataSeeder(
         {
             if (await roleManager.FindByNameAsync(role) == null)
             {
-                await roleManager.CreateAsync(new ApplicationRole(role));
+                EnsureSucceeded(await roleManager.CreateAsync(new ApplicationRole(role)), $"create role '{role}'");
                 logger.LogInformation("Role '{Role}' created.", role);
             }
         }
@@ -46,43 +47,62 @@ public class DataSeeder(
 
         foreach (var model in adminsToCreate)
         {
-            if (await userManager.FindByEmailAsync(model.Email) != null)
+            await dbContext.ExecuteSerializableAsync(async cancellationToken =>
             {
-                logger.LogInformation("Admin with email {Email} already exists. Skipping.", model.Email);
-                continue;
-            }
+                var account = await userManager.FindByEmailAsync(model.Email);
+                if (account is null)
+                {
+                    account = new ApplicationUser
+                    {
+                        Id = Guid.NewGuid(),
+                        UserName = model.Email,
+                        Email = model.Email,
+                        EmailConfirmed = true,
+                    };
+                    EnsureSucceeded(await userManager.CreateAsync(account, model.Password), $"create admin '{model.Email}'");
+                }
+                else
+                {
+                    if (await dbContext.Students.AnyAsync(s => s.Id == account.Id, cancellationToken))
+                        throw new InvalidOperationException($"Initial admin email '{model.Email}' belongs to a student account.");
 
-            var account = new ApplicationUser
-            {
-                Id = Guid.NewGuid(),
-                UserName = model.Email,
-                Email = model.Email,
-                EmailConfirmed = true,
-            };
+                    account.EmailConfirmed = true;
+                    EnsureSucceeded(await userManager.UpdateAsync(account), $"update admin '{model.Email}'");
+                }
 
-            var result = await userManager.CreateAsync(account, model.Password);
-            if (!result.Succeeded)
-            {
-                logger.LogError("Failed to create admin account {Email}. Errors: {Errors}",
-                    model.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
-                continue;
-            }
+                var requiredRoles = model.IsSuperAdmin ? new[] { Roles.Admin, Roles.SuperAdmin } : [Roles.Admin];
+                var currentRoles = await userManager.GetRolesAsync(account);
+                var missingRoles = requiredRoles.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToArray();
+                if (missingRoles.Length > 0)
+                    EnsureSucceeded(await userManager.AddToRolesAsync(account, missingRoles), $"assign roles to '{model.Email}'");
 
-            var roles = model.IsSuperAdmin ? new[] { Roles.Admin, Roles.SuperAdmin } : [Roles.Admin];
-            await userManager.AddToRolesAsync(account, roles);
+                var profile = await dbContext.Admins.FindAsync([account.Id], cancellationToken);
+                if (profile is null)
+                {
+                    profile = new Admin
+                    {
+                        Id = account.Id,
+                        FirstName = model.FirstName,
+                        LastName = model.LastName,
+                    };
+                    dbContext.Admins.Add(profile);
+                }
 
-            dbContext.Admins.Add(new Admin
-            {
-                Id = account.Id,
-                FirstName = model.FirstName,
-                LastName = model.LastName,
-                Color = model.Color,
-                Letter = model.Letter,
+                profile.FirstName = model.FirstName;
+                profile.LastName = model.LastName;
+                profile.Color = model.Color;
+                profile.Letter = model.Letter;
+                await dbContext.SaveChangesAsync(cancellationToken);
+
+                logger.LogInformation("Admin {Email} is consistent and assigned roles: {Roles}.",
+                    model.Email, string.Join(", ", requiredRoles));
             });
-            await dbContext.SaveChangesAsync();
-
-            logger.LogInformation("Admin {Email} created and assigned roles: {Roles}.",
-                model.Email, string.Join(", ", roles));
         }
+    }
+
+    private static void EnsureSucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+            throw new InvalidOperationException($"Failed to {operation}: {string.Join("; ", result.Errors.Select(e => e.Description))}");
     }
 }

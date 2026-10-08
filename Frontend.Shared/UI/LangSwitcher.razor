@@ -1,0 +1,53 @@
+@inject CultureService CultureSvc
+@inject UnsavedChangesTracker Dirty
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<AppStrings> Loc
+@inject AuthenticationStateProvider AuthState
+@inject MeApi Me
+
+<MudButtonGroup Variant="Variant.Text" Color="Color.Inherit" Size="Size.Small">
+    <MudButton OnClick="@(() => ChangeAsync("en-US"))"
+               Style="@ActiveStyle("en-US")">EN</MudButton>
+    <MudButton OnClick="@(() => ChangeAsync("ru-RU"))"
+               Style="@ActiveStyle("ru-RU")">RU</MudButton>
+</MudButtonGroup>
+
+@code {
+    private string ActiveStyle(string culture) =>
+        CultureSvc.CurrentCulture == culture
+            ? "font-weight:700;text-decoration:underline;"
+            : string.Empty;
+
+    private async Task ChangeAsync(string culture)
+    {
+        if (culture == CultureSvc.CurrentCulture)
+            return;
+
+        if (Dirty.IsDirty)
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(
+                Loc["Culture_UnsavedTitle"], Loc["Culture_UnsavedMessage"],
+                yesText: Loc["Common_Yes"], cancelText: Loc["Common_Cancel"]);
+            if (confirmed != true)
+                return;
+        }
+
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            if (state.User.Identity?.IsAuthenticated == true)
+                await Me.SetPreferredCultureAsync(culture);
+        }
+        catch (ApiException ex)
+        {
+            // Выбор не сохранился в аккаунте: после перезагрузки синхронизация культуры
+            // молча откатила бы язык обратно — сообщаем об ошибке и не переключаем.
+            Snackbar.Add(ex.Message, Severity.Error);
+            return;
+        }
+
+        Dirty.ClearAll();
+        await CultureSvc.SetCultureAsync(culture);
+    }
+}

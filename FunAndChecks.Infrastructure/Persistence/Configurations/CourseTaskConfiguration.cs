@@ -11,6 +11,7 @@ public class CourseTaskConfiguration : IEntityTypeConfiguration<CourseTask>
         builder.ToTable("Tasks");
 
         builder.Property(t => t.Name).HasMaxLength(200);
+        builder.HasIndex(t => new { t.SubjectId, t.Name }).IsUnique();
 
         builder.HasMany(t => t.Submissions)
             .WithOne(s => s.Task)

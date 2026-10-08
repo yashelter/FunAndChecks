@@ -1,4 +1,5 @@
-using System.Collections.Concurrent;
+using System;
+using Microsoft.Extensions.Caching.Memory;
 using FunAndChecks.Application.Common.Interfaces;
 
 namespace FunAndChecks.Infrastructure.Email;
@@ -9,35 +10,33 @@ namespace FunAndChecks.Infrastructure.Email;
 public class EmailThrottle : IEmailThrottle
 {
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
-    private readonly ConcurrentDictionary<string, DateTime> _lastSent = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IMemoryCache _cache;
+    private readonly object _lock = new();
+
+    public EmailThrottle(IMemoryCache cache)
+    {
+        _cache = cache;
+    }
 
     public bool TryAcquire(string email, out TimeSpan retryAfter)
     {
-        var now = DateTime.UtcNow;
         var key = email.Trim().ToLowerInvariant();
 
-        while (true)
+        lock (_lock)
         {
-            if (_lastSent.TryGetValue(key, out var last))
+            if (_cache.TryGetValue(key, out DateTime lastSent))
             {
-                var elapsed = now - last;
+                var elapsed = DateTime.UtcNow - lastSent;
                 if (elapsed < Window)
                 {
                     retryAfter = Window - elapsed;
                     return false;
                 }
+            }
 
-                if (_lastSent.TryUpdate(key, now, last))
-                {
-                    retryAfter = TimeSpan.Zero;
-                    return true;
-                }
-            }
-            else if (_lastSent.TryAdd(key, now))
-            {
-                retryAfter = TimeSpan.Zero;
-                return true;
-            }
+            _cache.Set(key, DateTime.UtcNow, Window);
+            retryAfter = TimeSpan.Zero;
+            return true;
         }
     }
 }

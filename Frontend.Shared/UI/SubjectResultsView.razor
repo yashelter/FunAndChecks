@@ -1,17 +1,18 @@
 @namespace Frontend.Shared.UI
 @using Frontend.Shared.Models
+@inject IStringLocalizer<AppStrings> Loc
 
 @if (Results is not null)
 {
     <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true"
-                 Sortable="true" Filterable="true" Hover="true">
+                 Filterable="true" Hover="true">
         <Columns>
-            <TemplateColumn Title="ФИО" SortBy="@(x => x.FullName)">
+            <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)">
                 <CellTemplate>
                     <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
                 </CellTemplate>
             </TemplateColumn>
-            <PropertyColumn Property="x => x.GroupName" Title="Группа" />
+            <PropertyColumn Property="x => x.GroupName" Title="@Loc["Results_ColGroup"]" />
 
             @foreach (var task in Results.TaskHeaders)
             {

@@ -20,7 +20,7 @@ using Xunit;
 namespace FunAndChecks.Tests.Integration;
 
 // Запуск хостов последовательно: Program использует общий Serilog.Log.Logger.
-[Collection("API integration")]
+[Collection("Integration")]
 public class AdminRestrictionsTests : IDisposable
 {
     private readonly TestWebAppFactory _factory = new();
@@ -177,6 +177,8 @@ public class AdminRestrictionsTests : IDisposable
         var group = db.Group();
         var otherGroup = db.Group("Other");
         await db.SaveChangesAsync();
+        db.LinkGroupSubject(group, subject);
+        db.LinkGroupSubject(otherGroup, subject);
         var student = db.Student(group);
         var allowedStudent = db.Student(otherGroup);
         var task = db.Task(subject);

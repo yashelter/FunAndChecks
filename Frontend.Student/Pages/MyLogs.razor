@@ -2,11 +2,11 @@
 @layout StudentLayout
 @attribute [Authorize(Roles = Roles.Student)]
 
-<PageTitle>История сдач</PageTitle>
+<PageTitle>@Loc["MyLogs_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Мои результаты и история сдач</MudText>
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["MyLogs_TitleFull"]</MudText>
 
-<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="Выберите предмет"
+<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["MyLogs_SelectSubject"]"
            Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
     @foreach (var subject in _subjects)
     {
@@ -21,16 +21,16 @@
 else if (_results is not null)
 {
     <MudPaper Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5">Итог по предмету: <b>@_results.SubjectName</b></MudText>
+        <MudText Typo="Typo.h5">@Loc["MyLogs_SubjectTotal", _results.SubjectName]</MudText>
         <MudText Typo="Typo.h6" Class="mt-1">
-            Всего баллов:
+            @Loc["MyLogs_TotalPoints"]
             <MudChip T="string" Color="Color.Primary">@_results.TotalPointsEarned / @_results.MaxPointsPossible</MudChip>
         </MudText>
     </MudPaper>
 
     @if (_results.Grades.Count > 0)
     {
-        <MudText Typo="Typo.h6" Class="mb-2">Оценки</MudText>
+        <MudText Typo="Typo.h6" Class="mb-2">@Loc["MyLogs_Grades"]</MudText>
         <MudStack Spacing="2" Class="mb-4">
             @foreach (var grade in _results.Grades)
             {
@@ -45,14 +45,14 @@ else if (_results is not null)
         </MudStack>
     }
 
-    <MudText Typo="Typo.h6" Class="mb-2">Задачи</MudText>
+    <MudText Typo="Typo.h6" Class="mb-2">@Loc["MyLogs_Tasks"]</MudText>
     <MudStack Spacing="3">
         @foreach (var task in _results.TaskResults.OrderBy(t => t.TaskName))
         {
             <MudPaper Outlined="true" Class="pa-3">
-                <MudText Typo="Typo.body1"><b>@task.TaskName</b> (@task.MaxPoints б.)</MudText>
+                <MudText Typo="Typo.body1"><b>@task.TaskName</b> (@task.MaxPoints @Loc["Common_PointsAbbr"])</MudText>
                 <MudText Typo="Typo.body2">
-                    Текущий статус:
+                    @Loc["MyLogs_CurrentStatus"]
                     <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.CurrentStatus)">
                         @StatusText(task.CurrentStatus)
                     </MudChip>
@@ -61,7 +61,7 @@ else if (_results is not null)
                 @if (task.SubmissionHistory is { Count: > 0 })
                 {
                     <MudExpansionPanels Class="mt-2">
-                        <MudExpansionPanel Text="Показать историю проверок">
+                        <MudExpansionPanel Text="@Loc["MyLogs_ShowHistory"]">
                             <MudList T="SubmissionLogDto" Dense="true">
                                 @foreach (var log in task.SubmissionHistory.OrderByDescending(l => l.SubmittedAt))
                                 {
@@ -70,7 +70,7 @@ else if (_results is not null)
                                                  IconColor="@(log.Status == SubmissionStatus.Accepted ? Color.Success : Color.Error)">
                                         <MudText Typo="Typo.body2"><i>@log.Comment</i></MudText>
                                         <MudText Typo="Typo.caption">
-                                            Проверил: @log.Admin.FullName (@log.SubmittedAt.ToLocalTime().ToString("g"))
+                                            @Loc["MyLogs_CheckedBy", log.Admin.FullName, log.SubmittedAt.ToLocalTime().ToString("g")]
                                         </MudText>
                                     </MudListItem>
                                 }

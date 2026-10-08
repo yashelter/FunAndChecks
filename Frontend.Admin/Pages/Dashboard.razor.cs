@@ -1,7 +1,9 @@
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -13,6 +15,7 @@ public partial class Dashboard
     [Inject] private AttendanceApi Attendance { get; set; } = null!;
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
     private SubjectResultsDto? _results;
@@ -51,7 +54,7 @@ public partial class Dashboard
         }
         catch (ApiException ex)
         {
-            Snackbar.Add($"Не удалось загрузить результаты: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(Loc["Common_LoadResultsError"], ex.Message), Severity.Error);
         }
         finally
         {
@@ -69,11 +72,11 @@ public partial class Dashboard
             var bytes = await Results.ExportXlsxAsync(_results.SubjectId);
             using var stream = new MemoryStream(bytes);
             await Downloader.DownloadAsync($"Results_{_results.SubjectName}_{DateTime.Now:yyyy-MM-dd}.xlsx", stream);
-            Snackbar.Add("Экспорт в XLSX завершён.", Severity.Success);
+            Snackbar.Add(Loc["Dashboard_ExportDone"], Severity.Success);
         }
         catch (ApiException ex)
         {
-            Snackbar.Add($"Не удалось экспортировать: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(Loc["Dashboard_ExportError"], ex.Message), Severity.Error);
         }
     }
 

@@ -9,6 +9,7 @@ public class SubjectConfiguration : IEntityTypeConfiguration<Subject>
     public void Configure(EntityTypeBuilder<Subject> builder)
     {
         builder.Property(s => s.Name).HasMaxLength(200);
+        builder.HasIndex(s => s.Name).IsUnique();
 
         builder.HasMany(s => s.Tasks)
             .WithOne(t => t.Subject)
