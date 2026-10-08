@@ -13,6 +13,8 @@ public class FrontendUiMigrationTests
     [InlineData("/legacy", "/")]
     [InlineData("/legacy/student/attendance?subjectId=7", "/student/attendance?subjectId=7")]
     [InlineData("/legacy-old", "/legacy/legacy-old")]
+    [InlineData("/admin/student-accounts", "/legacy/admin/grading")]
+    [InlineData("/admin/student-accounts/?search=anna", "/legacy/admin/grading?search=anna")]
     public void SwitchVersion_PreservesPageAndParameters(string current, string target) =>
         UiRoutes.OtherVersion(current).Should().Be(target);
 
@@ -27,7 +29,7 @@ public class FrontendUiMigrationTests
     }
 
     [Fact]
-    public void Legacy_HasIndependentEquivalentForEveryWorkingPage()
+    public void Legacy_KeepsOriginalPagesWithoutAddingNewAccountManagement()
     {
         var workingAssemblies = new[] { typeof(Frontend.App).Assembly, typeof(Frontend.Admin.AdminAssemblyMarker).Assembly,
             typeof(Frontend.Student.StudentAssemblyMarker).Assembly, typeof(Frontend.Shared.Pages.Login).Assembly };
@@ -37,9 +39,11 @@ public class FrontendUiMigrationTests
         foreach (var type in workingAssemblies.SelectMany(a => a.GetTypes()).Distinct())
         foreach (var route in type.GetCustomAttributes(typeof(RouteAttribute), false).Cast<RouteAttribute>())
         {
+            if (route.Template == "/admin/student-accounts") continue; // Legacy is frozen; this is a new feature.
             var equivalent = route.Template == "/" ? "/legacy" : "/legacy" + route.Template;
             legacyRoutes.Should().Contain(equivalent, $"{type.FullName} needs a preserved legacy counterpart");
         }
+        legacyRoutes.Should().NotContain("/legacy/admin/student-accounts");
     }
 
     [Theory]

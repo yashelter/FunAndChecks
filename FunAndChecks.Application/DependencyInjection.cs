@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IResultsService, ResultsService>();
         services.AddScoped<IStudentService, StudentService>();
+        services.AddScoped<IUserAccountService, UserAccountService>();
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IAdminAccessService, AdminAccessService>();

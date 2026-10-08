@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject UnsavedChangesTracker Dirty
 @inject IStringLocalizer<AppStrings> Loc
+@inject IJSRuntime JS
 
 <MudThemeProvider Theme="Appearance.Theme" IsDarkMode="Appearance.IsDarkMode" />
 <MudPopoverProvider />
@@ -18,7 +19,7 @@
     {
         @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
         <aside class="fc-sidebar @(_mobileOpen ? "open" : "")" aria-label="@Text("Навигация", "Navigation")">
-            <a class="fc-brand" href="@(IsAdmin ? "/admin" : "/student")"><span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span><span><strong>FunAndChecks</strong><small>learn. submit. progress.</small></span></a>
+            <a class="fc-brand" href="@(IsAdmin ? "/admin" : "/student")"><span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span><span><strong>FunAndChecks</strong><small title="@_caption">@_caption</small></span></a>
             <div class="fc-workspace"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /><div><strong>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : _group ?? Text("Кабинет студента", "Student workspace"))</strong><small>@(IsAdmin ? Loc["AdminLayout_Role"] : Text("Студент", "Student"))</small></div></div>
             <nav class="fc-navigation" @onclick="CloseNav">@Navigation</nav>
             <div class="fc-sidebar-bottom"><UiVersionSwitch /><button type="button" class="fc-logout" @onclick="LogoutAsync"><MudIcon Icon="@Icons.Material.Outlined.Logout" Size="Size.Small" />@Loc["App_Logout"]</button>
@@ -51,6 +52,7 @@
     private bool _mobileOpen, _settingsOpen;
     private string _userName = "";
     private string? _group;
+    private string _caption = "";
     private string ContentAnchor => new Uri(Nav.Uri).PathAndQuery + "#workspace-content";
     private string Initials => string.Concat(_userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
     private string PageName
@@ -58,6 +60,7 @@
         get
         {
             var path = new Uri(Nav.Uri).AbsolutePath;
+            if (path.Contains("/student-accounts")) return Text("Управление аккаунтами", "Manage accounts");
             return path.Contains("/queues") ? Loc["AdminNav_Queues"] : path.Contains("/attendance") ? Text("Посещаемость", "Attendance") :
                 path.Contains("/management") ? Loc["AdminNav_Management"] : path.Contains("/grading") ? Loc["AdminNav_Grading"] :
                 path.Contains("/admins") ? Loc["AdminNav_Admins"] : path.Contains("/maintenance") ? Loc["AdminNav_Maintenance"] :
@@ -70,11 +73,18 @@
         Nav.LocationChanged += LocationChanged;
         if (!Public)
         {
-            try { var me = await Me.GetMeAsync(); _userName = me.FullName; _group = me.GroupName; await Culture.SynchronizeAccountCultureAsync(me.PreferredCulture); }
+            try { var me = await Me.GetMeAsync(); _userName = me.FullName; _group = me.GroupName; }
             catch (ApiException) { /* The page handles data errors; the account label is optional. */ }
         }
     }
-    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender) await Appearance.InitializeAsync(); }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Appearance.InitializeAsync();
+        try { _caption = await JS.InvokeAsync<string>("dashboardCaptions.get", Culture.CurrentCulture); }
+        catch (JSException) { }
+        StateHasChanged();
+    }
     private void Refresh() => InvokeAsync(StateHasChanged);
     private void ToggleNav() => _mobileOpen = !_mobileOpen;
     private void CloseNav() => _mobileOpen = false;

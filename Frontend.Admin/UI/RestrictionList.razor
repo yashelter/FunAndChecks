@@ -1,0 +1,43 @@
+<div class="fc-restriction-list">
+    <div class="fc-access-filter">
+        <MudTextField T="string" @bind-Value="_search" Immediate="true" Label="@Text("Поиск", "Search")"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" Disabled="Disabled" />
+        <MudSelect T="string" @bind-Value="_filter" Label="@Text("Показать", "Show")" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="Disabled">
+            <MudSelectItem T="string" Value="@("all")">@Text("Все", "All")</MudSelectItem>
+            <MudSelectItem T="string" Value="@("restricted")">@Text("Запрещённые", "Restricted")</MudSelectItem>
+            <MudSelectItem T="string" Value="@("allowed")">@Text("Разрешённые", "Allowed")</MudSelectItem>
+        </MudSelect>
+    </div>
+    <MudText Typo="Typo.caption" Class="fc-access-count">@Text("Запрещено", "Restricted"): @Items.Count(x => RestrictedIds.Contains(x.Id)) / @Items.Count</MudText>
+    <MudTable T="Entry" Items="Filtered" Class="fc-access-table" Breakpoint="Breakpoint.Sm" Dense="true" Elevation="0">
+        <HeaderContent><MudTh>@Text("Название", "Name")</MudTh><MudTh>@Text("Доступ", "Access")</MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="@Text("Название", "Name")"><span class="fc-access-name">@context.Name</span></MudTd>
+            <MudTd DataLabel="@Text("Доступ", "Access")">
+                <MudCheckBox T="bool" Value="RestrictedIds.Contains(context.Id)" Color="Color.Error" Dense="true"
+                             ValueChanged="@(value => OnChanged.InvokeAsync(new RestrictionChange(context.Id, value)))"
+                             Disabled="Disabled" Label="@Text("Запрещён", "Restricted")" aria-label="@($"{context.Name}: {Text("доступ запрещён", "access restricted")}")" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText Typo="Typo.body2" Class="pa-3">@Text("Ничего не найдено", "No matches")</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager PageSizeOptions="@(new[] { 10, 25, 50 })" RowsPerPageString="@Text("Строк на странице", "Rows per page")" /></PagerContent>
+    </MudTable>
+</div>
+
+@code {
+    public record Entry(int Id, string Name);
+    public record RestrictionChange(int Id, bool Restricted);
+
+    [Parameter, EditorRequired] public IReadOnlyList<Entry> Items { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlySet<int> RestrictedIds { get; set; } = new HashSet<int>();
+    [Parameter] public EventCallback<RestrictionChange> OnChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    private string _search = "";
+    private string _filter = "all";
+    private IEnumerable<Entry> Filtered => Items.Where(x =>
+        (string.IsNullOrWhiteSpace(_search) || x.Name.Contains(_search.Trim(), StringComparison.CurrentCultureIgnoreCase)) &&
+        (_filter == "all" || RestrictedIds.Contains(x.Id) == (_filter == "restricted")))
+        .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+    private static string Text(string ru, string en) => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+}

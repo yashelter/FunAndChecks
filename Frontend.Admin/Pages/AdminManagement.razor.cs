@@ -1,4 +1,5 @@
 using Frontend.Shared.Api;
+using Frontend.Admin.Dialogs;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
 using Microsoft.AspNetCore.Components;
@@ -10,15 +11,11 @@ namespace Frontend.Admin.Pages;
 public partial class AdminManagement
 {
     [Inject] private AdminsApi Admins { get; set; } = null!;
-    [Inject] private SubjectsApi Subjects { get; set; } = null!;
-    [Inject] private GroupsApi Groups { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<AdminDto> _admins = [];
-    private List<SubjectDto> _subjects = [];
-    private List<GroupDto> _groups = [];
     private bool _loading = true;
 
     private string _firstName = string.Empty;
@@ -29,16 +26,10 @@ public partial class AdminManagement
     private string? _letter;
     private bool _isSuperAdmin;
 
-    private AdminDto? _accessAdmin;
-    private HashSet<int> _restrictedSubjects = [];
-    private HashSet<int> _restrictedGroups = [];
-
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _subjects = await Subjects.GetAllAsync();
-            _groups = await Groups.GetAllAsync();
             await ReloadAdminsAsync();
         }
         catch (ApiException ex)
@@ -95,8 +86,6 @@ public partial class AdminManagement
         {
             await Admins.DeleteAsync(admin.Id);
             Snackbar.Add(Loc["AdminMgmt_Deleted"], Severity.Success);
-            if (_accessAdmin?.Id == admin.Id)
-                _accessAdmin = null;
             await ReloadAdminsAsync();
         }
         catch (ApiException ex)
@@ -107,48 +96,9 @@ public partial class AdminManagement
 
     private async Task OpenAccessAsync(AdminDto admin)
     {
-        _accessAdmin = admin;
-        try
-        {
-            var access = await Admins.GetAccessAsync(admin.Id);
-            _restrictedSubjects = [.. access.RestrictedSubjectIds];
-            _restrictedGroups = [.. access.RestrictedGroupIds];
-        }
-        catch (ApiException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error);
-        }
-    }
-
-    private async Task ToggleSubjectAsync(int subjectId, bool restricted)
-    {
-        if (_accessAdmin is null)
-            return;
-
-        try
-        {
-            await Admins.SetSubjectRestrictionAsync(_accessAdmin.Id, subjectId, restricted);
-            if (restricted) _restrictedSubjects.Add(subjectId); else _restrictedSubjects.Remove(subjectId);
-        }
-        catch (ApiException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error);
-        }
-    }
-
-    private async Task ToggleGroupAsync(int groupId, bool restricted)
-    {
-        if (_accessAdmin is null)
-            return;
-
-        try
-        {
-            await Admins.SetGroupRestrictionAsync(_accessAdmin.Id, groupId, restricted);
-            if (restricted) _restrictedGroups.Add(groupId); else _restrictedGroups.Remove(groupId);
-        }
-        catch (ApiException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error);
-        }
+        var parameters = new DialogParameters<AdminRestrictionsDialog> { { x => x.Admin, admin } };
+        await DialogService.ShowAsync<AdminRestrictionsDialog>(
+            Loc["AdminMgmt_RestrictionsTitle", admin.LastName, admin.FirstName], parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
     }
 }

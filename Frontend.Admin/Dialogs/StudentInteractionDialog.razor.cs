@@ -23,6 +23,7 @@ public partial class StudentInteractionDialog : IDisposable
     [Parameter] public int SubjectId { get; set; }
     [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public string? StudentColor { get; set; }
+    [Parameter] public string? CheckingWarningName { get; set; }
 
     [Inject] private StudentsApi Students { get; set; } = null!;
     [Inject] private SubjectsApi Subjects { get; set; } = null!;

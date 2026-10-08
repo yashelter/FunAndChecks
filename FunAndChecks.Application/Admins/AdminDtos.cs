@@ -21,5 +21,8 @@ public record AdminAccessDto(
 /// <summary>Глобальный запрет супер-админа на работу с предметом/группой.</summary>
 public record SetRestrictionRequest(bool Restricted);
 
+/// <summary>Полный набор глобальных запретов администратора; локальный архив сохраняется.</summary>
+public record ReplaceAdminRestrictionsRequest(List<int> RestrictedSubjectIds, List<int> RestrictedGroupIds);
+
 /// <summary>Локальное скрытие предмета/группы самим админом.</summary>
 public record SetHiddenRequest(bool Hidden);

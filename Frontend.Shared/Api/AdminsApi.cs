@@ -27,6 +27,9 @@ public class AdminsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task<AdminAccessDto> GetAccessAsync(Guid adminId, CancellationToken ct = default) =>
         GetAsync<AdminAccessDto>($"api/admins/{adminId}/access", ct);
 
+    public Task ReplaceRestrictionsAsync(Guid adminId, ReplaceAdminRestrictionsRequest request, CancellationToken ct = default) =>
+        PutAsync($"api/admins/{adminId}/access/restrictions", request, ct);
+
     public Task SetSubjectRestrictionAsync(Guid adminId, int subjectId, bool restricted, CancellationToken ct = default) =>
         PutAsync($"api/admins/{adminId}/subjects/{subjectId}/restriction", new SetRestrictionRequest(restricted), ct);
 

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using System.Globalization;
+using System.Security.Claims;
 using FunAndChecks.Application;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Common;
@@ -88,6 +89,14 @@ builder.Services.AddAuthentication(options =>
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/apiHub"))
                     context.Token = accessToken;
                 return Task.CompletedTask;
+            },
+            OnTokenValidated = async context =>
+            {
+                var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                if (!Guid.TryParse(id, out var userId) ||
+                    !await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId, context.HttpContext.RequestAborted))
+                    context.Fail("The account no longer exists.");
             },
             OnChallenge = async context =>
             {
@@ -290,6 +299,8 @@ app.MapGet("/api/loading-assets", () =>
     var contents = app.Environment.WebRootFileProvider.GetDirectoryContents("loading");
     var files = contents
         .Where(f => !f.IsDirectory)
+        .Where(f => new[] { ".gif", ".mp4", ".webm", ".ogg", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".avif" }
+            .Contains(Path.GetExtension(f.Name), StringComparer.OrdinalIgnoreCase))
         .Select(f => $"loading/{f.Name}")
         .ToList();
     return Results.Ok(files);

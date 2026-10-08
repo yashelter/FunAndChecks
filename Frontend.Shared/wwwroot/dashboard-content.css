@@ -22,6 +22,22 @@
 .fc-results-legend { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; border-top:1px solid var(--mud-palette-lines-default); padding:14px 22px; font-size:12px; color:var(--mud-palette-text-secondary); }
 .fc-results-legend > span { display:inline-flex; align-items:center; gap:7px; }
 .fc-results-legend .fc-result-cell { width:24px; min-height:24px; font-size:12px; }
+.fc-results-summary { margin-bottom:22px; }
+.fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.fc-result-history-button { font-family:inherit; cursor:pointer; transition:box-shadow .15s,transform .15s; }
+.fc-result-history-button:hover { box-shadow:0 0 0 2px rgba(var(--mud-palette-primary-rgb),.3); transform:translateY(-1px); }
+.fc-result-history-button:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:3px; }
+.fc-result-history-heading { padding-bottom:18px; margin-bottom:18px; border-bottom:1px solid var(--mud-palette-lines-default); }
+.fc-result-history-heading .mud-typography-h6 { font-size:18px; overflow-wrap:anywhere; }
+.fc-result-history-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:22px; }
+.fc-result-history-list li { display:flex; gap:12px; align-items:flex-start; }
+.fc-result-history-list li>div { min-width:0; flex:1; }
+.fc-result-history-teacher { display:inline-flex; justify-content:center; align-items:center; min-width:30px; height:30px; border:1px solid var(--mud-palette-lines-default); border-radius:7px; font-weight:700; }
+.fc-result-history-meta { display:flex; gap:5px 12px; align-items:center; flex-wrap:wrap; font-size:12px; }
+.fc-result-history-meta strong { font-weight:600; }
+.fc-result-history-meta time { color:var(--mud-palette-text-secondary); }
+.fc-result-history-meta .mud-chip { margin:0; }
+.fc-result-history-comment { margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--mud-palette-text-secondary); font-size:14px; line-height:1.7; }
 .fc-score { font-variant-numeric:tabular-nums; font-weight:700; }
 .fc-grade-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .fc-grade-card { min-width:0; padding:18px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; background:var(--mud-palette-surface); }
@@ -69,6 +85,7 @@
 .fc-student-attendance .attendance-history-row { padding:18px 22px; }
 .fc-student-attendance .attendance-history-row:last-child { border-bottom:0; }
 @media (max-width:900px) {
+    .fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .fc-auth-intro { padding:30px; }
     .fc-auth-form { padding:30px; }
     .fc-auth-intro h2 { font-size:27px; }
@@ -90,6 +107,7 @@
     .fc-queue-table .fc-queue-points { text-align:right; }
 }
 @media (max-width:600px) {
+    .fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .fc-panel-body, .fc-panel-heading { padding:16px; }
     .fc-auth-form { padding:24px 20px; }
     .fc-auth-form .mud-input-slot input { font-size:16px; }
@@ -101,3 +119,5 @@
     .fc-student-attendance .attendance-history-row { padding:16px; align-items:flex-start; }
     .fc-task-card .mud-expand-panel-header { padding:14px 16px; }
 }
+.fc-results-average { margin:0 0 14px; font-size:12px; }
+.fc-results-average strong { color:var(--fc-text); font-variant-numeric:tabular-nums; }

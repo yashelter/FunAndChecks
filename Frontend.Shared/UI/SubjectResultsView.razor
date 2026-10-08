@@ -4,6 +4,7 @@
 
 @if (Results is not null)
 {
+    <div class="fc-results-average fc-muted">@Loc["Results_AveragePoints"]: <strong>@AveragePoints</strong></div>
     <section class="fc-panel fc-results-panel">
     <div class="fc-panel-heading">
         <h3>@Results.SubjectName</h3>
@@ -54,6 +55,9 @@
 
 @code {
     [Parameter] public SubjectResultsDto? Results { get; set; }
+    private string AveragePoints => Results?.UserResults is { Count: > 0 } rows
+        ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
+        : "—";
 
     private static string CellText(ResultCellDto? cell) =>
         cell?.Status == SubmissionStatus.Accepted ? "+" : string.IsNullOrWhiteSpace(cell?.DisplayValue) ? "—" : cell.DisplayValue;

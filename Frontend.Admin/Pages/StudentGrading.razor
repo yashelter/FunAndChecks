@@ -4,7 +4,13 @@
 
 <PageTitle>@Loc["Grading_PageTitle"]</PageTitle>
 
-<div class="fc-page-heading"><div><div class="fc-eyebrow">@Loc["AdminNav_Grading"]</div><MudText Typo="Typo.h4">@Loc["Grading_Title"]</MudText></div></div>
+<div class="fc-page-heading"><div><div class="fc-eyebrow">@Loc["AdminNav_Grading"]</div><MudText Typo="Typo.h4">@Loc["Grading_Title"]</MudText></div>
+    <AuthorizeView Roles="@Roles.SuperAdmin"><Authorized>
+        <MudButton Variant="Variant.Outlined" Href="/admin/student-accounts" StartIcon="@Icons.Material.Outlined.ManageAccounts">
+            @(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? "Управление аккаунтами" : "Manage accounts")
+        </MudButton>
+    </Authorized></AuthorizeView>
+</div>
 
 <div class="fc-panel fc-toolbar fc-grading-filters">
     <MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="SearchAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"

@@ -56,6 +56,17 @@ public class AdminsController(
     public async Task<ActionResult<AdminAccessDto>> GetAccess(Guid adminId, CancellationToken cancellationToken) =>
         Ok(await accessService.GetAccessAsync(adminId, cancellationToken));
 
+    /// <summary>Сохранить все ограничения администратора одним запросом (только супер-админ).</summary>
+    [HttpPut("{adminId:guid}/access/restrictions")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ReplaceRestrictions(
+        Guid adminId, ReplaceAdminRestrictionsRequest request, CancellationToken cancellationToken)
+    {
+        await accessService.ReplaceRestrictionsAsync(adminId, request, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Запретить/разрешить админу работу с предметом (только супер-админ).</summary>
     [HttpPut("{adminId:guid}/subjects/{subjectId:int}/restriction")]
     [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]

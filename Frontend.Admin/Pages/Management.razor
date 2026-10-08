@@ -1,6 +1,7 @@
 @page "/admin/management"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
+@using Frontend.Admin.UI
 
 <PageTitle>@Loc["Management_PageTitle"]</PageTitle>
 
@@ -238,36 +239,16 @@ else
                 @Loc["Management_VisibilityHint"]
             </MudText>
 
-            <MudGrid>
+            <MudGrid Spacing="3">
                 <MudItem xs="12" md="6">
-                    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["Management_SubjectsTitle"]</MudText>
-                    @foreach (var s in _subjects)
-                    {
-                        <div class="d-flex align-center gap-2">
-                            <MudSwitch T="bool" Color="Color.Warning"
-                                       Value="IsSubjectArchived(s.Id)" Disabled="IsSubjectRestricted(s.Id)"
-                                       ValueChanged="@(v => SetSubjectArchivedAsync(s.Id, v))">@s.Name</MudSwitch>
-                            @if (IsSubjectRestricted(s.Id))
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                            }
-                        </div>
-                    }
+                    <VisibilityList Title="@Loc["Management_SubjectsTitle"]"
+                                    Items="@(_subjects.Select(s => new VisibilityList.Entry(s.Id, s.Name, IsSubjectArchived(s.Id), IsSubjectRestricted(s.Id))).ToList())"
+                                    OnArchiveChanged="@(change => SetSubjectArchivedAsync(change.Id, change.Archived))" />
                 </MudItem>
                 <MudItem xs="12" md="6">
-                    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["Management_GroupsTitle"]</MudText>
-                    @foreach (var g in _groups)
-                    {
-                        <div class="d-flex align-center gap-2">
-                            <MudSwitch T="bool" Color="Color.Warning"
-                                       Value="IsGroupArchived(g.Id)" Disabled="IsGroupRestricted(g.Id)"
-                                       ValueChanged="@(v => SetGroupArchivedAsync(g.Id, v))">@g.Name</MudSwitch>
-                            @if (IsGroupRestricted(g.Id))
-                            {
-                                <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
-                            }
-                        </div>
-                    }
+                    <VisibilityList Title="@Loc["Management_GroupsTitle"]"
+                                    Items="@(_groups.Select(g => new VisibilityList.Entry(g.Id, g.Name, IsGroupArchived(g.Id), IsGroupRestricted(g.Id))).ToList())"
+                                    OnArchiveChanged="@(change => SetGroupArchivedAsync(change.Id, change.Archived))" />
                 </MudItem>
             </MudGrid>
         </section>

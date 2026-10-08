@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Grades;
 using FunAndChecks.Application.Queues;
@@ -24,6 +25,36 @@ namespace FunAndChecks.Tests.Integration;
 public class AdminRestrictionsTests : IDisposable
 {
     private readonly TestWebAppFactory _factory = new();
+
+    [Fact]
+    public async Task ReplaceRestrictions_IsSuperAdminOnly_AndKeepsPersonalArchives()
+    {
+        var data = await SeedAsync();
+        using var admin = CreateClient(data.AdminToken);
+        using var student = CreateClient(data.StudentToken);
+        using var superAdmin = CreateClient(data.SuperAdminToken);
+        using var anonymous = _factory.CreateClient();
+        var url = $"/api/admins/{data.AdminId}/access/restrictions";
+        var request = new ReplaceAdminRestrictionsRequest([data.SubjectId], [data.GroupId]);
+
+        (await admin.PutAsJsonAsync(url, request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await student.PutAsJsonAsync(url, request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await anonymous.PutAsJsonAsync(url, request)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await admin.PutAsJsonAsync($"/api/me/subjects/{data.SubjectId}/hidden", new { hidden = true }))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await superAdmin.PutAsJsonAsync(url, request)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var access = await superAdmin.GetFromJsonAsync<AdminAccessDto>($"/api/admins/{data.AdminId}/access");
+        access!.RestrictedSubjectIds.Should().Equal(data.SubjectId);
+        access.RestrictedGroupIds.Should().Equal(data.GroupId);
+        access.HiddenSubjectIds.Should().Equal(data.SubjectId);
+
+        (await superAdmin.PutAsJsonAsync(url, new ReplaceAdminRestrictionsRequest([], [])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        access = await superAdmin.GetFromJsonAsync<AdminAccessDto>($"/api/admins/{data.AdminId}/access");
+        access!.RestrictedSubjectIds.Should().BeEmpty();
+        access.RestrictedGroupIds.Should().BeEmpty();
+        access.HiddenSubjectIds.Should().Equal(data.SubjectId);
+    }
 
     [Fact]
     public async Task SubjectRestriction_HidesQueuesAndBlocksOperations_UntilRemoved()

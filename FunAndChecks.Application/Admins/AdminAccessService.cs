@@ -109,6 +109,43 @@ public class AdminAccessService(IApplicationDbContext db) : IAdminAccessService
     public Task SetGroupHiddenAsync(Guid adminId, int groupId, bool hidden, CancellationToken cancellationToken = default) =>
         UpsertGroupAsync(adminId, groupId, a => a.IsHidden = hidden, cancellationToken);
 
+    public async Task ReplaceRestrictionsAsync(Guid adminId, ReplaceAdminRestrictionsRequest request, CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminId, cancellationToken);
+        var subjectIds = request.RestrictedSubjectIds.ToHashSet();
+        var groupIds = request.RestrictedGroupIds.ToHashSet();
+        var existingSubjectIds = await db.Subjects.Where(s => subjectIds.Contains(s.Id))
+            .Select(s => s.Id).ToListAsync(cancellationToken);
+        var existingGroupIds = await db.Groups.Where(g => groupIds.Contains(g.Id))
+            .Select(g => g.Id).ToListAsync(cancellationToken);
+        if (existingSubjectIds.Count != subjectIds.Count)
+            throw new NotFoundException("One or more subjects no longer exist.");
+        if (existingGroupIds.Count != groupIds.Count)
+            throw new NotFoundException("One or more groups no longer exist.");
+
+        var subjects = await db.AdminSubjectAccesses.Where(a => a.AdminId == adminId)
+            .ToDictionaryAsync(a => a.SubjectId, cancellationToken);
+        var groups = await db.AdminGroupAccesses.Where(a => a.AdminId == adminId)
+            .ToDictionaryAsync(a => a.GroupId, cancellationToken);
+        foreach (var access in subjects.Values)
+        {
+            access.IsRestricted = subjectIds.Contains(access.SubjectId);
+            if (!access.IsRestricted && !access.IsHidden) db.AdminSubjectAccesses.Remove(access);
+        }
+        foreach (var access in groups.Values)
+        {
+            access.IsRestricted = groupIds.Contains(access.GroupId);
+            if (!access.IsRestricted && !access.IsHidden) db.AdminGroupAccesses.Remove(access);
+        }
+        foreach (var id in subjectIds.Where(id => !subjects.ContainsKey(id)))
+            db.AdminSubjectAccesses.Add(new AdminSubjectAccess { AdminId = adminId, SubjectId = id, IsRestricted = true });
+        foreach (var id in groupIds.Where(id => !groups.ContainsKey(id)))
+            db.AdminGroupAccesses.Add(new AdminGroupAccess { AdminId = adminId, GroupId = id, IsRestricted = true });
+
+        // One SaveChanges transaction covers both lists, so a large edit cannot be partially applied.
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
     private async Task UpsertSubjectAsync(Guid adminId, int subjectId, Action<AdminSubjectAccess> mutate, CancellationToken cancellationToken)
     {
         await EnsureAdminAsync(adminId, cancellationToken);

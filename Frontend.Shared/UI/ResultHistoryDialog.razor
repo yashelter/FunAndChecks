@@ -1,0 +1,82 @@
+@namespace Frontend.Shared.UI
+@using System.Globalization
+@inject SubmissionsApi Submissions
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudDialog Class="fc-result-history-dialog">
+    <DialogContent>
+        <div class="fc-result-history-heading">
+            <MudText Typo="Typo.h6">@TaskName</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@StudentName</MudText>
+        </div>
+        @if (_loading)
+        {
+            <div class="fc-loading" role="status"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+        }
+        else if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+        else if (_history.Count == 0)
+        {
+            <MudText Class="fc-muted">@Loc["Dialog_NoSubmissions"]</MudText>
+        }
+        else
+        {
+            <ol class="fc-result-history-list">
+                @foreach (var entry in _history.OrderByDescending(log => log.SubmittedAt))
+                {
+                    <li>
+                        <span class="fc-result-history-teacher" style="@TeacherStyle(entry.Admin)">@entry.Admin.Letter</span>
+                        <div>
+                            <div class="fc-result-history-meta">
+                                <strong>@entry.Admin.FullName</strong>
+                                <time datetime="@entry.SubmittedAt.ToString("O")">@entry.SubmittedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</time>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@(entry.Status == SubmissionStatus.Accepted ? Color.Success : Color.Warning)">
+                                    @(entry.Status == SubmissionStatus.Accepted ? Loc["Task_StatusAccepted"] : Loc["Task_StatusRejected"])
+                                </MudChip>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(entry.Comment))
+                            {
+                                <p class="fc-result-history-comment">@entry.Comment</p>
+                            }
+                        </div>
+                    </li>
+                }
+            </ol>
+        }
+    </DialogContent>
+    <DialogActions><MudButton OnClick="Close" Variant="Variant.Outlined">@Loc["Common_Close"]</MudButton></DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = null!;
+    [Parameter] public Guid StudentId { get; set; }
+    [Parameter] public string StudentName { get; set; } = "";
+    [Parameter] public int TaskId { get; set; }
+    [Parameter] public string TaskName { get; set; } = "";
+    private bool _loading = true;
+    private string? _error;
+    private List<SubmissionLogDto> _history = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Subject/group restrictions continue to be checked by the existing admin endpoint.
+            _history = await Submissions.GetLogAsync(StudentId, TaskId);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Close() => Dialog.Close();
+    private static string TeacherStyle(AdminDto admin) => string.IsNullOrWhiteSpace(admin.Color) ? "" :
+        $"background-color:{admin.Color};color:{ColorUtils.ContrastText(admin.Color)};";
+}

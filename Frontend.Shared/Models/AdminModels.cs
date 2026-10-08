@@ -19,6 +19,8 @@ public record AdminAccessDto(
 
 public record SetRestrictionRequest(bool Restricted);
 
+public record ReplaceAdminRestrictionsRequest(List<int> RestrictedSubjectIds, List<int> RestrictedGroupIds);
+
 public record SetHiddenRequest(bool Hidden);
 
 /// <summary>Путь к созданному дампу БД.</summary>

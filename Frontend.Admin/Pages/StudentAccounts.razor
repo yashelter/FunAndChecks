@@ -1,0 +1,146 @@
+@page "/admin/student-accounts"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@implements IDisposable
+@inject StudentsApi Students
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@Text("Управление аккаунтами", "Manage accounts")</PageTitle>
+
+<div class="fc-page-heading">
+    <div>
+        <MudButton Href="/admin/grading" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small">
+            @Text("Студенты и оценки", "Students and grades")
+        </MudButton>
+        <MudText Typo="Typo.h4">@Text("Управление аккаунтами", "Manage accounts")</MudText>
+        <MudText Class="fc-muted">@Text("Все пользователи без административных прав. Выбирать предмет не требуется.", "All users without administrator permissions. No subject selection is required.")</MudText>
+    </div>
+</div>
+
+<div class="fc-panel fc-toolbar">
+    <MudTextField T="string" Value="_query" ValueChanged="QueryChangedAsync" Label="@Text("Поиск по имени или email", "Search by name or email")"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" DebounceInterval="300" MaxLength="200"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Clearable="true" />
+    <MudText Typo="Typo.caption" Class="fc-muted">@Text("Найдено:", "Found:") @_totalCount</MudText>
+</div>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Class="mt-3" aria-label="@Text("Загрузка аккаунтов", "Loading accounts")" />
+}
+else if (_accounts.Count == 0)
+{
+    <div class="fc-panel fc-core-empty"><MudText Class="fc-muted">@Text("Пользователи не найдены", "No users found")</MudText></div>
+}
+else
+{
+    <section class="fc-panel fc-grading-list">
+        @foreach (var account in _accounts)
+        {
+            <article class="fc-grading-row" @key="account.Id">
+                <div class="fc-grading-identity">
+                    <MudText Typo="Typo.subtitle2">@Name(account)</MudText>
+                    <MudText Typo="Typo.caption" Class="fc-muted">@account.Email</MudText>
+                    <MudText Typo="Typo.caption" Class="fc-muted">@(account.GroupName ?? Text("Без группы", "No group"))</MudText>
+                </div>
+                <div class="fc-grading-actions">
+                    <MudChip T="string" Size="Size.Small" Color="@(account.EmailConfirmed && account.IsActive ? Color.Success : Color.Default)" Variant="Variant.Outlined">
+                        @Status(account)
+                    </MudChip>
+                    <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Color="Color.Error" Disabled="_deleting" Size="Size.Small"
+                                   aria-label="@DeleteLabel(account)" OnClick="@(() => DeleteAsync(account))" />
+                </div>
+            </article>
+        }
+    </section>
+    @if (PageCount > 1)
+    {
+        <MudPagination Count="PageCount" Selected="_page" SelectedChanged="PageChangedAsync" Class="mt-4" Size="Size.Small" ShowFirstButton="true" ShowLastButton="true" />
+    }
+}
+
+@code {
+    private const int PageSize = 25;
+    private List<UserAccountDto> _accounts = [];
+    private string _query = string.Empty;
+    private int _page = 1;
+    private int _totalCount;
+    private bool _loading;
+    private bool _deleting;
+    private CancellationTokenSource? _request;
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)PageSize));
+    private static string Text(string ru, string en) => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+    private static string Name(UserAccountDto account) => account.HasStudentProfile
+        ? $"{account.LastName} {account.FirstName}".Trim()
+        : account.Email ?? account.Id.ToString();
+    private static string DeleteLabel(UserAccountDto account) => $"{Text("Удалить аккаунт", "Delete account")}: {Name(account)}";
+    private static string Status(UserAccountDto account) => !account.EmailConfirmed ? Text("Почта не подтверждена", "Email unconfirmed")
+        : !account.HasStudentProfile ? Text("Без профиля студента", "No student profile")
+        : !account.IsActive ? Text("Неактивен", "Inactive") : Text("Активен", "Active");
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task QueryChangedAsync(string value)
+    {
+        _query = value;
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task PageChangedAsync(int page)
+    {
+        _page = page;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _request?.Cancel();
+        _request?.Dispose();
+        var request = _request = new CancellationTokenSource();
+        _loading = true;
+        try
+        {
+            var result = await Students.GetAccountsAsync(_query, _page, PageSize, request.Token);
+            if (request.IsCancellationRequested)
+                return;
+            _accounts = result.Items;
+            _totalCount = result.TotalCount;
+        }
+        catch (OperationCanceledException) when (request.IsCancellationRequested) { }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally
+        {
+            if (ReferenceEquals(_request, request))
+                _loading = false;
+        }
+    }
+
+    private async Task DeleteAsync(UserAccountDto account)
+    {
+        var details = $"{Name(account)} ({account.Email})";
+        var confirm = await Dialogs.ShowMessageBoxAsync(Text("Удалить аккаунт?", "Delete account?"),
+            $"{details}\n{Text("Аккаунт, профиль студента, сдачи, оценки, записи в очередях и посещаемость будут удалены без возможности восстановления.", "The account, student profile, submissions, grades, queue entries and attendance will be permanently deleted.")}",
+            yesText: Text("Удалить аккаунт", "Delete account"), cancelText: Text("Отмена", "Cancel"));
+        if (confirm != true)
+            return;
+        _deleting = true;
+        try
+        {
+            await Students.DeleteAccountAsync(account.Id);
+            Snackbar.Add(Text("Аккаунт удалён", "Account deleted"), Severity.Success);
+            if (_accounts.Count == 1 && _page > 1)
+                _page--;
+            await LoadAsync();
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _deleting = false; }
+    }
+
+    public void Dispose()
+    {
+        _request?.Cancel();
+        _request?.Dispose();
+    }
+}

@@ -135,9 +135,10 @@ public partial class QueueDetails : IAsyncDisposable
         if (_details is null || !participant.CanManage)
             return;
 
-        // Клик по студенту = начать приём: сразу ставим статус «Сдаёт».
+        var checkingWarning = IsOtherTeacherChecking(participant) ? participant.CheckingByAdminName : null;
+        // Другой преподаватель — предупреждение, а не запрет на приём.
         if (!IsReadOnly(participant) &&
-            (participant.Status != QueueEntryStatus.Checking || participant.CheckingByAdminId is null))
+            (participant.Status != QueueEntryStatus.Checking || participant.CheckingByAdminId != _currentAdminId))
         {
             try
             {
@@ -165,6 +166,7 @@ public partial class QueueDetails : IAsyncDisposable
             { x => x.SubjectId, _details.SubjectId },
             { x => x.ReadOnly, IsReadOnly(participant) },
             { x => x.StudentColor, participant.StudentColor },
+            { x => x.CheckingWarningName, checkingWarning },
         };
 
         var dialog = await DialogService.ShowAsync<StudentInteractionDialog>(
@@ -186,8 +188,9 @@ public partial class QueueDetails : IAsyncDisposable
         _ => Color.Default,
     };
 
-    private bool IsReadOnly(QueueParticipantDto participant) =>
-        _currentAdminId is null ||
+    private bool IsReadOnly(QueueParticipantDto participant) => _currentAdminId is null;
+
+    private bool IsOtherTeacherChecking(QueueParticipantDto participant) =>
         participant.Status == QueueEntryStatus.Checking &&
         participant.CheckingByAdminId is not null && participant.CheckingByAdminId != _currentAdminId;
 

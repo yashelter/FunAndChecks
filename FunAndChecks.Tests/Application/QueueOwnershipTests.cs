@@ -59,7 +59,7 @@ public class QueueOwnershipTests : IDisposable
     [InlineData(QueueEntryStatus.Waiting)]
     [InlineData(QueueEntryStatus.Skipped)]
     [InlineData(QueueEntryStatus.Finished)]
-    public async Task OtherTeacher_CannotClaimFinishOrRequeueOwnedStudent(QueueEntryStatus requestedStatus)
+    public async Task OtherTeacher_CanTakeOverFinishOrRequeueOwnedStudent(QueueEntryStatus requestedStatus)
     {
         var data = await SeedAsync();
         await using var firstContext = _db.NewContext();
@@ -67,13 +67,11 @@ public class QueueOwnershipTests : IDisposable
         _notifier.ClearReceivedCalls();
         await using var secondContext = _db.NewContext();
 
-        var action = () => CreateSut(secondContext).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.SecondAdminId, requestedStatus);
-
-        (await action.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("queue.checked_by_other");
+        await CreateSut(secondContext).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.SecondAdminId, requestedStatus);
         var entry = await secondContext.QueueEntries.AsNoTracking().SingleAsync(e => e.StudentId == data.FirstStudentId);
-        entry.Status.Should().Be(QueueEntryStatus.Checking);
-        entry.CurrentAdminId.Should().Be(data.FirstAdminId);
-        await _notifier.DidNotReceive().QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>());
+        entry.Status.Should().Be(requestedStatus);
+        entry.CurrentAdminId.Should().Be(requestedStatus == QueueEntryStatus.Checking ? data.SecondAdminId : null);
+        await _notifier.Received(1).QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -137,12 +135,11 @@ public class QueueOwnershipTests : IDisposable
     }
 
     [Fact]
-    public async Task ClaimAfterAnotherTeacherReadWaiting_IsRejectedAtomicallyDespiteStaleContext()
+    public async Task ClaimAfterAnotherTeacherReadWaiting_AllowedDespiteStaleContext()
     {
         var data = await SeedAsync();
         await using var staleContext = _db.NewContext();
-        // Keep a stale tracked row as well: status checks must use the database,
-        // and the final UPDATE must still guard against a claim after that read.
+        // A stale tracked row must not overwrite status/reviewer metadata.
         var trackedWaiting = await staleContext.QueueEntries.SingleAsync(e => e.StudentId == data.FirstStudentId);
         var reachedPermissions = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -159,13 +156,12 @@ public class QueueOwnershipTests : IDisposable
         }
         finally { resume.TrySetResult(); }
 
-        var action = () => staleClaim;
-        (await action.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("queue.checked_by_other");
+        await staleClaim;
         trackedWaiting.Status.Should().Be(QueueEntryStatus.Waiting);
         var participant = (await staleSut.GetDetailsAsync(data.EventId)).Participants.Single(p => p.StudentId == data.FirstStudentId);
         participant.Status.Should().Be(QueueEntryStatus.Checking);
-        participant.CheckingByAdminId.Should().Be(data.FirstAdminId);
-        await _notifier.Received(1).QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>());
+        participant.CheckingByAdminId.Should().Be(data.SecondAdminId);
+        await _notifier.Received(2).QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]

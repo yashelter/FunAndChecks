@@ -1,0 +1,133 @@
+@using Frontend.Admin.UI
+@implements IDisposable
+@inject AdminsApi Admins
+@inject SubjectsApi Subjects
+@inject GroupsApi Groups
+@inject IStringLocalizer<AppStrings> Loc
+@inject ISnackbar Snackbar
+@inject UnsavedChangesTracker Dirty
+
+<MudDialog Class="fc-admin-restrictions-dialog">
+    <TitleContent><MudText Typo="Typo.h6">@Loc["AdminMgmt_RestrictionsTitle", Admin.LastName, Admin.FirstName]</MudText></TitleContent>
+    <DialogContent>
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" Class="ma-4" />
+        }
+        else if (!_loaded)
+        {
+            <MudButton OnClick="LoadAsync" Variant="Variant.Outlined">@Text("Повторить загрузку", "Retry loading")</MudButton>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3">@Text("Запреты блокируют работу администратора с выбранными предметами и группами. Изменения применятся после сохранения.", "Restrictions block the administrator from working with selected subjects and groups. Changes take effect after saving.")</MudText>
+            <div class="fc-restriction-bulk">
+                <div><strong>@Text("Все предметы и группы", "All subjects and groups")</strong><span>@_restrictedSubjects.Count / @_subjects.Count · @_restrictedGroups.Count / @_groups.Count @Text("запрещено", "restricted")</span></div>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Block"
+                           OnClick="@(() => SetAll(true))" Disabled="_saving">@Text("Запретить всё", "Restrict all")</MudButton>
+                <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => SetAll(false))" Disabled="_saving">@Text("Разрешить всё", "Allow all")</MudButton>
+            </div>
+            <MudTabs Elevation="0" Rounded="true" Border="true" Class="fc-restriction-tabs">
+                <MudTabPanel Text="@($"{Loc["AdminMgmt_SubjectsTitle"]} · {_subjects.Count}")">
+                    <RestrictionList Items="_subjects" RestrictedIds="_restrictedSubjects" OnChanged="OnSubjectChanged" Disabled="_saving" />
+                </MudTabPanel>
+                <MudTabPanel Text="@($"{Loc["AdminMgmt_GroupsTitle"]} · {_groups.Count}")">
+                    <RestrictionList Items="_groups" RestrictedIds="_restrictedGroups" OnChanged="OnGroupChanged" Disabled="_saving" />
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="_saving">@Loc["Common_Cancel"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(!_loaded || _saving || !HasChanges)">
+            @(_saving ? Text("Сохранение…", "Saving…") : Loc["Common_Save"])
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter, EditorRequired] public AdminDto Admin { get; set; } = null!;
+    private List<RestrictionList.Entry> _subjects = [];
+    private List<RestrictionList.Entry> _groups = [];
+    private HashSet<int> _restrictedSubjects = [];
+    private HashSet<int> _restrictedGroups = [];
+    private HashSet<int> _originalSubjects = [];
+    private HashSet<int> _originalGroups = [];
+    private bool _loading = true;
+    private bool _loaded;
+    private bool _saving;
+    private UnsavedChangesTracker.Registration? _edits;
+    private bool HasChanges => !_originalSubjects.SetEquals(_restrictedSubjects) || !_originalGroups.SetEquals(_restrictedGroups);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _edits = Dirty.Register();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var subjectTask = Subjects.GetAllAsync();
+            var groupTask = Groups.GetAllAsync();
+            var accessTask = Admins.GetAccessAsync(Admin.Id);
+            await Task.WhenAll(subjectTask, groupTask, accessTask);
+            _subjects = (await subjectTask).Select(x => new RestrictionList.Entry(x.Id, x.Name)).ToList();
+            _groups = (await groupTask).Select(x => new RestrictionList.Entry(x.Id, x.Name)).ToList();
+            var access = await accessTask;
+            _restrictedSubjects = [.. access.RestrictedSubjectIds];
+            _restrictedGroups = [.. access.RestrictedGroupIds];
+            _originalSubjects = [.. _restrictedSubjects];
+            _originalGroups = [.. _restrictedGroups];
+            _loaded = true;
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _loading = false; }
+    }
+
+    private void SetAll(bool restricted)
+    {
+        _restrictedSubjects = restricted ? _subjects.Select(x => x.Id).ToHashSet() : [];
+        _restrictedGroups = restricted ? _groups.Select(x => x.Id).ToHashSet() : [];
+        TrackEdits();
+    }
+
+    private void OnSubjectChanged(RestrictionList.RestrictionChange change)
+    {
+        if (change.Restricted) _restrictedSubjects.Add(change.Id); else _restrictedSubjects.Remove(change.Id);
+        TrackEdits();
+    }
+
+    private void OnGroupChanged(RestrictionList.RestrictionChange change)
+    {
+        if (change.Restricted) _restrictedGroups.Add(change.Id); else _restrictedGroups.Remove(change.Id);
+        TrackEdits();
+    }
+
+    private void TrackEdits()
+    {
+        if (HasChanges) _edits?.MarkDirty(); else _edits?.MarkClean();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!_loaded || _saving || !HasChanges) return;
+        _saving = true;
+        try
+        {
+            await Admins.ReplaceRestrictionsAsync(Admin.Id, new ReplaceAdminRestrictionsRequest([.. _restrictedSubjects], [.. _restrictedGroups]));
+            _edits?.MarkClean();
+            Snackbar.Add(Loc["Common_Saved"], Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _saving = false; }
+    }
+
+    private void Cancel() { _edits?.MarkClean(); MudDialog.Cancel(); }
+    public void Dispose() => _edits?.Dispose();
+    private static string Text(string ru, string en) => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+}

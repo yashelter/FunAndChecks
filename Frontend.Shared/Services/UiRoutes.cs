@@ -21,6 +21,9 @@ public static class UiRoutes
             return (string.IsNullOrEmpty(target) ? "/" : target) + suffix;
         }
 
+        if (path.TrimEnd('/').Equals("/admin/student-accounts", StringComparison.OrdinalIgnoreCase))
+            return "/legacy/admin/grading" + suffix;
+
         return (path == "/" ? "/legacy" : "/legacy" + path) + suffix;
     }
 }

@@ -26,6 +26,13 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
 
     public CapturingEmailSender Email { get; } = new();
 
+    public TestWebAppFactory()
+    {
+        // Match production PostgreSQL's Unicode case conversion for SQL name search.
+        // The local UI review host reuses this factory and therefore this connection.
+        _connection.CreateFunction<string?, string?>("lower", value => value?.ToLowerInvariant(), isDeterministic: true);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");

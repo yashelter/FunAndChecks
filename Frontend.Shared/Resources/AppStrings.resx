@@ -479,4 +479,6 @@
   <data name="Design_ChooseSubject" xml:space="preserve"><value>Choose a subject to view results.</value></data>
   <data name="Design_MaxPoints" xml:space="preserve"><value>Maximum points</value></data>
   <data name="Error_QueueCheckedByOther" xml:space="preserve"><value>Another teacher is checking this student. Refresh the queue.</value></data>
+  <data name="Results_AveragePoints" xml:space="preserve"><value>Average score</value></data>
+  <data name="QueueDetails_OtherTeacherWarning" xml:space="preserve"><value>When this window opened, {0} was reviewing this student. You can continue the review.</value></data>
 </root>

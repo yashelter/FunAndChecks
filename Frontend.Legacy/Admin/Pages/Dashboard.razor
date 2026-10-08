@@ -68,7 +68,7 @@ else if (_results is not null)
                 <TemplateColumn Title="Посещаемость" Sortable="false">
                     <CellTemplate>
                         @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
-                        <MudLink Href="@($"/legacy/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
+                        <MudLink Href="@("/legacy/admin/attendance?subjectId=" + _results.SubjectId + "&studentId=" + context.Item.StudentId)">@counts.Present посещений · @counts.Absent пропусков</MudLink>
                         @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
                     </CellTemplate>
                 </TemplateColumn>

@@ -56,27 +56,5 @@
             </MudList>
         }
 
-        @if (_accessAdmin is not null)
-        {
-            <MudPaper Class="pa-4 mt-4">
-                <MudText Typo="Typo.h6">@Loc["AdminMgmt_RestrictionsTitle", _accessAdmin.LastName, _accessAdmin.FirstName]</MudText>
-
-                <MudText Typo="Typo.subtitle2" Class="mt-2">@Loc["AdminMgmt_SubjectsTitle"]</MudText>
-                @foreach (var s in _subjects)
-                {
-                    <MudSwitch T="bool" Color="Color.Error"
-                               Value="@_restrictedSubjects.Contains(s.Id)"
-                               ValueChanged="@(v => ToggleSubjectAsync(s.Id, v))">@s.Name @Loc["AdminMgmt_Restricted"]</MudSwitch>
-                }
-
-                <MudText Typo="Typo.subtitle2" Class="mt-2">@Loc["AdminMgmt_GroupsTitle"]</MudText>
-                @foreach (var g in _groups)
-                {
-                    <MudSwitch T="bool" Color="Color.Error"
-                               Value="@_restrictedGroups.Contains(g.Id)"
-                               ValueChanged="@(v => ToggleGroupAsync(g.Id, v))">@g.Name @Loc["AdminMgmt_Restricted"]</MudSwitch>
-                }
-            </MudPaper>
-        }
     </MudItem>
 </MudGrid>

@@ -16,6 +16,9 @@ public sealed class TestDatabase : IDisposable
     public TestDatabase()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
+        // Production PostgreSQL lower() handles Cyrillic. SQLite's built-in lower()
+        // only handles ASCII, so relational tests need the same Unicode semantics.
+        _connection.CreateFunction<string?, string?>("lower", value => value?.ToLowerInvariant(), isDeterministic: true);
         _connection.Open();
 
         _options = new DbContextOptionsBuilder<ApplicationDbContext>()

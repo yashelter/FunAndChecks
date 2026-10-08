@@ -36,3 +36,8 @@ public record SetPreferredCultureRequest(string Culture);
 public record SetStudentColorRequest(string? Color);
 
 public record UpdateStudentAccountRequest(string FirstName, string LastName, int? GroupId, string Email, string? NewPassword);
+
+public record UserAccountDto(Guid Id, string? FirstName, string? LastName, string? Email, string? GroupName,
+    bool EmailConfirmed, bool IsActive, bool HasStudentProfile);
+
+public record UserAccountPageDto(List<UserAccountDto> Items, int TotalCount, int Page, int PageSize);

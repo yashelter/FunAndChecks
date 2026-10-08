@@ -303,18 +303,16 @@ public class QueueService(
         if (entry.Student.GroupId is int groupId)
             await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
 
-        // Check the owner in the UPDATE itself: another teacher may claim the
-        // student after the read and permission checks above have completed.
-        // Deleting a teacher clears the FK, so an unowned row can be reclaimed.
+        // The frontend warns about another reviewer; authorized teachers may
+        // take over. Keep status and current reviewer in one atomic update.
         Guid? currentAdminId = status == QueueEntryStatus.Checking ? admin.Id : null;
         var updated = await db.QueueEntries
-            .Where(qu => qu.Id == entry.Id
-                && (qu.Status != QueueEntryStatus.Checking || qu.CurrentAdminId == null || qu.CurrentAdminId == admin.Id))
+            .Where(qu => qu.Id == entry.Id)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(qu => qu.Status, status)
                 .SetProperty(qu => qu.CurrentAdminId, currentAdminId), cancellationToken);
         if (updated == 0)
-            throw new ConflictException("Another teacher is already checking this student.", "queue.checked_by_other");
+            throw new NotFoundException("Student not found in this queue.");
 
         await NotifyBestEffortAsync(
             new QueueEntryUpdateDto(eventId, studentId, status,

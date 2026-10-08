@@ -76,4 +76,11 @@ public interface IIdentityService
     /// Редактирование учётки админом: смена email, пароля, разбан и подтверждение.
     /// </summary>
     Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword);
+
+    /// <summary>Страничный поиск всех учётных записей без роли и профиля администратора; только для супер-админа.</summary>
+    Task<FunAndChecks.Application.Students.UserAccountPageDto> GetNonAdminAccountsAsync(
+        Guid actingAdminId, string? query, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Атомарно удаляет учётную запись, не принадлежащую администратору; только для супер-админа.</summary>
+    Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default);
 }

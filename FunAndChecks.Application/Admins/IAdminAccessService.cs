@@ -31,6 +31,8 @@ public interface IAdminAccessService
     // --- Глобальные ограничения (только супер-админ) ---
     Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default);
     Task SetGroupRestrictedAsync(Guid adminId, int groupId, bool restricted, CancellationToken cancellationToken = default);
+    /// <summary>Атомарно заменяет глобальные запреты, сохраняя локальные скрытия.</summary>
+    Task ReplaceRestrictionsAsync(Guid adminId, ReplaceAdminRestrictionsRequest request, CancellationToken cancellationToken = default);
 
     // --- Локальные скрытия (сам админ) ---
     Task SetSubjectHiddenAsync(Guid adminId, int subjectId, bool hidden, CancellationToken cancellationToken = default);

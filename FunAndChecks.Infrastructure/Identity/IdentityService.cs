@@ -2,6 +2,9 @@ using FunAndChecks.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Application.Common.Exceptions;
+using FunAndChecks.Application.Students;
+using FunAndChecks.Domain.Constants;
 
 namespace FunAndChecks.Infrastructure.Identity;
 
@@ -50,6 +53,66 @@ public class IdentityService(
         var user = await userManager.FindByIdAsync(id.ToString());
         if (user != null)
             await userManager.DeleteAsync(user);
+    }
+
+    public async Task<UserAccountPageDto> GetNonAdminAccountsAsync(Guid actingAdminId, string? query,
+        int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        await EnsureSuperAdminAsync(actingAdminId, cancellationToken);
+        if (page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
+            throw new FluentValidation.ValidationException("Page must be positive and page size must be between 1 and 100.");
+
+        var accounts = dbContext.Users.AsNoTracking()
+            .Where(u => !dbContext.Admins.Any(a => a.Id == u.Id))
+            .Where(u => !dbContext.UserRoles.Any(ur => ur.UserId == u.Id && dbContext.Roles.Any(r =>
+                r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin))))
+            .Select(u => new
+            {
+                u.Id,
+                FirstName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.FirstName).FirstOrDefault(),
+                LastName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.LastName).FirstOrDefault(),
+                u.Email,
+                GroupName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.Group == null ? null : s.Group.Name).FirstOrDefault(),
+                u.EmailConfirmed,
+                IsActive = dbContext.Students.Any(s => s.Id == u.Id && s.IsActive),
+                HasStudentProfile = dbContext.Students.Any(s => s.Id == u.Id)
+            });
+        var term = query?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(term))
+            accounts = accounts.Where(a => (a.Email != null && a.Email.ToLower().Contains(term)) ||
+                ((a.LastName ?? "") + " " + (a.FirstName ?? "")).ToLower().Contains(term) ||
+                ((a.FirstName ?? "") + " " + (a.LastName ?? "")).ToLower().Contains(term));
+
+        var total = await accounts.CountAsync(cancellationToken);
+        var items = await accounts.OrderBy(a => a.LastName).ThenBy(a => a.FirstName).ThenBy(a => a.Email).ThenBy(a => a.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(a => new UserAccountDto(a.Id, a.FirstName, a.LastName, a.Email, a.GroupName,
+                a.EmailConfirmed, a.IsActive, a.HasStudentProfile)).ToListAsync(cancellationToken);
+        return new UserAccountPageDto(items, total, page, pageSize);
+    }
+
+    public Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default) =>
+        dbContext.ExecuteSerializableAsync(async ct =>
+        {
+            await EnsureSuperAdminAsync(actingAdminId, ct);
+            var isProtected = await dbContext.Admins.AnyAsync(a => a.Id == userId, ct) ||
+                await dbContext.UserRoles.AnyAsync(ur => ur.UserId == userId && dbContext.Roles.Any(r =>
+                    r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin)), ct);
+            if (isProtected)
+                throw new ForbiddenException("Administrator accounts cannot be deleted here.", "account.admin_protected");
+
+            var account = await userManager.FindByIdAsync(userId.ToString())
+                ?? throw new NotFoundException("User account not found.", "account.not_found");
+            var deleted = await userManager.DeleteAsync(account);
+            EnsureSucceeded(deleted, "Account");
+        }, cancellationToken);
+
+    private async Task EnsureSuperAdminAsync(Guid actingAdminId, CancellationToken cancellationToken)
+    {
+        var allowed = await dbContext.UserRoles.AnyAsync(ur => ur.UserId == actingAdminId &&
+            dbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == Roles.SuperAdmin), cancellationToken);
+        if (!allowed)
+            throw new ForbiddenException("Only a super administrator can manage user accounts.");
     }
 
     public async Task<AccountInfo?> FindByEmailAsync(string email)

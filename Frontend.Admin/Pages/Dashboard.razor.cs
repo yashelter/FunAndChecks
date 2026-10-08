@@ -2,6 +2,7 @@ using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
+using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
@@ -16,6 +17,7 @@ public partial class Dashboard
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private IDialogService Dialogs { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
     private SubjectDto? _selectedSubject;
@@ -23,6 +25,29 @@ public partial class Dashboard
     private MudDataGrid<StudentResultRowDto>? _grid;
     private bool _loading;
     private Dictionary<Guid, (int Present, int Absent, int Unmarked)>? _attendance;
+    private string AveragePoints => _results?.UserResults is { Count: > 0 } rows
+        ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
+        : "—";
+
+    private string HistoryLabel(StudentResultRowDto row, TaskHeaderDto task) =>
+        $"{row.FullName}, {task.TaskName}: {Loc[row.Results.GetValueOrDefault(task.TaskId)?.Status == SubmissionStatus.Accepted ? "Task_StatusAccepted" : "Task_StatusRejected"]}, {Loc["Dialog_History"]}";
+
+    private async Task OpenHistoryAsync(StudentResultRowDto row, TaskHeaderDto task)
+    {
+        if (_results is null || row.Results.GetValueOrDefault(task.TaskId)?.Status is not
+            (SubmissionStatus.Accepted or SubmissionStatus.Rejected))
+            return;
+
+        var parameters = new DialogParameters<ResultHistoryDialog>
+        {
+            { dialog => dialog.StudentId, row.StudentId },
+            { dialog => dialog.StudentName, row.FullName },
+            { dialog => dialog.TaskId, task.TaskId },
+            { dialog => dialog.TaskName, task.TaskName },
+        };
+        await Dialogs.ShowAsync<ResultHistoryDialog>(Loc["Dialog_History"], parameters,
+            new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Small, CloseButton = true });
+    }
 
     protected override async Task OnInitializedAsync()
     {

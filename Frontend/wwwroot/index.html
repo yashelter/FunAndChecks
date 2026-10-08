@@ -51,6 +51,7 @@
         }
         @keyframes app-slide { 0% { left: -40%; } 100% { left: 100%; } }
     </style>
+    <script src="js/dashboard-bootstrap.js"></script>
 </head>
 
 <body>
@@ -69,22 +70,6 @@
     </div>
 
     <script>
-        window.culturePreference = {
-            get: () => {
-                let stored = null;
-                try { stored = localStorage.getItem('culture_preference'); } catch { }
-                if (stored === 'en-US' || stored === 'ru-RU') return stored;
-                const languages = navigator.languages || [navigator.language || 'en-US'];
-                return languages.some(language => language && language.toLowerCase().startsWith('ru')) ? 'ru-RU' : 'en-US';
-            },
-            set: culture => {
-                if (culture !== 'en-US' && culture !== 'ru-RU') return false;
-                try { localStorage.setItem('culture_preference', culture); } catch { return false; }
-                document.documentElement.lang = culture;
-                return true;
-            }
-        };
-
         const startupCulture = window.culturePreference.get();
         document.documentElement.lang = startupCulture;
         if (startupCulture === 'ru-RU') {
@@ -116,8 +101,9 @@
             fetch('/api/loading-assets')
                 .then(r => r.ok ? r.json() : [])
                 .then(list => {
-                    const pick = Array.isArray(list) && list.length
-                        ? list[Math.floor(Math.random() * list.length)]
+                    const media = Array.isArray(list) ? list.filter(src => typeof src === 'string' && /\.(gif|mp4|webm|ogg|png|jpe?g|webp|svg|avif)$/i.test(src)) : [];
+                    const pick = media.length
+                        ? media[Math.floor(Math.random() * media.length)]
                         : fallback;
                     render(pick);
                 })
