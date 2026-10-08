@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddTransient<AuthHeaderHandler>();
         services.AddScoped<AuthService>();
         services.AddScoped<ThemeService>();
+        services.AddScoped<DashboardAppearanceService>();
         services.AddScoped<FileDownloader>();
         services.AddScoped<CultureService>();
         services.AddScoped<UnsavedChangesTracker>();

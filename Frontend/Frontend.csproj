@@ -22,6 +22,7 @@
         <ProjectReference Include="..\Frontend.Shared\Frontend.Shared.csproj" />
         <ProjectReference Include="..\Frontend.Admin\Frontend.Admin.csproj" />
         <ProjectReference Include="..\Frontend.Student\Frontend.Student.csproj" />
+        <ProjectReference Include="..\Frontend.Legacy\Frontend.Legacy.csproj" />
     </ItemGroup>
 
 </Project>

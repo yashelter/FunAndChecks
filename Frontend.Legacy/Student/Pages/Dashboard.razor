@@ -1,0 +1,24 @@
+@page "/legacy/student"
+@layout StudentLayout
+@attribute [Authorize(Roles = Roles.Student)]
+
+<PageTitle>@Loc["StudentDashboard_PageTitle"]</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["StudentDashboard_Title"]</MudText>
+
+<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
+           Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+    @foreach (var subject in _subjects)
+    {
+        <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+    }
+</MudSelect>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <SubjectResultsView Results="_results" />
+}

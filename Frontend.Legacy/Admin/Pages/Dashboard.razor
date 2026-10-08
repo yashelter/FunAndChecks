@@ -1,0 +1,78 @@
+@page "/legacy/admin"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>@Loc["Dashboard_PageTitle"]</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Dashboard_Title"]</MudText>
+
+<MudGrid Justify="Justify.SpaceBetween" Class="my-4" Style="align-items:center;">
+    <MudItem xs="12" sm="6" md="4">
+        <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
+                   Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+            @foreach (var subject in _subjects)
+            {
+                <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudDownload"
+                   OnClick="ExportXlsxAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
+            @Loc["Common_Download"]
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_results is not null)
+{
+    <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
+                 Filterable="true" Dense="true" Hover="true">
+        <Columns>
+            <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)">
+                <CellTemplate>
+                    <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
+
+            @foreach (var task in _results.TaskHeaders)
+            {
+                <TemplateColumn Title="@task.TaskName" Sortable="false">
+                    <CellTemplate>
+                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                        <div style="@CellStyle(cell)">@CellText(cell)</div>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            @foreach (var column in _results.GradeColumns)
+            {
+                <TemplateColumn Title="@column.Name" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                        {
+                            <span>@points / @column.MaxPoints</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+            @if (_attendance is not null)
+            {
+                <TemplateColumn Title="Посещаемость" Sortable="false">
+                    <CellTemplate>
+                        @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
+                        <MudLink Href="@($"/legacy/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
+                        @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+        </Columns>
+    </MudDataGrid>
+}

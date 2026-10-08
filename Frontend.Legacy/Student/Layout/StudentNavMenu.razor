@@ -1,0 +1,16 @@
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudNavMenu>
+    <MudNavLink Href="/legacy/student" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        @Loc["StudentNav_Results"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/student/queues" Icon="@Icons.Material.Filled.Groups">
+        @Loc["StudentNav_Queues"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/student/logs" Icon="@Icons.Material.Filled.History">
+        @Loc["StudentNav_History"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/student/attendance" Icon="@Icons.Material.Filled.FactCheck">
+        Посещаемость
+    </MudNavLink>
+</MudNavMenu>

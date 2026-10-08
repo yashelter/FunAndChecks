@@ -4,81 +4,82 @@
 
 <PageTitle>@Loc["MyLogs_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">@Loc["MyLogs_TitleFull"]</MudText>
-
-<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["MyLogs_SelectSubject"]"
-           Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
-    @foreach (var subject in _subjects)
-    {
-        <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
-    }
-</MudSelect>
+<div class="fc-page-heading">
+    <div><span class="fc-eyebrow">@Loc["MyLogs_PageTitle"]</span><MudText Typo="Typo.h4">@Loc["MyLogs_TitleFull"]</MudText><p class="fc-muted">@Loc["Design_StudentLogsSubtitle"]</p></div>
+</div>
+<section class="fc-panel fc-subject-filter"><div class="fc-panel-body fc-toolbar">
+    <MudSelect T="SubjectDto" Value="_selectedSubject" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["MyLogs_SelectSubject"]"
+               Variant="Variant.Outlined" Margin="Margin.Dense" ToStringFunc="@(s => s?.Name)">
+        @foreach (var subject in _subjects)
+        {
+            <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+        }
+    </MudSelect>
+</div></section>
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <div class="fc-loading"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
 }
 else if (_results is not null)
 {
-    <MudPaper Class="pa-4 mb-4">
-        <MudText Typo="Typo.h5">@Loc["MyLogs_SubjectTotal", _results.SubjectName]</MudText>
-        <MudText Typo="Typo.h6" Class="mt-1">
-            @Loc["MyLogs_TotalPoints"]
-            <MudChip T="string" Color="Color.Primary">@_results.TotalPointsEarned / @_results.MaxPointsPossible</MudChip>
-        </MudText>
-    </MudPaper>
+    <div class="fc-stats">
+        <div class="fc-stat"><span>@Loc["MyLogs_TotalPoints"]</span><strong>@_results.TotalPointsEarned <small>/ @_results.MaxPointsPossible</small></strong><small>@_results.SubjectName</small></div>
+        <div class="fc-stat"><span>@Loc["Task_StatusAccepted"]</span><strong>@_results.TaskResults.Count(t => t.CurrentStatus == SubmissionStatus.Accepted) <small>/ @_results.TaskResults.Count</small></strong><small>@Loc["MyLogs_Tasks"]</small></div>
+        <div class="fc-stat"><span>@Loc["MyLogs_Grades"]</span><strong>@_results.Grades.Count</strong><small>@Loc["MyLogs_SubjectTotal", _results.SubjectName]</small></div>
+    </div>
 
     @if (_results.Grades.Count > 0)
     {
-        <MudText Typo="Typo.h6" Class="mb-2">@Loc["MyLogs_Grades"]</MudText>
-        <MudStack Spacing="2" Class="mb-4">
-            @foreach (var grade in _results.Grades)
-            {
-                <MudPaper Outlined="true" Class="pa-3">
-                    <MudText Typo="Typo.body1"><b>@grade.Name</b>: @grade.Points / @grade.MaxPoints</MudText>
-                    @if (!string.IsNullOrWhiteSpace(grade.Comment))
-                    {
-                        <MudText Typo="Typo.body2"><i>@grade.Comment</i></MudText>
-                    }
-                </MudPaper>
-            }
-        </MudStack>
+        <section class="fc-panel mb-5">
+            <div class="fc-panel-heading"><h3>@Loc["MyLogs_Grades"]</h3></div>
+            <div class="fc-panel-body fc-grade-cards">
+                @foreach (var grade in _results.Grades)
+                {
+                    <div class="fc-grade-card">
+                        <div class="fc-toolbar"><strong>@grade.Name</strong><span class="fc-score">@grade.Points <span class="fc-muted">/ @grade.MaxPoints</span></span></div>
+                        @if (!string.IsNullOrWhiteSpace(grade.Comment))
+                        {
+                            <p>@grade.Comment</p>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
     }
 
-    <MudText Typo="Typo.h6" Class="mb-2">@Loc["MyLogs_Tasks"]</MudText>
-    <MudStack Spacing="3">
-        @foreach (var task in _results.TaskResults.OrderBy(t => t.TaskName))
-        {
-            <MudPaper Outlined="true" Class="pa-3">
-                <MudText Typo="Typo.body1"><b>@task.TaskName</b> (@task.MaxPoints @Loc["Common_PointsAbbr"])</MudText>
-                <MudText Typo="Typo.body2">
-                    @Loc["MyLogs_CurrentStatus"]
-                    <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.CurrentStatus)">
-                        @StatusText(task.CurrentStatus)
-                    </MudChip>
-                </MudText>
-
-                @if (task.SubmissionHistory is { Count: > 0 })
-                {
-                    <MudExpansionPanels Class="mt-2">
-                        <MudExpansionPanel Text="@Loc["MyLogs_ShowHistory"]">
-                            <MudList T="SubmissionLogDto" Dense="true">
-                                @foreach (var log in task.SubmissionHistory.OrderByDescending(l => l.SubmittedAt))
-                                {
-                                    <MudListItem T="SubmissionLogDto"
-                                                 Icon="@(log.Status == SubmissionStatus.Accepted ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
-                                                 IconColor="@(log.Status == SubmissionStatus.Accepted ? Color.Success : Color.Error)">
-                                        <MudText Typo="Typo.body2"><i>@log.Comment</i></MudText>
-                                        <MudText Typo="Typo.caption">
-                                            @Loc["MyLogs_CheckedBy", log.Admin.FullName, log.SubmittedAt.ToLocalTime().ToString("g")]
-                                        </MudText>
-                                    </MudListItem>
-                                }
-                            </MudList>
-                        </MudExpansionPanel>
-                    </MudExpansionPanels>
-                }
-            </MudPaper>
-        }
-    </MudStack>
+    <h3 class="fc-subsection-title">@Loc["MyLogs_Tasks"]</h3>
+    @foreach (var task in _results.TaskResults.OrderBy(t => t.TaskName))
+    {
+        <section class="fc-panel fc-task-card" @key="task.TaskId">
+            <div class="fc-panel-heading">
+                <div><h3>@task.TaskName</h3><small class="fc-muted">@task.MaxPoints @Loc["Common_PointsAbbr"]</small></div>
+                <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.CurrentStatus)" Variant="Variant.Outlined">@StatusText(task.CurrentStatus)</MudChip>
+            </div>
+            @if (task.SubmissionHistory is { Count: > 0 })
+            {
+                <MudExpansionPanels>
+                    <MudExpansionPanel Text="@Loc["MyLogs_ShowHistory"]" Expanded="@(task.CurrentStatus == SubmissionStatus.Rejected)">
+                        <div class="fc-review-history">
+                            @foreach (var log in task.SubmissionHistory.OrderByDescending(l => l.SubmittedAt))
+                            {
+                                <div class="fc-review-log">
+                                    <MudIcon Icon="@(log.Status == SubmissionStatus.Accepted ? Icons.Material.Filled.CheckCircleOutline : Icons.Material.Filled.History)" Color="@(log.Status == SubmissionStatus.Accepted ? Color.Success : Color.Warning)" />
+                                    <div>
+                                        <strong>@StatusText(log.Status)</strong>
+                                        @if (!string.IsNullOrWhiteSpace(log.Comment)) { <p>@log.Comment</p> }
+                                        <small>@Loc["MyLogs_CheckedBy", log.Admin.FullName, log.SubmittedAt.ToLocalTime().ToString("g")]</small>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+        </section>
+    }
+}
+else
+{
+    <div class="fc-panel fc-empty">@Loc["Design_ChooseSubject"]</div>
 }

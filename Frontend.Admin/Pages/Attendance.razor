@@ -4,18 +4,18 @@
 
 <PageTitle>Посещаемость · журнал</PageTitle>
 
-<div class="attendance-page">
+<div class="attendance-page fc-attendance">
     <div class="attendance-heading">
         <div>
             <span class="attendance-eyebrow">УЧЕБНЫЙ ЖУРНАЛ</span>
             <MudText Typo="Typo.h4">Посещаемость</MudText>
-            <MudText Typo="Typo.body2" Class="attendance-intro">Занятия, отметки и история группы — в одном месте.</MudText>
+            <MudText Typo="Typo.body2" Class="attendance-intro">Создайте событие, выберите группы и отметьте каждого студента.</MudText>
         </div>
         <div class="attendance-actions">
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAsync"
                        Disabled="@(_journal is null || _journal.Sessions.Count == 0 || Busy)">Скачать XLSX</MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="ToggleCreate" Disabled="@(_journal?.Enabled != true || Busy)">Добавить занятие</MudButton>
+                       OnClick="ToggleCreate" Disabled="@(_journal?.Enabled != true || Busy)">Создать событие переклички</MudButton>
         </div>
     </div>
 
@@ -41,26 +41,35 @@
         }
     </MudPaper>
 
-    @if (_creating && _journal?.Enabled == true)
+    @if (_journal?.Enabled == true)
     {
-        <MudPaper Class="attendance-panel attendance-create" Elevation="0">
-            <MudText Typo="Typo.h6">Новое занятие</MudText>
-            <MudText Typo="Typo.body2" Class="mb-4">Список подтверждённых студентов выбранных групп будет сохранён на момент создания.</MudText>
-            <div class="attendance-filters">
-                <MudTextField @bind-Value="_name" Immediate="true" Label="Название (необязательно)" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" Disabled="@Busy" />
-                <MudSelect T="int" SelectedValues="_createGroups" SelectedValuesChanged="@(v => _createGroups = v.ToList())" ToStringFunc="@(id => _groups.FirstOrDefault(g => g.Id == id)?.Name ?? "")" MultiSelection="true" Label="Группы занятия" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
-                    @foreach (var group in _groups) { <MudSelectItem T="int" Value="@group.Id">@group.Name</MudSelectItem> }
-                </MudSelect>
-                <MudDatePicker @bind-Date="_date" DateFormat="dd.MM.yyyy" Label="Дата" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
-                <MudTimePicker @bind-Time="_time" Label="Время (Москва)" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
-            </div>
-            @if (_groups.Count == 0) { <MudAlert Severity="Severity.Info" Class="mt-3">Сначала свяжите предмет с доступной группой в разделе «Управление».</MudAlert> }
-            <div class="attendance-actions mt-4">
-                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateAsync" Disabled="@(Busy || _createGroups.Count == 0 || _date is null || _time is null)">Создать и открыть перекличку</MudButton>
+        <MudDialog @bind-Visible="_creating" Options="@(new DialogOptions { FullWidth = true, MaxWidth = MaxWidth.Small, CloseButton = true })">
+            <TitleContent><MudText Typo="Typo.h6">Новое событие переклички</MudText></TitleContent>
+            <DialogContent>
+                <div class="fc-attendance-create">
+                    <MudText Typo="Typo.body2" Class="mb-4">Список подтверждённых студентов выбранных групп будет сохранён на момент создания.</MudText>
+                    <MudTextField @bind-Value="_name" Immediate="true" Label="Название (необязательно)" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" Disabled="@Busy" />
+                    <MudSelect T="int" SelectedValues="_createGroups" SelectedValuesChanged="@(v => _createGroups = v.ToList())" ToStringFunc="@(id => _groups.FirstOrDefault(g => g.Id == id)?.Name ?? "")" MultiSelection="true" Label="Группы события" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
+                        @foreach (var group in _groups) { <MudSelectItem T="int" Value="@group.Id">@group.Name</MudSelectItem> }
+                    </MudSelect>
+                    <div class="fc-attendance-create-date">
+                        <MudDatePicker @bind-Date="_date" DateFormat="dd.MM.yyyy" Label="Дата" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
+                        <MudTimePicker @bind-Time="_time" Label="Время (Москва)" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
+                    </div>
+                    @if (_groups.Count == 0) { <MudAlert Severity="Severity.Info" Class="mt-3">Сначала свяжите предмет с доступной группой в разделе «Управление».</MudAlert> }
+                </div>
+            </DialogContent>
+            <DialogActions>
                 <MudButton OnClick="@(() => _creating = false)" Disabled="@Busy">Отмена</MudButton>
-            </div>
-        </MudPaper>
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateAsync" Disabled="@(Busy || _createGroups.Count == 0 || _date is null || _time is null)">Создать и открыть перекличку</MudButton>
+            </DialogActions>
+        </MudDialog>
     }
+
+    <div class="fc-attendance-tabs" role="group" aria-label="Вид посещаемости">
+        <MudButton Class="@(_view == "events" ? "fc-attendance-tab active" : "fc-attendance-tab")" StartIcon="@Icons.Material.Filled.EventNote" OnClick="@(() => _view = "events")" aria-pressed="@(_view == "events")">События переклички</MudButton>
+        <MudButton Class="@(_view == "journal" ? "fc-attendance-tab active" : "fc-attendance-tab")" StartIcon="@Icons.Material.Filled.TableChart" OnClick="@(() => _view = "journal")" aria-pressed="@(_view == "journal")">Журнал посещаемости</MudButton>
+    </div>
 
     @if (_loading)
     {
@@ -91,6 +100,26 @@
                 <div class="attendance-stat absent"><span>Пропусков</span><strong>@_journal.Students.Sum(s => s.Absent)</strong></div>
                 <div class="attendance-stat unmarked"><span>Не отмечено</span><strong>@_journal.Students.Sum(s => s.Unmarked)</strong></div>
             </div>
+            @if (_view == "events")
+            {
+                <div class="fc-attendance-workflow"><span><b>1</b> Создать событие</span><MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /><span><b>2</b> Отметить «Есть / Нет»</span><MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /><span><b>3</b> Посмотреть журнал</span></div>
+                <div class="fc-attendance-events">
+                    @foreach (var session in _journal.Sessions.OrderByDescending(s => s.StartsAt))
+                    {
+                        var participants = _journal.Students.Where(s => s.Marks.ContainsKey(session.Id)).ToList();
+                        var present = participants.Count(s => s.Marks[session.Id] == AttendanceStatus.Present);
+                        var absent = participants.Count(s => s.Marks[session.Id] == AttendanceStatus.Absent);
+                        var unmarked = participants.Count(s => s.Marks[session.Id] == AttendanceStatus.Unmarked);
+                        <article class="fc-panel fc-attendance-event">
+                            <div class="fc-attendance-event-heading"><span class="fc-attendance-event-icon"><MudIcon Icon="@Icons.Material.Filled.CalendarToday" /></span><div><strong>@session.Name</strong><small>@_journal.SubjectName · @AttendanceStyles.Moscow(session.StartsAt).ToString("dd.MM.yyyy HH:mm") · Москва</small></div><span class="fc-attendance-event-groups">@string.Join(" · ", participants.Select(s => s.GroupName).Distinct())</span></div>
+                            <div class="fc-attendance-event-footer"><div class="attendance-legend"><span class="fc-attendance-present">✓ @present есть</span><span class="fc-attendance-absent">× @absent нет</span><span>— @unmarked не отмечены</span></div><MudButton Variant="Variant.Filled" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" OnClick="@(() => Open(session.Id))">@(unmarked > 0 ? "Продолжить перекличку" : "Открыть список")</MudButton></div>
+                        </article>
+                    }
+                </div>
+                <MudText Typo="Typo.caption" Class="mt-4 fc-muted">Учёт ведётся только для созданных событий. Занятия без переклички не считаются пропусками. Счётчики учитывают выбранную группу и период.</MudText>
+            }
+            else
+            {
             <MudPaper Class="attendance-panel" Elevation="0">
                 <div class="attendance-toolbar">
                     <MudTextField @bind-Value="_search" Immediate="true" Label="Поиск студента" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
@@ -135,6 +164,7 @@
                         <div class="attendance-history-row"><span class="@AttendanceStyles.Css(status)">@AttendanceStyles.Symbol(status)</span><div><strong>@session.Name</strong><small class="attendance-group">@AttendanceStyles.Moscow(session.StartsAt).ToString("dd.MM.yyyy HH:mm") · @AttendanceStyles.Text(status)</small></div><MudButton OnClick="@(() => Open(session.Id))">Открыть</MudButton></div>
                     }
                 </MudPaper>
+            }
             }
         }
     }

@@ -4,7 +4,7 @@
 
 <PageTitle>Перекличка · посещаемость</PageTitle>
 
-<div class="attendance-page">
+<div class="attendance-page fc-attendance">
     @if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
@@ -26,8 +26,8 @@
         </div>
         @if (!_details.Enabled) { <MudAlert Severity="Severity.Info" Class="mb-4">Учёт по предмету выключен. Журнал доступен для просмотра; включить учёт можно на странице посещаемости.</MudAlert> }
         <div class="attendance-stats">
-            <div class="attendance-stat present"><span>Присутствовали</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Present)</strong></div>
-            <div class="attendance-stat absent"><span>Отсутствовали</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Absent)</strong></div>
+            <div class="attendance-stat present"><span>Есть</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Present)</strong></div>
+            <div class="attendance-stat absent"><span>Нет</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Absent)</strong></div>
             <div class="attendance-stat unmarked"><span>Не отмечены</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Unmarked)</strong></div>
         </div>
         @if (_adding)
@@ -49,7 +49,7 @@
             <div class="attendance-toolbar">
                 <MudTextField @bind-Value="_search" Immediate="true" Label="Фамилия или группа" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
                 <MudCheckBox T="bool" @bind-Value="_onlyUnmarked" Label="Только не отмеченные" Color="Color.Primary" />
-                <MudText Typo="Typo.caption" Class="attendance-save-state" role="status">@(_busy ? "Сохраняем…" : _saveError ? "Изменение не сохранено" : "Отметки сохраняются сразу")</MudText>
+                <MudText Typo="Typo.caption" Class="attendance-save-state" role="status" aria-live="polite">@(_busy ? "Сохраняем…" : _saveError ? "Изменение не сохранено" : "Отметки сохраняются сразу")</MudText>
             </div>
             <div class="attendance-rollcall">
                 @foreach (var participant in Visible)
@@ -65,9 +65,9 @@
                             @if (!participant.CanManage) { <small>Изменение отметок этой группы вам запрещено</small> }
                         </div>
                         <div class="attendance-person-actions">
-                            <MudButton Variant="@(participant.Status == AttendanceStatus.Present ? Variant.Filled : Variant.Outlined)" Color="Color.Success" Size="Size.Small" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Present))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Присутствовал</MudButton>
-                            <MudButton Variant="@(participant.Status == AttendanceStatus.Absent ? Variant.Filled : Variant.Outlined)" Color="Color.Error" Size="Size.Small" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Absent))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Отсутствовал</MudButton>
-                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" Size="Size.Small" title="Сбросить в «Не отмечен»" aria-label="Сбросить отметку" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Unmarked))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage || participant.Status == AttendanceStatus.Unmarked)" />
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Present ? Variant.Filled : Variant.Outlined)" Color="Color.Success" Size="Size.Medium" aria-pressed="@(participant.Status == AttendanceStatus.Present)" aria-label="@($"Отметить {participant.FullName}: присутствовал")" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Present))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Есть</MudButton>
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Absent ? Variant.Filled : Variant.Outlined)" Color="Color.Error" Size="Size.Medium" aria-pressed="@(participant.Status == AttendanceStatus.Absent)" aria-label="@($"Отметить {participant.FullName}: отсутствовал")" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Absent))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage)">Нет</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" Size="Size.Small" title="Сбросить в «Не отмечен»" aria-label="@($"Сбросить отметку {participant.FullName}")" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Unmarked))" Disabled="@(_busy || !_details.Enabled || !participant.CanManage || participant.Status == AttendanceStatus.Unmarked)" />
                         </div>
                     </div>
                 }

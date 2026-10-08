@@ -1,0 +1,86 @@
+@implements IDisposable
+@inject DashboardAppearanceService Appearance
+@inject MeApi Me
+@inject CultureService Culture
+@inject AuthService Auth
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject UnsavedChangesTracker Dirty
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudThemeProvider Theme="Appearance.Theme" IsDarkMode="Appearance.IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<a class="fc-skip-link" href="@ContentAnchor">@Text("Перейти к содержимому", "Skip to content")</a>
+<div class="fc-shell @(Public ? "fc-shell-public" : "")">
+    @if (!Public)
+    {
+        @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
+        <aside class="fc-sidebar @(_mobileOpen ? "open" : "")" aria-label="@Text("Навигация", "Navigation")">
+            <a class="fc-brand" href="@(IsAdmin ? "/admin" : "/student")"><span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span><span><strong>FunAndChecks</strong><small>learn. submit. progress.</small></span></a>
+            <div class="fc-workspace"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /><div><strong>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : _group ?? Text("Кабинет студента", "Student workspace"))</strong><small>@(IsAdmin ? Loc["AdminLayout_Role"] : Text("Студент", "Student"))</small></div></div>
+            <nav class="fc-navigation" @onclick="CloseNav">@Navigation</nav>
+            <div class="fc-sidebar-bottom"><UiVersionSwitch /><button type="button" class="fc-logout" @onclick="LogoutAsync"><MudIcon Icon="@Icons.Material.Outlined.Logout" Size="Size.Small" />@Loc["App_Logout"]</button>
+                <div class="fc-account"><span class="fc-avatar">@Initials</span><div><strong>@_userName</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : _group)</small></div></div>
+            </div>
+        </aside>
+    }
+    <div class="fc-main-shell">
+        <header class="fc-topbar">
+            @if (!Public) { <MudIconButton Icon="@Icons.Material.Outlined.Menu" OnClick="ToggleNav" Class="fc-mobile-menu" aria-label="@Text("Открыть навигацию", "Open navigation")" /> }
+            @if (Public) { <a class="fc-brand" href="/"><span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span><strong>FunAndChecks</strong></a> }
+            else { <div class="fc-breadcrumb"><span>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : Text("Кабинет студента", "Student workspace"))</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" /><strong>@PageName</strong></div> }
+            <div class="fc-topbar-actions"><LangSwitcher /><MudIconButton Class="fc-theme-button" Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="OpenSettings" aria-label="@Text("Акцентный цвет", "Accent color")" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Tune" OnClick="OpenSettings" aria-label="@Text("Настройки интерфейса", "Appearance settings")" />
+            </div>
+        </header>
+        <main id="workspace-content" class="fc-main" tabindex="-1"><div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">@ChildContent</div>
+            <footer class="fc-footer"><span>FunAndChecks <span>/</span> @Text("пространство для учебного прогресса", "a workspace for learning progress")</span><span>@Text("Учебный кабинет", "Learning workspace")</span></footer>
+        </main>
+    </div>
+</div>
+<AppearanceSettings @bind-Open="_settingsOpen" />
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public bool Public { get; set; }
+    [Parameter] public RenderFragment? Navigation { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private bool _mobileOpen, _settingsOpen;
+    private string _userName = "";
+    private string? _group;
+    private string ContentAnchor => new Uri(Nav.Uri).PathAndQuery + "#workspace-content";
+    private string Initials => string.Concat(_userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
+    private string PageName
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath;
+            return path.Contains("/queues") ? Loc["AdminNav_Queues"] : path.Contains("/attendance") ? Text("Посещаемость", "Attendance") :
+                path.Contains("/management") ? Loc["AdminNav_Management"] : path.Contains("/grading") ? Loc["AdminNav_Grading"] :
+                path.Contains("/admins") ? Loc["AdminNav_Admins"] : path.Contains("/maintenance") ? Loc["AdminNav_Maintenance"] :
+                path.Contains("/logs") ? Text("История сдач", "Submission history") : Loc["AdminNav_Results"];
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        Appearance.Changed += Refresh;
+        Nav.LocationChanged += LocationChanged;
+        if (!Public)
+        {
+            try { var me = await Me.GetMeAsync(); _userName = me.FullName; _group = me.GroupName; await Culture.SynchronizeAccountCultureAsync(me.PreferredCulture); }
+            catch (ApiException) { /* The page handles data errors; the account label is optional. */ }
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender) { if (firstRender) await Appearance.InitializeAsync(); }
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    private void ToggleNav() => _mobileOpen = !_mobileOpen;
+    private void CloseNav() => _mobileOpen = false;
+    private void OpenSettings() => _settingsOpen = true;
+    private async Task LogoutAsync() { await Auth.LogoutAsync(); AuthState.NotifyAuthenticationStateChanged(); Nav.NavigateTo("/login"); }
+    private void LocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) { Dirty.ClearAll(); _mobileOpen = false; InvokeAsync(StateHasChanged); }
+    public void Dispose() { Appearance.Changed -= Refresh; Nav.LocationChanged -= LocationChanged; Dirty.ClearAll(); }
+    private static string Text(string ru, string en) => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+}

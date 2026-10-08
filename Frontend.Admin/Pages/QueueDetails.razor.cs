@@ -5,9 +5,11 @@ using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
+using System.Security.Claims;
 
 namespace Frontend.Admin.Pages;
 
@@ -17,6 +19,7 @@ public partial class QueueDetails : IAsyncDisposable
 
     [Inject] private QueuesApi Queues { get; set; } = null!;
     [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private AuthenticationStateProvider Authentication { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
@@ -26,6 +29,7 @@ public partial class QueueDetails : IAsyncDisposable
     private List<QueueParticipantDto> _participants = [];
     private bool _loading = true;
     private HubConnection? _hub;
+    private Guid? _currentAdminId;
 
     private string? _filter;
     private ParticipantSort _sort = ParticipantSort.Points;
@@ -34,6 +38,9 @@ public partial class QueueDetails : IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
+        var user = (await Authentication.GetAuthenticationStateAsync()).User;
+        if (Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value ?? user.FindFirst("nameid")?.Value, out var adminId))
+            _currentAdminId = adminId;
         await LoadAsync();
         if (_details is not null)
             await InitializeSignalRAsync();
@@ -95,6 +102,8 @@ public partial class QueueDetails : IAsyncDisposable
             .Build();
 
         _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(LoadAsync));
+        _hub.Reconnecting += _ => InvokeAsync(StateHasChanged);
+        _hub.Closed += _ => InvokeAsync(StateHasChanged);
 
         // После переподключения переподписываемся, иначе обновления перестают приходить.
         _hub.Reconnected += async _ =>
@@ -127,7 +136,8 @@ public partial class QueueDetails : IAsyncDisposable
             return;
 
         // Клик по студенту = начать приём: сразу ставим статус «Сдаёт».
-        if (participant.Status != QueueEntryStatus.Checking)
+        if (!IsReadOnly(participant) &&
+            (participant.Status != QueueEntryStatus.Checking || participant.CheckingByAdminId is null))
         {
             try
             {
@@ -153,6 +163,8 @@ public partial class QueueDetails : IAsyncDisposable
             { x => x.GroupName, participant.GroupName },
             { x => x.EventId, EventId },
             { x => x.SubjectId, _details.SubjectId },
+            { x => x.ReadOnly, IsReadOnly(participant) },
+            { x => x.StudentColor, participant.StudentColor },
         };
 
         var dialog = await DialogService.ShowAsync<StudentInteractionDialog>(
@@ -172,6 +184,19 @@ public partial class QueueDetails : IAsyncDisposable
         QueueEntryStatus.Waiting => Color.Warning,
         QueueEntryStatus.Finished => Color.Success,
         _ => Color.Default,
+    };
+
+    private bool IsReadOnly(QueueParticipantDto participant) =>
+        _currentAdminId is null ||
+        participant.Status == QueueEntryStatus.Checking &&
+        participant.CheckingByAdminId is not null && participant.CheckingByAdminId != _currentAdminId;
+
+    private static string QueueClass(QueueEntryStatus status) => status switch
+    {
+        QueueEntryStatus.Checking => "fc-queue-checking",
+        QueueEntryStatus.Skipped => "fc-queue-skipped",
+        QueueEntryStatus.Finished => "fc-queue-finished",
+        _ => "fc-queue-waiting",
     };
 
     public async ValueTask DisposeAsync()

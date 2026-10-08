@@ -16,18 +16,25 @@ public partial class PublicResults
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
+    private SubjectDto? _selectedSubject;
     private SubjectResultsDto? _results;
-    private bool _loading;
+    private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _subjects = await Subjects.GetAllAsync();
+            if (_subjects.FirstOrDefault() is { } subject)
+                await OnSubjectSelectedAsync(subject);
         }
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
@@ -36,6 +43,7 @@ public partial class PublicResults
         if (subject is null)
             return;
 
+        _selectedSubject = subject;
         _loading = true;
         _results = null;
 

@@ -1,0 +1,71 @@
+@inject DashboardAppearanceService Appearance
+
+@if (Open)
+{
+<MudDrawer Open="Open" OpenChanged="OpenChanged" Anchor="Anchor.End" Variant="DrawerVariant.Temporary"
+           Width="360px" Elevation="0" Class="fc-settings-drawer" OverlayAutoClose="true">
+    <MudFocusTrap>
+        <div class="fc-settings-header">
+            <div><h2>@Text("Внешний вид", "Appearance")</h2><p>@Text("Настройте рабочее пространство под себя", "Make this workspace yours")</p></div>
+            <MudIconButton Icon="@Icons.Material.Outlined.Close" OnClick="CloseAsync" aria-label="@Text("Закрыть настройки", "Close settings")" />
+        </div>
+        <div class="fc-settings-body">
+            <section>
+                <h3>@Text("Цветовая тема", "Color theme")</h3>
+                <div class="fc-theme-options">
+                    <button type="button" class="fc-theme-option @(Appearance.IsDarkMode ? "active" : "")" aria-pressed="@Appearance.IsDarkMode" @onclick="() => Appearance.SetThemeAsync(true)">
+                        <span class="fc-theme-preview dark"><i></i><i></i><i></i></span>@Text("Тёмная", "Dark")
+                    </button>
+                    <button type="button" class="fc-theme-option @(!Appearance.IsDarkMode ? "active" : "")" aria-pressed="@(!Appearance.IsDarkMode)" @onclick="() => Appearance.SetThemeAsync(false)">
+                        <span class="fc-theme-preview light"><i></i><i></i><i></i></span>@Text("Светлая", "Light")
+                    </button>
+                </div>
+            </section>
+            <section>
+                <h3>@Text("Акцентный цвет", "Accent color")</h3>
+                <div class="fc-accent-options" role="group" aria-label="@Text("Готовые акцентные цвета", "Accent presets")">
+                    @foreach (var preset in DashboardAppearanceService.Presets)
+                    {
+                        <button type="button" class="fc-accent-option @(Appearance.Accent == preset.Dark ? "active" : "")" aria-pressed="@(Appearance.Accent == preset.Dark)" @onclick="() => SelectPresetAsync(preset.Dark)">
+                            <span style="background:@(Appearance.IsDarkMode ? preset.Dark : preset.Light)">@(Appearance.Accent == preset.Dark ? "✓" : "")</span>@PresetName(preset.Key)
+                        </button>
+                    }
+                </div>
+                <form class="fc-custom-accent" @onsubmit="ApplyCustomAsync" @onsubmit:preventDefault="true">
+                    <label>@Text("Свой цвет", "Custom")<input type="color" value="@Appearance.Accent" @onchange="ColorPickedAsync" aria-label="@Text("Выбрать свой цвет", "Pick a custom color")" /></label>
+                    <label>HEX<input type="text" @bind="_hex" maxlength="7" pattern="#?[0-9a-fA-F]{6}" required aria-label="@Text("Свой акцент HEX", "Custom accent HEX")" /></label>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">@Text("Применить", "Apply")</MudButton>
+                </form>
+                <p class="fc-settings-hint fc-settings-saved" role="status"><MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" />@Text("Акцент сохраняется автоматически", "Accent is saved automatically")</p>
+                <p class="fc-settings-hint">@Text("Цвет кнопок, ссылок и навигации. Оттенок подстраивается под тему для читаемости.", "Buttons, links and navigation. The shade adapts to the theme for readability.")</p>
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ResetAsync" StartIcon="@Icons.Material.Outlined.RestartAlt">@Text("Сбросить акцент", "Reset accent")</MudButton>
+            </section>
+            <section>
+                <h3>@Text("Плотность таблиц", "Table density")</h3>
+                <MudSwitch T="bool" Value="Appearance.IsCompact" ValueChanged="Appearance.SetCompactAsync" Color="Color.Primary" Label="@Text("Компактный вид", "Compact view")" />
+                <p class="fc-settings-hint">@Text("Помогает видеть больше студентов на одном экране.", "See more students on one screen.")</p>
+            </section>
+            <section>
+                <h3>@Text("Цвета статусов", "Status colors")</h3>
+                <div class="fc-status-legend"><span class="success">✓ @Text("Зачтено", "Accepted")</span><span class="info">@Text("Сдаёт", "Checking")</span><span class="warning">@Text("Доработка", "Rework")</span><span class="error">@Text("Пропуск", "Skipped")</span></div>
+                <p class="fc-settings-hint">@Text("Цвета преподавателей и студентов сохраняют своё значение.", "Teacher and student colors keep their meaning.")</p>
+            </section>
+            <section><h3>@Text("Версия интерфейса", "Interface version")</h3><UiVersionSwitch /></section>
+        </div>
+    </MudFocusTrap>
+</MudDrawer>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback<bool> OpenChanged { get; set; }
+    private string _hex = "#66e4c1";
+    protected override void OnParametersSet() => _hex = Appearance.Accent.ToUpperInvariant();
+    private Task CloseAsync() => OpenChanged.InvokeAsync(false);
+    private async Task SelectPresetAsync(string hex) { await Appearance.SetAccentAsync(hex); _hex = hex.ToUpperInvariant(); }
+    private async Task ResetAsync() { await Appearance.ResetAccentAsync(); _hex = Appearance.Accent.ToUpperInvariant(); }
+    private async Task ApplyCustomAsync() { await Appearance.SetAccentAsync(_hex); _hex = Appearance.Accent.ToUpperInvariant(); }
+    private async Task ColorPickedAsync(ChangeEventArgs args) { await Appearance.SetAccentAsync(args.Value?.ToString()); _hex = Appearance.Accent.ToUpperInvariant(); }
+    private static string Text(string ru, string en) => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+    private static string PresetName(string key) => key switch { "Mint" => Text("Мятный", "Mint"), "Purple" => Text("Фиолетовый", "Purple"), "Blue" => Text("Синий", "Blue"), "Cyan" => Text("Голубой", "Cyan"), "Orange" => Text("Оранжевый", "Orange"), _ => Text("Розовый", "Pink") };
+}

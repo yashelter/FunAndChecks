@@ -159,9 +159,9 @@ public partial class Queues : IAsyncDisposable
 
     private static Color StatusColor(QueueEntryStatus status) => status switch
     {
-        QueueEntryStatus.Checking => Color.Default,
-        QueueEntryStatus.Skipped => Color.Warning,
-        QueueEntryStatus.Waiting => Color.Info,
+        QueueEntryStatus.Checking => Color.Info,
+        QueueEntryStatus.Skipped => Color.Error,
+        QueueEntryStatus.Waiting => Color.Warning,
         QueueEntryStatus.Finished => Color.Success,
         _ => Color.Error,
     };

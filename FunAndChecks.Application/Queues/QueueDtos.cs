@@ -29,7 +29,8 @@ public record QueueParticipantDto(
     string? CheckingByAdminName,
     DateTime JoinedAt,
     string? StudentColor,
-    bool CanManage);
+    bool CanManage,
+    Guid? CheckingByAdminId = null);
 
 public record QueueDetailsDto(
     int EventId,

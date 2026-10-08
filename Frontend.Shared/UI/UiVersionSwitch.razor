@@ -1,0 +1,26 @@
+@inject NavigationManager Nav
+@inject UnsavedChangesTracker Dirty
+@inject IDialogService Dialogs
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.SwapHoriz"
+           OnClick="SwitchAsync" Class="fc-version-switch">
+    @(IsLegacy ? Text("Новый интерфейс", "New interface") : Text("Старый интерфейс", "Legacy interface"))
+</MudButton>
+
+@code {
+    private bool IsLegacy => UiRoutes.IsLegacy(new Uri(Nav.Uri).AbsolutePath);
+    private static string Text(string ru, string en) => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+
+    private async Task SwitchAsync()
+    {
+        if (Dirty.IsDirty)
+        {
+            var confirmed = await Dialogs.ShowMessageBoxAsync(Loc["Culture_UnsavedTitle"], Loc["Culture_UnsavedMessage"],
+                yesText: Loc["Common_Yes"], cancelText: Loc["Common_Cancel"]);
+            if (confirmed != true) return;
+        }
+        var uri = new Uri(Nav.Uri);
+        Nav.NavigateTo(UiRoutes.OtherVersion(uri.AbsolutePath + uri.Query + uri.Fragment), forceLoad: true);
+    }
+}

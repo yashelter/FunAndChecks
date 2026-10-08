@@ -4,75 +4,88 @@
 
 <PageTitle>@Loc["Dashboard_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Dashboard_Title"]</MudText>
+<div class="fc-page-heading">
+    <div><div class="fc-eyebrow">@Loc["AdminNav_Results"]</div><MudText Typo="Typo.h4">@Loc["Dashboard_Title"]</MudText></div>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.FileDownload"
+               OnClick="ExportXlsxAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
+        @Loc["Common_Download"]
+    </MudButton>
+</div>
 
-<MudGrid Justify="Justify.SpaceBetween" Class="my-4" Style="align-items:center;">
-    <MudItem xs="12" sm="6" md="4">
-        <MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
-                   Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
-            @foreach (var subject in _subjects)
-            {
-                <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
-            }
-        </MudSelect>
-    </MudItem>
-    <MudItem>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CloudDownload"
-                   OnClick="ExportXlsxAsync" Disabled="@(_results is null || _results.UserResults.Count == 0)">
-            @Loc["Common_Download"]
-        </MudButton>
-    </MudItem>
-</MudGrid>
+<div class="fc-panel fc-toolbar fc-results-filters">
+    <MudSelect T="SubjectDto" Value="_selectedSubject" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
+               Variant="Variant.Outlined" Margin="Margin.Dense" ToStringFunc="@(s => s?.Name)">
+        @foreach (var subject in _subjects)
+        {
+            <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
+        }
+    </MudSelect>
+</div>
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <div class="fc-panel fc-core-empty" role="status"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
 }
 else if (_results is not null)
 {
-    <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
-                 Filterable="true" Dense="true" Hover="true">
-        <Columns>
-            <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)">
-                <CellTemplate>
-                    <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
-                </CellTemplate>
-            </TemplateColumn>
-            <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
-
-            @foreach (var task in _results.TaskHeaders)
-            {
-                <TemplateColumn Title="@task.TaskName" Sortable="false">
-                    <CellTemplate>
-                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
-                        <div style="@CellStyle(cell)">@CellText(cell)</div>
-                    </CellTemplate>
-                </TemplateColumn>
-            }
-
-            @foreach (var column in _results.GradeColumns)
-            {
-                <TemplateColumn Title="@column.Name" Sortable="false">
-                    <CellTemplate>
-                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
-                        {
-                            <span>@points / @column.MaxPoints</span>
-                        }
-                    </CellTemplate>
-                </TemplateColumn>
-            }
-
-            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
-            @if (_attendance is not null)
-            {
-                <TemplateColumn Title="Посещаемость" Sortable="false">
-                    <CellTemplate>
-                        @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
-                        <MudLink Href="@($"/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
-                        @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
-                    </CellTemplate>
-                </TemplateColumn>
-            }
-        </Columns>
-    </MudDataGrid>
+    <div class="fc-stats fc-results-stats">
+        <div class="fc-stat"><span>@Loc["Dashboard_Students"]</span><strong>@_results.UserResults.Count</strong><MudIcon Icon="@Icons.Material.Outlined.People" /></div>
+        <div class="fc-stat"><span>@Loc["Dashboard_Tasks"]</span><strong>@_results.TaskHeaders.Count</strong><MudIcon Icon="@Icons.Material.Outlined.Assignment" /></div>
+        <div class="fc-stat"><span>@Loc["Dashboard_Accepted"]</span><strong class="fc-semantic-success">@_results.UserResults.Sum(r => r.Results.Values.Count(c => c.Status == SubmissionStatus.Accepted))</strong><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
+        <div class="fc-stat"><span>@Loc["Dashboard_Rework"]</span><strong class="fc-semantic-warning">@_results.UserResults.Sum(r => r.Results.Values.Count(c => c.Status == SubmissionStatus.Rejected))</strong><MudIcon Icon="@Icons.Material.Outlined.History" /></div>
+    </div>
+    <section class="fc-panel fc-results-panel">
+        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@_results.SubjectName</MudText><MudText Typo="Typo.caption" Class="fc-muted">@_results.UserResults.Count @Loc["Dashboard_Students"]</MudText></div>
+        <div class="fc-table-wrap fc-results-grid">
+            <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
+                         Filterable="true" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None">
+                <Columns>
+                    <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" StickyLeft="true" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
+                        <CellTemplate><span class="fc-student-name" style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</span></CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
+                    @foreach (var task in _results.TaskHeaders)
+                    {
+                        <TemplateColumn Title="@task.TaskName" Sortable="false" CellClass="fc-results-task-column">
+                            <CellTemplate>
+                                @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                                <span class="fc-result-cell @CellClass(cell)" style="@CellStyle(cell)" title="@(cell?.Status == SubmissionStatus.Rejected ? Loc["Task_StatusRejected"] : cell?.Status == SubmissionStatus.Accepted ? Loc["Task_StatusAccepted"] : Loc["Task_StatusNotSubmitted"])">@CellText(cell)</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
+                    @foreach (var column in _results.GradeColumns)
+                    {
+                        <TemplateColumn Title="@column.Name" Sortable="false">
+                            <CellTemplate>
+                                @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                                {
+                                    <span class="fc-core-score">@points <span class="fc-muted">/ @column.MaxPoints</span></span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
+                    <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-core-score" />
+                    @if (_attendance is not null)
+                    {
+                        <TemplateColumn Title="Посещаемость" Sortable="false">
+                            <CellTemplate>
+                                @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
+                                <MudLink Href="@($"/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
+                                @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
+                </Columns>
+            </MudDataGrid>
+        </div>
+        <div class="fc-results-legend">
+            <span><i class="fc-result-cell fc-result-accepted">+</i>@Loc["Task_StatusAccepted"]</span>
+            <span><i class="fc-result-cell fc-result-unsubmitted">—</i>@Loc["Task_StatusNotSubmitted"]</span>
+            <span>@Loc["Task_StatusRejected"] · @Loc["Common_Reason"] @Loc["Dialog_History"]</span>
+        </div>
+    </section>
+}
+else
+{
+    <div class="fc-panel fc-core-empty"><MudIcon Icon="@Icons.Material.Outlined.TableChart" Size="Size.Large" /><MudText Class="fc-muted">@Loc["Dashboard_SelectHint"]</MudText></div>
 }
