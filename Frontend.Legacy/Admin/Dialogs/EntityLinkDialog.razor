@@ -1,0 +1,69 @@
+@implements IDisposable
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Options.Count == 0)
+        {
+            <MudText Class="pa-2">@Loc["LinkDialog_Empty"]</MudText>
+        }
+        else
+        {
+            <div style="max-height: 50vh; overflow-y: auto;">
+                @foreach (var option in Options)
+                {
+                    <MudCheckBox T="bool" Value="_selected.Contains(option.Id)"
+                                 ValueChanged="@(v => Toggle(option.Id, v))" Label="@option.Name" Dense="true" />
+                }
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">@Loc["Common_Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">@Loc["Common_Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    public record LinkOption(int Id, string Name);
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private Frontend.Shared.Services.UnsavedChangesTracker Dirty { get; set; } = null!;
+
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public List<LinkOption> Options { get; set; } = [];
+    [Parameter] public IReadOnlyCollection<int> SelectedIds { get; set; } = [];
+
+    private HashSet<int> _selected = [];
+    private Frontend.Shared.Services.UnsavedChangesTracker.Registration _edits = null!;
+
+    protected override void OnInitialized()
+    {
+        _edits = Dirty.Register();
+        _selected = [.. SelectedIds];
+    }
+
+    private void Toggle(int id, bool on)
+    {
+        if (on) _selected.Add(id);
+        else _selected.Remove(id);
+        _edits.MarkDirty();
+    }
+
+    private void Save()
+    {
+        _edits.MarkClean();
+        MudDialog.Close(DialogResult.Ok(_selected));
+    }
+
+    private void Cancel()
+    {
+        _edits.MarkClean();
+        MudDialog.Cancel();
+    }
+
+    public void Dispose() => _edits?.Dispose();
+}

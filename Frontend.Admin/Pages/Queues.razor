@@ -4,34 +4,33 @@
 
 <PageTitle>@Loc["Queues_PageTitleActive"]</PageTitle>
 
-<div class="d-flex justify-space-between align-center flex-wrap gap-2">
-    <MudText Typo="Typo.h4" GutterBottom="true">@Loc["Queues_Title"]</MudText>
+<div class="fc-page-heading">
+    <div><div class="fc-eyebrow">@Loc["AdminNav_Queues"]</div><MudText Typo="Typo.h4">@Loc["Queues_Title"]</MudText></div>
     <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
 </div>
 
 @if (_loading)
 {
-    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <div class="fc-panel fc-core-empty" role="status"><MudProgressCircular Color="Color.Primary" Indeterminate="true" /></div>
 }
 else if (_queues.Count == 0)
 {
-    <MudAlert Severity="Severity.Info">@Loc["Queues_Empty"]</MudAlert>
+    <div class="fc-panel fc-core-empty"><MudIcon Icon="@Icons.Material.Outlined.People" Size="Size.Large" /><MudText Class="fc-muted">@Loc["Queues_Empty"]</MudText></div>
 }
 else
 {
-    <MudGrid Spacing="3">
+    <div class="fc-admin-queue-events">
         @foreach (var queue in _queues)
         {
-            <MudItem xs="12" sm="6" md="4">
-                <MudCard Elevation="3" Style="cursor: pointer;" @onclick="@(() => Open(queue.Id))">
-                    <MudCardHeader>
-                        <CardHeaderContent><MudText Typo="Typo.h6">@queue.Name</MudText></CardHeaderContent>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <MudText>@queue.EventDateTime.ToLocalTime().ToString("g")</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
+            <article class="fc-panel fc-admin-queue-event">
+                <div class="fc-admin-queue-event-icon"><MudIcon Icon="@Icons.Material.Outlined.People" /></div>
+                <MudText Typo="Typo.h6">@queue.Name</MudText>
+                <div class="fc-muted fc-admin-queue-event-date"><MudIcon Icon="@Icons.Material.Outlined.Event" Size="Size.Small" /><time datetime="@queue.EventDateTime.ToString("O")">@queue.EventDateTime.ToLocalTime().ToString("g")</time></div>
+                <div class="fc-admin-queue-event-footer">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Outlined.ArrowForward"
+                               Href="@($"/admin/queues/{queue.Id}")">@Loc["Queues_Open"]</MudButton>
+                </div>
+            </article>
         }
-    </MudGrid>
+    </div>
 }

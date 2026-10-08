@@ -1,0 +1,82 @@
+@page "/legacy/admin/admins"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.SuperAdmin)]
+
+<PageTitle>@Loc["AdminMgmt_PageTitle"]</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">@Loc["AdminMgmt_Title"]</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="5">
+        <MudCard>
+            <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">@Loc["AdminMgmt_CreateTitle"]</MudText></CardHeaderContent></MudCardHeader>
+            <MudCardContent>
+                <MudTextField @bind-Value="_firstName" Label="@Loc["AdminMgmt_FirstNameLabel"]" Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="_lastName" Label="@Loc["AdminMgmt_LastNameLabel"]" Variant="Variant.Outlined" Class="mt-2" />
+                <MudTextField @bind-Value="_email" Label="@Loc["AdminMgmt_EmailLabel"]" Variant="Variant.Outlined" Class="mt-2" />
+                <MudTextField @bind-Value="_password" Label="@Loc["AdminMgmt_PasswordLabel"]" InputType="InputType.Password" Variant="Variant.Outlined" Class="mt-2" />
+                <MudTextField @bind-Value="_color" Label="@Loc["AdminMgmt_ColorLabel"]" Variant="Variant.Outlined" Class="mt-2" />
+                <MudTextField @bind-Value="_letter" Label="@Loc["AdminMgmt_LetterLabel"]" Variant="Variant.Outlined" Class="mt-2" />
+                <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Class="mt-2">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateAsync">@Loc["Management_CreateButton"]</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudItem>
+
+    <MudItem xs="12" md="7">
+        <MudText Typo="Typo.h6" GutterBottom="true">@Loc["AdminMgmt_ListTitle"]</MudText>
+        @if (_loading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudList T="AdminDto" ReadOnly="true">
+                @foreach (var admin in _admins)
+                {
+                    <MudPaper Outlined="true" Class="pa-3 mb-2 d-flex justify-space-between align-center">
+                        <div>
+                            <MudText><b>@admin.LastName @admin.FirstName</b></MudText>
+                            @if (!string.IsNullOrEmpty(admin.Letter))
+                            {
+                                <MudChip T="string" Size="Size.Small"
+                                         Style="@($"background-color:{admin.Color};")">@admin.Letter</MudChip>
+                            }
+                        </div>
+                        <div class="d-flex gap-1">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       OnClick="@(() => OpenAccessAsync(admin))">@Loc["Common_Access"]</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                           OnClick="@(() => DeleteAsync(admin))" />
+                        </div>
+                    </MudPaper>
+                }
+            </MudList>
+        }
+
+        @if (_accessAdmin is not null)
+        {
+            <MudPaper Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6">@Loc["AdminMgmt_RestrictionsTitle", _accessAdmin.LastName, _accessAdmin.FirstName]</MudText>
+
+                <MudText Typo="Typo.subtitle2" Class="mt-2">@Loc["AdminMgmt_SubjectsTitle"]</MudText>
+                @foreach (var s in _subjects)
+                {
+                    <MudSwitch T="bool" Color="Color.Error"
+                               Value="@_restrictedSubjects.Contains(s.Id)"
+                               ValueChanged="@(v => ToggleSubjectAsync(s.Id, v))">@s.Name @Loc["AdminMgmt_Restricted"]</MudSwitch>
+                }
+
+                <MudText Typo="Typo.subtitle2" Class="mt-2">@Loc["AdminMgmt_GroupsTitle"]</MudText>
+                @foreach (var g in _groups)
+                {
+                    <MudSwitch T="bool" Color="Color.Error"
+                               Value="@_restrictedGroups.Contains(g.Id)"
+                               ValueChanged="@(v => ToggleGroupAsync(g.Id, v))">@g.Name @Loc["AdminMgmt_Restricted"]</MudSwitch>
+                }
+            </MudPaper>
+        }
+    </MudItem>
+</MudGrid>

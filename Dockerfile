@@ -11,6 +11,7 @@ COPY ["Frontend/Frontend.csproj", "Frontend/"]
 COPY ["Frontend.Shared/Frontend.Shared.csproj", "Frontend.Shared/"]
 COPY ["Frontend.Admin/Frontend.Admin.csproj", "Frontend.Admin/"]
 COPY ["Frontend.Student/Frontend.Student.csproj", "Frontend.Student/"]
+COPY ["Frontend.Legacy/Frontend.Legacy.csproj", "Frontend.Legacy/"]
 
 # Восстанавливаем NuGet-пакеты
 RUN dotnet restore "FunAndChecks/FunAndChecks.csproj"
@@ -24,6 +25,7 @@ COPY ["Frontend/", "Frontend/"]
 COPY ["Frontend.Shared/", "Frontend.Shared/"]
 COPY ["Frontend.Admin/", "Frontend.Admin/"]
 COPY ["Frontend.Student/", "Frontend.Student/"]
+COPY ["Frontend.Legacy/", "Frontend.Legacy/"]
 
 # Публикуем основной API проект
 RUN dotnet publish "FunAndChecks/FunAndChecks.csproj" -c Release -o /app/publish /p:UseAppHost=false

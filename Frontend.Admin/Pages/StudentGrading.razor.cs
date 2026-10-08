@@ -84,12 +84,15 @@ public partial class StudentGrading
             { x => x.GroupName, null },
             { x => x.EventId, (int?)null },
             { x => x.SubjectId, _subjectId.Value },
+            { x => x.StudentColor, student.Color },
         };
 
-        await DialogService.ShowAsync<StudentInteractionDialog>(
+        var dialog = await DialogService.ShowAsync<StudentInteractionDialog>(
             Loc["Grading_DialogTitle"],
             parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+        if (await dialog.Result is { Canceled: false })
+            await SearchAsync();
     }
 
     private bool IsGroupRestricted(StudentDetailsDto student) =>

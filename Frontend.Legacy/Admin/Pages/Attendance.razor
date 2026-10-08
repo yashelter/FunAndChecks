@@ -1,0 +1,141 @@
+@page "/legacy/admin/attendance"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>Посещаемость · журнал</PageTitle>
+
+<div class="attendance-page">
+    <div class="attendance-heading">
+        <div>
+            <span class="attendance-eyebrow">УЧЕБНЫЙ ЖУРНАЛ</span>
+            <MudText Typo="Typo.h4">Посещаемость</MudText>
+            <MudText Typo="Typo.body2" Class="attendance-intro">Занятия, отметки и история группы — в одном месте.</MudText>
+        </div>
+        <div class="attendance-actions">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportAsync"
+                       Disabled="@(_journal is null || _journal.Sessions.Count == 0 || Busy)">Скачать XLSX</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="ToggleCreate" Disabled="@(_journal?.Enabled != true || Busy)">Добавить занятие</MudButton>
+        </div>
+    </div>
+
+    <MudPaper Class="attendance-panel" Elevation="0">
+        <div class="attendance-filters">
+            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")" Label="Предмет" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
+                @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
+            </MudSelect>
+            <MudSelect T="int?" @bind-Value="_groupId" Placeholder="Все группы" ToStringFunc="@(id => JournalGroups.FirstOrDefault(g => g.Id == id)?.Name ?? "Все группы")" Label="Группа" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
+                <MudSelectItem T="int?" Value="@((int?)null)">Все группы</MudSelectItem>
+                @foreach (var group in JournalGroups) { <MudSelectItem T="int?" Value="@group.Id">@group.Name</MudSelectItem> }
+            </MudSelect>
+            <MudDatePicker @bind-Date="_from" DateFormat="dd.MM.yyyy" Label="С даты" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Disabled="@Busy" />
+            <MudDatePicker @bind-Date="_to" DateFormat="dd.MM.yyyy" Label="По дату" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Disabled="@Busy" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync" Disabled="@(_subjectId is null || Busy)">Показать</MudButton>
+        </div>
+        @if (_journal is not null)
+        {
+            <div class="attendance-setting">
+                <MudSwitch T="bool" Value="_journal.Enabled" ValueChanged="SetEnabledAsync" Color="Color.Primary" Disabled="@Busy">Учитывать посещаемость по предмету</MudSwitch>
+                <MudText Typo="Typo.caption">Выключение сохраняет журнал. Даты и время занятий: Москва (UTC+3).</MudText>
+            </div>
+        }
+    </MudPaper>
+
+    @if (_creating && _journal?.Enabled == true)
+    {
+        <MudPaper Class="attendance-panel attendance-create" Elevation="0">
+            <MudText Typo="Typo.h6">Новое занятие</MudText>
+            <MudText Typo="Typo.body2" Class="mb-4">Список подтверждённых студентов выбранных групп будет сохранён на момент создания.</MudText>
+            <div class="attendance-filters">
+                <MudTextField @bind-Value="_name" Immediate="true" Label="Название (необязательно)" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" Disabled="@Busy" />
+                <MudSelect T="int" SelectedValues="_createGroups" SelectedValuesChanged="@(v => _createGroups = v.ToList())" ToStringFunc="@(id => _groups.FirstOrDefault(g => g.Id == id)?.Name ?? "")" MultiSelection="true" Label="Группы занятия" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
+                    @foreach (var group in _groups) { <MudSelectItem T="int" Value="@group.Id">@group.Name</MudSelectItem> }
+                </MudSelect>
+                <MudDatePicker @bind-Date="_date" DateFormat="dd.MM.yyyy" Label="Дата" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
+                <MudTimePicker @bind-Time="_time" Label="Время (Москва)" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy" />
+            </div>
+            @if (_groups.Count == 0) { <MudAlert Severity="Severity.Info" Class="mt-3">Сначала свяжите предмет с доступной группой в разделе «Управление».</MudAlert> }
+            <div class="attendance-actions mt-4">
+                <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="CreateAsync" Disabled="@(Busy || _createGroups.Count == 0 || _date is null || _time is null)">Создать и открыть перекличку</MudButton>
+                <MudButton OnClick="@(() => _creating = false)" Disabled="@Busy">Отмена</MudButton>
+            </div>
+        </MudPaper>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="my-4" />
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    }
+    else if (_journal is null)
+    {
+        <div class="attendance-empty"><MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Large" /><MudText Typo="Typo.h6">Выберите предмет</MudText><MudText>Здесь появится журнал посещаемости.</MudText></div>
+    }
+    else
+    {
+        @if (!_journal.Enabled)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">Учёт выключен. Включите его, чтобы создавать занятия и ставить отметки. Существующая история доступна для просмотра и скачивания.</MudAlert>
+        }
+        @if (_journal.Sessions.Count == 0)
+        {
+            <div class="attendance-empty"><MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" /><MudText Typo="Typo.h6">Пока нет учтённых занятий</MudText><MudText>Добавьте занятие, когда понадобится провести перекличку. Остальные занятия не считаются пропусками.</MudText></div>
+        }
+        else
+        {
+            <div class="attendance-stats">
+                <div class="attendance-stat present"><span>Посещений</span><strong>@_journal.Students.Sum(s => s.Present)</strong></div>
+                <div class="attendance-stat absent"><span>Пропусков</span><strong>@_journal.Students.Sum(s => s.Absent)</strong></div>
+                <div class="attendance-stat unmarked"><span>Не отмечено</span><strong>@_journal.Students.Sum(s => s.Unmarked)</strong></div>
+            </div>
+            <MudPaper Class="attendance-panel" Elevation="0">
+                <div class="attendance-toolbar">
+                    <MudTextField @bind-Value="_search" Immediate="true" Label="Поиск студента" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                    <MudCheckBox T="bool" @bind-Value="_onlyMissing" Label="Есть невыставленные отметки" Color="Color.Primary" />
+                    <MudCheckBox T="bool" @bind-Value="_sortAbsences" Label="По числу пропусков" Color="Color.Primary" />
+                </div>
+                <div class="attendance-legend"><span class="attendance-mark present">✓</span> присутствовал <span class="attendance-mark absent">✕</span> отсутствовал <span class="attendance-mark unmarked">—</span> не отмечен <span class="attendance-mark outside">·</span> не включён</div>
+                <div class="attendance-table-scroll" tabindex="0" aria-label="Журнал посещаемости, горизонтальная прокрутка">
+                    <table class="attendance-table">
+                        <caption>@_journal.SubjectName · @LoadedPeriod · @_journal.Sessions.Count занятий. Нажмите на дату для переклички, на имя — для истории. XLSX содержит всю выбранную группу за этот период.</caption>
+                        <thead><tr><th class="attendance-sticky">Студент</th>
+                            @foreach (var session in _journal.Sessions)
+                            {
+                                <th><button class="attendance-date-button" @onclick="@(() => Open(session.Id))"><strong>@AttendanceStyles.Moscow(session.StartsAt).ToString("dd.MM.yyyy")</strong><span>@session.Name</span><small>@AttendanceStyles.Moscow(session.StartsAt).ToString("HH:mm")</small></button></th>
+                            }
+                            <th>Посещений</th><th>Пропусков</th><th>Не отмечено</th>
+                        </tr></thead>
+                        <tbody>
+                            @foreach (var student in VisibleStudents)
+                            {
+                                <tr><td class="attendance-sticky"><button class="attendance-name-button" @onclick="@(() => _selectedStudent = student)">@student.FullName</button><small class="attendance-group">@student.GroupName</small></td>
+                                    @foreach (var session in _journal.Sessions)
+                                    {
+                                        var status = student.Marks.TryGetValue(session.Id, out var mark) ? (AttendanceStatus?)mark : null;
+                                        <td><button class="@AttendanceStyles.Css(status)" title="@(status.HasValue ? AttendanceStyles.Text(status.Value) : "Не включён в занятие")" aria-label="@($"{student.FullName}, {session.Name}: {(status.HasValue ? AttendanceStyles.Text(status.Value) : "Не включён в занятие")}")" @onclick="@(() => Open(session.Id))">@AttendanceStyles.Symbol(status)</button></td>
+                                    }
+                                    <td class="attendance-total">@student.Present</td><td class="attendance-total">@student.Absent</td><td class="attendance-total">@student.Unmarked</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (!VisibleStudents.Any()) { <MudText Class="pa-4">Студенты не найдены. Измените фильтр или добавьте студентов в занятие.</MudText> }
+            </MudPaper>
+            @if (_selectedStudent is not null)
+            {
+                <MudPaper Class="attendance-panel" Elevation="0">
+                    <div class="attendance-heading"><div><MudText Typo="Typo.h6">@_selectedStudent.FullName</MudText><MudText Typo="Typo.caption">История за выбранный период · @_selectedStudent.GroupName</MudText></div><MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="@(() => _selectedStudent = null)" aria-label="Закрыть историю" /></div>
+                    @foreach (var session in _journal.Sessions.Where(s => _selectedStudent.Marks.ContainsKey(s.Id)))
+                    {
+                        var status = _selectedStudent.Marks[session.Id];
+                        <div class="attendance-history-row"><span class="@AttendanceStyles.Css(status)">@AttendanceStyles.Symbol(status)</span><div><strong>@session.Name</strong><small class="attendance-group">@AttendanceStyles.Moscow(session.StartsAt).ToString("dd.MM.yyyy HH:mm") · @AttendanceStyles.Text(status)</small></div><MudButton OnClick="@(() => Open(session.Id))">Открыть</MudButton></div>
+                    }
+                </MudPaper>
+            }
+        }
+    }
+</div>

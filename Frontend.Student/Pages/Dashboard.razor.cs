@@ -15,18 +15,25 @@ public partial class Dashboard
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
+    private SubjectDto? _selectedSubject;
     private SubjectResultsDto? _results;
-    private bool _loading;
+    private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _subjects = await Me.GetMySubjectsAsync();
+            if (_subjects.FirstOrDefault() is { } subject)
+                await OnSubjectSelectedAsync(subject);
         }
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
         }
     }
 
@@ -35,6 +42,7 @@ public partial class Dashboard
         if (subject is null)
             return;
 
+        _selectedSubject = subject;
         _loading = true;
         _results = null;
 
@@ -52,13 +60,4 @@ public partial class Dashboard
         }
     }
 
-    private static string CellText(ResultCellDto? cell) =>
-        cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
-
-    private static string CellStyle(ResultCellDto? cell)
-    {
-        var background = cell?.AdminColor ?? "transparent";
-        return $"background-color:{background};text-align:center;color:black;font-weight:bold;" +
-               "text-shadow:0 0 3px rgba(255,255,255,0.7);";
-    }
 }

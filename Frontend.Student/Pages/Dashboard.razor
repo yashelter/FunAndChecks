@@ -4,21 +4,31 @@
 
 <PageTitle>@Loc["StudentDashboard_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">@Loc["StudentDashboard_Title"]</MudText>
-
-<MudSelect T="SubjectDto" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
-           Class="my-4" Variant="Variant.Outlined" ToStringFunc="@(s => s?.Name)">
+<div class="fc-page-heading">
+    <div><span class="fc-eyebrow">@Loc["StudentDashboard_PageTitle"]</span><MudText Typo="Typo.h4">@Loc["StudentDashboard_Title"]</MudText><p class="fc-muted">@Loc["Design_ResultsSubtitle"]</p></div>
+    <MudButton Href="/student/logs" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.History">@Loc["MyLogs_PageTitle"]</MudButton>
+</div>
+<section class="fc-panel fc-subject-filter">
+<div class="fc-panel-body fc-toolbar">
+<MudSelect T="SubjectDto" Value="_selectedSubject" ValueChanged="OnSubjectSelectedAsync" Label="@Loc["Common_SelectSubject"]"
+           Variant="Variant.Outlined" Margin="Margin.Dense" ToStringFunc="@(s => s?.Name)">
     @foreach (var subject in _subjects)
     {
         <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
     }
 </MudSelect>
+</div>
+</section>
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <div class="fc-loading"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
+}
+else if (_results is not null)
+{
+    <SubjectResultsView Results="_results" />
 }
 else
 {
-    <SubjectResultsView Results="_results" />
+    <div class="fc-panel fc-empty">@Loc["Design_ChooseSubject"]</div>
 }

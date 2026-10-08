@@ -1,0 +1,40 @@
+@page "/legacy/login"
+@layout AuthLayout
+
+<PageTitle>@Loc["Login_PageTitle"]</PageTitle>
+
+<MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
+    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Login_Title"]</MudText>
+
+    <MudForm @ref="_form">
+        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
+        <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
+                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]"
+                      OnKeyDown="HandleKeyDownAsync" />
+    </MudForm>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        @if (_emailNotConfirmed)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mt-2"
+                       OnClick="GoToConfirm">@Loc["Login_ConfirmEmailButton"]</MudButton>
+        }
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+               OnClick="SubmitAsync" Disabled="_busy">
+        @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+        @Loc["Login_SubmitButton"]
+    </MudButton>
+
+    <div class="d-flex justify-space-between mt-4">
+        <MudLink Href="/legacy/register">@Loc["Login_GoToRegister"]</MudLink>
+        <MudLink Href="/legacy/forgot-password">@Loc["Login_ForgotPassword"]</MudLink>
+    </div>
+    <div class="d-flex justify-center mt-2">
+        <MudLink Href="/legacy/results">@Loc["Login_ViewResults"]</MudLink>
+    </div>
+</MudPaper>

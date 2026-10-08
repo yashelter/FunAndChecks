@@ -18,6 +18,7 @@ public partial class Dashboard
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
     private List<SubjectDto> _subjects = [];
+    private SubjectDto? _selectedSubject;
     private SubjectResultsDto? _results;
     private MudDataGrid<StudentResultRowDto>? _grid;
     private bool _loading;
@@ -40,6 +41,7 @@ public partial class Dashboard
         if (subject is null)
             return;
 
+        _selectedSubject = subject;
         _loading = true;
         _results = null;
         _attendance = null;
@@ -93,8 +95,17 @@ public partial class Dashboard
 
     private static string CellStyle(ResultCellDto? cell)
     {
-        var background = cell?.AdminColor ?? "transparent";
-        return $"background-color:{background};text-align:center;color:black;font-weight:bold;" +
-               "text-shadow:0 0 3px rgba(255,255,255,0.7);";
+        if (cell is null || cell.Status == SubmissionStatus.Accepted || string.IsNullOrWhiteSpace(cell.AdminColor))
+            return string.Empty;
+
+        // The letter and its teacher's color carry information independently from the theme accent.
+        return $"background-color:{cell.AdminColor};color:{Frontend.Shared.UI.ColorUtils.ContrastText(cell.AdminColor)};";
     }
+
+    private static string CellClass(ResultCellDto? cell) => cell?.Status switch
+    {
+        SubmissionStatus.Accepted => "fc-result-accepted",
+        SubmissionStatus.Rejected => "fc-result-rework",
+        _ => "fc-result-unsubmitted",
+    };
 }

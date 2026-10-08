@@ -3,15 +3,17 @@
 
 <PageTitle>@Loc["Login_PageTitle"]</PageTitle>
 
-<MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
-    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Login_Title"]</MudText>
+<section class="fc-auth-card">
+    <AuthIntro />
+    <div class="fc-auth-form">
+    <MudText Typo="Typo.h5">@Loc["Login_Title"]</MudText>
 
     <MudForm @ref="_form">
         <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
-                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Variant="Variant.Outlined" autocomplete="email" />
         <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
                       Required="true" RequiredError="@Loc["Common_PasswordRequired"]"
-                      OnKeyDown="HandleKeyDownAsync" />
+                      OnKeyDown="HandleKeyDownAsync" Variant="Variant.Outlined" autocomplete="current-password" />
     </MudForm>
 
     @if (_error is not null)
@@ -30,11 +32,12 @@
         @Loc["Login_SubmitButton"]
     </MudButton>
 
-    <div class="d-flex justify-space-between mt-4">
+    <div class="fc-auth-links">
         <MudLink Href="/register">@Loc["Login_GoToRegister"]</MudLink>
         <MudLink Href="/forgot-password">@Loc["Login_ForgotPassword"]</MudLink>
     </div>
-    <div class="d-flex justify-center mt-2">
+    <div class="fc-auth-public-link">
         <MudLink Href="/results">@Loc["Login_ViewResults"]</MudLink>
     </div>
-</MudPaper>
+    </div>
+</section>

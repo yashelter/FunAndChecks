@@ -43,6 +43,7 @@ public static class HttpResponseExtensions
             ["student.not_enrolled"] = ("Error_StudentNotEnrolled", ["subjectId"]),
             ["queue.autofill_group_not_enrolled"] = ("Error_AutofillGroupNotEnrolled", ["groupIds"]),
             ["queue.already_joined"] = ("Error_AlreadyInQueue", []),
+            ["queue.checked_by_other"] = ("Error_QueueCheckedByOther", []),
             ["account.email_taken"] = ("Error_EmailTaken", []),
             ["groups.name_taken"] = ("Error_GroupNameTaken", []),
             ["subjects.name_taken"] = ("Error_SubjectNameTaken", []),

@@ -5,9 +5,16 @@
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="_additionalAssemblies">
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@DefaultLayout">
                 <NotAuthorized>
-                    <RedirectToLogin />
+                    @if (IsLegacy)
+                    {
+                        <Frontend.Legacy.Site.Layout.RedirectToLogin />
+                    }
+                    else
+                    {
+                        <RedirectToLogin />
+                    }
                 </NotAuthorized>
                 <Authorizing>
                     <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
@@ -16,7 +23,7 @@
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
         <NotFound>
-            <LayoutView Layout="@typeof(MainLayout)">
+            <LayoutView Layout="@DefaultLayout">
                 <MudText Typo="Typo.h6" Class="ma-8">@Loc["App_PageNotFound"]</MudText>
             </LayoutView>
         </NotFound>
@@ -25,6 +32,10 @@
 
 @code {
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+
+    private bool IsLegacy => UiRoutes.IsLegacy(new Uri(Nav.Uri).AbsolutePath);
+    private Type DefaultLayout => IsLegacy ? typeof(Frontend.Legacy.Site.Layout.MainLayout) : typeof(MainLayout);
 
     // Маршруты собираются из общих (вход/регистрация), админских и студенческих страниц.
     private readonly Assembly[] _additionalAssemblies =
@@ -32,5 +43,6 @@
         typeof(Frontend.Shared.Pages.Login).Assembly,
         typeof(Frontend.Admin.AdminAssemblyMarker).Assembly,
         typeof(Frontend.Student.StudentAssemblyMarker).Assembly,
+        typeof(Frontend.Legacy.LegacyAssemblyMarker).Assembly,
     ];
 }

@@ -4,20 +4,21 @@
 
 <PageTitle>@Loc["Grading_PageTitle"]</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">@Loc["Grading_Title"]</MudText>
+<div class="fc-page-heading"><div><div class="fc-eyebrow">@Loc["AdminNav_Grading"]</div><MudText Typo="Typo.h4">@Loc["Grading_Title"]</MudText></div></div>
 
-<MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="SearchAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
-           Placeholder="@Loc["Grading_SelectSubject"]" Class="mb-3" Style="max-width: 360px;">
-    @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
-</MudSelect>
-
-<MudTextField @bind-Value="_query" Label="@Loc["Grading_SearchLabel"]" Variant="Variant.Outlined"
-              Immediate="true" DebounceInterval="300" OnDebounceIntervalElapsed="SearchAsync"
-              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+<div class="fc-panel fc-toolbar fc-grading-filters">
+    <MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="SearchAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
+               Placeholder="@Loc["Grading_SelectSubject"]" Margin="Margin.Dense">
+        @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
+    </MudSelect>
+    <MudTextField @bind-Value="_query" Label="@Loc["Grading_SearchLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                  Immediate="true" DebounceInterval="300" OnDebounceIntervalElapsed="SearchAsync"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Clearable="true" />
+</div>
 
 @if (_subjectId is null)
 {
-    <MudAlert Severity="Severity.Info" Class="mt-3">@Loc["Grading_SelectSubjectHint"]</MudAlert>
+    <div class="fc-panel fc-core-empty"><MudIcon Icon="@Icons.Material.Outlined.PersonSearch" Size="Size.Large" /><MudText Class="fc-muted">@Loc["Grading_SelectSubjectHint"]</MudText></div>
 }
 else if (_searching)
 {
@@ -25,31 +26,31 @@ else if (_searching)
 }
 else if (_results.Count > 0)
 {
-    <MudList T="StudentDetailsDto" Class="mt-2">
+    <section class="fc-panel fc-grading-list">
+        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@Loc["AdminNav_Grading"]</MudText><MudText Typo="Typo.caption" Class="fc-muted">@_results.Count</MudText></div>
         @foreach (var student in _results)
         {
-            <MudListItem T="StudentDetailsDto" Disabled="@IsGroupRestricted(student)" OnClick="@(() => OpenAsync(student))">
-                <div class="d-flex justify-space-between align-center flex-grow-1">
-                    <span style="@QueueStyles.NameStyle(student.Color)">@student.LastName @student.FirstName</span>
-                    <div class="d-flex align-center gap-2">
-                        <MudText Typo="Typo.caption">@student.Email</MudText>
-                        @if (IsGroupRestricted(student))
-                        {
-                            <MudText Typo="Typo.caption">@Loc["Common_GradingRestricted"]</MudText>
-                        }
-                        <AuthorizeView Roles="@Roles.SuperAdmin">
-                            <Authorized>
-                                <span @onclick:stopPropagation="true"><MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@((e) => EditAsync(student))" /></span>
-                            </Authorized>
-                        </AuthorizeView>
-                    </div>
+            <article class="fc-grading-row">
+                <div class="fc-grading-identity">
+                    <span class="fc-student-name" style="@QueueStyles.NameStyle(student.Color)">@student.LastName @student.FirstName</span>
+                    <MudText Typo="Typo.caption" Class="fc-muted">@student.Email</MudText>
+                    @if (IsGroupRestricted(student))
+                    {
+                        <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText>
+                    }
                 </div>
-            </MudListItem>
-            <MudDivider />
+                <div class="fc-grading-actions">
+                    <AuthorizeView Roles="@Roles.SuperAdmin">
+                        <Authorized><MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" OnClick="@((e) => EditAsync(student))" aria-label="@Loc["StudentGrading_EditProfileTitle"]" /></Authorized>
+                    </AuthorizeView>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@IsGroupRestricted(student)"
+                               OnClick="@(() => OpenAsync(student))">@Loc["QueueDetails_Review"]</MudButton>
+                </div>
+            </article>
         }
-    </MudList>
+    </section>
 }
 else
 {
-    <MudText Class="mt-3">@Loc["Grading_NoStudents"]</MudText>
+    <div class="fc-panel fc-core-empty"><MudText Class="fc-muted">@Loc["Grading_NoStudents"]</MudText></div>
 }

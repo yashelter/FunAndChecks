@@ -27,6 +27,7 @@ public partial class Attendance
     private DateOnly? _loadedFrom, _loadedTo;
     private bool _loading = true, _working, _creating, _onlyMissing, _sortAbsences;
     private string _search = "", _name = "";
+    private string _view = "events";
     private string? _error;
     private DateTime? _date = AttendanceStyles.Moscow(DateTime.UtcNow).Date;
     private TimeSpan? _time = new(10, 0, 0);
@@ -100,6 +101,7 @@ public partial class Attendance
             {
                 _selectedStudent = _journal.Students.FirstOrDefault(s => s.StudentId == StudentId);
                 _search = _selectedStudent?.FullName ?? "";
+                if (_selectedStudent is not null) _view = "journal";
             }
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException) { _error = ex.Message; }

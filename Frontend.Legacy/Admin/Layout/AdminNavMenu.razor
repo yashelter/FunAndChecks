@@ -1,0 +1,27 @@
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudNavMenu>
+    <MudNavLink Href="/legacy/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        @Loc["AdminNav_Results"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/admin/management" Icon="@Icons.Material.Filled.LibraryBooks">
+        @Loc["AdminNav_Management"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/admin/queues" Icon="@Icons.Material.Filled.Groups">
+        @Loc["AdminNav_Queues"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/admin/grading" Icon="@Icons.Material.Filled.School">
+        @Loc["AdminNav_Grading"]
+    </MudNavLink>
+    <MudNavLink Href="/legacy/admin/attendance" Icon="@Icons.Material.Filled.FactCheck">
+        Посещаемость
+    </MudNavLink>
+    <AuthorizeView Roles="@Roles.SuperAdmin">
+        <MudNavLink Href="/legacy/admin/admins" Icon="@Icons.Material.Filled.AdminPanelSettings">
+            @Loc["AdminNav_Admins"]
+        </MudNavLink>
+        <MudNavLink Href="/legacy/admin/maintenance" Icon="@Icons.Material.Filled.Warning">
+            @Loc["AdminNav_Maintenance"]
+        </MudNavLink>
+    </AuthorizeView>
+</MudNavMenu>

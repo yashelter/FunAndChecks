@@ -1,0 +1,37 @@
+@page "/legacy/admin/queues"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>@Loc["Queues_PageTitleActive"]</PageTitle>
+
+<div class="d-flex justify-space-between align-center flex-wrap gap-2">
+    <MudText Typo="Typo.h4" GutterBottom="true">@Loc["Queues_Title"]</MudText>
+    <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
+</div>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_queues.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">@Loc["Queues_Empty"]</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var queue in _queues)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="cursor: pointer;" @onclick="@(() => Open(queue.Id))">
+                    <MudCardHeader>
+                        <CardHeaderContent><MudText Typo="Typo.h6">@queue.Name</MudText></CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText>@queue.EventDateTime.ToLocalTime().ToString("g")</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}

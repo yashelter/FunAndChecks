@@ -5,101 +5,106 @@
 
 <PageTitle>@Loc["StudentQueues_PageTitle"]</PageTitle>
 
-<div class="d-flex justify-space-between align-center flex-wrap gap-2">
-    <MudText Typo="Typo.h4" GutterBottom="true">@Loc["StudentQueues_Title"]</MudText>
+<div class="fc-page-heading">
+    <div>
+        <span class="fc-eyebrow">@Loc["StudentQueues_PageTitle"]</span>
+        <MudText Typo="Typo.h4">@(_details is null ? Loc["StudentQueues_Title"] : _details.EventName)</MudText>
+        <p class="fc-muted">@(_details is null ? Loc["Design_QueueSubtitle"] : $"{_details.SubjectName} · {_details.EventDateTime.ToLocalTime():g}")</p>
+    </div>
     @if (_details is null)
     {
         <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="BackToList">@Loc["StudentQueues_Title"]</MudButton>
     }
 </div>
 
 @if (_loading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <div class="fc-loading"><MudProgressCircular Indeterminate="true" Color="Color.Primary" /></div>
 }
 else if (_details is not null)
 {
-    <div class="d-flex align-center mb-4">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="BackToList" Edge="Edge.Start" />
-        <MudText Typo="Typo.h5" Class="ml-2">@Loc["StudentQueues_QueueTitle", _details.EventName]</MudText>
+    <div class="fc-stats">
+        <div class="fc-stat"><span>@Loc["Queue_StatusChecking"]</span><strong>@_participants.Count(p => p.Status == QueueEntryStatus.Checking)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusWaiting"]</span><strong>@_participants.Count(p => p.Status == QueueEntryStatus.Waiting)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusFinished"]</span><strong>@_participants.Count(p => p.Status == QueueEntryStatus.Finished)</strong></div>
     </div>
-
-    <MudList T="QueueParticipantDto" ReadOnly="true" Class="queue-participants">
-        @foreach (var p in _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status)).ThenByDescending(x => x.TotalPoints))
-        {
-            <MudListItem T="QueueParticipantDto" Style="@QueueStyles.RowStyle(p.Status)">
-                <div class="queue-participant-row">
-                    <span class="queue-participant-name" style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
-                    <div class="queue-participant-details">
-                        <MudText Class="queue-participant-points">@Loc["StudentQueues_Points", p.TotalPoints]</MudText>
-                        <MudChip T="string" Class="queue-participant-status" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                            @QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)
-                        </MudChip>
-                    </div>
-                </div>
-            </MudListItem>
-            <MudDivider />
-        }
-    </MudList>
+    <div class="fc-queue-note"><MudIcon Icon="@Icons.Material.Filled.Sync" Size="Size.Small" /><span>@Loc["Design_QueueLive"]</span></div>
+    @if (_participants.Any(p => p.Status == QueueEntryStatus.Checking && !string.IsNullOrWhiteSpace(p.CheckingByAdminName)))
+    {
+        <div class="fc-queue-note">
+            <span>@Loc["Design_Reviewers"]:</span>
+            <div class="fc-queue-reviewers">
+                @foreach (var name in _participants.Where(p => p.Status == QueueEntryStatus.Checking).Select(p => p.CheckingByAdminName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct())
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info">@name</MudChip>
+                }
+            </div>
+        </div>
+    }
+    <section class="fc-panel">
+        <div class="fc-table-wrap">
+            <table class="fc-queue-table">
+                <thead><tr><th>@Loc["Results_ColName"]</th><th>@Loc["Results_ColGroup"]</th><th>@Loc["MyLogs_TotalPoints"]</th><th>@Loc["MyLogs_CurrentStatus"]</th></tr></thead>
+                <tbody>
+                    @foreach (var p in _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status)).ThenByDescending(x => x.TotalPoints))
+                    {
+                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.StudentId">
+                            <td><span class="fc-result-name" style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span></td>
+                            <td class="fc-queue-group">@p.GroupName</td>
+                            <td class="fc-queue-points">@p.TotalPoints</td>
+                            <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
 }
 else
 {
-    <MudStack Spacing="4">
-        <div>
-            <MudText Typo="Typo.h5" GutterBottom="true">@Loc["StudentQueues_MyQueues"]</MudText>
-            @if (_myEvents.Count > 0)
+    <h3 class="fc-subsection-title">@Loc["StudentQueues_MyQueues"]</h3>
+    @if (_myEvents.Count > 0)
+    {
+        <div class="fc-queue-events">
+            @foreach (var ev in _myEvents)
             {
-                <MudStack Spacing="2">
-                    @foreach (var ev in _myEvents)
-                    {
-                        <MudPaper Class="pa-3 d-flex justify-space-between align-center" Outlined="true">
-                            <div>
-                                <MudText Typo="Typo.body1"><b>@ev.Name</b></MudText>
-                                <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
-                            </div>
-                            <MudButton Variant="Variant.Text" Color="Color.Primary"
-                                       OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
-                        </MudPaper>
-                    }
-                </MudStack>
-            }
-            else
-            {
-                <MudText>@Loc["StudentQueues_NoMyQueues"]</MudText>
+                <section class="fc-panel fc-queue-event" @key="ev.Id">
+                    <div><MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" /><div><strong>@ev.Name</strong><small>@ev.EventDateTime.ToLocalTime().ToString("g")</small></div></div>
+                    <div class="fc-toolbar"><MudButton Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton></div>
+                </section>
             }
         </div>
+    }
+    else
+    {
+        <div class="fc-panel fc-empty">@Loc["StudentQueues_NoMyQueues"]</div>
+    }
 
-        <MudDivider />
-
-        <div>
-            <MudText Typo="Typo.h5" GutterBottom="true">@Loc["StudentQueues_Available"]</MudText>
-            @if (_availableEvents.Count > 0)
+    <h3 class="fc-subsection-title">@Loc["StudentQueues_Available"]</h3>
+    @if (_availableEvents.Count > 0)
+    {
+        <div class="fc-queue-events">
+            @foreach (var ev in _availableEvents)
             {
-                <MudStack Spacing="2">
-                    @foreach (var ev in _availableEvents)
-                    {
-                        <MudPaper Class="pa-3 d-flex justify-space-between align-center" Outlined="true">
-                            <div>
-                                <MudText Typo="Typo.body1"><b>@ev.Name</b></MudText>
-                                <MudText Typo="Typo.caption">@ev.EventDateTime.ToLocalTime().ToString("g")</MudText>
-                            </div>
-                            <div class="d-flex gap-1">
-                                <MudButton Variant="Variant.Text" Color="Color.Primary"
-                                           OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
-                                @if (ev.AllowSelfJoin)
-                                {
-                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                               OnClick="@(() => JoinAsync(ev.Id))">@Loc["StudentQueues_SignUp"]</MudButton>
-                                }
-                            </div>
-                        </MudPaper>
-                    }
-                </MudStack>
-            }
-            else
-            {
-                <MudText>@Loc["StudentQueues_NoAvailable"]</MudText>
+                <section class="fc-panel fc-queue-event" @key="ev.Id">
+                    <div><MudIcon Icon="@Icons.Material.Filled.EventNote" /><div><strong>@ev.Name</strong><small>@ev.EventDateTime.ToLocalTime().ToString("g")</small></div></div>
+                    <div class="fc-toolbar">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
+                        @if (ev.AllowSelfJoin)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => JoinAsync(ev.Id))">@Loc["StudentQueues_SignUp"]</MudButton>
+                        }
+                    </div>
+                </section>
             }
         </div>
-    </MudStack>
+    }
+    else
+    {
+        <div class="fc-panel fc-empty">@Loc["StudentQueues_NoAvailable"]</div>
+    }
 }

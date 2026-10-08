@@ -1,0 +1,128 @@
+/* Current admin views. Semantic colors are independent from the customizable Primary. */
+.fc-core-empty{min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:36px 22px;text-align:center}
+.fc-core-empty>.mud-icon-root{color:var(--mud-palette-text-secondary)}
+.fc-core-panel-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:20px 22px;border-bottom:1px solid var(--mud-palette-lines-default)}
+.fc-core-panel-heading .mud-typography-h6{font-size:16px;font-weight:650}
+.fc-semantic-success{color:var(--mud-palette-success)}
+.fc-semantic-warning{color:var(--mud-palette-warning)}
+.fc-semantic-info{color:var(--mud-palette-info)}
+.fc-semantic-error{color:var(--mud-palette-error)}
+.fc-student-name{font-weight:600;display:inline-block;overflow-wrap:anywhere}
+.fc-core-score{font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fc-results-filters{margin-bottom:22px}
+.fc-results-filters>.mud-input-control{flex:1;max-width:420px}
+.fc-results-stats,.fc-queue-stats{margin-bottom:22px}
+.fc-results-stats .fc-stat,.fc-queue-stats .fc-stat{position:relative}
+.fc-results-stats .fc-stat>.mud-icon-root{position:absolute;right:18px;top:18px;color:var(--mud-palette-text-disabled);width:19px;height:19px}
+.fc-results-panel{min-width:0;overflow:hidden}
+.fc-results-grid .mud-table-root{white-space:nowrap}
+.fc-results-grid .fc-results-name-column{position:sticky;left:0;min-width:210px;max-width:260px;background:var(--mud-palette-surface);border-right:1px solid var(--mud-palette-lines-default);z-index:1;white-space:normal}
+.fc-results-grid thead .fc-results-name-column{z-index:3;background:var(--mud-palette-background)}
+.fc-results-grid .fc-results-task-column{text-align:center}
+.fc-result-cell.fc-result-accepted{background:rgba(var(--mud-palette-success-rgb),.12);color:var(--mud-palette-success);border-color:transparent}
+.fc-result-cell.fc-result-rework{background:rgba(var(--mud-palette-warning-rgb),.12);color:var(--mud-palette-warning);border-color:transparent}
+.fc-result-cell.fc-result-unsubmitted{color:var(--mud-palette-text-disabled);border-color:var(--mud-palette-lines-default);font-weight:500}
+.fc-admin-queue-events{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.fc-admin-queue-event{padding:22px;display:flex;flex-direction:column;gap:17px;min-width:0}
+.fc-admin-queue-event .mud-typography-h6{font-size:17px;overflow-wrap:anywhere}
+.fc-admin-queue-event-icon{width:40px;height:40px;border-radius:9px;background:rgba(var(--mud-palette-primary-rgb),.1);color:var(--mud-palette-primary);display:flex;align-items:center;justify-content:center}
+.fc-admin-queue-event-date{display:flex;align-items:center;gap:8px;font-size:13px}
+.fc-admin-queue-event-footer{padding-top:17px;border-top:1px solid var(--mud-palette-lines-default);margin-top:auto}
+.fc-admin-queue-event-footer .mud-button-root{width:100%}
+.fc-core-back{margin-bottom:10px;font-size:12px}
+.fc-core-back .mud-link{display:inline-flex;align-items:center;gap:8px}
+.fc-reviewers{padding:19px 22px;margin-bottom:22px}
+.fc-reviewer-list{display:flex;flex-wrap:wrap;gap:18px 28px;margin-top:14px}
+.fc-reviewer{display:flex;align-items:center;gap:10px;min-width:0}
+.fc-reviewer>.mud-icon-root{color:var(--mud-palette-info)}
+.fc-reviewer strong{font-size:12px;font-weight:600}
+.fc-reviewer small{display:block;color:var(--mud-palette-text-secondary);font-size:11px;margin-top:3px}
+.fc-queue-filters,.fc-grading-filters{margin-bottom:22px}
+.fc-queue-filters>.mud-input-control,.fc-grading-filters>.mud-input-control{flex:1 1 240px;max-width:400px}
+.fc-queue-participants{overflow:hidden}
+.fc-queue-person{display:grid;grid-template-columns:minmax(150px,1.2fr) 76px minmax(140px,1fr) auto;align-items:center;gap:22px;padding:20px 22px;border-bottom:1px solid var(--mud-palette-lines-default);border-left:3px solid transparent;min-width:0}
+.fc-queue-person:last-child{border-bottom:0}
+.fc-queue-checking{background:rgba(var(--mud-palette-info-rgb),.09);border-left-color:var(--mud-palette-info)}
+.fc-queue-skipped{background:rgba(var(--mud-palette-error-rgb),.09);border-left-color:var(--mud-palette-error)}
+.fc-queue-finished{background:rgba(var(--mud-palette-success-rgb),.09);border-left-color:var(--mud-palette-success)}
+.fc-queue-waiting{background:var(--mud-palette-surface)}
+.fc-queue-person-identity{min-width:0}
+.fc-queue-person-identity .mud-typography-caption{display:block;margin-top:5px}
+.fc-queue-person-score{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fc-queue-person-score strong{display:block;font-size:20px;font-weight:650}
+.fc-queue-person-score span{font-size:10px;color:var(--mud-palette-text-secondary)}
+.fc-queue-person-status{min-width:0}
+.fc-queue-person-status .mud-chip-content{white-space:normal;line-height:1.6}
+.fc-grading-row{display:flex;align-items:center;gap:22px;justify-content:space-between;padding:19px 22px;border-bottom:1px solid var(--mud-palette-lines-default)}
+.fc-grading-row:last-child{border-bottom:0}
+.fc-grading-identity{min-width:0;flex:1}
+.fc-grading-identity>.mud-typography-caption{display:block;margin-top:5px;overflow-wrap:anywhere}
+.fc-grading-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.fc-interaction-dialog .mud-dialog-content{padding-top:8px}
+.fc-interaction-title .mud-typography-caption{display:block;margin-top:4px}
+.fc-interaction-tabs .mud-tabs-panels{padding-top:20px}
+.fc-interaction-task-list,.fc-interaction-grade-list{display:flex;flex-direction:column;gap:13px}
+.fc-interaction-dialog .fc-task-card{border:1px solid var(--mud-palette-lines-default);border-radius:9px;padding:17px;margin:0}
+.fc-task-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.fc-task-card-heading>div{min-width:0;overflow-wrap:anywhere}
+.fc-task-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px}
+.fc-task-actions>.mud-button-text{margin-left:auto}
+.fc-task-history{margin-top:16px;padding-top:16px;border-top:1px solid var(--mud-palette-lines-default);display:flex;flex-direction:column;gap:17px}
+.fc-task-history-entry{display:flex;align-items:flex-start;gap:11px}
+.fc-task-history-entry>div{min-width:0;flex:1}
+.fc-teacher-letter{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--mud-palette-lines-default);border-radius:6px;min-width:28px;height:28px;font-weight:650;font-size:12px;background:var(--mud-palette-background)}
+.fc-task-history-meta{display:flex;align-items:center;gap:7px 12px;flex-wrap:wrap;font-size:11px}
+.fc-task-history-meta strong{font-weight:600}
+.fc-task-history-meta time{color:var(--mud-palette-text-secondary)}
+.fc-task-history-meta .mud-chip{margin:0}
+.fc-task-comment{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:7px;color:var(--mud-palette-text-secondary);line-height:1.7;font-size:13px}
+.fc-interaction-dialog .fc-grade-card{display:flex;align-items:center;gap:20px;justify-content:space-between;border:1px solid var(--mud-palette-lines-default);border-radius:9px;padding:17px}
+.fc-grade-card-info{min-width:0}
+.fc-grade-card-info>.mud-typography-caption{display:block;margin-top:4px}
+.fc-grade-input{display:flex;align-items:center;gap:10px}
+.fc-grade-input>.mud-input-control{width:100px}
+.fc-student-color-editor{padding:4px 0}
+.fc-color-presets{display:flex;gap:10px;flex-wrap:wrap}
+.fc-color-student-preview{display:flex;gap:15px;align-items:center;flex-wrap:wrap;padding:16px;border:1px solid var(--mud-palette-lines-default);border-radius:8px}
+.fc-student-color-editor .mud-picker-inline{max-width:100%}
+.fc-interaction-footer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}
+.fc-interaction-close{margin-left:auto}
+.fc-entity-links{display:flex;flex-direction:column;gap:6px;max-height:50dvh;overflow-y:auto;padding:2px}
+.fc-entity-links .mud-checkbox{width:100%;border:1px solid var(--mud-palette-lines-default);border-radius:8px;padding:7px}
+.fc-edit-student-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fc-edit-student-fields>.mud-input-control:nth-child(n+3){grid-column:1/-1}
+@media(max-width:1100px){.fc-admin-queue-events{grid-template-columns:repeat(2,minmax(0,1fr))}.fc-queue-person{grid-template-columns:minmax(130px,1fr) 60px minmax(130px,1fr);gap:16px}.fc-queue-person-action{grid-column:1/-1}.fc-queue-person-action .mud-button-root{min-height:40px}}
+@media(max-width:680px){
+.fc-core-panel-heading{padding:16px}
+.fc-results-filters>.mud-input-control{max-width:none}
+.fc-results-grid .fc-results-name-column{min-width:145px;max-width:170px;font-size:12px}
+.fc-admin-queue-events{grid-template-columns:1fr;gap:14px}
+.fc-admin-queue-event{padding:18px}
+.fc-reviewers{padding:17px}
+.fc-reviewer-list{gap:14px}
+.fc-queue-filters>.mud-input-control,.fc-grading-filters>.mud-input-control{max-width:none;flex-basis:100%}
+.fc-queue-person{grid-template-columns:minmax(0,1fr) 56px;padding:18px 15px;gap:12px}
+.fc-queue-person-status,.fc-queue-person-action{grid-column:1/-1}
+.fc-queue-person-status .mud-chip{margin:0}
+.fc-queue-person-action .mud-button-root{width:100%;min-height:44px}
+.fc-grading-row{align-items:flex-start;flex-wrap:wrap;padding:17px}
+.fc-grading-actions{width:100%;justify-content:flex-end}
+.fc-grading-actions>.mud-button-root{flex:1;min-height:44px}
+.fc-interaction-dialog .mud-dialog-content{padding:12px 15px}
+.fc-interaction-dialog .mud-dialog-title{padding:18px 15px 12px}
+.fc-interaction-dialog .fc-task-card{padding:14px}
+.fc-interaction-tabs .mud-tab{min-width:0;padding:12px 10px;font-size:12px}
+.fc-interaction-tabs .mud-tab .mud-icon-root{width:18px;margin-right:5px}
+.fc-task-card-heading{flex-wrap:wrap;gap:7px}
+.fc-task-actions>.mud-button-root{flex:1;min-height:42px}
+.fc-task-actions>.mud-button-text{flex-basis:100%;margin-left:0}
+.fc-interaction-dialog .fc-grade-card{display:block;padding:14px}
+.fc-grade-input{margin-top:14px}
+.fc-grade-input>.mud-input-control{width:auto;flex:1}
+.fc-grade-input>.mud-button-root{min-height:42px}
+.fc-interaction-footer>.mud-button-root{flex:1;min-height:44px;font-size:12px;padding:8px}
+.fc-interaction-close{flex-basis:100%!important;margin-left:0}
+.fc-color-presets>.mud-button-root{flex:1;min-height:44px}
+.fc-edit-student-fields{grid-template-columns:1fr;gap:14px}
+.fc-edit-student-fields>.mud-input-control{grid-column:1/-1}
+}

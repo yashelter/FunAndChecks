@@ -1,12 +1,12 @@
-<MudDialog @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
+<MudDialog Class="fc-comment-dialog" @oninput="_edits.MarkDirty" @onchange="_edits.MarkDirty">
     <TitleContent>
         <MudText Typo="Typo.h6">@Loc["CommentDialog_ReworkTitle"]</MudText>
     </TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_comment" Label="@Loc["CommentDialog_ReworkLabel"]" Variant="Variant.Outlined" Lines="3" />
+        <MudTextField @bind-Value="_comment" Label="@Loc["CommentDialog_ReworkLabel"]" Variant="Variant.Outlined" Lines="4" AutoFocus="true" />
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel">@Loc["Common_Cancel"]</MudButton>
-        <MudButton Color="Color.Primary" OnClick="Submit">@Loc["CommentDialog_Submit"]</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit">@Loc["CommentDialog_Submit"]</MudButton>
     </DialogActions>
 </MudDialog>

@@ -72,6 +72,7 @@ public class QueueService(
             await accessService.EnsureSubjectAllowedAsync(adminId.Value, queueEvent.SubjectId, cancellationToken);
 
         var entries = await db.QueueEntries
+            .AsNoTracking()
             .Where(p => p.QueueEventId == eventId)
             .OrderBy(p => p.JoinedAt)
             .Select(p => new
@@ -81,7 +82,8 @@ public class QueueService(
                 p.Student.LastName,
                 GroupName = p.Student.Group != null ? p.Student.Group.Name : "N/A",
                 p.Status,
-                AdminName = p.CurrentAdmin != null ? p.CurrentAdmin.FirstName : null,
+                AdminName = p.Status == QueueEntryStatus.Checking && p.CurrentAdmin != null ? p.CurrentAdmin.FullName : null,
+                CheckingByAdminId = p.Status == QueueEntryStatus.Checking ? p.CurrentAdminId : null,
                 p.JoinedAt,
                 p.Student.Color,
                 CanManage = adminId.HasValue && !db.AdminGroupAccesses.Any(a =>
@@ -126,7 +128,8 @@ public class QueueService(
                 e.AdminName,
                 e.JoinedAt,
                 e.Color,
-                e.CanManage))
+                e.CanManage,
+                e.CheckingByAdminId))
             .ToList();
 
         return new QueueDetailsDto(
@@ -287,6 +290,7 @@ public class QueueService(
         CancellationToken cancellationToken = default)
     {
         var entry = await db.QueueEntries
+            .AsNoTracking()
             .Include(qu => qu.QueueEvent)
             .Include(qu => qu.Student)
             .FirstOrDefaultAsync(qu => qu.QueueEventId == eventId && qu.StudentId == studentId, cancellationToken)
@@ -299,12 +303,22 @@ public class QueueService(
         if (entry.Student.GroupId is int groupId)
             await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
 
-        entry.Status = status;
-        entry.CurrentAdminId = admin.Id;
-        await db.SaveChangesAsync(cancellationToken);
+        // Check the owner in the UPDATE itself: another teacher may claim the
+        // student after the read and permission checks above have completed.
+        // Deleting a teacher clears the FK, so an unowned row can be reclaimed.
+        Guid? currentAdminId = status == QueueEntryStatus.Checking ? admin.Id : null;
+        var updated = await db.QueueEntries
+            .Where(qu => qu.Id == entry.Id
+                && (qu.Status != QueueEntryStatus.Checking || qu.CurrentAdminId == null || qu.CurrentAdminId == admin.Id))
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(qu => qu.Status, status)
+                .SetProperty(qu => qu.CurrentAdminId, currentAdminId), cancellationToken);
+        if (updated == 0)
+            throw new ConflictException("Another teacher is already checking this student.", "queue.checked_by_other");
 
         await NotifyBestEffortAsync(
-            new QueueEntryUpdateDto(eventId, studentId, status, admin.FullName), cancellationToken);
+            new QueueEntryUpdateDto(eventId, studentId, status,
+                status == QueueEntryStatus.Checking ? admin.FullName : null), cancellationToken);
     }
 
     private async Task NotifyBestEffortAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken)

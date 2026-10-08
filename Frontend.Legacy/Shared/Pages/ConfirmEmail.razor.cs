@@ -1,0 +1,92 @@
+using Frontend.Shared.Models;
+using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
+using MudBlazor;
+
+namespace Frontend.Legacy.Shared.Pages;
+
+public partial class ConfirmEmail
+{
+    [Inject] private AuthService Auth { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+
+    /// <summary>Email можно передать в query (?email=...) — подставляется после регистрации.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "email")]
+    public string? EmailFromQuery { get; set; }
+
+    private MudForm _form = null!;
+    private string _email = string.Empty;
+    private string _code = string.Empty;
+    private string? _error;
+    private string? _info;
+    private bool _busy;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrWhiteSpace(EmailFromQuery))
+            _email = EmailFromQuery;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_busy) return; // защита от двойного Enter/клика, пока идёт запрос
+
+        _busy = true;
+        try
+        {
+            await _form.ValidateAsync();
+            if (!_form.IsValid)
+                return;
+
+            _error = null;
+            _info = null;
+
+            var result = await Auth.ConfirmEmailAsync(new ConfirmEmailRequest(_email.Trim(), _code.Trim()));
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            Nav.NavigateTo("/legacy/login");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ResendAsync()
+    {
+        if (_busy) return; // повторная отправка не должна совмещаться с подтверждением
+
+        _busy = true;
+        try
+        {
+            _error = null;
+            _info = null;
+
+            if (string.IsNullOrWhiteSpace(_email))
+            {
+                _error = Loc["ConfirmEmail_ResendNoEmail"];
+                return;
+            }
+
+            var result = await Auth.ResendConfirmationAsync(_email.Trim());
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+
+            _info = Loc["ConfirmEmail_ResendSuccess"];
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

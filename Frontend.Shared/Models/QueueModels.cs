@@ -27,7 +27,8 @@ public record QueueParticipantDto(
     string? CheckingByAdminName,
     DateTime JoinedAt,
     string? StudentColor,
-    bool CanManage = false)
+    bool CanManage = false,
+    Guid? CheckingByAdminId = null)
 {
     public string FullName => $"{FirstName} {LastName}";
 }

@@ -21,6 +21,8 @@ public partial class StudentInteractionDialog : IDisposable
     /// <summary>Id события очереди; null — оценивание вне очереди (без статус-кнопок).</summary>
     [Parameter] public int? EventId { get; set; }
     [Parameter] public int SubjectId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? StudentColor { get; set; }
 
     [Inject] private StudentsApi Students { get; set; } = null!;
     [Inject] private SubjectsApi Subjects { get; set; } = null!;
@@ -39,6 +41,8 @@ public partial class StudentInteractionDialog : IDisposable
     private readonly HashSet<int> _openHistory = [];
     private readonly Dictionary<int, List<SubmissionLogDto>> _history = [];
     private bool _loadingTasks = true;
+    private bool _busy;
+    private bool _hasChanges;
     private string? _pickerColor;
     private MudBlazor.Utilities.MudColor? _pickerMudColor;
     // Выбран ли цвет (включая сброс в null) — до выбора «Применить» неактивна.
@@ -61,6 +65,8 @@ public partial class StudentInteractionDialog : IDisposable
     protected override async Task OnInitializedAsync()
     {
         _edits = Dirty.Register();
+        _pickerColor = StudentColor;
+        _pickerMudColor = StudentColor is null ? null : new MudBlazor.Utilities.MudColor(StudentColor);
         await LoadTasksAsync();
         await LoadGradesAsync();
 
@@ -137,6 +143,8 @@ public partial class StudentInteractionDialog : IDisposable
 
     private async Task ChangeStatusAsync(QueueEntryStatus status)
     {
+        if (ReadOnly || _busy || EventId is null) return;
+        _busy = true;
         try
         {
             await Queues.UpdateStatusAsync(EventId!.Value, StudentId, new UpdateQueueStatusRequest(status));
@@ -148,10 +156,12 @@ public partial class StudentInteractionDialog : IDisposable
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally { _busy = false; }
     }
 
     private async Task ReworkAsync(int taskId)
     {
+        if (ReadOnly || _busy) return;
         var dialog = await DialogService.ShowAsync<CommentDialog>(Loc["CommentDialog_Title"]);
         var result = await dialog.Result;
         if (result is { Canceled: false, Data: string comment })
@@ -160,12 +170,17 @@ public partial class StudentInteractionDialog : IDisposable
 
     private async Task SubmitAsync(int taskId, SubmissionStatus status, string? comment = null)
     {
+        if (ReadOnly || _busy) return;
+        _busy = true;
         try
         {
             await Submissions.CreateAsync(new CreateSubmissionRequest(StudentId, taskId, status, comment));
             Snackbar.Add(Loc["Dialog_TaskStatusUpdated"], Severity.Success);
+            _hasChanges = true;
             _edits.MarkClean();
             await LoadTasksAsync();
+            if (status == SubmissionStatus.Rejected)
+                _openHistory.Add(taskId);
             if (_openHistory.Contains(taskId))
                 await LoadHistoryAsync(taskId);
         }
@@ -173,14 +188,18 @@ public partial class StudentInteractionDialog : IDisposable
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally { _busy = false; }
     }
 
     private async Task SetGradeAsync(int componentId)
     {
+        if (ReadOnly || _busy) return;
+        _busy = true;
         try
         {
             await Grades.SetGradeAsync(componentId, StudentId, new SetGradeRequest(_gradeInputs[componentId], null));
             _currentGrades[componentId] = _gradeInputs[componentId];
+            _hasChanges = true;
             Snackbar.Add(Loc["Dialog_GradeSaved"], Severity.Success);
             _edits.MarkClean();
         }
@@ -188,13 +207,17 @@ public partial class StudentInteractionDialog : IDisposable
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally { _busy = false; }
     }
 
     private async Task ApplyColorAsync(string? color)
     {
+        if (ReadOnly || _busy) return;
+        _busy = true;
         try
         {
             await Students.SetColorAsync(StudentId, new SetStudentColorRequest(color));
+            _hasChanges = true;
             Snackbar.Add(color is null ? Loc["Dialog_FillRemoved"] : Loc["Dialog_ColorApplied"], Severity.Success);
             _edits.MarkClean();
         }
@@ -202,12 +225,13 @@ public partial class StudentInteractionDialog : IDisposable
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        finally { _busy = false; }
     }
 
     private void Cancel()
     {
         _edits.MarkClean();
-        MudDialog.Close(DialogResult.Cancel());
+        MudDialog.Close(_hasChanges ? DialogResult.Ok(true) : DialogResult.Cancel());
     }
 
     public void Dispose() => _edits?.Dispose();

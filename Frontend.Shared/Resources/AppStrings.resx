@@ -449,4 +449,34 @@
   <data name="Common_Enabled" xml:space="preserve"><value>Enabled</value></data>
   <data name="Common_Disabled" xml:space="preserve"><value>Disabled</value></data>
   <data name="Common_GradingRestricted" xml:space="preserve"><value>Grading is restricted</value></data>
+  <data name="Dashboard_Students" xml:space="preserve"><value>Students</value></data>
+  <data name="Dashboard_Tasks" xml:space="preserve"><value>Tasks</value></data>
+  <data name="Dashboard_Accepted" xml:space="preserve"><value>Accepted tasks</value></data>
+  <data name="Dashboard_Rework" xml:space="preserve"><value>Needs rework</value></data>
+  <data name="Dashboard_SelectHint" xml:space="preserve"><value>Select a subject to view results</value></data>
+  <data name="QueueDetails_Reviewers" xml:space="preserve"><value>Checking now</value></data>
+  <data name="QueueDetails_Review" xml:space="preserve"><value>Review</value></data>
+  <data name="QueueDetails_View" xml:space="preserve"><value>View</value></data>
+  <data name="QueueDetails_Live" xml:space="preserve"><value>Live updates</value></data>
+  <data name="QueueDetails_Offline" xml:space="preserve"><value>Connection interrupted</value></data>
+  <data name="Dialog_ReadOnly" xml:space="preserve"><value>View mode. Another teacher is checking this student.</value></data>
+  <data name="Design_AuthEyebrow" xml:space="preserve"><value>LEARNING WORKSPACE</value></data>
+  <data name="Design_AuthTitle" xml:space="preserve"><value>Everything for your next submission.</value></data>
+  <data name="Design_AuthSubtitle" xml:space="preserve"><value>Results, queues and review history in one workspace.</value></data>
+  <data name="Design_AuthProgress" xml:space="preserve"><value>Clear progress</value></data>
+  <data name="Design_AuthProgressHint" xml:space="preserve"><value>Tasks, grades and teacher feedback</value></data>
+  <data name="Design_AuthQueue" xml:space="preserve"><value>Your place in the queue</value></data>
+  <data name="Design_AuthQueueHint" xml:space="preserve"><value>Sign up and follow live statuses</value></data>
+  <data name="Design_AuthAttendance" xml:space="preserve"><value>Class history</value></data>
+  <data name="Design_AuthAttendanceHint" xml:space="preserve"><value>Attendance and marks by subject</value></data>
+  <data name="Design_ResultsSubtitle" xml:space="preserve"><value>Follow your group’s progress by subject.</value></data>
+  <data name="Design_ResultsLegend" xml:space="preserve"><value>Rework cells show the teacher’s letter and color.</value></data>
+  <data name="Design_StudentLogsSubtitle" xml:space="preserve"><value>Reviews, feedback and grades for the selected subject.</value></data>
+  <data name="Design_QueueSubtitle" xml:space="preserve"><value>Choose a submission event and follow the queue.</value></data>
+  <data name="Design_QueueLive" xml:space="preserve"><value>Queue statuses update automatically.</value></data>
+  <data name="Design_Reviewers" xml:space="preserve"><value>Reviewing now</value></data>
+  <data name="Design_Students" xml:space="preserve"><value>Students</value></data>
+  <data name="Design_ChooseSubject" xml:space="preserve"><value>Choose a subject to view results.</value></data>
+  <data name="Design_MaxPoints" xml:space="preserve"><value>Maximum points</value></data>
+  <data name="Error_QueueCheckedByOther" xml:space="preserve"><value>Another teacher is checking this student. Refresh the queue.</value></data>
 </root>

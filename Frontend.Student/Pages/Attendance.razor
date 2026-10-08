@@ -3,16 +3,16 @@
 @attribute [Authorize(Roles = Roles.Student)]
 
 <PageTitle>Моя посещаемость</PageTitle>
-<div class="attendance-page">
-    <div class="attendance-heading"><div><span class="attendance-eyebrow">МОЯ ИСТОРИЯ</span><MudText Typo="Typo.h4">Посещаемость</MudText><MudText Typo="Typo.body2">Только занятия, на которых преподаватель ведёт учёт.</MudText></div></div>
-    <MudPaper Class="attendance-panel" Elevation="0">
-        <div class="attendance-toolbar">
+<div class="attendance-page fc-student-attendance">
+    <div class="fc-page-heading"><div><span class="fc-eyebrow">МОЯ ИСТОРИЯ</span><MudText Typo="Typo.h4">Посещаемость</MudText><p class="fc-muted">Только занятия, на которых преподаватель ведёт учёт.</p></div></div>
+    <section class="fc-panel fc-subject-filter">
+        <div class="fc-panel-body fc-toolbar">
             <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")" Label="Предмет" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
                 @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
             </MudSelect>
-            <MudButton StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@(_loading || _subjectId is null)">Обновить</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@(_loading || _subjectId is null)">Обновить</MudButton>
         </div>
-    </MudPaper>
+    </section>
     @if (_loading) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" /> }
     else if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
     else if (_history.Count == 0)
@@ -21,18 +21,19 @@
     }
     else
     {
-        <div class="attendance-stats">
-            <div class="attendance-stat present"><span>Посещений</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Present)</strong></div>
-            <div class="attendance-stat absent"><span>Пропусков</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Absent)</strong></div>
-            <div class="attendance-stat unmarked"><span>Не отмечено</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Unmarked)</strong></div>
+        <div class="fc-stats">
+            <div class="fc-stat present"><span>Посещений</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Present)</strong></div>
+            <div class="fc-stat absent"><span>Пропусков</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Absent)</strong></div>
+            <div class="fc-stat unmarked"><span>Не отмечено</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Unmarked)</strong></div>
         </div>
-        <MudPaper Class="attendance-panel" Elevation="0">
+        <section class="fc-panel">
+            <div class="fc-panel-heading"><h3>История занятий</h3><small class="fc-muted">Москва · UTC+3</small></div>
             @foreach (var entry in _history)
             {
                 <div class="attendance-history-row"><span class="@AttendanceStyles.Css(entry.Status)">@AttendanceStyles.Symbol(entry.Status)</span><div><strong>@entry.Name</strong><small class="attendance-group">@AttendanceStyles.Moscow(entry.StartsAt).ToString("dd.MM.yyyy HH:mm") · Москва · @AttendanceStyles.Text(entry.Status)</small>
                     @if (entry.UpdatedAt.HasValue) { <small class="attendance-group">@(entry.MarkedBy ?? "Преподаватель удалён") · отметка обновлена @AttendanceStyles.Moscow(entry.UpdatedAt.Value).ToString("dd.MM.yyyy HH:mm")</small> }
                 </div></div>
             }
-        </MudPaper>
+        </section>
     }
 </div>

@@ -23,6 +23,7 @@ JWT-аутентификация, SignalR для realtime, собственна�
 | [Конфигурация](docs/configuration.md) | appsettings, секреты, переменные окружения, Options |
 | [Тестирование](docs/testing.md) | Структура тестов, как запускать |
 | [Посещаемость](docs/attendance.md) | Необязательный журнал, перекличка, личная история и XLSX |
+| [Новый интерфейс и Legacy](docs/ui-migration.md) | Темы, акценты, совместимость и локальная проверка |
 | [Развёртывание](DEPLOY.md) | Docker Compose, Postfix, DNS (SPF/DKIM/DMARC/PTR), бэкапы |
 
 ---
@@ -54,6 +55,7 @@ Frontend                     # Blazor WASM хост (собирает всё в�
 Frontend.Admin               # Административный UI (управление предметами, очередями, оценками)
 Frontend.Student             # Студенческий UI (прогресс, очереди, результаты)
 Frontend.Shared              # Общие компоненты, API-клиент, модели
+Frontend.Legacy              # Сохранённый прежний интерфейс по маршрутам /legacy
 ```
 
 Подробнее — в [docs/architecture.md](docs/architecture.md).

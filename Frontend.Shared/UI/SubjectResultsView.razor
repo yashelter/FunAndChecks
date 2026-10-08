@@ -4,61 +4,85 @@
 
 @if (Results is not null)
 {
-    <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true"
-                 Filterable="true" Hover="true">
+    <section class="fc-panel fc-results-panel">
+    <div class="fc-panel-heading">
+        <h3>@Results.SubjectName</h3>
+        <span class="fc-muted">@Results.UserResults.Count @Loc["Design_Students"]</span>
+    </div>
+    <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true" Breakpoint="Breakpoint.None"
+                 Filterable="true" Hover="true" Class="fc-results-grid">
         <Columns>
-            <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)">
+            <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-sticky" HeaderClass="fc-results-sticky">
                 <CellTemplate>
-                    <div style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</div>
+                    <span class="fc-result-name" style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</span>
                 </CellTemplate>
             </TemplateColumn>
             <PropertyColumn Property="x => x.GroupName" Title="@Loc["Results_ColGroup"]" />
 
             @foreach (var task in Results.TaskHeaders)
             {
-                <TemplateColumn Title="@task.TaskName" Sortable="false">
+                <TemplateColumn Title="@task.TaskName" Sortable="false" CellClass="fc-results-number">
                     <CellTemplate>
                         @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
-                        <div style="@CellStyle(cell)">@CellText(cell)</div>
+                        <span class="@CellClass(cell)" style="@CellStyle(cell)" title="@CellStatus(cell)" aria-label="@($"{task.TaskName}: {CellStatus(cell)} {CellText(cell)}")">@CellText(cell)</span>
                     </CellTemplate>
                 </TemplateColumn>
             }
 
             @foreach (var column in Results.GradeColumns)
             {
-                <TemplateColumn Title="@column.Name" Sortable="false">
+                <TemplateColumn Title="@column.Name" Sortable="false" CellClass="fc-results-number">
                     <CellTemplate>
                         @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
                         {
-                            <span>@points / @column.MaxPoints</span>
+                            <span class="fc-score">@points <span class="fc-muted">/ @column.MaxPoints</span></span>
                         }
                     </CellTemplate>
                 </TemplateColumn>
             }
 
-            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" />
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score" />
         </Columns>
     </MudDataGrid>
+    <div class="fc-results-legend">
+        <span><span class="fc-result-cell accepted" aria-hidden="true">+</span> @Loc["Task_StatusAccepted"]</span>
+        <span><MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" Color="Color.Warning" /> @Loc["Task_StatusRejected"]</span>
+        <span>@Loc["Design_ResultsLegend"]</span>
+    </div>
+    </section>
 }
 
 @code {
     [Parameter] public SubjectResultsDto? Results { get; set; }
 
     private static string CellText(ResultCellDto? cell) =>
-        cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
+        cell?.Status == SubmissionStatus.Accepted ? "+" : string.IsNullOrWhiteSpace(cell?.DisplayValue) ? "—" : cell.DisplayValue;
+
+    private static string CellClass(ResultCellDto? cell) => cell?.Status switch
+    {
+        SubmissionStatus.Accepted => "fc-result-cell accepted",
+        SubmissionStatus.Rejected => "fc-result-cell rejected",
+        _ => "fc-result-cell empty",
+    };
+
+    private string CellStatus(ResultCellDto? cell) => cell?.Status switch
+    {
+        SubmissionStatus.Accepted => Loc["Task_StatusAccepted"],
+        SubmissionStatus.Rejected => Loc["Task_StatusRejected"],
+        _ => Loc["Task_StatusNotSubmitted"],
+    };
 
     private static string CellStyle(ResultCellDto? cell)
     {
-        var background = cell?.AdminColor ?? "transparent";
-        return $"background-color:{background};text-align:center;color:black;font-weight:bold;" +
-               "text-shadow:0 0 3px rgba(255,255,255,0.7);";
+        if (cell?.Status != SubmissionStatus.Rejected || string.IsNullOrWhiteSpace(cell.AdminColor))
+            return string.Empty;
+        return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};border-color:{cell.AdminColor};";
     }
 
     private static string FioStyle(string? color)
     {
         if (string.IsNullOrEmpty(color))
             return string.Empty;
-        return $"background-color:{color};color:{ColorUtils.ContrastText(color)};" +
-               "padding:2px 8px;border-radius:6px;display:inline-block;";
+        return $"background-color:{color};color:{ColorUtils.ContrastText(color)};";
     }
 }
