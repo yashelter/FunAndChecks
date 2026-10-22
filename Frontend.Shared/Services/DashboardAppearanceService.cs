@@ -18,6 +18,8 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     private bool _initialized;
     public bool IsDarkMode { get; private set; } = true;
     public bool IsCompact { get; private set; }
+    /// <summary>Сезонное хэллоуин-оформление: показывается только при включённом флаге события.</summary>
+    public bool IsHalloweenMode { get; private set; } = true;
     public string Accent { get; private set; } = Presets[0].Dark;
     public event Action? Changed;
     public MudTheme Theme { get; private set; } = CreateTheme(Presets[0].Dark);
@@ -31,6 +33,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
             var stored = await js.InvokeAsync<Preferences>("dashboardAppearance.load");
             IsDarkMode = stored.IsDarkMode;
             IsCompact = stored.IsCompact;
+            IsHalloweenMode = stored.IsHalloweenMode;
             if (NormalizeAccent(stored.Accent) is { } accent) Accent = accent;
         }
         catch (JSException) { /* Browser storage may be unavailable; defaults remain usable. */ }
@@ -40,6 +43,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     public Task ToggleThemeAsync() => SetThemeAsync(!IsDarkMode);
     public Task SetThemeAsync(bool dark) { IsDarkMode = dark; return ApplyAsync(save: true); }
     public Task SetCompactAsync(bool compact) { IsCompact = compact; return ApplyAsync(save: true); }
+    public Task SetHalloweenAsync(bool halloween) { IsHalloweenMode = halloween; return ApplyAsync(save: true); }
     public Task ResetAccentAsync() => SetAccentAsync(Presets[0].Dark);
     public Task SetAccentAsync(string? color)
     {
@@ -63,7 +67,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
         try
         {
             await js.InvokeVoidAsync("dashboardAppearance.apply", IsDarkMode, IsCompact, Accent,
-                active.Primary.ToString(), active.PrimaryContrastText.ToString(), save);
+                active.Primary.ToString(), active.PrimaryContrastText.ToString(), IsHalloweenMode, save);
         }
         catch (JSException) { }
         Changed?.Invoke();
@@ -135,5 +139,5 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     }
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
     private static partial Regex HexColor();
-    public sealed record Preferences(bool IsDarkMode, bool IsCompact, string? Accent);
+    public sealed record Preferences(bool IsDarkMode, bool IsCompact, string? Accent, bool IsHalloweenMode);
 }

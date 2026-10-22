@@ -798,6 +798,7 @@
   <data name="PrivacyPolicy_ConsentTitle" xml:space="preserve"><value>Consent to the Processing of Personal Data</value></data>
   <data name="PrivacyPolicy_TermsTitle" xml:space="preserve"><value>User Agreement</value></data>
   <data name="PrivacyPolicy_DocumentsNav" xml:space="preserve"><value>Documents</value></data>
+  <data name="Halloween_AriaLabel" xml:space="preserve"><value>Halloween decorations</value></data>
   <data name="Management_TaskGroupsEmptyHint" xml:space="preserve"><value>No groups yet: create them in “Task groups” above</value></data>
   <data name="Error_EmailUnchanged" xml:space="preserve"><value>This is already your email.</value></data>
   <data name="Error_InvalidCurrentPassword" xml:space="preserve"><value>The current password is incorrect.</value></data>

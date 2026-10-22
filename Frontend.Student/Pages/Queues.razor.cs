@@ -20,6 +20,8 @@ public partial class Queues : IAsyncDisposable
     [Inject] private ConfirmService Confirm { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider Authentication { get; set; } = null!;
+    [Inject] private DashboardAppearanceService Appearance { get; set; } = null!;
+    [Inject] private FeatureFlagsService Flags { get; set; } = null!;
 
     /// <summary>Открытая очередь — в адресе: «назад» в браузере и обновление страницы её не теряют.</summary>
     [Parameter] public int? EventId { get; set; }
@@ -279,6 +281,13 @@ public partial class Queues : IAsyncDisposable
         QueueEntryStatus.Finished => Color.Success,
         _ => Color.Error,
     };
+
+    /// <summary>Тыквенное оформление кнопки записи: событие включено и режим выбран пользователем.</summary>
+    private bool HalloweenActive => Flags.HalloweenEvent && Appearance.IsHalloweenMode;
+
+    private string? SignUpButtonClass => HalloweenActive ? "fc-halloween-btn" : null;
+
+    private string? SignUpButtonIcon => HalloweenActive ? null : Icons.Material.Filled.Add;
 
     public async ValueTask DisposeAsync()
     {

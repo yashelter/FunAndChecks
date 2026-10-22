@@ -117,7 +117,14 @@ else
                         <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => Open(ev.Id))">@Loc["Queues_Open"]</MudButton>
                         @if (ev.AllowSelfJoin)
                         {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => JoinAsync(ev.Id))">@Loc["StudentQueues_SignUp"]</MudButton>
+                            @* В хэллоуин-режиме вместо обычной иконки — тыква, нарисованная на CSS. *@
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => JoinAsync(ev.Id))" Class="@SignUpButtonClass" StartIcon="@SignUpButtonIcon">
+                                @if (HalloweenActive)
+                                {
+                                    <span class="fc-pumpkin" aria-hidden="true"></span>
+                                }
+                                @Loc["StudentQueues_SignUp"]
+                            </MudButton>
                         }
                     </div>
                 </section>

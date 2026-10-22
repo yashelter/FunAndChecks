@@ -14,8 +14,8 @@
         const preference = (() => { try { return localStorage.getItem('fc-theme'); } catch { return null; } })();
         document.documentElement.dataset.theme = preference === 'light' ? 'light' : 'dark';
         const uiStyles = [
-            'css/app.css', 'css/dashboard.css', 'Frontend.styles.css?v=queue-picker-1', '_content/Frontend.Shared/dashboard-content.css?v=2',
-            '_content/Frontend.Shared/profiles.css?v=account-1', '_content/Frontend.Shared/profile-navigation.css', '_content/Frontend.Shared/community.css?v=9',
+            'css/app.css', 'css/dashboard.css', 'Frontend.styles.css?v=queue-picker-1', '_content/Frontend.Shared/dashboard-content.css?v=6',
+            '_content/Frontend.Shared/profiles.css?v=crop-timeline-3', '_content/Frontend.Shared/profile-navigation.css', '_content/Frontend.Shared/community.css?v=9',
             '_content/Frontend.Admin/admin-dashboard.css?v=ux-2', '_content/Frontend.Admin/management-dashboard.css?v=ux-4'
         ];
         for (const href of uiStyles) {

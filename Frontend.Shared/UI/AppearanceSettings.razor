@@ -1,4 +1,5 @@
 @inject DashboardAppearanceService Appearance
+@inject FeatureFlagsService Flags
 
 @if (Open)
 {
@@ -45,6 +46,14 @@
                 <MudSwitch T="bool" Value="Appearance.IsCompact" ValueChanged="Appearance.SetCompactAsync" Color="Color.Primary" Label="@Text("Компактный вид", "Compact view")" />
                 <p class="fc-settings-hint">@Text("Помогает видеть больше студентов на одном экране.", "See more students on one screen.")</p>
             </section>
+            @if (Flags.HalloweenEvent)
+            {
+                <section>
+                    <h3>@Text("Хэллоуин", "Halloween")</h3>
+                    <MudSwitch T="bool" Value="Appearance.IsHalloweenMode" ValueChanged="Appearance.SetHalloweenAsync" Color="Color.Primary" Label="@Text("Включить хэллоуин-тему", "Enable Halloween theme")" />
+                    <p class="fc-settings-hint">@Text("Сезонное визуальное оформление кнопок", "Seasonal visual theme for buttons")</p>
+                </section>
+            }
             <section>
                 <h3>@Text("Цвета статусов", "Status colors")</h3>
                 <div class="fc-status-legend"><span class="success">✓ @Text("Зачтено", "Accepted")</span><span class="info">@Text("Сдаёт", "Checking")</span><span class="warning">@Text("Доработка", "Rework")</span><span class="error">@Text("Пропуск", "Skipped")</span></div>

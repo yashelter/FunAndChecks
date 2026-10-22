@@ -2,13 +2,24 @@
 @implements IDisposable
 @inject DashboardAppearanceService Appearance
 @inject UnsavedChangesTracker Dirty
+@inject FeatureFlagsService Flags
 
 <MudThemeProvider Theme="Appearance.Theme" IsDarkMode="Appearance.IsDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 <div class="fc-auth-shell">
-    <header class="fc-auth-topbar"><a class="fc-brand" href="/"><span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span><strong>FunAndChecks</strong></a>
+    <HalloweenAnimations />
+    <header class="fc-auth-topbar"><a class="fc-brand" href="/">
+        @if (Flags.HalloweenEvent && Appearance.IsHalloweenMode)
+        {
+            <span class="fc-brand-mark fc-halloween-logo"><span class="fc-pumpkin"></span></span>
+        }
+        else
+        {
+            <span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span>
+        }
+        <strong>FunAndChecks</strong></a>
         <div class="fc-topbar-actions"><LangSwitcher /><MudIconButton Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
             <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="() => _settingsOpen = true" aria-label="@Text("Акцентный цвет", "Accent color")" />
         </div>

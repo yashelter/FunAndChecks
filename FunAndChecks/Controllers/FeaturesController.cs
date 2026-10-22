@@ -16,5 +16,5 @@ public class FeaturesController(IOptions<FeatureFlags> flags) : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(FeaturesDto), StatusCodes.Status200OK)]
-    public ActionResult<FeaturesDto> Get() => Ok(new FeaturesDto(flags.Value.PrivacyPolicy));
+    public ActionResult<FeaturesDto> Get() => Ok(new FeaturesDto(flags.Value.PrivacyPolicy, flags.Value.HalloweenEvent));
 }

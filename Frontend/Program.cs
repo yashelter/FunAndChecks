@@ -26,4 +26,10 @@ CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo(cultureService.Curre
 var featureFlags = host.Services.GetRequiredService<FeatureFlagsService>();
 await featureFlags.LoadAsync();
 
+// Внешний вид (тема, акцент, Halloween) читаем до первого рендера — иначе
+// первый кадр рисуется с дефолтным состоянием и у выключивших Halloween
+// оформление на миг появляется и исчезает.
+var appearance = host.Services.GetRequiredService<DashboardAppearanceService>();
+await appearance.InitializeAsync();
+
 await host.RunAsync();
