@@ -229,3 +229,5 @@ project.lock.json
  
 
 *.db
+# Local forum attachments (Attachments:RootDirectory)
+/attachments/

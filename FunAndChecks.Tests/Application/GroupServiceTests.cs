@@ -16,7 +16,7 @@ public class GroupServiceTests : IDisposable
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
     private GroupService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new AdminAccessService(ctx), new CreateGroupRequestValidator(), new UpdateGroupRequestValidator());
+        new(ctx, _identity, _cache, ctx.Access(), new CreateGroupRequestValidator(), new UpdateGroupRequestValidator());
 
     [Fact]
     public async Task Update_UpdatesGroupAndInvalidatesCache()
@@ -49,11 +49,13 @@ public class GroupServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var admin = ctx.Admin();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
 
-        await sut.LinkSubjectAsync(Guid.NewGuid(), group.Id, subject.Id);
+        await sut.LinkSubjectAsync(admin.Id, group.Id, subject.Id);
 
         var links = ctx.GroupSubjects.Where(gs => gs.GroupId == group.Id && gs.SubjectId == subject.Id).ToList();
         links.Should().ContainSingle();
@@ -67,6 +69,8 @@ public class GroupServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var admin = ctx.Admin();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
 
         ctx.LinkGroupSubject(group, subject);
@@ -74,7 +78,7 @@ public class GroupServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
 
-        await sut.UnlinkSubjectAsync(Guid.NewGuid(), group.Id, subject.Id);
+        await sut.UnlinkSubjectAsync(admin.Id, group.Id, subject.Id);
 
         var links = ctx.GroupSubjects.Where(gs => gs.GroupId == group.Id && gs.SubjectId == subject.Id).ToList();
         links.Should().BeEmpty();

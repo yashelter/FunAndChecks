@@ -4,7 +4,7 @@
 @inject StudentsApi Students
 @inject GroupsApi Groups
 
-<MudDialog>
+<MudDialog Class="fc-edit-student-dialog">
     <DialogContent>
         @* Обработчики на div, а не на EditForm: у компонента EditForm нет параметров
            oninput/onchange, и несопоставленные атрибуты компонента роняют рендер. *@
@@ -15,20 +15,20 @@
                 {
                     <MudAlert Severity="Severity.Error" Class="mb-4">@_loadError</MudAlert>
                 }
-                <MudStack Spacing="3">
-                    <MudTextField @bind-Value="_model.FirstName" For="@(() => _model.FirstName)" Label="@Loc["EditStudent_FirstNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_FirstNameRequired"]" />
-                    <MudTextField @bind-Value="_model.LastName" For="@(() => _model.LastName)" Label="@Loc["EditStudent_LastNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_LastNameRequired"]" />
-                    <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="@Loc["EditStudent_EmailLabel"]" Required="true" RequiredError="@Loc["Common_EmailRequired"]" InputType="InputType.Email" />
-                    <MudTextField @bind-Value="_model.NewPassword" For="@(() => _model.NewPassword)" Label="@Loc["EditStudent_PasswordLabel"]" InputType="InputType.Password" />
+                <div class="fc-edit-student-fields">
+                    <MudTextField @bind-Value="_model.FirstName" For="@(() => _model.FirstName)" Label="@Loc["EditStudent_FirstNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_FirstNameRequired"]" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_model.LastName" For="@(() => _model.LastName)" Label="@Loc["EditStudent_LastNameLabel"]" Required="true" RequiredError="@Loc["EditStudent_LastNameRequired"]" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_model.Email" For="@(() => _model.Email)" Label="@Loc["EditStudent_EmailLabel"]" Required="true" RequiredError="@Loc["Common_EmailRequired"]" InputType="InputType.Email" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_model.NewPassword" For="@(() => _model.NewPassword)" Label="@Loc["EditStudent_PasswordLabel"]" InputType="InputType.Password" Variant="Variant.Outlined" />
 
-                    <MudSelect T="int?" @bind-Value="_model.GroupId" For="@(() => _model.GroupId)" Label="@Loc["EditStudent_GroupLabel"]">
+                    <MudSelect T="int?" @bind-Value="_model.GroupId" For="@(() => _model.GroupId)" Label="@Loc["EditStudent_GroupLabel"]" Variant="Variant.Outlined">
                         <MudSelectItem T="int?" Value="null">@Loc["EditStudent_NoGroup"]</MudSelectItem>
                         @foreach (var group in _groups)
                         {
                             <MudSelectItem T="int?" Value="group.Id">@group.Name</MudSelectItem>
                         }
                     </MudSelect>
-                </MudStack>
+                </div>
 
                 <div class="d-flex justify-end mt-4 gap-2">
                     <MudButton OnClick="Cancel">@Loc["Common_Cancel"]</MudButton>

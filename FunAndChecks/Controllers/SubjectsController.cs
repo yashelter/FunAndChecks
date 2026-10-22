@@ -66,6 +66,22 @@ public class SubjectsController(
         return CreatedAtAction(nameof(GetTasks), new { subjectId }, task);
     }
 
+    /// <summary>Группы заданий предмета.</summary>
+    [HttpGet("{subjectId:int}/task-groups")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<TaskGroupDto>>> GetTaskGroups(int subjectId, CancellationToken cancellationToken) =>
+        Ok(await subjectService.GetTaskGroupsAsync(subjectId, cancellationToken));
+
+    /// <summary>Создать группу заданий в предмете.</summary>
+    [HttpPost("{subjectId:int}/task-groups")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(TaskGroupDto), StatusCodes.Status201Created)]
+    public async Task<ActionResult<TaskGroupDto>> CreateTaskGroup(int subjectId, CreateTaskGroupRequest request, CancellationToken cancellationToken)
+    {
+        var group = await subjectService.CreateTaskGroupAsync(User.GetUserId(), subjectId, request, cancellationToken);
+        return CreatedAtAction(nameof(GetTaskGroups), new { subjectId }, group);
+    }
+
     /// <summary>Все студенты, чьи группы имеют доступ к предмету (для админа).</summary>
     [HttpGet("{subjectId:int}/students")]
     [Authorize(Roles = Roles.Admin)]

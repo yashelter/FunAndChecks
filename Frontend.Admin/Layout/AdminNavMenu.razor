@@ -1,6 +1,7 @@
 @inject IStringLocalizer<AppStrings> Loc
 
 <MudNavMenu>
+    <div class="fc-nav-label" role="presentation">@CommunityText.T("Учёба", "Teaching")</div>
     <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
         @Loc["AdminNav_Results"]
     </MudNavLink>
@@ -13,12 +14,29 @@
     <MudNavLink Href="/admin/grading" Icon="@Icons.Material.Filled.School">
         @Loc["AdminNav_Grading"]
     </MudNavLink>
+    <MudNavLink Href="/admin/attendance" Icon="@Icons.Material.Filled.FactCheck">
+        @Loc["Nav_Attendance"]
+    </MudNavLink>
+    <div class="fc-nav-label" role="presentation">@CommunityText.T("Сообщество", "Community")</div>
+    <MudNavLink Href="/admin/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
+        @CommunityText.T("Достижения", "Achievements")
+    </MudNavLink>
+    <MudNavLink Href="/admin/forum" Icon="@Icons.Material.Outlined.Forum">
+        <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
+    </MudNavLink>
+    <MudNavLink Href="/admin/surveys" Icon="@Icons.Material.Outlined.Poll">
+        @CommunityText.T("Опросы", "Surveys")
+    </MudNavLink>
     <AuthorizeView Roles="@Roles.SuperAdmin">
+        <div class="fc-nav-label" role="presentation">@CommunityText.T("Администрирование", "Administration")</div>
         <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Filled.AdminPanelSettings">
             @Loc["AdminNav_Admins"]
         </MudNavLink>
         <MudNavLink Href="/admin/maintenance" Icon="@Icons.Material.Filled.Warning">
             @Loc["AdminNav_Maintenance"]
+        </MudNavLink>
+        <MudNavLink Href="/metrics" Icon="@Icons.Material.Filled.Analytics">
+            @Loc["Monitoring_Title"]
         </MudNavLink>
     </AuthorizeView>
 </MudNavMenu>

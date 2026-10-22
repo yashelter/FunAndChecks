@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: funandchecks-api
+    metrics_path: /internal/metrics
+    authorization:
+      type: Bearer
+      credentials_file: /prometheus/scrape-key
+    static_configs:
+      - targets: [funandchecks-api:__API_INTERNAL_PORT__]
+  - job_name: alloy
+    static_configs:
+      - targets: [alloy:12345]
+  - job_name: loki
+    static_configs:
+      - targets: [loki:3100]
+

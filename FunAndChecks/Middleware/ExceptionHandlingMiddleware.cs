@@ -29,6 +29,10 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
             await ApiProblemDetails.WriteAsync(context, StatusCodes.Status400BadRequest, "Validation failed.",
                 "validation.failed", errors: errors, validationCodes: validationCodes);
         }
+        catch (EmailDeliveryException ex)
+        {
+            await WriteApplicationProblemAsync(context, StatusCodes.Status400BadRequest, ex);
+        }
         catch (NotFoundException ex)
         {
             await WriteApplicationProblemAsync(context, StatusCodes.Status404NotFound, ex);

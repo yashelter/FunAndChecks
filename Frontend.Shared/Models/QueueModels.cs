@@ -1,6 +1,7 @@
 namespace Frontend.Shared.Models;
 
-public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin);
+public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin,
+    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
 
 /// <summary>
 /// Создание события. Если задан <see cref="AutoFillGroupId"/>, в очередь добавляются все студенты
@@ -26,7 +27,9 @@ public record QueueParticipantDto(
     QueueEntryStatus Status,
     string? CheckingByAdminName,
     DateTime JoinedAt,
-    string? StudentColor)
+    string? StudentColor,
+    bool CanManage = false,
+    Guid? CheckingByAdminId = null)
 {
     public string FullName => $"{FirstName} {LastName}";
 }

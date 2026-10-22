@@ -2,6 +2,7 @@ using FluentAssertions;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Tests.Common;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace FunAndChecks.Tests.Application;
@@ -26,13 +27,13 @@ public class AdminAccessServiceTests : IDisposable
 
         await using (var ctx = _db.NewContext())
         {
-            var sut = new AdminAccessService(ctx);
+            var sut = ctx.Access();
             await sut.SetSubjectRestrictedAsync(adminId, subjectId, restricted: true);
         }
 
         await using (var ctx = _db.NewContext())
         {
-            var sut = new AdminAccessService(ctx);
+            var sut = ctx.Access();
             (await sut.IsSubjectRestrictedAsync(adminId, subjectId)).Should().BeTrue();
             var act = () => sut.EnsureSubjectAllowedAsync(adminId, subjectId);
             await act.Should().ThrowAsync<ForbiddenException>();
@@ -40,7 +41,7 @@ public class AdminAccessServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ClearingBothFlags_RemovesRecord()
+    public async Task ClearingHiddenFlag_DoesNotGrantSubjectAccess()
     {
         Guid adminId;
         int subjectId;
@@ -52,17 +53,18 @@ public class AdminAccessServiceTests : IDisposable
             adminId = admin.Id;
             subjectId = subject.Id;
 
-            var sut = new AdminAccessService(ctx);
+            var sut = ctx.Access();
             await sut.SetSubjectHiddenAsync(adminId, subjectId, hidden: true);
             await sut.SetSubjectHiddenAsync(adminId, subjectId, hidden: false);
         }
 
         await using (var ctx = _db.NewContext())
         {
-            var sut = new AdminAccessService(ctx);
+            var sut = ctx.Access();
             var access = await sut.GetAccessAsync(adminId);
             access.HiddenSubjectIds.Should().BeEmpty();
-            access.RestrictedSubjectIds.Should().BeEmpty();
+            access.RestrictedSubjectIds.Should().Equal(subjectId);
+            (await ctx.AdminSubjectAccesses.CountAsync()).Should().Be(0);
         }
     }
 
@@ -80,7 +82,7 @@ public class AdminAccessServiceTests : IDisposable
         restrictedSubject = subject.Id;
         hiddenGroup = group.Id;
 
-        var sut = new AdminAccessService(ctx);
+        var sut = ctx.Access();
         await sut.SetSubjectRestrictedAsync(adminId, restrictedSubject, true);
         await sut.SetGroupHiddenAsync(adminId, hiddenGroup, true);
 
@@ -96,8 +98,83 @@ public class AdminAccessServiceTests : IDisposable
         var subject = ctx.Subject();
         await ctx.SaveChangesAsync();
 
-        var sut = new AdminAccessService(ctx);
+        var sut = ctx.Access();
         var act = () => sut.SetSubjectRestrictedAsync(Guid.NewGuid(), subject.Id, true);
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task ReplaceRestrictions_UpdatesBothLists_PreservesArchives_AndExplicitSubjectGrants()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var archivedSubject = ctx.Subject("Archived");
+        var previouslyRestrictedSubject = ctx.Subject("Previous");
+        var newSubject = ctx.Subject("New");
+        var archivedGroup = ctx.Group("Archived");
+        var previouslyRestrictedGroup = ctx.Group("Previous");
+        await ctx.SaveChangesAsync();
+        var sut = ctx.Access();
+        await sut.SetSubjectHiddenAsync(admin.Id, archivedSubject.Id, true);
+        await sut.SetSubjectRestrictedAsync(admin.Id, previouslyRestrictedSubject.Id, true);
+        await sut.SetGroupHiddenAsync(admin.Id, archivedGroup.Id, true);
+        await sut.SetGroupRestrictedAsync(admin.Id, previouslyRestrictedGroup.Id, true);
+
+        // Duplicate selection is accepted without creating duplicate access records.
+        await sut.ReplaceRestrictionsAsync(admin.Id, new ReplaceAdminRestrictionsRequest(
+            [archivedSubject.Id, newSubject.Id, newSubject.Id], [archivedGroup.Id]));
+
+        var access = await sut.GetAccessAsync(admin.Id);
+        access.RestrictedSubjectIds.Should().BeEquivalentTo([archivedSubject.Id, newSubject.Id]);
+        access.RestrictedGroupIds.Should().Equal(archivedGroup.Id);
+        access.HiddenSubjectIds.Should().Equal(archivedSubject.Id);
+        access.HiddenGroupIds.Should().Equal(archivedGroup.Id);
+        (await ctx.AdminSubjectAccesses.AnyAsync(a => a.AdminId == admin.Id && a.SubjectId == previouslyRestrictedSubject.Id && !a.IsRestricted)).Should().BeTrue();
+        (await ctx.AdminGroupAccesses.AnyAsync(a => a.AdminId == admin.Id && a.GroupId == previouslyRestrictedGroup.Id)).Should().BeFalse();
+
+        await sut.ReplaceRestrictionsAsync(admin.Id, new ReplaceAdminRestrictionsRequest([], []));
+        access = await sut.GetAccessAsync(admin.Id);
+        access.RestrictedSubjectIds.Should().BeEmpty();
+        access.RestrictedGroupIds.Should().BeEmpty();
+        access.HiddenSubjectIds.Should().Equal(archivedSubject.Id);
+        access.HiddenGroupIds.Should().Equal(archivedGroup.Id);
+        (await ctx.AdminSubjectAccesses.CountAsync(a => a.AdminId == admin.Id)).Should().Be(3);
+        (await ctx.AdminGroupAccesses.CountAsync(a => a.AdminId == admin.Id)).Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReplaceRestrictions_RejectsUnknownEntity_WithoutPartialChanges(bool unknownSubject)
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var subject = ctx.Subject();
+        var group = ctx.Group();
+        await ctx.SaveChangesAsync();
+        var sut = ctx.Access();
+        await sut.SetSubjectRestrictedAsync(admin.Id, subject.Id, true);
+        await sut.SetGroupHiddenAsync(admin.Id, group.Id, true);
+
+        var request = unknownSubject
+            ? new ReplaceAdminRestrictionsRequest([int.MaxValue], [group.Id])
+            : new ReplaceAdminRestrictionsRequest([], [int.MaxValue]);
+        var act = () => sut.ReplaceRestrictionsAsync(admin.Id, request);
+        await act.Should().ThrowAsync<NotFoundException>();
+
+        await using var verify = _db.NewContext();
+        var access = await verify.Access().GetAccessAsync(admin.Id);
+        access.RestrictedSubjectIds.Should().Equal(subject.Id);
+        access.RestrictedGroupIds.Should().BeEmpty();
+        access.HiddenGroupIds.Should().Equal(group.Id);
+    }
+
+    [Fact]
+    public async Task ReplaceRestrictions_RejectsUnknownAdmin()
+    {
+        await using var ctx = _db.NewContext();
+        var sut = ctx.Access();
+        var act = () => sut.ReplaceRestrictionsAsync(Guid.NewGuid(), new ReplaceAdminRestrictionsRequest([], []));
         await act.Should().ThrowAsync<NotFoundException>();
     }
 

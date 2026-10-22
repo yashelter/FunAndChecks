@@ -11,6 +11,25 @@ public class ApiProblemDetailsTests(TestWebAppFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/admin/queues")]
+    [InlineData("/css/dashboard.css")]
+    public async Task UiFiles_AreAlwaysRevalidated_SoDeploysDoNotMixOldStylesWithNewCode(string path)
+    {
+        var response = await _client.GetAsync(path);
+
+        response.Headers.CacheControl?.NoCache.Should().BeTrue($"{path} must be revalidated");
+    }
+
+    [Fact]
+    public async Task ApiResponses_DoNotGetUiCachePolicy()
+    {
+        var response = await _client.GetAsync("/api/me");
+
+        response.Headers.CacheControl?.NoCache.Should().NotBe(true);
+    }
+
     [Fact]
     public async Task OpenApiDocument_IsGenerated_AndContainsCulturePreferenceEndpoint()
     {

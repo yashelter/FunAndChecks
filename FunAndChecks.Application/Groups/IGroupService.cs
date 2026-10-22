@@ -20,6 +20,12 @@ public interface IGroupService
     /// <summary>Id предметов, доступных группе.</summary>
     Task<List<int>> GetSubjectIdsAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Доступы всех групп разом: те же фильтры, что у <see cref="GetSubjectIdsAsync"/>. Скрытые и запрещённые
+    /// для админа группы не возвращаются.
+    /// </summary>
+    Task<List<GroupSubjectsDto>> GetSubjectLinksAsync(Guid adminId, CancellationToken cancellationToken = default);
+
     /// <summary>Id групп, которым доступен предмет.</summary>
     Task<List<int>> GetGroupIdsForSubjectAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
 

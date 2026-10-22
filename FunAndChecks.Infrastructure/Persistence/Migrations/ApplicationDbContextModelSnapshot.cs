@@ -22,6 +22,119 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AttendanceSessionGroups", b =>
+                {
+                    b.Property<int>("AttendanceSessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GroupsId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AttendanceSessionId", "GroupsId");
+
+                    b.HasIndex("GroupsId");
+
+                    b.ToTable("AttendanceSessionGroups");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementAward", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AchievementId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("GrantedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IssuedByName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<Guid?>("IssuedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedByName")
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssuedByUserId");
+
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("AchievementId", "UserId")
+                        .IsUnique()
+                        .HasFilter("\"RevokedAtUtc\" IS NULL");
+
+                    b.HasIndex("UserId", "GrantedAtUtc");
+
+                    b.ToTable("AchievementAwards", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("IsArchived", "Name");
+
+                    b.ToTable("AchievementDefinitions", (string)null);
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>
                 {
                     b.Property<Guid>("AdminId")
@@ -64,6 +177,132 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("AdminSubjectAccesses");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Attachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long?>("ForumPostId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsImage")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("UploaderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique();
+
+                    b.HasIndex("UploaderId");
+
+                    b.HasIndex("ForumPostId", "CreatedAtUtc");
+
+                    b.ToTable("Attachments", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GroupName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("MarkedByAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("SessionId", "StudentId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("MarkedByAdminId");
+
+                    b.HasIndex("StudentId", "SessionId");
+
+                    b.ToTable("AttendanceRecords");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByAdminId");
+
+                    b.HasIndex("SubjectId", "StartsAt");
+
+                    b.ToTable("AttendanceSessions");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.CourseTask", b =>
                 {
                     b.Property<int>("Id")
@@ -87,12 +326,268 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<int>("SubjectId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TaskGroupId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TaskGroupId");
 
                     b.HasIndex("SubjectId", "Name")
                         .IsUnique();
 
                     b.ToTable("Tasks", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumBan", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.ToTable("ForumBans", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumPost", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EditedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PinnedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PinnedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("ReplyToPostId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("TopicId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeletedById");
+
+                    b.HasIndex("PinnedById");
+
+                    b.HasIndex("ReplyToPostId");
+
+                    b.HasIndex("AuthorId", "IsDeleted");
+
+                    b.HasIndex("TopicId", "Id");
+
+                    b.ToTable("ForumPosts", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReaction", b =>
+                {
+                    b.Property<long>("PostId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.HasKey("PostId", "UserId", "Kind");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ForumReactions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("PostId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("ReporterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReporterName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId");
+
+                    b.HasIndex("ReporterId");
+
+                    b.HasIndex("ResolvedById");
+
+                    b.HasIndex("ResolvedAtUtc", "CreatedAtUtc");
+
+                    b.ToTable("ForumReports", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSubscription", b =>
+                {
+                    b.Property<int>("TopicId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TopicId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ForumSubscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopic", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid?>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DeletedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAnnouncement")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastActivityAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PostCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("DeletedById");
+
+                    b.HasIndex("SubjectId", "IsDeleted", "IsPinned", "LastActivityAtUtc");
+
+                    b.ToTable("ForumTopics", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicRead", b =>
+                {
+                    b.Property<int>("TopicId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("LastReadPostId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("TopicId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ForumTopicReads", (string)null);
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.GradeComponent", b =>
@@ -158,6 +653,125 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasIndex("SubjectId");
 
                     b.ToTable("GroupSubjects");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Notification", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("ReadAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.HasIndex("UserId", "ReadAtUtc");
+
+                    b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.PinnedAchievement", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AchievementAwardId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "Position");
+
+                    b.HasIndex("AchievementAwardId")
+                        .IsUnique();
+
+                    b.ToTable("PinnedAchievements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PinnedAchievements_Position", "\"Position\" >= 1 AND \"Position\" <= 3");
+                        });
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ProfileMediaAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("AchievementDefinitionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<double>("DurationSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAnimated")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PosterContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("PosterData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid?>("UserProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AchievementDefinitionId")
+                        .IsUnique();
+
+                    b.HasIndex("UserProfileId")
+                        .IsUnique();
+
+                    b.ToTable("ProfileMediaAssets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProfileMediaAssets_OneOwner", "(\"UserProfileId\" IS NOT NULL AND \"AchievementDefinitionId\" IS NULL) OR (\"UserProfileId\" IS NULL AND \"AchievementDefinitionId\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.QueueEntry", b =>
@@ -273,6 +887,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AttendanceEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -328,6 +945,306 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("Submissions");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Survey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowSnooze")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ClosesAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(201)
+                        .HasColumnType("character varying(201)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MaxSnoozes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("OpensAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SnoozeHours")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("TriggerThreshold")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TriggerType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("SubjectId");
+
+                    b.HasIndex("Status", "SubjectId");
+
+                    b.ToTable("Surveys", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Surveys_TriggerThreshold", "\"TriggerThreshold\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Number")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("OptionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ResponseId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OptionId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("ResponseId");
+
+                    b.ToTable("SurveyAnswers", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("SurveyOptions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyParticipation", b =>
+                {
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SnoozeCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SnoozedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SurveyId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("SurveyParticipations", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowOther")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MaxLength")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ScaleMax")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScaleMaxLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("ScaleMin")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ScaleMinLabel")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SurveyId", "Order");
+
+                    b.ToTable("SurveyQuestions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("RespondentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SubmittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("RespondentId");
+
+                    b.HasIndex("SurveyId");
+
+                    b.HasIndex("SurveyId", "GroupId");
+
+                    b.HasIndex("SurveyId", "RespondentId")
+                        .IsUnique()
+                        .HasFilter("\"RespondentId\" IS NOT NULL");
+
+                    b.ToTable("SurveyResponses", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyTargetGroup", b =>
+                {
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SurveyId", "GroupId");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("SurveyTargetGroups", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.TaskGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("TaskGroups", (string)null);
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -348,6 +1265,32 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable((string)null);
 
                     b.UseTpcMappingStrategy();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.UserProfile", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AboutMe")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("GitHubUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PortfolioUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserProfiles", (string)null);
                 });
 
             modelBuilder.Entity("FunAndChecks.Infrastructure.Identity.ApplicationRole", b =>
@@ -422,6 +1365,7 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PreferredCulture")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)")
                         .HasDefaultValue("en-US");
@@ -616,9 +1560,65 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("PrivacyPolicyAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasIndex("GroupId");
 
                     b.ToTable("Students", (string)null);
+                });
+
+            modelBuilder.Entity("AttendanceSessionGroups", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AttendanceSession", null)
+                        .WithMany()
+                        .HasForeignKey("AttendanceSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Group", null)
+                        .WithMany()
+                        .HasForeignKey("GroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementAward", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AchievementDefinition", "Achievement")
+                        .WithMany()
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("IssuedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Achievement");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDefinition", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>
@@ -659,6 +1659,65 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Subject");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Attachment", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumPost", "ForumPost")
+                        .WithMany("Attachments")
+                        .HasForeignKey("ForumPostId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UploaderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ForumPost");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "MarkedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("MarkedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.AttendanceSession", "Session")
+                        .WithMany("Records")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MarkedByAdmin");
+
+                    b.Navigation("Session");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "CreatedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByAdmin");
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.CourseTask", b =>
                 {
                     b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
@@ -667,7 +1726,147 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FunAndChecks.Domain.Entities.TaskGroup", "TaskGroup")
+                        .WithMany("Tasks")
+                        .HasForeignKey("TaskGroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Subject");
+
+                    b.Navigation("TaskGroup");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumBan", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumPost", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PinnedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumPost", null)
+                        .WithMany()
+                        .HasForeignKey("ReplyToPostId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumTopic", "Topic")
+                        .WithMany("Posts")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Topic");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReaction", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumPost", "Post")
+                        .WithMany("Reactions")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReport", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumPost", "Post")
+                        .WithMany()
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ReporterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSubscription", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumTopic", null)
+                        .WithMany()
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopic", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicRead", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumTopic", null)
+                        .WithMany()
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.GradeComponent", b =>
@@ -698,6 +1897,43 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Group");
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.PinnedAchievement", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AchievementAward", null)
+                        .WithMany()
+                        .HasForeignKey("AchievementAwardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.UserProfile", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ProfileMediaAsset", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AchievementDefinition", null)
+                        .WithOne()
+                        .HasForeignKey("FunAndChecks.Domain.Entities.ProfileMediaAsset", "AchievementDefinitionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.UserProfile", null)
+                        .WithOne()
+                        .HasForeignKey("FunAndChecks.Domain.Entities.ProfileMediaAsset", "UserProfileId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.QueueEntry", b =>
@@ -798,6 +2034,130 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Survey", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyAnswer", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.SurveyOption", null)
+                        .WithMany()
+                        .HasForeignKey("OptionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.SurveyQuestion", null)
+                        .WithMany()
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.SurveyResponse", null)
+                        .WithMany("Answers")
+                        .HasForeignKey("ResponseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyOption", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.SurveyQuestion", null)
+                        .WithMany("Options")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyParticipation", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Survey", null)
+                        .WithMany()
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Survey", null)
+                        .WithMany("Questions")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Group", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RespondentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Survey", null)
+                        .WithMany()
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyTargetGroup", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Group", "Group")
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Survey", null)
+                        .WithMany("TargetGroups")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.TaskGroup", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany("TaskGroups")
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.UserProfile", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithOne()
+                        .HasForeignKey("FunAndChecks.Domain.Entities.UserProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("FunAndChecks.Infrastructure.Identity.RefreshToken", b =>
                 {
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", "User")
@@ -885,9 +2245,26 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Group");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AttendanceSession", b =>
+                {
+                    b.Navigation("Records");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.CourseTask", b =>
                 {
                     b.Navigation("Submissions");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumPost", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Reactions");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopic", b =>
+                {
+                    b.Navigation("Posts");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.GradeComponent", b =>
@@ -913,6 +2290,30 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.Navigation("GroupSubjects");
 
+                    b.Navigation("TaskGroups");
+
+                    b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Survey", b =>
+                {
+                    b.Navigation("Questions");
+
+                    b.Navigation("TargetGroups");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyQuestion", b =>
+                {
+                    b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.SurveyResponse", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.TaskGroup", b =>
+                {
                     b.Navigation("Tasks");
                 });
 

@@ -1,0 +1,8 @@
+@page "/student/forum/{TopicId:int}"
+@layout StudentLayout
+@attribute [Authorize]
+<ForumTopicView TopicId="TopicId" PostId="PostId" IsAdmin="false" />
+@code {
+    [Parameter] public int TopicId { get; set; }
+    [SupplyParameterFromQuery(Name = "post")] public long? PostId { get; set; }
+}

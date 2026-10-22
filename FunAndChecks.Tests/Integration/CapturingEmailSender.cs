@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 
 namespace FunAndChecks.Tests.Integration;
@@ -11,8 +12,16 @@ public class CapturingEmailSender : IEmailSender
 
     private readonly ConcurrentQueue<SentEmail> _sent = new();
 
+    public IReadOnlyCollection<SentEmail> Sent => _sent.ToArray();
+
+    /// <summary>Адреса, которые «почтовый сервер» отвергает навсегда (как nullMX-домен).</summary>
+    public ConcurrentDictionary<string, bool> RejectedRecipients { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
+        if (RejectedRecipients.ContainsKey(to))
+            throw new EmailDeliveryException("The mail server does not accept email for this address.");
+
         _sent.Enqueue(new SentEmail(to, subject, htmlBody));
         return Task.CompletedTask;
     }

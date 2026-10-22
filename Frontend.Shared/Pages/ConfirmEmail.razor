@@ -3,17 +3,19 @@
 
 <PageTitle>@Loc["ConfirmEmail_PageTitle"]</PageTitle>
 
-<MudPaper Class="pa-8 mx-auto mt-16" MaxWidth="420px" Elevation="4">
-    <MudText Typo="Typo.h5" Class="mb-2" Align="Align.Center">@Loc["ConfirmEmail_Title"]</MudText>
-    <MudText Typo="Typo.body2" Class="mb-4" Align="Align.Center">
+<section class="fc-auth-card">
+    <AuthIntro />
+    <div class="fc-auth-form">
+    <MudText Typo="Typo.h5">@Loc["ConfirmEmail_Title"]</MudText>
+    <MudText Typo="Typo.body2" Class="mb-5 fc-muted">
         @Loc["ConfirmEmail_Subtitle"]
     </MudText>
 
     <MudForm @ref="_form">
         <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
-                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Variant="Variant.Outlined" autocomplete="email" />
         <MudTextField @bind-Value="_code" Label="@Loc["ConfirmEmail_CodeLabel"]"
-                      Required="true" RequiredError="@Loc["ConfirmEmail_CodeRequired"]" />
+                      Required="true" RequiredError="@Loc["ConfirmEmail_CodeRequired"]" Variant="Variant.Outlined" autocomplete="one-time-code" />
     </MudForm>
 
     @if (_error is not null)
@@ -31,10 +33,11 @@
         @Loc["ConfirmEmail_SubmitButton"]
     </MudButton>
 
-    <div class="d-flex justify-space-between mt-4">
+    <div class="fc-auth-links">
         <MudLink Href="/login">@Loc["Common_BackToLogin"]</MudLink>
         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ResendAsync" Disabled="_busy">
             @Loc["ConfirmEmail_ResendButton"]
         </MudButton>
     </div>
-</MudPaper>
+    </div>
+</section>

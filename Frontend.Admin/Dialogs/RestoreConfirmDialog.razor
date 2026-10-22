@@ -1,0 +1,33 @@
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Восстановление заменяет всю БД, поэтому подтверждаем вводом слова, а не одним кликом. *@
+<MudDialog>
+    <TitleContent><MudText Typo="Typo.h6">@Loc["Maintenance_RestoreConfirmTitle"]</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">@Loc["Maintenance_RestoreConfirmText"]</MudAlert>
+            <MudText Typo="Typo.body2">@Loc["Maintenance_RestoreConfirmFile"] <span class="fc-backup-name">@FileName</span></MudText>
+            <MudTextField @bind-Value="_typed" Immediate="true" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true"
+                          Label="@Loc["Maintenance_RestoreConfirmPrompt", ConfirmWord]" autocomplete="off" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">@Loc["Common_Cancel"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" Disabled="@(!Confirmed)" OnClick="@(() => MudDialog.Close(DialogResult.Ok(true)))">
+            @Loc["Maintenance_Restore"]
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string FileName { get; set; } = "";
+
+    private string? _typed;
+
+    private string ConfirmWord => Loc["Maintenance_RestoreConfirmWord"];
+
+    private bool Confirmed => string.Equals(_typed?.Trim(), ConfirmWord, StringComparison.CurrentCultureIgnoreCase);
+}

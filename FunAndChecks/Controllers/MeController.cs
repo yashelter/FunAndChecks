@@ -22,7 +22,8 @@ public class MeController(
     IResultsService resultsService,
     IAdminAccessService accessService,
     ISubjectService subjectService,
-    IGroupService groupService)
+    IGroupService groupService,
+    FunAndChecks.Application.Queues.IQueueService queueService)
     : ControllerBase
 {
     [HttpGet]
@@ -50,7 +51,7 @@ public class MeController(
     /// <summary>Активные события очереди, на которые записан текущий студент.</summary>
     [HttpGet("queue-events")]
     public async Task<ActionResult<List<QueueEventDto>>> GetMyQueueEvents([FromQuery] bool includePast, CancellationToken cancellationToken) =>
-        Ok(await studentService.GetMyQueueEventsAsync(User.GetUserId(), includePast, cancellationToken));
+        Ok(await queueService.GetMyEventsAsync(User.GetUserId(), includePast, cancellationToken));
 
     /// <summary>События очереди, доступные текущему студенту (по умолчанию — активные).</summary>
     [HttpGet("available-queue-events")]

@@ -1,0 +1,4 @@
+@page "/admin/forum"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+<ForumHome IsAdmin="true" />

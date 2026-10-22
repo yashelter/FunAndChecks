@@ -1,0 +1,4 @@
+@page "/admin/forum/moderation"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+<ForumModeration />

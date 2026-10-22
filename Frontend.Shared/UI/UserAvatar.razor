@@ -1,0 +1,23 @@
+@using Frontend.Shared.Profiles
+@inject AvatarDirectory Avatars
+
+@* Только аватар (без ссылки) — для мест, где вокруг уже есть ссылка или кнопка. *@
+<ProfileMedia Media="_avatar" Alt="@Name" Fallback="@ProfileText.Initials(Name)" Class="@Class" />
+
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "fc-user-chip-avatar";
+    private MediaDto? _avatar;
+    private Guid? _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserId == _loadedFor) return;
+        _loadedFor = UserId;
+        _avatar = null;
+        if (UserId is not Guid id) return;
+        var avatar = await Avatars.GetAsync(id);
+        if (_loadedFor == id) _avatar = avatar;
+    }
+}

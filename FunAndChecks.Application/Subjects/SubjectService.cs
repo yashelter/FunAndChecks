@@ -1,4 +1,5 @@
 using FluentValidation;
+using FluentValidation.Results;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -16,26 +17,27 @@ public class SubjectService(
     IValidator<CreateSubjectRequest> createSubjectValidator,
     IValidator<UpdateSubjectRequest> updateSubjectValidator,
     IValidator<CreateTaskRequest> createTaskValidator,
-    IValidator<UpdateTaskRequest> updateTaskValidator)
+    IValidator<UpdateTaskRequest> updateTaskValidator,
+    IValidator<CreateTaskGroupRequest> createTaskGroupValidator,
+    IValidator<UpdateTaskGroupRequest> updateTaskGroupValidator)
     : ISubjectService
 {
     public Task<List<SubjectDto>> GetAllAsync(CancellationToken cancellationToken = default) =>
         db.Subjects
             .OrderBy(s => s.Name)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .ToListAsync(cancellationToken);
 
     public async Task<List<SubjectDto>> GetVisibleForAdminAsync(Guid adminId, CancellationToken cancellationToken = default)
     {
-        var blocked = await db.AdminSubjectAccesses
-            .Where(a => a.AdminId == adminId && (a.IsRestricted || a.IsHidden))
-            .Select(a => a.SubjectId)
-            .ToListAsync(cancellationToken);
+        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
 
         return await db.Subjects
-            .Where(s => !blocked.Contains(s.Id))
+            .Where(s => isSuperAdmin
+                ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == s.Id && a.IsHidden)
+                : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == s.Id && !a.IsRestricted && !a.IsHidden))
             .OrderBy(s => s.Name)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .ToListAsync(cancellationToken);
     }
 
@@ -43,7 +45,7 @@ public class SubjectService(
     {
         var subject = await db.Subjects
             .Where(s => s.Id == subjectId)
-            .Select(s => new SubjectDto(s.Id, s.Name))
+            .Select(s => new SubjectDto(s.Id, s.Name, s.AttendanceEnabled))
             .FirstOrDefaultAsync(cancellationToken);
 
         return subject ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
@@ -68,7 +70,7 @@ public class SubjectService(
             throw;
         }
 
-        return new SubjectDto(subject.Id, subject.Name);
+        return new SubjectDto(subject.Id, subject.Name, subject.AttendanceEnabled);
     }
 
     public async Task<SubjectDto> UpdateAsync(Guid adminId, int subjectId, UpdateSubjectRequest request, CancellationToken cancellationToken = default)
@@ -93,7 +95,7 @@ public class SubjectService(
         }
 
         cache.Invalidate(subjectId);
-        return new SubjectDto(subject.Id, subject.Name);
+        return new SubjectDto(subject.Id, subject.Name, subject.AttendanceEnabled);
     }
 
     /// <summary>Имя предмета уникально (IX_Subjects_Name) — повтор даёт 409 вместо ошибки БД.</summary>
@@ -131,10 +133,12 @@ public class SubjectService(
 
     public async Task<List<TaskDto>> GetTasksAsync(int subjectId, CancellationToken cancellationToken = default)
     {
-        return await db.Tasks
+        var tasks = await db.Tasks
             .Where(t => t.SubjectId == subjectId)
-            .Select(t => new TaskDto(t.Id, t.Name, t.Description, t.MaxPoints))
+            .Select(t => new TaskDto(t.Id, t.Name, t.Description, t.MaxPoints, t.TaskGroupId,
+                t.TaskGroup == null ? null : t.TaskGroup.Name))
             .ToListAsync(cancellationToken);
+        return TaskOrder.Apply(tasks, t => t.Name, t => t.Id, t => t.TaskGroupId, t => t.TaskGroupName).ToList();
     }
 
     public async Task<List<TaskWithStatusDto>> GetTasksWithStatusAsync(int subjectId, Guid studentId, CancellationToken cancellationToken = default)
@@ -152,6 +156,7 @@ public class SubjectService(
             .Select(task => new
             {
                 Task = task,
+                GroupName = task.TaskGroup == null ? null : task.TaskGroup.Name,
                 LastStatus = task.Submissions
                     .Where(sub => sub.StudentId == studentId)
                     .OrderByDescending(sub => sub.SubmittedAt)
@@ -160,13 +165,15 @@ public class SubjectService(
             })
             .ToListAsync(cancellationToken);
 
-        return tasks
+        return TaskOrder.Apply(tasks, t => t.Task.Name, t => t.Task.Id, t => t.Task.TaskGroupId, t => t.GroupName)
             .Select(t => new TaskWithStatusDto(
                 t.Task.Id,
                 t.Task.Name,
                 t.Task.Description,
                 t.Task.MaxPoints,
-                t.LastStatus ?? SubmissionStatus.NotSubmitted))
+                t.LastStatus ?? SubmissionStatus.NotSubmitted,
+                t.Task.TaskGroupId,
+                t.GroupName))
             .ToList();
     }
 
@@ -180,6 +187,7 @@ public class SubjectService(
             throw new NotFoundException($"Subject with ID {subjectId} not found.");
 
         await EnsureTaskNameNotTakenAsync(subjectId, request.Name, null, cancellationToken);
+        var groupName = await GetTaskGroupNameAsync(subjectId, request.TaskGroupId, cancellationToken);
 
         var task = new CourseTask
         {
@@ -187,6 +195,7 @@ public class SubjectService(
             Description = request.Description,
             MaxPoints = request.MaxPoints,
             SubjectId = subjectId,
+            TaskGroupId = request.TaskGroupId,
         };
         db.Tasks.Add(task);
         try
@@ -201,7 +210,7 @@ public class SubjectService(
         }
 
         cache.Invalidate(subjectId);
-        return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
+        return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints, task.TaskGroupId, groupName);
     }
 
     public async Task<TaskDto> UpdateTaskAsync(Guid adminId, int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default)
@@ -214,10 +223,12 @@ public class SubjectService(
         await accessService.EnsureSubjectAllowedAsync(adminId, task.SubjectId, cancellationToken);
 
         await EnsureTaskNameNotTakenAsync(task.SubjectId, request.Name, task.Id, cancellationToken);
+        var groupName = await GetTaskGroupNameAsync(task.SubjectId, request.TaskGroupId, cancellationToken);
 
         task.Name = request.Name;
         task.Description = request.Description;
         task.MaxPoints = request.MaxPoints;
+        task.TaskGroupId = request.TaskGroupId;
         try
         {
             await db.SaveChangesAsync(cancellationToken);
@@ -229,7 +240,7 @@ public class SubjectService(
         }
 
         cache.Invalidate(task.SubjectId);
-        return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints);
+        return new TaskDto(task.Id, task.Name, task.Description, task.MaxPoints, task.TaskGroupId, groupName);
     }
 
     public async Task DeleteTaskAsync(Guid adminId, int taskId, CancellationToken cancellationToken = default)
@@ -244,5 +255,115 @@ public class SubjectService(
         await db.SaveChangesAsync(cancellationToken);
 
         cache.Invalidate(subjectId);
+    }
+
+    public async Task<List<TaskGroupDto>> GetTaskGroupsAsync(int subjectId, CancellationToken cancellationToken = default)
+    {
+        var groups = await db.TaskGroups
+            .Where(g => g.SubjectId == subjectId)
+            .Select(g => new TaskGroupDto(g.Id, g.Name, g.Tasks.Count))
+            .ToListAsync(cancellationToken);
+        return TaskOrder.Apply(groups, g => g.Name, g => g.Id).ToList();
+    }
+
+    public async Task<TaskGroupDto> CreateTaskGroupAsync(Guid adminId, int subjectId, CreateTaskGroupRequest request, CancellationToken cancellationToken = default)
+    {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+        await createTaskGroupValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var subjectExists = await db.Subjects.AnyAsync(s => s.Id == subjectId, cancellationToken);
+        if (!subjectExists)
+            throw new NotFoundException($"Subject with ID {subjectId} not found.");
+
+        var name = request.Name.Trim();
+        await EnsureTaskGroupNameNotTakenAsync(subjectId, name, null, cancellationToken);
+
+        var group = new TaskGroup { Name = name, SubjectId = subjectId };
+        db.TaskGroups.Add(group);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Гонка: уникальный индекс IX_TaskGroups_SubjectId_Name отклонил повтор внутри предмета.
+            await EnsureTaskGroupNameNotTakenAsync(subjectId, name, null, cancellationToken);
+            throw;
+        }
+
+        return new TaskGroupDto(group.Id, group.Name, 0);
+    }
+
+    public async Task<TaskGroupDto> UpdateTaskGroupAsync(Guid adminId, int taskGroupId, UpdateTaskGroupRequest request, CancellationToken cancellationToken = default)
+    {
+        await updateTaskGroupValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var group = await db.TaskGroups.FindAsync([taskGroupId], cancellationToken)
+                    ?? throw new NotFoundException($"Task group with ID {taskGroupId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, group.SubjectId, cancellationToken);
+
+        var name = request.Name.Trim();
+        await EnsureTaskGroupNameNotTakenAsync(group.SubjectId, name, group.Id, cancellationToken);
+
+        group.Name = name;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            await EnsureTaskGroupNameNotTakenAsync(group.SubjectId, name, group.Id, cancellationToken);
+            throw;
+        }
+
+        // Порядок колонок в таблице результатов зависит от названия группы.
+        cache.Invalidate(group.SubjectId);
+        var taskCount = await db.Tasks.CountAsync(t => t.TaskGroupId == group.Id, cancellationToken);
+        return new TaskGroupDto(group.Id, group.Name, taskCount);
+    }
+
+    /// <summary>Удаляет группу; её задания остаются в предмете без группы.</summary>
+    public async Task DeleteTaskGroupAsync(Guid adminId, int taskGroupId, CancellationToken cancellationToken = default)
+    {
+        var group = await db.TaskGroups.FindAsync([taskGroupId], cancellationToken)
+                    ?? throw new NotFoundException($"Task group with ID {taskGroupId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, group.SubjectId, cancellationToken);
+
+        // FK Tasks.TaskGroupId — ON DELETE SET NULL.
+        db.TaskGroups.Remove(group);
+        await db.SaveChangesAsync(cancellationToken);
+
+        cache.Invalidate(group.SubjectId);
+    }
+
+    /// <summary>Группа должна принадлежать тому же предмету; возвращает её название (null — без группы).</summary>
+    private async Task<string?> GetTaskGroupNameAsync(int subjectId, int? taskGroupId, CancellationToken cancellationToken)
+    {
+        if (taskGroupId is null)
+            return null;
+
+        var name = await db.TaskGroups
+            .Where(g => g.Id == taskGroupId && g.SubjectId == subjectId)
+            .Select(g => g.Name)
+            .FirstOrDefaultAsync(cancellationToken);
+        return name ?? throw new ValidationException([
+            new ValidationFailure(nameof(CreateTaskRequest.TaskGroupId), "The task group must belong to the task's subject.")
+            {
+                ErrorCode = "task_group_invalid",
+            },
+        ]);
+    }
+
+    /// <summary>Имя группы уникально в пределах предмета (IX_TaskGroups_SubjectId_Name).</summary>
+    private async Task EnsureTaskGroupNameNotTakenAsync(int subjectId, string name, int? excludingGroupId, CancellationToken cancellationToken)
+    {
+        var taken = await db.TaskGroups
+            .AsNoTracking()
+            .AnyAsync(g => g.SubjectId == subjectId && g.Name == name
+                           && (excludingGroupId == null || g.Id != excludingGroupId), cancellationToken);
+        if (taken)
+            throw new ConflictException($"Task group name '{name}' is already in use in this subject.", "task_groups.name_taken");
     }
 }

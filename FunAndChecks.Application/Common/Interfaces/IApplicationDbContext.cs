@@ -14,6 +14,7 @@ public interface IApplicationDbContext
     DbSet<Group> Groups { get; }
     DbSet<Subject> Subjects { get; }
     DbSet<CourseTask> Tasks { get; }
+    DbSet<TaskGroup> TaskGroups { get; }
     DbSet<Submission> Submissions { get; }
     DbSet<QueueEvent> QueueEvents { get; }
     DbSet<QueueEntry> QueueEntries { get; }
@@ -22,6 +23,29 @@ public interface IApplicationDbContext
     DbSet<StudentGrade> StudentGrades { get; }
     DbSet<AdminSubjectAccess> AdminSubjectAccesses { get; }
     DbSet<AdminGroupAccess> AdminGroupAccesses { get; }
+    DbSet<AttendanceSession> AttendanceSessions { get; }
+    DbSet<AttendanceRecord> AttendanceRecords { get; }
+    DbSet<UserProfile> UserProfiles { get; }
+    DbSet<ProfileMediaAsset> ProfileMediaAssets { get; }
+    DbSet<AchievementDefinition> AchievementDefinitions { get; }
+    DbSet<AchievementAward> AchievementAwards { get; }
+    DbSet<PinnedAchievement> PinnedAchievements { get; }
+    DbSet<Attachment> Attachments { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<ForumTopic> ForumTopics { get; }
+    DbSet<ForumPost> ForumPosts { get; }
+    DbSet<ForumReaction> ForumReactions { get; }
+    DbSet<ForumTopicRead> ForumTopicReads { get; }
+    DbSet<ForumSubscription> ForumSubscriptions { get; }
+    DbSet<ForumReport> ForumReports { get; }
+    DbSet<ForumBan> ForumBans { get; }
+    DbSet<Survey> Surveys { get; }
+    DbSet<SurveyTargetGroup> SurveyTargetGroups { get; }
+    DbSet<SurveyQuestion> SurveyQuestions { get; }
+    DbSet<SurveyOption> SurveyOptions { get; }
+    DbSet<SurveyResponse> SurveyResponses { get; }
+    DbSet<SurveyAnswer> SurveyAnswers { get; }
+    DbSet<SurveyParticipation> SurveyParticipations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 

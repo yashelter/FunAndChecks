@@ -3,42 +3,61 @@
 
 <PageTitle>@Loc["Register_PageTitle"]</PageTitle>
 
-<MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
-    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Register_Title"]</MudText>
+<section class="fc-auth-card">
+    <AuthIntro />
+    <div class="fc-auth-form">
+    <MudText Typo="Typo.h5">@Loc["Register_Title"]</MudText>
 
     <EditForm Model="_model" OnValidSubmit="SubmitAsync">
         <Frontend.Shared.Components.ServerValidator @ref="_serverValidator" />
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
-                <MudTextField For="@(() => _model.FirstName)" @bind-Value="_model.FirstName" Label="@Loc["Register_FirstNameLabel"]" Required="true" RequiredError="@Loc["Register_FirstNameRequired"]" />
+                <MudTextField For="@(() => _model.FirstName)" @bind-Value="_model.FirstName" Label="@Loc["Register_FirstNameLabel"]" Required="true" RequiredError="@Loc["Register_FirstNameRequired"]" Variant="Variant.Outlined" autocomplete="given-name" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField For="@(() => _model.LastName)" @bind-Value="_model.LastName" Label="@Loc["Register_LastNameLabel"]" Required="true" RequiredError="@Loc["Register_LastNameRequired"]" />
+                <MudTextField For="@(() => _model.LastName)" @bind-Value="_model.LastName" Label="@Loc["Register_LastNameLabel"]" Required="true" RequiredError="@Loc["Register_LastNameRequired"]" Variant="Variant.Outlined" autocomplete="family-name" />
             </MudItem>
         </MudGrid>
 
         <MudTextField For="@(() => _model.Email)" @bind-Value="_model.Email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
-                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mt-2" />
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Variant="Variant.Outlined" autocomplete="email" />
 
         <MudTextField For="@(() => _model.Password)" @bind-Value="_model.Password" Label="@Loc["Register_PasswordLabel"]"
                       InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]" Class="mt-2"
+                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]" Variant="Variant.Outlined" autocomplete="new-password"
                       Adornment="Adornment.End"
                       AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
                       OnAdornmentClick="@(() => _showPassword = !_showPassword)" AdornmentAriaLabel="@Loc["Register_ShowPassword"]" />
 
         <MudTextField For="@(() => _model.ConfirmPassword)" @bind-Value="_model.ConfirmPassword" Label="@Loc["Register_ConfirmPasswordLabel"]"
                       InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                      Required="true" RequiredError="@Loc["Register_ConfirmPasswordRequired"]" Class="mt-2"
+                      Required="true" RequiredError="@Loc["Register_ConfirmPasswordRequired"]" Variant="Variant.Outlined" autocomplete="new-password"
                       Validation="@(new Func<string, string?>(ValidateConfirm))" />
 
-        <MudSelect T="int" For="@(() => _model.GroupId)" @bind-Value="_model.GroupId" Label="@Loc["Register_GroupLabel"]" Required="true"
-                   RequiredError="@Loc["Register_GroupRequired"]" Class="mt-2" Placeholder="@Loc["Register_GroupPlaceholder"]">
+        <MudSelect T="int?" For="@(() => _model.GroupId)" @bind-Value="_model.GroupId" Label="@Loc["Register_GroupLabel"]" Required="true" Strict="true"
+                   RequiredError="@Loc["Register_GroupRequired"]" Variant="Variant.Outlined" Placeholder="@Loc["Register_GroupPlaceholder"]">
             @foreach (var group in _groups)
             {
-                <MudSelectItem T="int" Value="group.Id">@group.Name</MudSelectItem>
+                <MudSelectItem T="int?" Value="group.Id">@group.Name</MudSelectItem>
             }
         </MudSelect>
+
+        @if (Flags.PrivacyPolicy)
+        {
+            <div class="mt-4">
+                <MudCheckBox @bind-Value="_model.AcceptedPrivacyPolicy" Label="@Loc["Register_AcceptPrivacyPolicy"]" Required="true"
+                             RequiredError="@Loc["Register_AcceptPrivacyPolicyRequired"]" Color="Color.Primary" Dense="true" />
+                <MudLink Href="/privacy-policy#consent" Class="ms-2">@Loc["Register_PrivacyPolicyLink"]</MudLink>
+                <br />
+                <MudCheckBox @bind-Value="_model.AcceptedTerms" Label="@Loc["Register_AcceptTerms"]" Required="true"
+                             RequiredError="@Loc["Register_AcceptTermsRequired"]" Color="Color.Primary" Dense="true" />
+                <MudLink Href="/privacy-policy#terms" Class="ms-2">@Loc["Register_TermsLink"]</MudLink>
+                <br />
+                <MudLink Href="/privacy-policy" Class="ms-6 d-inline-block mt-1">
+                    <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Register_AcceptPrivacyPolicyHint"]</MudText>
+                </MudLink>
+            </div>
+        }
 
         @if (_error is not null)
         {
@@ -51,7 +70,8 @@
         </MudButton>
     </EditForm>
 
-    <div class="d-flex justify-center mt-4">
+    <div class="fc-auth-links">
         <MudLink Href="/login">@Loc["Register_HaveAccount"]</MudLink>
     </div>
-</MudPaper>
+    </div>
+</section>

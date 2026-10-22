@@ -1,0 +1,33 @@
+@namespace Frontend.Shared.Profiles
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+<div class="fc-profile-modal-backdrop">
+    <section @ref="_element" class="fc-profile-modal @Class" role="dialog" aria-modal="true" aria-labelledby="@_titleId" @onkeydown="KeyDown">
+        <header class="fc-profile-modal-heading"><h2 id="@_titleId">@Title</h2><button type="button" class="fc-profile-icon-button" @onclick="Close" disabled="@Busy" aria-label="@ProfileText.T("Закрыть", "Close")">×</button></header>
+        <div class="fc-profile-modal-body">@ChildContent</div>
+        @if (Actions is not null) { <footer class="fc-profile-modal-actions">@Actions</footer> }
+    </section>
+</div>
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+    private readonly string _titleId = $"profile-dialog-{Guid.NewGuid():N}";
+    private ElementReference _element;
+    private IJSObjectReference? _module;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _module = await JS.InvokeAsync<IJSObjectReference>("import", ProfileMediaModule.Url);
+        await _module.InvokeVoidAsync("trapDialog", _element);
+    }
+    private async Task KeyDown(KeyboardEventArgs args) { if (args.Key == "Escape" && !Busy && _module is not null && await _module.InvokeAsync<bool>("isTopDialog", _element)) await Close.InvokeAsync(); }
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+        try { await _module.InvokeVoidAsync("releaseDialog", _element); await _module.DisposeAsync(); } catch (JSException) { }
+    }
+}

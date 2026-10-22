@@ -21,4 +21,10 @@ public interface ISubjectService
     Task<TaskDto> CreateTaskAsync(Guid adminId, int subjectId, CreateTaskRequest request, CancellationToken cancellationToken = default);
     Task<TaskDto> UpdateTaskAsync(Guid adminId, int taskId, UpdateTaskRequest request, CancellationToken cancellationToken = default);
     Task DeleteTaskAsync(Guid adminId, int taskId, CancellationToken cancellationToken = default);
+
+    /// <summary>Группы заданий предмета (в порядке отображения).</summary>
+    Task<List<TaskGroupDto>> GetTaskGroupsAsync(int subjectId, CancellationToken cancellationToken = default);
+    Task<TaskGroupDto> CreateTaskGroupAsync(Guid adminId, int subjectId, CreateTaskGroupRequest request, CancellationToken cancellationToken = default);
+    Task<TaskGroupDto> UpdateTaskGroupAsync(Guid adminId, int taskGroupId, UpdateTaskGroupRequest request, CancellationToken cancellationToken = default);
+    Task DeleteTaskGroupAsync(Guid adminId, int taskGroupId, CancellationToken cancellationToken = default);
 }

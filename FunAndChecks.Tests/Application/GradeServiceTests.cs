@@ -18,7 +18,7 @@ public class GradeServiceTests : IDisposable
 
     private GradeService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
         new(ctx,
-            new AdminAccessService(ctx),
+            ctx.Access(),
             _cache,
             _notifier,
             new CreateGradeComponentRequestValidator(),
@@ -32,6 +32,7 @@ public class GradeServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var admin = ctx.Admin();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         adminId = admin.Id; subjectId = subject.Id;
 
@@ -50,10 +51,11 @@ public class GradeServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var admin = ctx.Admin();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         adminId = admin.Id; subjectId = subject.Id;
 
-        await new AdminAccessService(ctx).SetSubjectRestrictedAsync(adminId, subjectId, true);
+        await ctx.Access().SetSubjectRestrictedAsync(adminId, subjectId, true);
 
         var sut = CreateSut(ctx);
         var act = () => sut.CreateComponentAsync(adminId, subjectId, new CreateGradeComponentRequest("Exam", 0, 50));
@@ -68,6 +70,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -93,6 +96,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var student = ctx.Student(group); // группа не привязана к предмету — студент не зачислен
         await ctx.SaveChangesAsync();
@@ -113,6 +117,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -132,6 +137,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var student = ctx.Student(group);
         var component = ctx.Component(subject, maxPoints: 10);
@@ -153,6 +159,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -175,6 +182,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var student = ctx.Student(group);
         var component = ctx.Component(subject, maxPoints: 5, minPoints: 2);
@@ -192,6 +200,7 @@ public class GradeServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -213,6 +222,7 @@ public class GradeServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var admin = ctx.Admin();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var component = ctx.Component(subject, maxPoints: 100);
         await ctx.SaveChangesAsync();

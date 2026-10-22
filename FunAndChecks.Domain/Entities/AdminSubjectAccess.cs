@@ -2,7 +2,8 @@ namespace FunAndChecks.Domain.Entities;
 
 /// <summary>
 /// Настройки видимости предмета для конкретного админа.
-/// Запись существует, только если задействован хотя бы один флаг.
+/// Отсутствующая запись запрещает доступ. IsRestricted=false — явное разрешение,
+/// которое сохраняется и при снятом IsHidden.
 /// </summary>
 public class AdminSubjectAccess
 {

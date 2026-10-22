@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Backups;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
@@ -14,7 +15,8 @@ namespace FunAndChecks.Infrastructure.Workers;
 /// </summary>
 public class UnconfirmedAccountCleanupService(
     IServiceScopeFactory scopeFactory,
-    ILogger<UnconfirmedAccountCleanupService> logger)
+    ILogger<UnconfirmedAccountCleanupService> logger,
+    MaintenanceModeState? maintenance = null)
     : BackgroundService
 {
     private static readonly TimeSpan ConfirmationWindow = TimeSpan.FromMinutes(30);
@@ -27,7 +29,9 @@ public class UnconfirmedAccountCleanupService(
         {
             try
             {
-                await CleanupAsync(stoppingToken);
+                // Во время восстановления из бэкапа БД не трогаем.
+                if (maintenance?.IsActive != true)
+                    await CleanupAsync(stoppingToken);
             }
             catch (Exception ex)
             {

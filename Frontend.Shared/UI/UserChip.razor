@@ -1,0 +1,29 @@
+@* Аватар + имя со ссылкой на профиль. Без UserId (удалённый аккаунт) — просто подпись. *@
+<span class="fc-user-chip @(Compact ? "compact" : "") @Class">
+    <UserAvatar UserId="UserId" Name="@Name" />
+    <span class="fc-user-chip-text">
+        @if (UserId is Guid id && Link)
+        {
+            <ProfileLink UserId="id" Class="@($"fc-user-chip-name {NameClass}")" Style="@NameStyle">@Name</ProfileLink>
+        }
+        else
+        {
+            <span class="fc-user-chip-name @NameClass" style="@NameStyle">@Name</span>
+        }
+        @if (!string.IsNullOrEmpty(Subtitle)) { <small>@Subtitle</small> }
+    </span>
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool Link { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+    /// <summary>Сохраняет учебную окраску имени (цвет студента в очередях и оценках).</summary>
+    [Parameter] public string? NameStyle { get; set; }
+    [Parameter] public string? NameClass { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

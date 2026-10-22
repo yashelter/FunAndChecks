@@ -78,8 +78,19 @@ public class RefreshTokenService(ApplicationDbContext db, IOptions<JwtOptions> o
             CreatedAt = now,
             ExpiresAt = now + _lifetime,
         });
-        await db.SaveChangesAsync(cancellationToken);
-        await tx.CommitAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ApplicationDbContext.IsSerializationFailure(ex))
+        {
+            // Параллельный запрос (обычно соседняя вкладка) уже ротировал этот токен.
+            // Это не кража — просто проигравший гонку: отказываем без RevokeAll, а не 500.
+            await tx.RollbackAsync(CancellationToken.None);
+            db.ChangeTracker.Clear();
+            return null;
+        }
 
         return new RefreshRotation(token.UserId, raw);
     }

@@ -1,0 +1,175 @@
+{
+  "uid": "fc-technical",
+  "title": "Технические логи",
+  "description": "Мониторинг FunAndChecks. Доступ через актуальную роль суперадминистратора приложения.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "tags": [
+    "FunAndChecks"
+  ],
+  "links": [
+    {
+      "title": "Нагрузка",
+      "url": "/metrics/d/fc-load/load",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Технические логи",
+      "url": "/metrics/d/fc-technical/technical",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Действия администраторов",
+      "url": "/metrics/d/fc-audit/audit",
+      "type": "link",
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "Level",
+        "label": "Уровень",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"technical\"}, level)",
+        "definition": "label_values({log_kind=\"technical\"}, level)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Source",
+        "label": "Компонент",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"technical\"}, source)",
+        "definition": "label_values({log_kind=\"technical\"}, source)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Origin",
+        "label": "Источник",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"technical\"}, source_kind)",
+        "definition": "label_values({log_kind=\"technical\"}, source_kind)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Text",
+        "label": "Текст",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "RequestId",
+        "label": "RequestId",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "События Serilog",
+      "description": "Существующие текстовые файлы и новые записи за последние 14 дней. Исключения объединены, время берётся из записи. RequestId отсутствует у старых записей. Не более 1000 записей на запрос; сузьте период или фильтры.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "funandchecks-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"funandchecks\",log_kind=\"technical\",level=~\"${Level:regex}\",source=~\"${Source:regex}\",source_kind=~\"${Origin:regex}\"} |= ${Text:doublequote} |= ${RequestId:doublequote}",
+          "datasource": {
+            "type": "loki",
+            "uid": "funandchecks-loki"
+          },
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    }
+  ]
+}

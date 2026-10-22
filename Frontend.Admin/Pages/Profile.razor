@@ -1,0 +1,10 @@
+@page "/admin/profile"
+@page "/admin/profile/{UserId:guid}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+@using Frontend.Shared.Profiles
+<ProfileView UserId="UserId" IsAdminLayout="true" ReturnUrl="@ReturnUrl" />
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+}

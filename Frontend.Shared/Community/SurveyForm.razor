@@ -1,0 +1,137 @@
+@* Отрисовка вопросов опроса. Используется при прохождении и в предпросмотре конструктора (ReadOnly). *@
+<div class="fc-survey-form">
+    @foreach (var question in Questions.OrderBy(q => q.Order))
+    {
+        var state = State(question);
+        <fieldset class="fc-panel fc-survey-question @(_showErrors && Missing(question) ? "invalid" : "")">
+            <legend>@question.Text @if (question.IsRequired) { <span class="fc-required" aria-label="@CommunityText.T("обязательный", "required")">*</span> }</legend>
+            @if (!string.IsNullOrWhiteSpace(question.Description)) { <p class="fc-muted">@question.Description</p> }
+            @switch (question.Type)
+            {
+                case SurveyQuestionType.SingleChoice:
+                    @foreach (var option in question.Options)
+                    {
+                        <label class="fc-choice"><input type="radio" name="q-@question.Id" disabled="@ReadOnly" checked="@(state.Options.Contains(option.Id))"
+                                                         @onchange="() => Single(state, option.Id)" /><span>@option.Text</span></label>
+                    }
+                    @if (question.AllowOther) { <OtherInput State="state" Single="true" Name="@($"q-{question.Id}")" Disabled="ReadOnly" /> }
+                    break;
+                case SurveyQuestionType.MultipleChoice:
+                    @foreach (var option in question.Options)
+                    {
+                        <label class="fc-choice"><input type="checkbox" disabled="@ReadOnly" checked="@(state.Options.Contains(option.Id))"
+                                                         @onchange="e => Toggle(state, option.Id, e.Value is true)" /><span>@option.Text</span></label>
+                    }
+                    @if (question.AllowOther) { <OtherInput State="state" Single="false" Disabled="ReadOnly" /> }
+                    break;
+                case SurveyQuestionType.Dropdown:
+                    <select class="fc-input" disabled="@ReadOnly" @onchange="e => Pick(state, e.Value?.ToString())">
+                        <option value="">@CommunityText.T("— выберите —", "— choose —")</option>
+                        @foreach (var option in question.Options) { <option value="@option.Id" selected="@(state.Options.Contains(option.Id))">@option.Text</option> }
+                        @if (question.AllowOther) { <option value="other" selected="@state.OtherSelected">@CommunityText.T("Другое…", "Other…")</option> }
+                    </select>
+                    @if (state.OtherSelected) { <input class="fc-input mt-2" maxlength="300" disabled="@ReadOnly" @bind="state.Other" @bind:event="oninput" placeholder="@CommunityText.T("Ваш вариант", "Your answer")" /> }
+                    break;
+                case SurveyQuestionType.ShortText:
+                    <input class="fc-input" disabled="@ReadOnly" maxlength="@(question.MaxLength ?? 300)" @bind="state.Text" @bind:event="oninput" />
+                    break;
+                case SurveyQuestionType.LongText:
+                    <textarea class="fc-input" rows="4" disabled="@ReadOnly" maxlength="@(question.MaxLength ?? 4000)" @bind="state.Text" @bind:event="oninput"></textarea>
+                    break;
+                case SurveyQuestionType.Scale:
+                    <div class="fc-scale" role="radiogroup">
+                        @if (question.ScaleMinLabel is not null) { <small>@question.ScaleMinLabel</small> }
+                        @for (var value = question.ScaleMin ?? 1; value <= (question.ScaleMax ?? 5); value++)
+                        {
+                            var v = value;
+                            <button type="button" role="radio" aria-checked="@(state.Number == v)" class="@(state.Number == v ? "selected" : "")" disabled="@ReadOnly"
+                                    @onclick="() => state.Number = v">@v</button>
+                        }
+                        @if (question.ScaleMaxLabel is not null) { <small>@question.ScaleMaxLabel</small> }
+                    </div>
+                    break;
+                case SurveyQuestionType.Number:
+                    <input class="fc-input fc-number" type="number" step="any" disabled="@ReadOnly" min="@question.ScaleMin" max="@question.ScaleMax"
+                           @bind="state.Number" @bind:event="oninput" />
+                    break;
+            }
+            @if (_showErrors && Missing(question)) { <p class="fc-field-error">@CommunityText.T("Это обязательный вопрос.", "This question is required.")</p> }
+        </fieldset>
+    }
+    @if (!ReadOnly)
+    {
+        <div class="fc-survey-actions">
+            @ExtraActions
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="Busy" OnClick="SubmitAsync">@CommunityText.T("Отправить ответы", "Submit answers")</MudButton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<SurveyQuestionDto> Questions { get; set; } = [];
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment? ExtraActions { get; set; }
+    [Parameter] public EventCallback<SubmitSurveyRequest> Submit { get; set; }
+    private readonly Dictionary<int, AnswerState> _answers = [];
+    private bool _showErrors;
+
+    public sealed class AnswerState
+    {
+        public HashSet<int> Options { get; } = [];
+        public bool OtherSelected { get; set; }
+        public string? Other { get; set; }
+        public string? Text { get; set; }
+        public decimal? Number { get; set; }
+    }
+
+    private AnswerState State(SurveyQuestionDto question)
+    {
+        if (!_answers.TryGetValue(question.Id, out var state)) _answers[question.Id] = state = new AnswerState();
+        return state;
+    }
+
+    private static void Single(AnswerState state, int optionId)
+    {
+        state.Options.Clear();
+        state.Options.Add(optionId);
+        state.OtherSelected = false;
+    }
+
+    private static void Toggle(AnswerState state, int optionId, bool on)
+    {
+        if (on) state.Options.Add(optionId); else state.Options.Remove(optionId);
+    }
+
+    private static void Pick(AnswerState state, string? value)
+    {
+        state.Options.Clear();
+        state.OtherSelected = value == "other";
+        if (int.TryParse(value, out var id)) state.Options.Add(id);
+    }
+
+    private bool Missing(SurveyQuestionDto question)
+    {
+        if (!question.IsRequired) return false;
+        var state = State(question);
+        return question.Type switch
+        {
+            SurveyQuestionType.ShortText or SurveyQuestionType.LongText => string.IsNullOrWhiteSpace(state.Text),
+            SurveyQuestionType.Scale or SurveyQuestionType.Number => state.Number is null,
+            _ => state.Options.Count == 0 && !(state.OtherSelected && !string.IsNullOrWhiteSpace(state.Other)),
+        };
+    }
+
+    private async Task SubmitAsync()
+    {
+        _showErrors = true;
+        if (Questions.Any(Missing)) return;
+        var answers = Questions.Select(q =>
+        {
+            var s = State(q);
+            var other = s.OtherSelected && !string.IsNullOrWhiteSpace(s.Other) ? s.Other : null;
+            return new SubmitSurveyAnswer(q.Id, s.Options.Count == 0 ? null : s.Options.ToList(), other, s.Text, s.Number);
+        }).ToList();
+        await Submit.InvokeAsync(new SubmitSurveyRequest(answers));
+    }
+}

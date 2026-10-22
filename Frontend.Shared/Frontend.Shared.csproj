@@ -12,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Markdig" Version="0.40.0" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.9" />
         <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.9" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.9" />
@@ -21,6 +22,27 @@
         <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.9" />
         <PackageReference Include="MudBlazor" Version="9.5.0" />
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Resources/Policies/PrivacyPolicy_en.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.PrivacyPolicy_en.md</ManifestResourceName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Resources/Policies/PrivacyPolicy_ru.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.PrivacyPolicy_ru.md</ManifestResourceName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Resources/Policies/Consent_en.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.Consent_en.md</ManifestResourceName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Resources/Policies/Consent_ru.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.Consent_ru.md</ManifestResourceName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Resources/Policies/Terms_en.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.Terms_en.md</ManifestResourceName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="Resources/Policies/Terms_ru.md">
+            <ManifestResourceName>Frontend.Shared.Resources.Policies.Terms_ru.md</ManifestResourceName>
+        </EmbeddedResource>
     </ItemGroup>
 
 </Project>

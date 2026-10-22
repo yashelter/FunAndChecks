@@ -2,6 +2,10 @@ using FunAndChecks.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Application.Common.Exceptions;
+using FunAndChecks.Application.Students;
+using FunAndChecks.Domain.Constants;
+using FunAndChecks.Application.Profiles;
 
 namespace FunAndChecks.Infrastructure.Identity;
 
@@ -14,6 +18,8 @@ public class IdentityService(
     // 6-значные коды со сроком жизни 10 минут).
     private const string EmailConfirmationPurpose = "EmailConfirmation";
     private const string PasswordResetPurpose = "ResetPassword";
+    // Код смены почты действует только для того адреса, на который его отправили.
+    private static string EmailChangePurpose(string newEmail) => "ChangeEmail:" + newEmail.Trim().ToUpperInvariant();
 
     public async Task<AccountResult> CreateAccountAsync(
         Guid id,
@@ -50,6 +56,66 @@ public class IdentityService(
         var user = await userManager.FindByIdAsync(id.ToString());
         if (user != null)
             await userManager.DeleteAsync(user);
+    }
+
+    public async Task<UserAccountPageDto> GetNonAdminAccountsAsync(Guid actingAdminId, string? query,
+        int page, int pageSize, CancellationToken cancellationToken = default)
+    {
+        await EnsureSuperAdminAsync(actingAdminId, cancellationToken);
+        if (page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
+            throw new FluentValidation.ValidationException("Page must be positive and page size must be between 1 and 100.");
+
+        var accounts = dbContext.Users.AsNoTracking()
+            .Where(u => !dbContext.Admins.Any(a => a.Id == u.Id))
+            .Where(u => !dbContext.UserRoles.Any(ur => ur.UserId == u.Id && dbContext.Roles.Any(r =>
+                r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin))))
+            .Select(u => new
+            {
+                u.Id,
+                FirstName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.FirstName).FirstOrDefault(),
+                LastName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.LastName).FirstOrDefault(),
+                u.Email,
+                GroupName = dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.Group == null ? null : s.Group.Name).FirstOrDefault(),
+                u.EmailConfirmed,
+                IsActive = dbContext.Students.Any(s => s.Id == u.Id && s.IsActive),
+                HasStudentProfile = dbContext.Students.Any(s => s.Id == u.Id)
+            });
+        var term = query?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(term))
+            accounts = accounts.Where(a => (a.Email != null && a.Email.ToLower().Contains(term)) ||
+                ((a.LastName ?? "") + " " + (a.FirstName ?? "")).ToLower().Contains(term) ||
+                ((a.FirstName ?? "") + " " + (a.LastName ?? "")).ToLower().Contains(term));
+
+        var total = await accounts.CountAsync(cancellationToken);
+        var items = await accounts.OrderBy(a => a.LastName).ThenBy(a => a.FirstName).ThenBy(a => a.Email).ThenBy(a => a.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(a => new UserAccountDto(a.Id, a.FirstName, a.LastName, a.Email, a.GroupName,
+                a.EmailConfirmed, a.IsActive, a.HasStudentProfile)).ToListAsync(cancellationToken);
+        return new UserAccountPageDto(items, total, page, pageSize);
+    }
+
+    public Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default) =>
+        dbContext.ExecuteSerializableAsync(async ct =>
+        {
+            await EnsureSuperAdminAsync(actingAdminId, ct);
+            var isProtected = await dbContext.Admins.AnyAsync(a => a.Id == userId, ct) ||
+                await dbContext.UserRoles.AnyAsync(ur => ur.UserId == userId && dbContext.Roles.Any(r =>
+                    r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin)), ct);
+            if (isProtected)
+                throw new ForbiddenException("Administrator accounts cannot be deleted here.", "account.admin_protected");
+
+            var account = await userManager.FindByIdAsync(userId.ToString())
+                ?? throw new NotFoundException("User account not found.", "account.not_found");
+            var deleted = await userManager.DeleteAsync(account);
+            EnsureSucceeded(deleted, "Account");
+        }, cancellationToken);
+
+    private async Task EnsureSuperAdminAsync(Guid actingAdminId, CancellationToken cancellationToken)
+    {
+        var allowed = await dbContext.UserRoles.AnyAsync(ur => ur.UserId == actingAdminId &&
+            dbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == Roles.SuperAdmin), cancellationToken);
+        if (!allowed)
+            throw new ForbiddenException("Only a super administrator can manage user accounts.");
     }
 
     public async Task<AccountInfo?> FindByEmailAsync(string email)
@@ -189,6 +255,47 @@ public class IdentityService(
         return outcome;
     }
 
+    public async Task<bool> CheckPasswordAsync(Guid userId, string password)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        return user is not null && await userManager.CheckPasswordAsync(user, password);
+    }
+
+    public async Task<string?> GenerateEmailChangeCodeAsync(Guid userId, string newEmail)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        return user is null ? null
+            : await userManager.GenerateUserTokenAsync(user, TokenOptions.DefaultEmailProvider, EmailChangePurpose(newEmail));
+    }
+
+    public async Task<string?> ChangeEmailAsync(Guid userId, string newEmail, string code)
+    {
+        string? oldEmail = null;
+        await dbContext.ExecuteSerializableAsync(async _ =>
+        {
+            oldEmail = null;
+            var user = await userManager.FindByIdAsync(userId.ToString());
+            if (user is null || !await userManager.VerifyUserTokenAsync(
+                    user, TokenOptions.DefaultEmailProvider, EmailChangePurpose(newEmail), code))
+                return;
+
+            var existing = await userManager.FindByEmailAsync(newEmail);
+            if (existing is not null && existing.Id != userId)
+                throw new ConflictException($"Email '{newEmail}' is already taken.", "account.email_taken");
+
+            var previous = user.Email;
+            user.Email = newEmail.Trim();
+            user.UserName = newEmail.Trim();
+            // Владение новым ящиком доказано кодом из письма.
+            user.EmailConfirmed = true;
+            EnsureSucceeded(await userManager.UpdateAsync(user), "NewEmail");
+            // Новый штамп гасит все выданные ранее коды (в том числе этот).
+            EnsureSucceeded(await userManager.UpdateSecurityStampAsync(user), "NewEmail");
+            oldEmail = previous ?? "";
+        });
+        return oldEmail;
+    }
+
     public async Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword)
     {
         await dbContext.ExecuteSerializableAsync(async _ =>
@@ -231,5 +338,76 @@ public class IdentityService(
 
         throw new FluentValidation.ValidationException(result.Errors.Select(e =>
             new FluentValidation.Results.ValidationFailure(property, e.Description)).ToList());
+    }
+
+    public async Task<IReadOnlyCollection<string>> GetCurrentRolesAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        await (from membership in dbContext.UserRoles.AsNoTracking()
+            join role in dbContext.Roles.AsNoTracking() on membership.RoleId equals role.Id
+            where membership.UserId == userId && role.Name != null
+            select role.Name!).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyCollection<Guid>> GetUserIdsInRoleAsync(string role, CancellationToken cancellationToken = default) =>
+        await (from membership in dbContext.UserRoles.AsNoTracking()
+            join r in dbContext.Roles.AsNoTracking() on membership.RoleId equals r.Id
+            where r.Name == role
+            select membership.UserId).Distinct().ToListAsync(cancellationToken);
+
+    public Task<ProfileAccountInfo?> GetProfileAccountAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        EligibleProfiles().Where(p => p.UserId == userId)
+            .Select(p => new ProfileAccountInfo(p.UserId, p.FirstName, p.LastName, p.GroupName, p.IsAdmin))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyDictionary<Guid, ProfileAccountInfo>> GetProfileAccountsAsync(IEnumerable<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0) return new Dictionary<Guid, ProfileAccountInfo>();
+        return await EligibleProfiles().Where(p => ids.Contains(p.UserId))
+            .Select(p => new ProfileAccountInfo(p.UserId, p.FirstName, p.LastName, p.GroupName, p.IsAdmin))
+            .ToDictionaryAsync(p => p.UserId, cancellationToken);
+    }
+
+    public async Task<AchievementRecipientAccountPageDto> SearchAchievementRecipientsAsync(string? query, int page,
+        int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
+            throw new FluentValidation.ValidationException("Page must be positive and page size must be between 1 and 100.");
+        var profiles = EligibleProfiles();
+        var term = query?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(term))
+            profiles = profiles.Where(p => (p.LastName + " " + p.FirstName).ToLower().Contains(term) ||
+                (p.FirstName + " " + p.LastName).ToLower().Contains(term) ||
+                (p.GroupName != null && p.GroupName.ToLower().Contains(term)));
+        var count = await profiles.CountAsync(cancellationToken);
+        var items = await profiles.OrderBy(p => p.LastName).ThenBy(p => p.FirstName).ThenBy(p => p.UserId)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(p => new AchievementRecipientAccountDto(p.UserId, p.LastName + " " + p.FirstName, p.GroupName, p.IsAdmin))
+            .ToListAsync(cancellationToken);
+        return new(items, count, page, pageSize);
+    }
+
+    private IQueryable<ProfileDirectoryRow> EligibleProfiles() => dbContext.Users.AsNoTracking()
+        .Where(u => u.EmailConfirmed && (dbContext.Admins.Any(a => a.Id == u.Id) ||
+            dbContext.Students.Any(s => s.Id == u.Id && s.IsActive)))
+        .Select(u => new ProfileDirectoryRow
+        {
+            UserId = u.Id,
+            FirstName = dbContext.Admins.Where(a => a.Id == u.Id).Select(a => a.FirstName).FirstOrDefault() ??
+                dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.FirstName).FirstOrDefault()!,
+            LastName = dbContext.Admins.Where(a => a.Id == u.Id).Select(a => a.LastName).FirstOrDefault() ??
+                dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.LastName).FirstOrDefault()!,
+            GroupName = dbContext.Admins.Any(a => a.Id == u.Id) ? null :
+                dbContext.Students.Where(s => s.Id == u.Id).Select(s => s.Group == null ? null : s.Group.Name).FirstOrDefault(),
+            IsAdmin = dbContext.Admins.Any(a => a.Id == u.Id) || dbContext.UserRoles.Any(ur => ur.UserId == u.Id &&
+                dbContext.Roles.Any(r => r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin)))
+        });
+
+    private sealed class ProfileDirectoryRow
+    {
+        public Guid UserId { get; init; }
+        public string FirstName { get; init; } = "";
+        public string LastName { get; init; } = "";
+        public string? GroupName { get; init; }
+        public bool IsAdmin { get; init; }
     }
 }

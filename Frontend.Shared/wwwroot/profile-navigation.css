@@ -1,0 +1,6 @@
+.fc-profile-link { color: inherit; text-decoration: none; cursor: pointer; }
+.fc-profile-link:hover { color: inherit; text-decoration: underline; text-underline-offset: .18em; }
+.fc-profile-link:focus-visible { outline: 2px solid var(--fc-accent, #66e4c1); outline-offset: 3px; border-radius: 4px; }
+.fc-account-link { color: inherit; text-decoration: none; }
+.fc-account-link:hover { color: inherit; background: var(--fc-panel, rgba(128,128,128,.08)); border-radius: 8px; }
+.fc-account .fc-profile-media { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; }

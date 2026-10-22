@@ -1,0 +1,25 @@
+@using System.Security.Claims
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <Authorized Context="viewer">
+        <a class="fc-profile-link @Class" style="@Style" href="@ProfileUrl(viewer.User)"
+           @onclick="() => OpenAsync(viewer.User)" @onclick:preventDefault="BeforeNavigate.HasDelegate">@ChildContent</a>
+    </Authorized>
+    <NotAuthorized><span class="@Class" style="@Style">@ChildContent</span></NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback BeforeNavigate { get; set; }
+    private string ProfileUrl(ClaimsPrincipal viewer) => $"/{(viewer.IsInRole("Admin") || viewer.IsInRole("SuperAdmin") ? "admin" : "student")}/profile/{UserId}";
+    private async Task OpenAsync(ClaimsPrincipal viewer)
+    {
+        if (!BeforeNavigate.HasDelegate) return;
+        await BeforeNavigate.InvokeAsync();
+        Nav.NavigateTo(ProfileUrl(viewer));
+    }
+}

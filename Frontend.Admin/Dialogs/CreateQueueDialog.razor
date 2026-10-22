@@ -1,0 +1,54 @@
+@using Microsoft.Extensions.Localization
+@inject SubjectsApi Subjects
+@inject GroupsApi GroupsApi
+@inject MeApi Me
+@inject CurrentSubject CurrentSubject
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Создание очереди со страницы очередей — та же форма, что в «Управлении». *@
+<MudDialog>
+    <TitleContent><MudText Typo="Typo.h6">@Loc["Management_CreateQueue"]</MudText></TitleContent>
+    <DialogContent>
+        @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-3">@_error <MudButton Size="Size.Small" OnClick="LoadAsync">@Loc["QueueDetails_Retry"]</MudButton></MudAlert> }
+        else if (_subjects is null) { <MudProgressLinear Indeterminate="true" /> }
+        else
+        {
+            <Frontend.Admin.UI.QueueCreateForm Subjects="_subjects" Groups="_groups" SubjectId="_subjectId"
+                                               Created="@(created => MudDialog.Close(DialogResult.Ok(created)))" Cancel="@(() => MudDialog.Cancel())" />
+        }
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private List<(int Id, string Name)>? _subjects;
+    private List<(int Id, string Name)> _groups = [];
+    private int? _subjectId;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        _subjects = null;
+        try
+        {
+            // Как в «Управлении»: все предметы без скрытых и закрытых для этого преподавателя, все группы.
+            var subjectsTask = Subjects.GetAllAsync();
+            var groupsTask = GroupsApi.GetAllAsync();
+            var accessTask = Me.GetMyAccessAsync();
+            var access = await accessTask;
+            var unavailable = access.HiddenSubjectIds.Concat(access.RestrictedSubjectIds).ToHashSet();
+            var subjects = (await subjectsTask).Where(s => !unavailable.Contains(s.Id)).Select(s => (s.Id, s.Name)).ToList();
+            _groups = (await groupsTask).Select(g => (g.Id, g.Name)).ToList();
+            _subjectId = await CurrentSubject.PickAsync(subjects.Select(s => s.Id));
+            _subjects = subjects;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

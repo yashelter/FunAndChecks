@@ -1,0 +1,18 @@
+@using Frontend.Shared.Community
+<div class="fc-markdown @Class">@((MarkupString)_html)</div>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public string BasePath { get; set; } = "/student";
+    [Parameter] public string? Class { get; set; }
+    private string _html = "";
+    private string? _rendered;
+
+    protected override void OnParametersSet()
+    {
+        var key = BasePath + "\n" + Text;
+        if (key == _rendered) return;
+        _rendered = key;
+        _html = ForumMarkdown.ToHtml(Text, BasePath);
+    }
+}
