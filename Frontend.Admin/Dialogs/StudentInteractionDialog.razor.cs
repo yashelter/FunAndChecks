@@ -44,9 +44,9 @@ public partial class StudentInteractionDialog : IDisposable
     [Inject] private QueuesApi Queues { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private UnsavedChangesTracker Dirty { get; set; } = null!;
-    [Inject] private IJSRuntime JS { get; set; } = null!;
 
     private List<TaskWithStatusDto> _tasks = [];
     private List<GradeComponentDto> _components = [];
@@ -62,6 +62,7 @@ public partial class StudentInteractionDialog : IDisposable
     private bool _busy;
     private bool _hasChanges;
     private bool _disposed;
+    private readonly CancellationTokenSource _cts = new();
     private bool _focusPending;
     private int _activePanelIndex;
     private string? _pickerColor;
@@ -257,9 +258,19 @@ public partial class StudentInteractionDialog : IDisposable
                 {
                     config.Action = Loc["Dialog_Undo"];
                     config.ActionColor = Color.Primary;
-                    config.VisibleStateDuration = 6000;
+                    config.ShowCloseIcon = true;
                     config.OnClick = _ => UndoAsync(task.Id);
                 });
+            var uid = Guid.NewGuid().ToString("N");
+            const int fadeDuration = 600;
+            const int totalDuration = 7000;
+            await JS.InvokeAsync<bool>("snackbarTagLast", _cts.Token, uid);
+            _ = Task.Delay(totalDuration - fadeDuration, _cts.Token).ContinueWith(async t =>
+            {
+                if (t.IsCanceled) return;
+                try { await JS.InvokeVoidAsync("snackbarFadeDismissByUid", _cts.Token, uid, fadeDuration); }
+                catch (OperationCanceledException) { }
+            }, TaskScheduler.Default);
         }
         catch (ApiException ex)
         {
@@ -376,6 +387,8 @@ public partial class StudentInteractionDialog : IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _cts.Cancel();
+        _cts.Dispose();
         _edits?.Dispose();
     }
 

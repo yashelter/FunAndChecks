@@ -5,8 +5,10 @@ namespace Frontend.Shared.Services;
 /// <summary>
 /// Feature flags client. Source of truth is the backend API configuration.
 /// </summary>
-public class FeatureFlagsService(HttpClient http)
+public class FeatureFlagsService(IHttpClientFactory httpClientFactory)
 {
+    private HttpClient Http => httpClientFactory.CreateClient("ApiRaw");
+
     /// <summary>
     /// Privacy Policy feature flag. Значение приходит с API — источник истины там.
     /// Фолбэк до ответа и при ошибке — true: если сервер включил фичу, а ответ не дошёл,
@@ -24,7 +26,7 @@ public class FeatureFlagsService(HttpClient http)
     {
         try
         {
-            var dto = await http.GetFromJsonAsync<FeaturesDto>("api/features");
+            var dto = await Http.GetFromJsonAsync<FeaturesDto>("api/features");
             if (dto is not null)
             {
                 PrivacyPolicy = dto.PrivacyPolicy;

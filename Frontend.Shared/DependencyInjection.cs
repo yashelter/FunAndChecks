@@ -20,7 +20,15 @@ public static class DependencyInjection
     public static IServiceCollection AddFrontendShared(this IServiceCollection services, string apiBaseAddress)
     {
         services.AddLocalization();
-        services.AddMudServices();
+        services.AddMudServices(config =>
+        {
+            config.SnackbarConfiguration.VisibleStateDuration = 7000;
+            config.SnackbarConfiguration.ShowTransitionDuration = 200;
+            config.SnackbarConfiguration.HideTransitionDuration = 200;
+            config.SnackbarConfiguration.PreventDuplicates = false;
+            config.SnackbarConfiguration.NewestOnTop = true;
+            config.SnackbarConfiguration.ShowCloseIcon = true;
+        });
 
         // Хранение токенов и аутентификация.
         services.AddSingleton<TokenStore>();
