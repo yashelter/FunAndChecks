@@ -28,4 +28,20 @@ public class NotificationsController(INotificationService notifications) : Contr
         await notifications.MarkAllReadAsync(User.GetUserId(), ct);
         return NoContent();
     }
+
+    /// <summary>Убрать прочитанное уведомление (непрочитанное — 409 notification.unread).</summary>
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
+    {
+        await notifications.DeleteAsync(User.GetUserId(), id, ct);
+        return NoContent();
+    }
+
+    /// <summary>Убрать все прочитанные уведомления.</summary>
+    [HttpDelete("read")]
+    public async Task<IActionResult> DeleteRead(CancellationToken ct)
+    {
+        await notifications.DeleteReadAsync(User.GetUserId(), ct);
+        return NoContent();
+    }
 }

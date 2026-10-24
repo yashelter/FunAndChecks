@@ -10,6 +10,8 @@ const shell = fs.readFileSync(path.join(root, 'Frontend.Shared/UI/WorkspaceShell
 const index = fs.readFileSync(path.join(root, 'Frontend/wwwroot/index.html'), 'utf8');
 const authLayout = fs.readFileSync(path.join(root, 'Frontend.Shared/Layout/AuthLayout.razor'), 'utf8');
 const program = fs.readFileSync(path.join(root, 'Frontend/Program.cs'), 'utf8');
+const theme = fs.readFileSync(path.join(root, 'Frontend.Shared/Seasons/HalloweenTheme.cs'), 'utf8');
+const brandMark = fs.readFileSync(path.join(root, 'Frontend.Shared/UI/HalloweenBrandMark.razor'), 'utf8');
 
 /** Убирает комментарии, чтобы не считать фигурные скобки внутри них. */
 function stripComments(source) { return source.replace(/\/\*[\s\S]*?\*\//g, ''); }
@@ -151,35 +153,30 @@ test('spider becomes visible within the timer interval', () => {
         `visible phase ends at ${visibleSeconds}s but the timer restarts the element every ${timerSeconds}s`);
 });
 
-test('halloween component is mounted in the shared workspace shell', () => {
-    assert.ok(shell.includes('<HalloweenAnimations />'), 'WorkspaceShell must render <HalloweenAnimations />');
-});
-
-test('halloween decorations also cover the sign-in page', () => {
-    // AuthLayout — layout страницы входа: там тоже должна быть тыква и анимации.
-    assert.ok(authLayout.includes('<HalloweenAnimations />'), 'AuthLayout must render <HalloweenAnimations />');
-    assert.ok(authLayout.includes('fc-halloween-logo'), 'AuthLayout must show the pumpkin logo in halloween mode');
-});
-
-test('both layouts react to the halloween preference', () => {
+test('seasonal decorations and brand mark are mounted in both layouts', () => {
+    // Оболочка кабинетов и экран входа не знают про конкретные темы: украшения и значок дают активные темы.
     for (const [name, source] of [['WorkspaceShell', shell], ['AuthLayout', authLayout]]) {
-        assert.match(source, /Flags\.HalloweenEvent\s*&&\s*Appearance\.IsHalloweenMode/,
-            `${name} must gate the halloween look on the flag and the user preference`);
+        assert.ok(source.includes('<SeasonalDecorations />'), `${name} must render <SeasonalDecorations />`);
+        assert.ok(source.includes('<BrandMark />'), `${name} must render <BrandMark />`);
+        assert.ok(!/HalloweenAnimations|IsHalloweenMode|Flags\./.test(source), `${name} must not know about a specific season`);
     }
+});
+
+test('halloween theme plugs in its animations and the pumpkin logo', () => {
+    assert.match(theme, /Decorations\s*=>\s*typeof\(HalloweenAnimations\)/);
+    assert.match(theme, /BrandMark\s*=>\s*typeof\(HalloweenBrandMark\)/);
+    assert.match(theme, /new\(10,\s*20,\s*11,\s*2\)/, 'halloween runs from 20 October to 2 November');
+    assert.ok(brandMark.includes('fc-halloween-logo') && brandMark.includes('fc-pumpkin'));
 });
 
 test('appearance is initialized before the first render', () => {
     // Иначе первый кадр рисуется с дефолтным состоянием: у выключивших
-    // Halloween оформление на миг появляется и исчезает.
+    // сезонную тему оформление на миг появляется и исчезает.
     const init = program.indexOf('appearance.InitializeAsync()');
     const run = program.indexOf('host.RunAsync()');
     assert.ok(init > 0, 'Program.cs must initialize the appearance service');
     assert.ok(run > 0, 'Program.cs must start the host');
     assert.ok(init < run, 'appearance must be initialized before host.RunAsync()');
-});
-
-test('halloween component is gated by the feature flag and the user preference', () => {
-    assert.match(razor, /Flags\.HalloweenEvent\s*&&\s*Appearance\.IsHalloweenMode/);
 });
 
 test('halloween component disposes its timer', () => {

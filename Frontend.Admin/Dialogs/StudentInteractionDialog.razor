@@ -105,11 +105,11 @@
             else if (EventId is not null && !ReadOnly)
             {
                 <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_busy" StartIcon="@Icons.Material.Outlined.SkipNext"
-                           OnClick="FinishAndNextAsync">@Loc["Dialog_FinishAndNext"]</MudButton>
+                           OnClick="FinishAndNextAsync" title="@Loc["Dialog_FinishAndNext"]"><span class="fc-label-full">@Loc["Dialog_FinishAndNext"]</span><span class="fc-label-short">@Loc["Dialog_FinishAndNextShort"]</span></MudButton>
                 <MudButton Variant="Variant.Outlined" Color="Color.Success" Disabled="_busy" StartIcon="@Icons.Material.Outlined.Check"
-                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))">@Loc["Dialog_StatusFinished"]</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="_busy" OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))">@Loc["Dialog_StatusSkipped"]</MudButton>
-                <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="_busy" OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))">@Loc["Dialog_StatusWaiting"]</MudButton>
+                           OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Finished))" title="@Loc["Dialog_StatusFinished"]">@Loc["Dialog_StatusFinished"]</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="_busy" OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Skipped))" title="@Loc["Dialog_StatusSkipped"]">@Loc["Dialog_StatusSkipped"]</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Disabled="_busy" OnClick="@(() => ChangeStatusAsync(QueueEntryStatus.Waiting))" title="@Loc["Dialog_StatusWaiting"]">@Loc["Dialog_StatusWaiting"]</MudButton>
             }
             <MudButton Class="fc-interaction-close" OnClick="Cancel" Disabled="_busy">@(EventId is null || ReadOnly ? Loc["Common_Close"] : Loc["Dialog_Collapse"])</MudButton>
         </div>

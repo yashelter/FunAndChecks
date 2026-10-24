@@ -19,7 +19,6 @@ public partial class Login
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
-    [Inject] private FeatureFlagsService Flags { get; set; } = null!;
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
     private MudForm _form = null!;
@@ -28,7 +27,6 @@ public partial class Login
     private string? _error;
     private bool _emailNotConfirmed;
     private bool _busy, _showPassword, _sharedComputer;
-    private bool _showPrivacyConsentDialog;
 
     private async Task SubmitAsync()
     {
@@ -54,38 +52,14 @@ public partial class Login
 
             AuthState.NotifyAuthenticationStateChanged();
 
-            // Админам сервер сам отдаёт «согласие есть» — им согласие не требуется.
-            if (Flags.PrivacyPolicy)
-            {
-                var accepted = false;
-                try
-                {
-                    var status = await Auth.GetPrivacyPolicyStatusAsync();
-                    accepted = status.Accepted && status.TermsAccepted;
-                }
-                catch (ApiException)
-                {
-                    // Статус не удалось получить — считаем согласие неданным и просим его явно.
-                }
-                if (!accepted)
-                {
-                    _showPrivacyConsentDialog = true;
-                    return;
-                }
-            }
-
+            // Согласие с правовыми документами спрашивает кабинет (LegalConsentGate в WorkspaceShell):
+            // там его увидят и уже вошедшие раньше пользователи.
             await RedirectByRoleAsync();
         }
         finally
         {
             _busy = false;
         }
-    }
-
-    private void OnPrivacyPolicyAccepted()
-    {
-        _showPrivacyConsentDialog = false;
-        _ = RedirectByRoleAsync();
     }
 
     private async Task RedirectByRoleAsync()

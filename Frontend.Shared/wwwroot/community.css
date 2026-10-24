@@ -296,3 +296,4 @@ html[data-theme=light] .fc-bell-panel{background:#ffffff;box-shadow:0 24px 60px 
 .fc-page-error{display:flex;flex-direction:column;align-items:center;gap:10px;padding:40px 24px;text-align:center}
 .fc-page-error h2{font-size:18px;font-weight:650;margin:0}
 .fc-page-error>div{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.fc-bell-panel li{display:flex;align-items:flex-start;gap:2px}.fc-bell-panel li>button:first-child{flex:1;min-width:0}.fc-bell-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end}.fc-bell-panel li>.fc-bell-dismiss{flex:0 0 auto;width:28px;height:28px;padding:0;margin-top:6px;justify-content:center;align-items:center;border-radius:6px;font-size:18px;line-height:1;color:var(--mud-palette-text-secondary)}.fc-bell-panel li>.fc-bell-dismiss:hover{color:var(--mud-palette-error);background:rgba(var(--mud-palette-error-rgb),.1)}

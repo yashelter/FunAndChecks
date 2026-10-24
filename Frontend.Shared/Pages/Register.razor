@@ -42,22 +42,12 @@
             }
         </MudSelect>
 
-        @if (Flags.PrivacyPolicy)
-        {
-            <div class="mt-4">
-                <MudCheckBox @bind-Value="_model.AcceptedPrivacyPolicy" Label="@Loc["Register_AcceptPrivacyPolicy"]" Required="true"
-                             RequiredError="@Loc["Register_AcceptPrivacyPolicyRequired"]" Color="Color.Primary" Dense="true" />
-                <MudLink Href="/privacy-policy#consent" Class="ms-2">@Loc["Register_PrivacyPolicyLink"]</MudLink>
-                <br />
-                <MudCheckBox @bind-Value="_model.AcceptedTerms" Label="@Loc["Register_AcceptTerms"]" Required="true"
-                             RequiredError="@Loc["Register_AcceptTermsRequired"]" Color="Color.Primary" Dense="true" />
-                <MudLink Href="/privacy-policy#terms" Class="ms-2">@Loc["Register_TermsLink"]</MudLink>
-                <br />
-                <MudLink Href="/privacy-policy" Class="ms-6 d-inline-block mt-1">
-                    <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Register_AcceptPrivacyPolicyHint"]</MudText>
-                </MudLink>
-            </div>
-        }
+        <div class="mt-4">
+            @* Одна галочка: соглашение одно (licence/agreement.md). *@
+            <MudCheckBox @bind-Value="_model.AcceptedTerms" Label="@Loc["Register_AcceptTerms"]" Required="true"
+                         RequiredError="@Loc["Register_AcceptTermsRequired"]" Color="Color.Primary" Dense="true" />
+            <MudLink Href="/privacy-policy" Target="_blank" Class="ms-2">@Loc["Register_TermsLink"]</MudLink>
+        </div>
 
         @if (_error is not null)
         {

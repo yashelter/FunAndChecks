@@ -5,8 +5,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../Frontend/wwwroot/js/dashboard-appearance.js'), 'utf8');
 
-function appearance({ stored = null, blocked = false } = {}) {
-    const storage = new Map(stored === null ? [] : [['fc-halloween', stored]]);
+function appearance({ stored = {}, blocked = false } = {}) {
+    const storage = new Map(Object.entries(stored));
     const window = {};
     const document = {
         documentElement: { dataset: {}, style: { setProperty() { } } },
@@ -20,41 +20,51 @@ function appearance({ stored = null, blocked = false } = {}) {
     return { app: window.dashboardAppearance, storage, document };
 }
 
-test('halloween mode is on by default', () => {
-    // Дефолт включён: событие показывается сразу, без ручного переключения.
-    const { app } = appearance();
-    assert.equal(app.load().isHalloweenMode, true);
+test('seasonal themes are on by default', () => {
+    // Ничего не выключено — сезонная тема показывается в своё окно без ручного переключения.
+    assert.deepEqual([...appearance().app.load().disabledSeasons], []);
 });
 
-test('halloween mode stays off once the user turns it off', () => {
-    assert.equal(appearance({ stored: 'off' }).app.load().isHalloweenMode, false);
-    assert.equal(appearance({ stored: 'on' }).app.load().isHalloweenMode, true);
+test('a theme the user turned off stays off after a reload', () => {
+    const { app } = appearance({ stored: { 'fc-seasons-off': '["halloween"]' } });
+    assert.deepEqual([...app.load().disabledSeasons], ['halloween']);
 });
 
-test('halloween mode survives a reload', () => {
-    assert.equal(appearance({ stored: 'on' }).app.load().isHalloweenMode, true);
+test('the old halloween switch is carried over', () => {
+    assert.deepEqual([...appearance({ stored: { 'fc-halloween': 'off' } }).app.load().disabledSeasons], ['halloween']);
+    assert.deepEqual([...appearance({ stored: { 'fc-halloween': 'on' } }).app.load().disabledSeasons], []);
 });
 
-test('saving the appearance stores the halloween mode in local storage', () => {
+test('the new list wins over the old halloween switch', () => {
+    const { app } = appearance({ stored: { 'fc-halloween': 'off', 'fc-seasons-off': '[]' } });
+    assert.deepEqual([...app.load().disabledSeasons], []);
+});
+
+test('broken storage values are ignored', () => {
+    assert.deepEqual([...appearance({ stored: { 'fc-seasons-off': 'not json' } }).app.load().disabledSeasons], []);
+    assert.deepEqual([...appearance({ stored: { 'fc-seasons-off': '[1, "halloween", null]' } }).app.load().disabledSeasons], ['halloween']);
+});
+
+test('saving the appearance stores the turned-off themes', () => {
     const { app, storage } = appearance();
 
-    app.apply(false, false, null, '#66e4c1', '#09251f', true, true);
+    app.apply(false, false, null, '#66e4c1', '#09251f', ['halloween'], true);
 
-    assert.equal(storage.get('fc-halloween'), 'on');
+    assert.equal(storage.get('fc-seasons-off'), '["halloween"]');
 });
 
-test('turning the halloween mode off is stored as well', () => {
-    const { app, storage } = appearance({ stored: 'on' });
+test('turning every theme back on is stored as well', () => {
+    const { app, storage } = appearance({ stored: { 'fc-seasons-off': '["halloween"]' } });
 
-    app.apply(false, false, null, '#66e4c1', '#09251f', false, true);
+    app.apply(false, false, null, '#66e4c1', '#09251f', [], true);
 
-    assert.equal(storage.get('fc-halloween'), 'off');
+    assert.equal(storage.get('fc-seasons-off'), '[]');
 });
 
 test('blocked storage does not break the appearance', () => {
     const { app } = appearance({ blocked: true });
 
-    // При недоступном хранилище применяются дефолты — как и для темы (тёмная).
-    assert.equal(app.load().isHalloweenMode, true);
-    app.apply(false, false, null, '#66e4c1', '#09251f', true, true);
+    // При недоступном хранилище применяются дефолты — все сезонные темы включены.
+    assert.deepEqual([...app.load().disabledSeasons], []);
+    app.apply(false, false, null, '#66e4c1', '#09251f', [], true);
 });

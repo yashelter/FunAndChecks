@@ -75,6 +75,25 @@ public class NotificationService(IApplicationDbContext db, IUserNotifier notifie
         await db.SaveChangesAsync(ct);
     }
 
+    public async Task DeleteAsync(Guid userId, long id, CancellationToken ct = default)
+    {
+        var notification = await db.Notifications.SingleOrDefaultAsync(n => n.Id == id && n.UserId == userId, ct)
+            ?? throw new NotFoundException("Notification not found.", "notification.not_found");
+        // Непрочитанное сначала открывают или отмечают прочитанным — иначе его легко смахнуть не глядя.
+        if (notification.ReadAtUtc is null)
+            throw new ConflictException("Only read notifications can be removed.", "notification.unread");
+        db.Notifications.Remove(notification);
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<int> DeleteReadAsync(Guid userId, CancellationToken ct = default)
+    {
+        var read = await db.Notifications.Where(n => n.UserId == userId && n.ReadAtUtc != null).ToListAsync(ct);
+        db.Notifications.RemoveRange(read);
+        await db.SaveChangesAsync(ct);
+        return read.Count;
+    }
+
     private async Task TrimAsync(Guid userId, CancellationToken ct)
     {
         var stale = await db.Notifications.Where(n => n.UserId == userId)

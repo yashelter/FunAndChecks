@@ -7,7 +7,6 @@ using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Tests.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using Xunit;
 
@@ -35,15 +34,9 @@ public class AuthServiceTests : IDisposable
         _refresh.IssueAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns("refresh-token");
     }
 
-    /// <summary>Фича-флаг включён: согласие на ПДн и оферту требуются.</summary>
-    private static FeatureFlags FlagsOn => new() { PrivacyPolicy = true };
-
     private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        CreateSut(ctx, FlagsOn);
-
-    private AuthService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx, FeatureFlags flags) =>
         new(ctx, _identity, _token, _refresh, _email, _templates, _throttle, _cache,
-            new RegisterStudentRequestValidator(Options.Create(flags)),
+            new RegisterStudentRequestValidator(),
             new ResetPasswordRequestValidator(),
             NullLogger<AuthService>.Instance);
 
@@ -92,35 +85,6 @@ public class AuthServiceTests : IDisposable
         var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, false, false);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<ValidationException>();
-    }
-
-    [Fact]
-    public async Task RegisterStudent_WithoutConsent_PassesWhenFeatureDisabled()
-    {
-        var groupId = await SeedGroupAsync();
-        await using var ctx = _db.NewContext();
-        // Фича выключена — согласие не требуется и не проверяется.
-        var sut = CreateSut(ctx, new FeatureFlags { PrivacyPolicy = false });
-
-        _identity.CreateAccountAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<IEnumerable<string>>(), false, Arg.Any<CancellationToken>())
-            .Returns(ci =>
-            {
-                using var c = _db.NewContext();
-                Seed.AddAccount(c, ci.ArgAt<Guid>(0));
-                c.SaveChanges();
-                return AccountResult.Success();
-            });
-        _identity.GenerateEmailConfirmationCodeAsync("stud@example.com").Returns("123456");
-
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, false, false);
-        var id = await sut.RegisterStudentAsync(request);
-
-        id.Should().NotBe(Guid.Empty);
-        var student = await ctx.Students.FindAsync(id);
-        student.Should().NotBeNull();
-        student!.PrivacyPolicyAcceptedAt.Should().BeNull();
-        student.TermsAcceptedAt.Should().BeNull();
     }
 
     [Fact]

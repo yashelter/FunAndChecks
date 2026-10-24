@@ -58,7 +58,7 @@
 .fc-review-log p { margin:5px 0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .fc-review-log small { color:var(--mud-palette-text-secondary); }
 .fc-queue-events { display:flex; flex-direction:column; gap:12px; }
-.fc-queue-event-probe { display:none; }.fc-queue-event { display:flex; align-items:center; gap:16px; justify-content:space-between; padding:20px 22px; }
+.fc-queue-event { display:flex; align-items:center; gap:16px; justify-content:space-between; padding:20px 22px; }
 .fc-queue-event > div:first-child { display:flex; align-items:center; gap:14px; min-width:0; }
 .fc-queue-event > div:first-child > .mud-icon-root { color:var(--mud-palette-primary); flex-shrink:0; }
 .fc-queue-event strong { display:block; overflow-wrap:anywhere; font-size:15px; }
@@ -465,3 +465,10 @@
     --fc-halloween-spider-color: #2d1a0e;
     --fc-halloween-spider-thread: rgba(45, 26, 14, 0.4);
 }
+
+/* Уведомления смахиваются в сторону (js/snackbar-swipe.js): горизонтальный жест не прокручивает страницу. */
+.mud-snackbar { touch-action: pan-y; }
+
+/* Ссылка на репозиторий в подвале кабинетов. */
+.fc-footer-github { display:inline-flex; align-items:center; gap:6px; color:inherit; text-decoration:none; }
+.fc-footer-github:hover, .fc-footer-github:focus-visible { color:var(--mud-palette-primary); text-decoration:underline; }

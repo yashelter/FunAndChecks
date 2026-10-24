@@ -1,3 +1,4 @@
+using Frontend.Shared.Seasons;
 using Frontend.Shared.Api;
 using Frontend.Shared.Services;
 using Frontend.Shared.Profiles;
@@ -20,16 +21,28 @@ public static class DependencyInjection
     public static IServiceCollection AddFrontendShared(this IServiceCollection services, string apiBaseAddress)
     {
         services.AddLocalization();
-        services.AddMudServices();
+        services.AddMudServices(options =>
+        {
+            // Уведомления закрываются сами примерно через 5 с, в том числе с кнопкой действия («Отменить», «Открыть»):
+            // по умолчанию MudBlazor держит такие до ручного закрытия. Закрыть раньше — крестиком или смахиванием (snackbar-swipe.js).
+            // 0,3 с появления + 4,4 с показа + 0,3 с исчезновения ≈ 5 с на экране (по умолчанию переходы по секунде).
+            options.SnackbarConfiguration.ShowTransitionDuration = 300;
+            options.SnackbarConfiguration.VisibleStateDuration = 4400;
+            options.SnackbarConfiguration.HideTransitionDuration = 300;
+            options.SnackbarConfiguration.RequireInteraction = false;
+            options.SnackbarConfiguration.ShowCloseIcon = true;
+        });
 
         // Хранение токенов и аутентификация.
         services.AddSingleton<TokenStore>();
         services.AddSingleton<TokenRefresher>();
-        services.AddScoped<FeatureFlagsService>();
+        services.AddScoped<LegalConsentState>();
         services.AddTransient<AuthHeaderHandler>();
         services.AddScoped<AuthService>();
         services.AddScoped<ThemeService>();
         services.AddScoped<DashboardAppearanceService>();
+        // Сезонные темы (Frontend.Shared/Seasons): все реализации ISeasonalTheme — списком, активные выбираются по дате.
+        services.AddSeasonalThemes();
         services.AddScoped<FileDownloader>();
         services.AddScoped<CultureService>();
         services.AddScoped<UnsavedChangesTracker>();

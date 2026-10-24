@@ -12,6 +12,8 @@ public class NotificationApi(HttpClient http, IStringLocalizer<AppStrings> loc) 
         GetAsync<NotificationPageDto>($"api/me/notifications?page={page}&pageSize=20", ct);
     public Task MarkReadAsync(long id, CancellationToken ct = default) => PostAsync($"api/me/notifications/{id}/read", null, ct);
     public Task MarkAllReadAsync(CancellationToken ct = default) => PostAsync("api/me/notifications/read-all", null, ct);
+    public Task DeleteAsync(long id, CancellationToken ct = default) => DeleteAsync($"api/me/notifications/{id}", ct);
+    public Task DeleteReadAsync(CancellationToken ct = default) => DeleteAsync("api/me/notifications/read", ct);
 }
 
 public class ForumApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)

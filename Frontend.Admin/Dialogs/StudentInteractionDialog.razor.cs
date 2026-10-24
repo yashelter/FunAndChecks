@@ -257,7 +257,6 @@ public partial class StudentInteractionDialog : IDisposable
                 {
                     config.Action = Loc["Dialog_Undo"];
                     config.ActionColor = Color.Primary;
-                    config.VisibleStateDuration = 6000;
                     config.OnClick = _ => UndoAsync(task.Id);
                 });
         }

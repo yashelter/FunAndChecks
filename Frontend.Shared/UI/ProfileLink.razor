@@ -15,7 +15,10 @@
     [Parameter] public string? Style { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public EventCallback BeforeNavigate { get; set; }
-    private string ProfileUrl(ClaimsPrincipal viewer) => $"/{(viewer.IsInRole("Admin") || viewer.IsInRole("SuperAdmin") ? "admin" : "student")}/profile/{UserId}";
+    // returnUrl — страница, с которой открыли профиль: «← Назад» вернёт в очередь, на форум и т. п., а не в результаты.
+    private string ProfileUrl(ClaimsPrincipal viewer) =>
+        $"/{(viewer.IsInRole("Admin") || viewer.IsInRole("SuperAdmin") ? "admin" : "student")}/profile/{UserId}?returnUrl={Uri.EscapeDataString(CurrentPath)}";
+    private string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri);
     private async Task OpenAsync(ClaimsPrincipal viewer)
     {
         if (!BeforeNavigate.HasDelegate) return;

@@ -59,11 +59,11 @@
   <data name="Login_GoToRegister" xml:space="preserve"><value>Register</value></data>
   <data name="Login_ViewResults" xml:space="preserve"><value>View results without signing in</value></data>
   <data name="Login_ConfirmEmailButton" xml:space="preserve"><value>Confirm email</value></data>
-  <data name="Login_PrivacyConsentTitle" xml:space="preserve"><value>Consent to personal data processing required</value></data>
-  <data name="Login_PrivacyConsentMessage" xml:space="preserve"><value>To continue, you must consent to the processing of personal data and accept the User Agreement.</value></data>
-  <data name="Login_PrivacyConsentAccept" xml:space="preserve"><value>I agree and accept</value></data>
-  <data name="Login_PrivacyConsentRead" xml:space="preserve"><value>Open the documents</value></data>
-  <data name="Login_PrivacyConsentAcceptRequired" xml:space="preserve"><value>You must tick both boxes</value></data>
+  <data name="Login_PrivacyConsentTitle" xml:space="preserve"><value>Accept the user agreement</value></data>
+  <data name="Login_PrivacyConsentMessage" xml:space="preserve"><value>To continue, accept the FunAndChecks user agreement. The main point: labs have to be done.</value></data>
+  <data name="Login_PrivacyConsentAccept" xml:space="preserve"><value>Accept</value></data>
+  <data name="Login_PrivacyConsentRead" xml:space="preserve"><value>Read the agreement</value></data>
+  <data name="Login_PrivacyConsentAcceptRequired" xml:space="preserve"><value>Tick the box to continue</value></data>
 
   <!-- ==================== Register ==================== -->
   <data name="Register_PageTitle" xml:space="preserve"><value>Registration</value></data>
@@ -82,10 +82,6 @@
   <data name="Register_GroupPlaceholder" xml:space="preserve"><value>Select group</value></data>
   <data name="Register_SubmitButton" xml:space="preserve"><value>Register</value></data>
   <data name="Register_HaveAccount" xml:space="preserve"><value>Already have an account? Sign in</value></data>
-  <data name="Register_AcceptPrivacyPolicy" xml:space="preserve"><value>I agree to the processing of personal data</value></data>
-  <data name="Register_AcceptPrivacyPolicyRequired" xml:space="preserve"><value>You must agree to the processing of personal data</value></data>
-  <data name="Register_AcceptPrivacyPolicyHint" xml:space="preserve"><value>All legal documents on one page</value></data>
-  <data name="Register_PrivacyPolicyLink" xml:space="preserve"><value>Personal Data Processing Policy</value></data>
 
   <!-- ==================== ConfirmEmail ==================== -->
   <data name="ConfirmEmail_PageTitle" xml:space="preserve"><value>Email Confirmation</value></data>
@@ -782,24 +778,20 @@
   <data name="Management_NoGroupAccess" xml:space="preserve"><value>no groups</value></data>
 
   <!-- ==================== Privacy Policy ==================== -->
-  <data name="PrivacyPolicy_PageTitle" xml:space="preserve"><value>Legal documents</value></data>
-  <data name="PrivacyPolicy_Title" xml:space="preserve"><value>Personal Data Processing Policy</value></data>
+  <data name="PrivacyPolicy_PageTitle" xml:space="preserve"><value>User agreement</value></data>
   
   <data name="PrivacyPolicy_BackToRegister" xml:space="preserve"><value>Back to registration</value></data>
-  <data name="PrivacyPolicy_Unavailable" xml:space="preserve"><value>Page unavailable</value></data>
-  <data name="PrivacyPolicy_UnavailableHint" xml:space="preserve"><value>The documents are temporarily unavailable.</value></data>
   
   
   <data name="Terms_PageTitle" xml:space="preserve"><value>User Agreement</value></data>
   <data name="Terms_Title" xml:space="preserve"><value>User Agreement</value></data>
-  <data name="Register_AcceptTerms" xml:space="preserve"><value>I accept the User Agreement</value></data>
-  <data name="Register_AcceptTermsRequired" xml:space="preserve"><value>You must accept the User Agreement</value></data>
-  <data name="Register_TermsLink" xml:space="preserve"><value>User Agreement</value></data>
-  <data name="PrivacyPolicy_ConsentTitle" xml:space="preserve"><value>Consent to the Processing of Personal Data</value></data>
-  <data name="PrivacyPolicy_TermsTitle" xml:space="preserve"><value>User Agreement</value></data>
-  <data name="PrivacyPolicy_DocumentsNav" xml:space="preserve"><value>Documents</value></data>
+  <data name="Register_AcceptTerms" xml:space="preserve"><value>I accept the agreement and promise to do my labs</value></data>
+  <data name="Register_AcceptTermsRequired" xml:space="preserve"><value>You have to accept the agreement</value></data>
+  <data name="Register_TermsLink" xml:space="preserve"><value>User agreement</value></data>
   <data name="Halloween_AriaLabel" xml:space="preserve"><value>Halloween decorations</value></data>
   <data name="Management_TaskGroupsEmptyHint" xml:space="preserve"><value>No groups yet: create them in “Task groups” above</value></data>
   <data name="Error_EmailUnchanged" xml:space="preserve"><value>This is already your email.</value></data>
   <data name="Error_InvalidCurrentPassword" xml:space="preserve"><value>The current password is incorrect.</value></data>
+  <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Decline and sign out</value></data>
+  <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Next</value></data>
 </root>

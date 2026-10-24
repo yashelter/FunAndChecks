@@ -25,24 +25,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="Resources/Policies/PrivacyPolicy_en.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.PrivacyPolicy_en.md</ManifestResourceName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Resources/Policies/PrivacyPolicy_ru.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.PrivacyPolicy_ru.md</ManifestResourceName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Resources/Policies/Consent_en.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.Consent_en.md</ManifestResourceName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Resources/Policies/Consent_ru.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.Consent_ru.md</ManifestResourceName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Resources/Policies/Terms_en.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.Terms_en.md</ManifestResourceName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="Resources/Policies/Terms_ru.md">
-            <ManifestResourceName>Frontend.Shared.Resources.Policies.Terms_ru.md</ManifestResourceName>
-        </EmbeddedResource>
+        <!-- Пользовательское соглашение лежит в licence/ в корне репозитория; страница /privacy-policy читает его по имени agreement.md. -->
+        <EmbeddedResource Include="..\licence\agreement.md" LogicalName="agreement.md" />
     </ItemGroup>
 
 </Project>

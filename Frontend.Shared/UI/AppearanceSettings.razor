@@ -1,5 +1,5 @@
 @inject DashboardAppearanceService Appearance
-@inject FeatureFlagsService Flags
+@inject SeasonalThemes Seasons
 
 @if (Open)
 {
@@ -46,12 +46,14 @@
                 <MudSwitch T="bool" Value="Appearance.IsCompact" ValueChanged="Appearance.SetCompactAsync" Color="Color.Primary" Label="@Text("Компактный вид", "Compact view")" />
                 <p class="fc-settings-hint">@Text("Помогает видеть больше студентов на одном экране.", "See more students on one screen.")</p>
             </section>
-            @if (Flags.HalloweenEvent)
+            @* Сезонные темы, которые идут сейчас (окно по дате задаёт сама тема). *@
+            @foreach (var theme in Seasons.InSeason)
             {
-                <section>
-                    <h3>@Text("Хэллоуин", "Halloween")</h3>
-                    <MudSwitch T="bool" Value="Appearance.IsHalloweenMode" ValueChanged="Appearance.SetHalloweenAsync" Color="Color.Primary" Label="@Text("Включить хэллоуин-тему", "Enable Halloween theme")" />
-                    <p class="fc-settings-hint">@Text("Сезонное визуальное оформление кнопок", "Seasonal visual theme for buttons")</p>
+                <section @key="theme.Id">
+                    <h3>@theme.Title</h3>
+                    <MudSwitch T="bool" Value="Appearance.IsSeasonEnabled(theme.Id)" ValueChanged="@(on => Appearance.SetSeasonEnabledAsync(theme.Id, on))"
+                               Color="Color.Primary" Label="@Text("Сезонное оформление", "Seasonal decorations")" />
+                    <p class="fc-settings-hint">@theme.Description</p>
                 </section>
             }
             <section>

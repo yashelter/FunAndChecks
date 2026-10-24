@@ -8,7 +8,6 @@
 @inject UnsavedChangesTracker Dirty
 @inject IStringLocalizer<AppStrings> Loc
 @inject IJSRuntime JS
-@inject FeatureFlagsService Flags
 @using Frontend.Shared.Profiles
 @inject ProfileApi Profiles
 
@@ -23,14 +22,7 @@
         @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
         <aside class="fc-sidebar @(_mobileOpen ? "open" : "")" aria-label="@Text("Навигация", "Navigation")">
             <a class="fc-brand" href="@(IsAdmin ? "/admin" : "/student")">
-                @if (Flags.HalloweenEvent && Appearance.IsHalloweenMode)
-                {
-                    <span class="fc-brand-mark fc-halloween-logo"><span class="fc-pumpkin"></span></span>
-                }
-                else
-                {
-                    <span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span>
-                }
+                <BrandMark />
                 <span><strong>FunAndChecks</strong><small title="@_caption">@_caption</small></span>
             </a>
             <div class="fc-workspace"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /><div><strong>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : _group ?? Text("Кабинет студента", "Student workspace"))</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : Text("Студент", "Student"))</small></div></div>
@@ -41,20 +33,14 @@
         </aside>
     }
     <div class="fc-main-shell">
-        <HalloweenAnimations />
+        <SeasonalDecorations />
+        @if (!Public && !IsAdmin) { <LegalConsentGate /> }
         <header class="fc-topbar">
             @if (!Public) { <MudIconButton Icon="@Icons.Material.Outlined.Menu" OnClick="ToggleNav" Class="fc-mobile-menu" aria-label="@Text("Открыть навигацию", "Open navigation")" /> }
             @if (Public)
             {
                 <a class="fc-brand" href="/">
-                    @if (Flags.HalloweenEvent && Appearance.IsHalloweenMode)
-                    {
-                        <span class="fc-brand-mark fc-halloween-logo"><span class="fc-pumpkin"></span></span>
-                    }
-                    else
-                    {
-                        <span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span>
-                    }
+                    <BrandMark />
                     <strong>FunAndChecks</strong>
                 </a>
             }
@@ -82,7 +68,7 @@
                 </ErrorContent>
             </ErrorBoundary>
         </div>
-            <footer class="fc-footer"><span>FunAndChecks <span>/</span> @Text("пространство для учебного прогресса", "a workspace for learning progress")</span><span>@Text("Учебный кабинет", "Learning workspace")</span></footer>
+            <footer class="fc-footer"><span>FunAndChecks <span>/</span> @Text("пространство для учебного прогресса", "a workspace for learning progress")</span><a class="fc-footer-github" href="https://github.com/yashelter/FunAndChecks_V2" target="_blank" rel="noopener noreferrer"><MudIcon Icon="@Icons.Custom.Brands.GitHub" Size="Size.Small" />@Text("Исходный код на GitHub — поставьте звёздочку ⭐", "Source code on GitHub — leave a star ⭐")</a></footer>
         </main>
     </div>
 </div>
