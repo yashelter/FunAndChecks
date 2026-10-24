@@ -1,0 +1,48 @@
+@* «Где вы сейчас»: что зачтено, что переделать (с последним комментарием) и ближайшая очередь с местом. *@
+<section class="fc-panel fc-student-status" aria-label="@Loc["StudentStatus_Title"]">
+    <div class="fc-student-status-numbers">
+        <div><span>@Loc["StudentStatus_Accepted"]</span><strong>@Accepted / @Results.TaskResults.Count</strong>
+            <div class="fc-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@Results.TaskResults.Count" aria-valuenow="@Accepted"><span style="width:@Percent%"></span></div></div>
+        <div><span>@Loc["StudentStatus_Points"]</span><strong>@Results.TotalPointsEarned / @Results.MaxPointsPossible</strong></div>
+    </div>
+    <div class="fc-student-status-rework">
+        <h3>@Loc["StudentStatus_Rework"]</h3>
+        @if (Rework.Count == 0) { <p class="fc-muted">@Loc["StudentStatus_NoRework"]</p> }
+        else
+        {
+            <ul>
+                @foreach (var task in Rework)
+                {
+                    var last = task.SubmissionHistory?.OrderByDescending(l => l.SubmittedAt).FirstOrDefault();
+                    <li><a href="@($"/student/logs?task={task.TaskId}")"><strong>@task.TaskName</strong>
+                        @if (!string.IsNullOrWhiteSpace(last?.Comment)) { <span>«@last.Comment»</span> }</a></li>
+                }
+            </ul>
+        }
+    </div>
+    <div class="fc-student-status-queue">
+        <h3>@Loc["StudentStatus_NextQueue"]</h3>
+        @if (NextQueue is { } queue)
+        {
+            <a href="@($"/student/queues/{queue.Id}")"><strong>@queue.Name</strong>
+                <span>@queue.EventDateTime.ToLocalTime().ToString("g")</span>
+                @if (queue.MyPosition is int place) { <span class="fc-queue-place-chip">@Loc["StudentQueues_MyPlace", place, queue.WaitingCount ?? place]</span> }
+                else if (queue.MyStatus is { } status) { <span class="fc-queue-place-chip">@QueueStyles.StatusText(status, null, Loc)</span> }</a>
+        }
+        else { <p class="fc-muted">@Loc["StudentStatus_NoQueue"] <a href="/student/queues">@Loc["StudentStatus_FindQueue"] →</a></p> }
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public StudentSubjectResultsDto Results { get; set; } = default!;
+    [Parameter] public List<QueueEventDto> Queues { get; set; } = [];
+    [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+
+    private int Accepted => Results.TaskResults.Count(t => t.CurrentStatus == SubmissionStatus.Accepted);
+    private int Percent => Results.TaskResults.Count == 0 ? 0 : 100 * Accepted / Results.TaskResults.Count;
+    private List<StudentTaskResultDto> Rework => Results.TaskResults.Where(t => t.CurrentStatus == SubmissionStatus.Rejected).ToList();
+
+    /// <summary>Ближайшая очередь по этому предмету (если предмет известен), иначе любая ближайшая.</summary>
+    private QueueEventDto? NextQueue => Queues.Where(q => q.MyStatus is not QueueEntryStatus.Finished)
+        .OrderByDescending(q => q.SubjectName == Results.SubjectName).ThenBy(q => q.EventDateTime).FirstOrDefault();
+}

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using FluentValidation;
 using FunAndChecks.Application.Auth;
+using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Tests.Common;
@@ -66,11 +67,24 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId);
+        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, true, true);
         var id = await sut.RegisterStudentAsync(request);
 
         (await ctx.Students.FindAsync(id)).Should().NotBeNull();
         await _email.Received(1).SendAsync("stud@example.com", Arg.Any<string>(), Arg.Is<string>(b => b.Contains("123456")), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegisterStudent_WithoutConsent_FailsValidation()
+    {
+        var groupId = await SeedGroupAsync();
+        await using var ctx = _db.NewContext();
+        var sut = CreateSut(ctx);
+
+        // Ни согласия на обработку ПДн, ни оферты — валидатор отклоняет.
+        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", groupId, false, false);
+        var act = () => sut.RegisterStudentAsync(request);
+        await act.Should().ThrowAsync<ValidationException>();
     }
 
     [Fact]
@@ -79,7 +93,7 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", 999);
+        var request = new RegisterStudentRequest("Ann", "Smith", "stud@example.com", "secret", 999, true, true);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<NotFoundException>();
     }
@@ -91,7 +105,7 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "", "secret", groupId);
+        var request = new RegisterStudentRequest("Ann", "Smith", "", "secret", groupId, true, true);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<ValidationException>();
     }
@@ -107,7 +121,7 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "dup@example.com", "secret", groupId);
+        var request = new RegisterStudentRequest("Ann", "Smith", "dup@example.com", "secret", groupId, true, true);
         var act = () => sut.RegisterStudentAsync(request);
         await act.Should().ThrowAsync<ValidationException>();
         (await ctx.Students.AnyAsync()).Should().BeFalse();
@@ -122,7 +136,7 @@ public class AuthServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var request = new RegisterStudentRequest("Ann", "Smith", "taken@example.com", "secret", groupId);
+        var request = new RegisterStudentRequest("Ann", "Smith", "taken@example.com", "secret", groupId, true, true);
         var result = await sut.RegisterStudentAsync(request);
 
         result.Should().Be(Guid.Empty);

@@ -1,6 +1,7 @@
 using FunAndChecks.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using FunAndChecks.Application.Auditing;
 
 namespace FunAndChecks.Tests.Common;
 
@@ -16,6 +17,9 @@ public sealed class TestDatabase : IDisposable
     public TestDatabase()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
+        // Production PostgreSQL lower() handles Cyrillic. SQLite's built-in lower()
+        // only handles ASCII, so relational tests need the same Unicode semantics.
+        _connection.CreateFunction<string?, string?>("lower", value => value?.ToLowerInvariant(), isDeterministic: true);
         _connection.Open();
 
         _options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -26,7 +30,7 @@ public sealed class TestDatabase : IDisposable
         context.Database.EnsureCreated();
     }
 
-    public ApplicationDbContext NewContext() => new(_options);
+    public ApplicationDbContext NewContext(AdminAuditContext? audit = null) => new(_options, audit);
 
     public void Dispose() => _connection.Dispose();
 }

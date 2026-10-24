@@ -29,8 +29,7 @@ public class JwtAuthenticationStateProvider(TokenStore tokenStore, TokenRefreshe
             }
 
             var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-            var identity = new ClaimsIdentity(jwt.Claims, "jwt", ClaimsIdentity.DefaultNameClaimType, ClaimTypes.Role);
-            return new AuthenticationState(new ClaimsPrincipal(identity));
+            return new AuthenticationState(new ClaimsPrincipal(CreateIdentity(jwt.Claims)));
         }
         catch
         {
@@ -41,6 +40,20 @@ public class JwtAuthenticationStateProvider(TokenStore tokenStore, TokenRefreshe
     /// <summary>Сообщить Blazor, что состояние аутентификации изменилось (после входа/выхода).</summary>
     public void NotifyAuthenticationStateChanged() =>
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+
+    /// <summary>
+    /// ReadJwtToken не переименовывает короткие типы claim'ов, а сервер кладёт id пользователя в «nameid».
+    /// Интерфейс ищет его как <see cref="ClaimTypes.NameIdentifier"/> — добавляем стандартный claim,
+    /// иначе «я» не определяется: своя строка, место в очереди, текущий предмет.
+    /// </summary>
+    public static ClaimsIdentity CreateIdentity(IEnumerable<Claim> claims)
+    {
+        var identity = new ClaimsIdentity(claims, "jwt", ClaimsIdentity.DefaultNameClaimType, ClaimTypes.Role);
+        if (identity.FindFirst(ClaimTypes.NameIdentifier) is null &&
+            (identity.FindFirst("nameid") ?? identity.FindFirst("sub")) is { } id)
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, id.Value));
+        return identity;
+    }
 
     private static bool IsExpired(string token)
     {

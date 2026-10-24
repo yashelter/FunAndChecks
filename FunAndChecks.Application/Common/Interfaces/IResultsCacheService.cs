@@ -14,4 +14,7 @@ public interface IResultsCacheService
     Task<SubjectResultsDto> GetOrAddAsync(int subjectId, Func<Task<SubjectResultsDto>> factory);
 
     void Invalidate(int subjectId);
+
+    /// <summary>Сбрасывает кэш всех предметов (после восстановления БД из бэкапа).</summary>
+    void Clear();
 }

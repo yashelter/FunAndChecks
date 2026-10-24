@@ -1,0 +1,58 @@
+@using System.Security.Claims
+@inject AuthService Auth
+@inject IDialogService DialogService
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject LegalConsentState Consent
+
+@*
+    Согласие с политикой и соглашением у студента. Проверяется в оболочке кабинета, а не на странице входа:
+    так его спросят и у тех, кто был залогинен до появления соглашения,
+    и прямой переход на /student его не обходит. Пока согласия нет, окно не закрывается — только «принять» или «выйти».
+*@
+
+@code {
+    private bool _checking;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _checking) return;
+        var user = (await ((AuthenticationStateProvider)AuthState).GetAuthenticationStateAsync()).User;
+        if (!user.IsInRole(Frontend.Shared.Auth.Roles.Student) ||
+            !Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId) ||
+            Consent.ConfirmedFor == userId)
+            return;
+
+        _checking = true;
+        try
+        {
+            var status = await Auth.GetPrivacyPolicyStatusAsync();
+            if (status.Accepted && status.TermsAccepted)
+            {
+                Consent.ConfirmedFor = userId;
+                return;
+            }
+        }
+        catch (ApiException)
+        {
+            // Статус не узнали (сеть, сервер) — не запираем кабинет из-за сбоя; спросим при следующем открытии.
+            _checking = false;
+            return;
+        }
+
+        var options = new DialogOptions { BackdropClick = false, CloseOnEscapeKey = false, CloseButton = false, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<PrivacyConsentDialog>(null, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            Consent.ConfirmedFor = userId;
+            _checking = false;
+            return;
+        }
+
+        // Отказ: без согласия кабинетом пользоваться нельзя — выходим.
+        await Auth.LogoutAsync();
+        AuthState.NotifyAuthenticationStateChanged();
+        Nav.NavigateTo("/login");
+    }
+}

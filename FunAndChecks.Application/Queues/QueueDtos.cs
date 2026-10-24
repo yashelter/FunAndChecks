@@ -2,7 +2,12 @@ using FunAndChecks.Domain.Enums;
 
 namespace FunAndChecks.Application.Queues;
 
-public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin);
+/// <summary>
+/// Событие очереди. Для «моих очередей» студента дополнительно: предмет, свой статус и место среди ожидающих
+/// (тот же порядок, что видит преподаватель: больше баллов — раньше, при равенстве — кто раньше записался).
+/// </summary>
+public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin,
+    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
 
 /// <summary>
 /// Создание события очереди. Если задан <see cref="AutoFillGroupId"/>, в очередь сразу
@@ -28,7 +33,9 @@ public record QueueParticipantDto(
     QueueEntryStatus Status,
     string? CheckingByAdminName,
     DateTime JoinedAt,
-    string? StudentColor);
+    string? StudentColor,
+    bool CanManage,
+    Guid? CheckingByAdminId = null);
 
 public record QueueDetailsDto(
     int EventId,

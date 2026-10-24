@@ -22,7 +22,7 @@ public class EmailThrottleTests
         // Assert
         Assert.True(firstCall);
         Assert.Equal(TimeSpan.Zero, retryAfter1);
-        
+
         Assert.False(secondCall);
         Assert.True(retryAfter2 > TimeSpan.Zero);
     }

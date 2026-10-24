@@ -15,7 +15,8 @@ public class RegisterModel
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string ConfirmPassword { get; set; } = string.Empty;
-    public int GroupId { get; set; }
+    public int? GroupId { get; set; }
+    public bool AcceptedTerms { get; set; }
 }
 
 public partial class Register
@@ -51,15 +52,30 @@ public partial class Register
 
     private async Task SubmitAsync()
     {
-        _busy = true;
         _error = null;
+        if (_model.GroupId is not int groupId || !_groups.Any(g => g.Id == groupId))
+        {
+            _serverValidator.DisplayErrors(new() { [nameof(RegisterModel.GroupId)] = [Loc["Register_GroupRequired"].Value] });
+            return;
+        }
+
+        if (!_model.AcceptedTerms)
+        {
+            _serverValidator.DisplayErrors(new() { [nameof(RegisterModel.AcceptedTerms)] = [Loc["Register_AcceptTermsRequired"].Value] });
+            return;
+        }
+
+        _busy = true;
 
         var request = new RegisterStudentRequest(
             _model.FirstName.Trim(),
             _model.LastName.Trim(),
             _model.Email.Trim(),
             _model.Password,
-            _model.GroupId);
+            groupId,
+            // Сервер хранит две отметки (политика и соглашение); документ теперь один — одна галочка ставит обе.
+            _model.AcceptedTerms,
+            _model.AcceptedTerms);
 
         try
         {

@@ -150,11 +150,30 @@ public class GroupService(
     public async Task<List<int>> GetSubjectIdsAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
     {
         await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
         return await db.GroupSubjects
             .Where(gs => gs.GroupId == groupId)
-            .Where(gs => !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && (a.IsRestricted || a.IsHidden)))
+            .Where(gs => isSuperAdmin
+                ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && a.IsHidden)
+                : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && !a.IsRestricted && !a.IsHidden))
             .Select(gs => gs.SubjectId)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<GroupSubjectsDto>> GetSubjectLinksAsync(Guid adminId, CancellationToken cancellationToken = default)
+    {
+        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
+        var links = await db.GroupSubjects
+            .Where(gs => !db.AdminGroupAccesses.Any(a => a.AdminId == adminId && a.GroupId == gs.GroupId && (a.IsRestricted || a.IsHidden)))
+            .Where(gs => isSuperAdmin
+                ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && a.IsHidden)
+                : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && !a.IsRestricted && !a.IsHidden))
+            .Select(gs => new { gs.GroupId, gs.SubjectId })
+            .ToListAsync(cancellationToken);
+        return links.GroupBy(l => l.GroupId)
+            .Select(g => new GroupSubjectsDto(g.Key, g.Select(l => l.SubjectId).Order().ToList()))
+            .OrderBy(g => g.GroupId)
+            .ToList();
     }
 
     public async Task<List<int>> GetGroupIdsForSubjectAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
@@ -180,7 +199,7 @@ public class GroupService(
         var students = await db.Students
             .Where(s => s.GroupId == groupId && s.IsActive)
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId, s.Group != null ? s.Group.Name : null))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));

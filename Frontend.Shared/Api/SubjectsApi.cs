@@ -34,6 +34,18 @@ public class SubjectsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : Ap
     public Task DeleteTaskAsync(int taskId, CancellationToken ct = default) =>
         DeleteAsync($"api/tasks/{taskId}", ct);
 
+    public Task<List<TaskGroupDto>> GetTaskGroupsAsync(int subjectId, CancellationToken ct = default) =>
+        GetAsync<List<TaskGroupDto>>($"api/subjects/{subjectId}/task-groups", ct);
+
+    public Task<TaskGroupDto> CreateTaskGroupAsync(int subjectId, CreateTaskGroupRequest request, CancellationToken ct = default) =>
+        PostAsync<TaskGroupDto>($"api/subjects/{subjectId}/task-groups", request, ct);
+
+    public Task<TaskGroupDto> UpdateTaskGroupAsync(int taskGroupId, UpdateTaskGroupRequest request, CancellationToken ct = default) =>
+        PutAsync<TaskGroupDto>($"api/task-groups/{taskGroupId}", request, ct);
+
+    public Task DeleteTaskGroupAsync(int taskGroupId, CancellationToken ct = default) =>
+        DeleteAsync($"api/task-groups/{taskGroupId}", ct);
+
     public Task<GradeComponentDto> UpdateGradeComponentAsync(int componentId, UpdateGradeComponentRequest request, CancellationToken ct = default) =>
         PutAsync<GradeComponentDto>($"api/grade-components/{componentId}", request, ct);
 

@@ -1,0 +1,44 @@
+@using Frontend.Shared.Community
+@implements IDisposable
+@inject ForumApi Api
+@inject CommunityRealtime Realtime
+@inject NavigationManager Nav
+
+@if (_count > 0) { <span class="fc-nav-badge" aria-label="@CommunityText.T($"непрочитанных тем: {_count}", $"{_count} unread topics")">@(_count > 99 ? "99+" : _count)</span> }
+
+@code {
+    private int _count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Api.UnreadChanged += Refresh;
+        Realtime.NotificationReceived += Received;
+        Nav.LocationChanged += Moved;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try { _count = (await Api.UnreadAsync()).UnreadTopicCount; }
+        catch (ApiException) { }
+    }
+
+    private void Refresh() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    private void Received(NotificationDto notification)
+    {
+        if (notification.Type is NotificationType.ForumReply or NotificationType.ForumMention or NotificationType.ForumAnnouncement) Refresh();
+    }
+
+    private void Moved(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        if (args.Location.Contains("/forum")) Refresh();
+    }
+
+    public void Dispose()
+    {
+        Api.UnreadChanged -= Refresh;
+        Realtime.NotificationReceived -= Received;
+        Nav.LocationChanged -= Moved;
+    }
+}

@@ -13,5 +13,9 @@ public class CourseTask
     public int SubjectId { get; set; }
     public Subject Subject { get; set; } = null!;
 
+    /// <summary>Группа заданий; null — задание без группы.</summary>
+    public int? TaskGroupId { get; set; }
+    public TaskGroup? TaskGroup { get; set; }
+
     public ICollection<Submission> Submissions { get; set; } = new List<Submission>();
 }

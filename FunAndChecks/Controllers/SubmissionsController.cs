@@ -20,6 +20,11 @@ public class SubmissionsController(ISubmissionService submissionService) : Contr
         return NoContent();
     }
 
+    /// <summary>Отмена своей последней свежей отметки (ошибочный клик). Возвращает новый текущий статус.</summary>
+    [HttpDelete("students/{studentId:guid}/tasks/{taskId:int}/latest")]
+    public async Task<ActionResult<UndoSubmissionResultDto>> UndoLatest(Guid studentId, int taskId, CancellationToken cancellationToken) =>
+        Ok(new UndoSubmissionResultDto(await submissionService.UndoLatestAsync(User.GetUserId(), studentId, taskId, cancellationToken)));
+
     /// <summary>История попыток сдачи задания студентом.</summary>
     [HttpGet("students/{studentId:guid}/tasks/{taskId:int}")]
     public async Task<ActionResult<List<SubmissionLogDto>>> GetLog(Guid studentId, int taskId, CancellationToken cancellationToken) =>

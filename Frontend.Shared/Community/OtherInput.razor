@@ -1,0 +1,20 @@
+@* Вариант «Другое» со своим текстом для вопросов с выбором. *@
+<label class="fc-choice fc-choice-other">
+    <input type="@(Single ? "radio" : "checkbox")" name="@Name" disabled="@Disabled" checked="@State.OtherSelected"
+           @onchange="Changed" />
+    <span>@CommunityText.T("Другое:", "Other:")</span>
+    <input class="fc-input" maxlength="300" disabled="@(Disabled || !State.OtherSelected)" @bind="State.Other" @bind:event="oninput" />
+</label>
+
+@code {
+    [Parameter, EditorRequired] public SurveyForm.AnswerState State { get; set; } = default!;
+    [Parameter] public bool Single { get; set; }
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private void Changed(ChangeEventArgs e)
+    {
+        State.OtherSelected = Single || e.Value is true;
+        if (Single) State.Options.Clear();
+    }
+}

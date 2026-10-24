@@ -21,23 +21,42 @@ public class QueueService(
     /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
     private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
 
-    public Task<List<QueueEventDto>> GetActiveEventsAsync(CancellationToken cancellationToken = default)
+    private async Task<IQueryable<QueueEvent>> VisibleEventsAsync(Guid? adminId, CancellationToken cancellationToken)
+    {
+        if (!adminId.HasValue || await accessService.IsSuperAdminAsync(adminId.Value, cancellationToken))
+            return db.QueueEvents;
+        return db.QueueEvents.Where(qe => db.AdminSubjectAccesses.Any(
+            a => a.AdminId == adminId && a.SubjectId == qe.SubjectId && !a.IsRestricted));
+    }
+
+    public async Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default)
     {
         var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
-        return db.QueueEvents
+        return await (await VisibleEventsAsync(adminId, cancellationToken))
             .Where(qe => qe.EventDateTime > threshold)
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
     }
 
-    public Task<List<QueueEventDto>> GetAllEventsAsync(CancellationToken cancellationToken = default) =>
-        db.QueueEvents
+    public async Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>
+        await (await VisibleEventsAsync(adminId, cancellationToken))
             .OrderBy(qe => qe.EventDateTime)
             .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
             .ToListAsync(cancellationToken);
 
-    public async Task<QueueDetailsDto> GetDetailsAsync(int eventId, CancellationToken cancellationToken = default)
+    public async Task EnsureEventAllowedAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
+    {
+        var subjectId = await db.QueueEvents
+            .Where(qe => qe.Id == eventId)
+            .Select(qe => (int?)qe.SubjectId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+    }
+
+    public async Task<QueueDetailsDto> GetDetailsAsync(int eventId, Guid? adminId = null, CancellationToken cancellationToken = default)
     {
         var queueEvent = await db.QueueEvents
             .Where(qe => qe.Id == eventId)
@@ -53,7 +72,11 @@ public class QueueService(
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
 
+        if (adminId.HasValue)
+            await accessService.EnsureSubjectAllowedAsync(adminId.Value, queueEvent.SubjectId, cancellationToken);
+
         var entries = await db.QueueEntries
+            .AsNoTracking()
             .Where(p => p.QueueEventId == eventId)
             .OrderBy(p => p.JoinedAt)
             .Select(p => new
@@ -63,9 +86,12 @@ public class QueueService(
                 p.Student.LastName,
                 GroupName = p.Student.Group != null ? p.Student.Group.Name : "N/A",
                 p.Status,
-                AdminName = p.CurrentAdmin != null ? p.CurrentAdmin.FirstName : null,
+                AdminName = p.Status == QueueEntryStatus.Checking && p.CurrentAdmin != null ? p.CurrentAdmin.FullName : null,
+                CheckingByAdminId = p.Status == QueueEntryStatus.Checking ? p.CurrentAdminId : null,
                 p.JoinedAt,
                 p.Student.Color,
+                CanManage = adminId.HasValue && !db.AdminGroupAccesses.Any(a =>
+                    a.AdminId == adminId && a.GroupId == p.Student.GroupId && a.IsRestricted),
             })
             .ToListAsync(cancellationToken);
 
@@ -105,7 +131,9 @@ public class QueueService(
                 e.Status,
                 e.AdminName,
                 e.JoinedAt,
-                e.Color))
+                e.Color,
+                e.CanManage,
+                e.CheckingByAdminId))
             .ToList();
 
         return new QueueDetailsDto(
@@ -236,6 +264,11 @@ public class QueueService(
         if (!isGroupAllowed)
             throw new ForbiddenException("Your group does not have access to the subject of this event.");
 
+        // Двойной клик — частый случай: отвечаем 409 до INSERT, чтобы EF не писал ERROR в лог.
+        // catch ниже остаётся на случай настоящей гонки двух запросов.
+        if (await db.QueueEntries.AnyAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken))
+            throw new ConflictException("Student is already in the queue.", "queue.already_joined");
+
         db.QueueEntries.Add(new QueueEntry
         {
             QueueEventId = eventId,
@@ -261,11 +294,48 @@ public class QueueService(
             new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Waiting, null), cancellationToken);
     }
 
+    public async Task LeaveAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default)
+    {
+        var entry = await db.QueueEntries.Include(e => e.QueueEvent)
+                        .FirstOrDefaultAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken)
+                    ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
+        // В очередь, заполненную преподавателем, записаться снова нельзя — значит, и уйти из неё самому тоже.
+        if (!entry.QueueEvent.AllowSelfJoin || entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished)
+            throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
+        db.QueueEntries.Remove(entry);
+        await db.SaveChangesAsync(cancellationToken);
+        await NotifyBestEffortAsync(new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Finished, null), cancellationToken);
+    }
+
+    public async Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, bool includePast, CancellationToken cancellationToken = default)
+    {
+        var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
+        var events = await db.QueueEvents.AsNoTracking()
+            .Where(qe => includePast || qe.EventDateTime > threshold)
+            .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
+            .OrderBy(qe => qe.EventDateTime)
+            .Select(qe => new { qe.Id })
+            .ToListAsync(cancellationToken);
+        var result = new List<QueueEventDto>(events.Count);
+        foreach (var queueEvent in events)
+        {
+            var details = await GetDetailsAsync(queueEvent.Id, null, cancellationToken);
+            var waiting = details.Participants.Where(p => p.Status == QueueEntryStatus.Waiting)
+                .OrderByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt).ToList();
+            var me = details.Participants.FirstOrDefault(p => p.StudentId == studentId);
+            var position = waiting.FindIndex(p => p.StudentId == studentId);
+            result.Add(new QueueEventDto(details.EventId, details.EventName, details.EventDateTime, details.AllowSelfJoin,
+                details.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
+        }
+        return result;
+    }
+
     public async Task UpdateParticipantStatusAsync(
         int eventId, Guid studentId, Guid adminId, QueueEntryStatus status,
         CancellationToken cancellationToken = default)
     {
         var entry = await db.QueueEntries
+            .AsNoTracking()
             .Include(qu => qu.QueueEvent)
             .Include(qu => qu.Student)
             .FirstOrDefaultAsync(qu => qu.QueueEventId == eventId && qu.StudentId == studentId, cancellationToken)
@@ -278,12 +348,29 @@ public class QueueService(
         if (entry.Student.GroupId is int groupId)
             await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
 
-        entry.Status = status;
-        entry.CurrentAdminId = admin.Id;
-        await db.SaveChangesAsync(cancellationToken);
+        // Read the actual previous status/reviewer in the committing transaction.
+        // An already tracked row from an earlier screen must not supply stale audit values.
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            var current = await db.QueueEntries.AsNoTracking()
+                .FirstOrDefaultAsync(qu => qu.Id == entry.Id, ct)
+                ?? throw new NotFoundException("Student not found in this queue.");
+            await accessService.EnsureSubjectAllowedAsync(adminId, entry.QueueEvent.SubjectId, ct);
+            if (entry.Student.GroupId is int currentGroupId)
+                await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, ct);
+
+            var existingTracked = db.QueueEntries.Local.FirstOrDefault(qu => qu.Id == current.Id);
+            if (existingTracked is not null) db.QueueEntries.Entry(existingTracked).State = EntityState.Detached;
+            db.QueueEntries.Attach(current);
+            current.Status = status;
+            current.CurrentAdminId = status == QueueEntryStatus.Checking ? admin.Id : null;
+            await db.SaveChangesAsync(ct);
+            db.QueueEntries.Entry(current).State = EntityState.Detached;
+        }, cancellationToken);
 
         await NotifyBestEffortAsync(
-            new QueueEntryUpdateDto(eventId, studentId, status, admin.FullName), cancellationToken);
+            new QueueEntryUpdateDto(eventId, studentId, status,
+                status == QueueEntryStatus.Checking ? admin.FullName : null), cancellationToken);
     }
 
     private async Task NotifyBestEffortAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken)

@@ -1,0 +1,109 @@
+@using Microsoft.Extensions.Localization
+@inject QueuesApi QueuesApi
+@inject CurrentSubject CurrentSubject
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Создание очереди — одна форма для «Управления» и для окна на странице очередей. *@
+<MudGrid Spacing="2">
+    <MudItem xs="12" sm="6">
+        <MudSelect T="int?" Value="_subjectId" ValueChanged="OnSubjectChanged" Label="@Loc["Management_SubjectLabel"]"
+                   Variant="Variant.Outlined" Placeholder="@Loc["Management_SelectSubject"]" Disabled="_busy">
+            @foreach (var (id, name) in Subjects) { <MudSelectItem T="int?" Value="@id">@name</MudSelectItem> }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudTextField @bind-Value="_name" Label="@Loc["Management_QueueNameLabel"]" Variant="Variant.Outlined"
+                      HelperText="@Loc["Management_QueueNameHelper"]" Disabled="_busy" />
+    </MudItem>
+    <MudItem xs="6" sm="3"><MudDatePicker @bind-Date="_date" Label="@Loc["Management_DateLabel"]" Variant="Variant.Outlined" Disabled="_busy" /></MudItem>
+    <MudItem xs="6" sm="3"><MudTimePicker @bind-Time="_time" Label="@Loc["Management_TimeLabel"]" Variant="Variant.Outlined" Disabled="_busy" /></MudItem>
+    <MudItem xs="12" sm="6">
+        <MudSelect T="int" SelectedValues="_autoFillGroupIds" SelectedValuesChanged="@(v => _autoFillGroupIds = v.ToList())"
+                   MultiSelection="true" ToStringFunc="@(id => Groups.FirstOrDefault(g => g.Id == id).Name ?? "")"
+                   Label="@Loc["Management_AutoFillLabel"]" Variant="Variant.Outlined" Disabled="_busy"
+                   Placeholder="@Loc["Management_SelectGroups"]"
+                   MultiSelectionTextFunc="@(items => items.Count == 0 ? "" : string.Format(Loc["Management_AutoFillSelected"], items.Count))">
+            @foreach (var (id, name) in Groups) { <MudSelectItem T="int" Value="@id">@name</MudSelectItem> }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12">
+        <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary"
+                   Disabled="@(_busy || _autoFillGroupIds.Any())">@Loc["Management_AllowSelfJoin"]</MudSwitch>
+    </MudItem>
+</MudGrid>
+<div class="fc-queue-create-actions">
+    @if (Cancel.HasDelegate) { <MudButton OnClick="Cancel" Disabled="_busy">@Loc["Common_Cancel"]</MudButton> }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateAsync" Disabled="_busy">
+        @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+        @Loc["Management_CreateButton"]
+    </MudButton>
+    <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Management_CreateQueueHint"]</MudText>
+</div>
+
+@code {
+    /// <summary>Предметы, где преподаватель может создать очередь (без скрытых и закрытых для него).</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<(int Id, string Name)> Subjects { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<(int Id, string Name)> Groups { get; set; } = [];
+    /// <summary>Предмет, выбранный при открытии (обычно текущий предмет преподавателя).</summary>
+    [Parameter] public int? SubjectId { get; set; }
+    [Parameter] public EventCallback<QueueEventDto> Created { get; set; }
+    /// <summary>Если задан — рядом с «Создать» есть «Отмена» (в модальном окне).</summary>
+    [Parameter] public EventCallback Cancel { get; set; }
+
+    private int? _subjectId;
+    private string _name = "";
+    private DateTime? _date = DateTime.Today;
+    private TimeSpan? _time = new(10, 0, 0);
+    private IReadOnlyCollection<int> _autoFillGroupIds = new HashSet<int>();
+    private bool _allowSelfJoin = true;
+    private bool _busy, _initialized;
+
+    protected override void OnParametersSet()
+    {
+        if (_initialized || SubjectId is not int id || Subjects.All(s => s.Id != id)) return;
+        _initialized = true;
+        _subjectId = id;
+        SuggestName();
+    }
+
+    private async Task OnSubjectChanged(int? subjectId)
+    {
+        _initialized = true;
+        _subjectId = subjectId;
+        SuggestName();
+        await CurrentSubject.SetAsync(subjectId);
+    }
+
+    private void SuggestName()
+    {
+        var name = Subjects.FirstOrDefault(s => s.Id == _subjectId).Name;
+        if (name is not null)
+            _name = $"{name} {(_date ?? DateTime.Today).ToString("d", CultureInfo.CurrentCulture)}";
+    }
+
+    private async Task CreateAsync()
+    {
+        if (_subjectId is not int subjectId) { Snackbar.Add(Loc["Management_SelectSubjectWarning"], Severity.Warning); return; }
+        if (_date is null || _time is null) { Snackbar.Add(Loc["Management_DateTimeRequired"], Severity.Warning); return; }
+
+        var when = DateTime.SpecifyKind(_date.Value.Date + _time.Value, DateTimeKind.Local).ToUniversalTime();
+        var name = string.IsNullOrWhiteSpace(_name)
+            ? $"{Subjects.FirstOrDefault(s => s.Id == subjectId).Name} {_date.Value.ToString("d", CultureInfo.CurrentCulture)}"
+            : _name.Trim();
+        var autoFill = _autoFillGroupIds.Count > 0 ? _autoFillGroupIds.ToList() : null;
+
+        _busy = true;
+        try
+        {
+            var created = await QueuesApi.CreateAsync(new CreateQueueEventRequest(name, when, subjectId, _allowSelfJoin, autoFill));
+            Snackbar.Add(Loc["Management_QueueCreated"], Severity.Success);
+            await Created.InvokeAsync(created);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally { _busy = false; }
+    }
+}

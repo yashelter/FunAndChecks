@@ -1,0 +1,58 @@
+@namespace Frontend.Shared.Profiles
+@implements IAsyncDisposable
+@inject ProfileApi Api
+@inject ISnackbar Snackbar
+@if (!_mediaEditor)
+{
+    <ProfileDialog Title="@(Achievement is null ? ProfileText.T("Новое достижение", "New achievement") : ProfileText.T("Изменить достижение", "Edit achievement"))" Close="CancelAsync" Busy="@_busy">
+        <ChildContent>
+            @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+            <div class="fc-profile-edit-avatar">
+                @if (_selection is not null) { <MediaSelectionPreview @key="_selection" Selection="_selection" Alt="@_name" Class="fc-profile-detail-media" /> }
+                else { <ProfileMedia Media="@(_removeImage ? null : Achievement?.Image)" Alt="@_name" Class="fc-profile-detail-media" /> }
+                <div><MudButton OnClick="() => _mediaEditor = true" Variant="Variant.Outlined">@ProfileText.T("Загрузить значок", "Upload icon")</MudButton>@if (Achievement?.Image is not null || _selection is not null) { <MudButton OnClick="RemoveImageAsync" Color="Color.Error">@ProfileText.T("Убрать значок", "Remove icon")</MudButton> }</div>
+            </div>
+            @if (_selection is not null) { <p class="fc-profile-hint">@ProfileText.T("Новый значок подготовлен. Он сохранится вместе с достижением.", "A new icon is ready. It will be saved with the achievement.")</p> }
+            <MudTextField T="string" @bind-Value="_name" Immediate="true" Label="@ProfileText.T("Название", "Name")" MaxLength="100" Variant="Variant.Outlined" Class="mt-4" Required="true" RequiredError="@ProfileText.T("Укажите название", "Enter a name")" />
+            <MudTextField T="string" @bind-Value="_description" Immediate="true" Label="@ProfileText.T("Описание", "Description")" MaxLength="2000" Lines="5" Variant="Variant.Outlined" Class="mt-3" />
+            @if (Achievement is not null) { <p class="fc-profile-hint">@ProfileText.T("Изменения станут видны у всех получателей.", "Changes will be visible to all recipients.")</p> }
+        </ChildContent><Actions><MudButton OnClick="CancelAsync" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="SaveAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_name))" Color="Color.Primary" Variant="Variant.Filled">@ProfileText.T("Сохранить", "Save")</MudButton></Actions>
+    </ProfileDialog>
+}
+else { <MediaEditor Save="ChooseMediaAsync" Close="() => _mediaEditor = false" /> }
+@code {
+    [Parameter] public AchievementDefinitionDto? Achievement { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+    private string _name = "", _description = "";
+    private string? _error;
+    private bool _busy, _mediaEditor, _removeImage, _saved;
+    private MediaSelection? _selection;
+    private readonly CancellationTokenSource _life = new();
+    protected override void OnInitialized() { _name = Achievement?.Name ?? ""; _description = Achievement?.Description ?? ""; }
+    private async Task<bool> ChooseMediaAsync(MediaSelection selection)
+    {
+        if (_selection is not null) await Api.CancelSessionAsync(_selection.SessionId, _life.Token);
+        _selection = selection; _removeImage = false; return true;
+    }
+    private async Task RemoveImageAsync()
+    {
+        if (_selection is not null) await Api.CancelSessionAsync(_selection.SessionId, _life.Token);
+        _selection = null; _removeImage = true;
+    }
+    private async Task SaveAsync()
+    {
+        _busy = true; _error = null;
+        try
+        {
+            var request = new SaveAchievementRequest(_name.Trim(), _description.Trim(), _selection?.SessionId, _selection?.Media, _removeImage);
+            if (Achievement is null) await Api.CreateAchievementAsync(request, _life.Token); else await Api.UpdateAchievementAsync(Achievement.Id, request, _life.Token);
+            _saved = true; Snackbar.Add(ProfileText.T("Достижение сохранено", "Achievement saved"), Severity.Success); await Changed.InvokeAsync(); await Close.InvokeAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+    private async Task CancelAsync() { if (_busy) return; await ReleaseSessionAsync(); await Close.InvokeAsync(); }
+    private async Task ReleaseSessionAsync() { if (_selection is not null && !_saved) try { await Api.CancelSessionAsync(_selection.SessionId, _life.Token); } catch (ApiException) { } _selection = null; }
+    public async ValueTask DisposeAsync() { try { await ReleaseSessionAsync(); } catch (OperationCanceledException) { } _life.Cancel(); _life.Dispose(); }
+}

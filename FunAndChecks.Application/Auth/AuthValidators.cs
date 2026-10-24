@@ -11,6 +11,9 @@ public class RegisterStudentRequestValidator : AbstractValidator<RegisterStudent
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
         RuleFor(x => x.Password).NotEmpty().MinimumLength(6).MaximumLength(128);
         RuleFor(x => x.GroupId).GreaterThan(0);
+        // Пользовательское соглашение (licence/agreement.md) принимается всегда; одна галочка ставит обе отметки.
+        RuleFor(x => x.AcceptedPrivacyPolicy).Equal(true).WithMessage("Необходимо принять пользовательское соглашение");
+        RuleFor(x => x.AcceptedTerms).Equal(true).WithMessage("Необходимо принять пользовательское соглашение");
     }
 }
 

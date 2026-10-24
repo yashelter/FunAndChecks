@@ -1,0 +1,87 @@
+@page "/admin/attendance/sessions/{SessionId:int}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>@Loc["Attendance_RollCallTitle"]</PageTitle>
+
+<div class="attendance-page fc-attendance">
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_details is null)
+    {
+        <MudAlert Severity="Severity.Error">@(_error ?? Loc["Attendance_SessionLoadError"])</MudAlert>
+        <MudButton Href="/admin/attendance" Class="mt-4">@Loc["Attendance_BackToJournal"]</MudButton>
+    }
+    else
+    {
+        <MudButton Href="@($"/admin/attendance?subjectId={_details.SubjectId}")" StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-3">@Loc["Attendance_Journal"]</MudButton>
+        <div class="attendance-heading">
+            <div><span class="attendance-eyebrow">@Loc["Attendance_RollCall"]</span><MudText Typo="Typo.h4">@_details.Name</MudText><MudText Typo="Typo.body2">@_details.SubjectName · @AttendanceStyles.Moscow(_details.StartsAt).ToString("dd.MM.yyyy HH:mm") · @Loc["Attendance_MoscowTime"]</MudText></div>
+            <div class="attendance-actions">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@Busy">@Loc["Attendance_Refresh"]</MudButton>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="ToggleAddAsync" Disabled="@(Busy || !_details.Enabled)">@Loc["Attendance_AddStudent"]</MudButton>
+            </div>
+        </div>
+        @if (_refreshing) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" Size="Size.Small" Class="mb-2" /> }
+        @if (!_details.Enabled) { <MudAlert Severity="Severity.Info" Class="mb-4">@Loc["Attendance_DisabledInfo"]</MudAlert> }
+        <div class="attendance-stats">
+            <div class="attendance-stat present"><span>@Loc["Attendance_Present"]</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Present)</strong></div>
+            <div class="attendance-stat absent"><span>@Loc["Attendance_Absent"]</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Absent)</strong></div>
+            <div class="attendance-stat unmarked"><span>@Loc["Attendance_Unmarked"]</span><strong>@_details.Participants.Count(p => p.Status == AttendanceStatus.Unmarked)</strong></div>
+        </div>
+        @if (_adding)
+        {
+            <MudPaper Class="attendance-panel" Elevation="0">
+                <MudText Typo="Typo.h6">@Loc["Attendance_AddTitle"]</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">@Loc["Attendance_AddHint"]</MudText>
+                <div class="attendance-toolbar">
+                    <MudSelect T="Guid?" @bind-Value="_addStudentId" Label="@Loc["Attendance_Student"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@Busy">
+                        @foreach (var student in _candidates) { <MudSelectItem T="Guid?" Value="@student.Id">@student.LastName @student.FirstName</MudSelectItem> }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddAsync" Disabled="@(Busy || _addStudentId is null)">@Loc["Attendance_Add"]</MudButton>
+                    <MudButton OnClick="@(() => _adding = false)" Disabled="@Busy">@Loc["Common_Close"]</MudButton>
+                </div>
+                @if (_candidates.Count == 0) { <MudText Typo="Typo.caption">@Loc["Attendance_NoCandidates"]</MudText> }
+            </MudPaper>
+        }
+        <MudPaper Class="attendance-panel" Elevation="0">
+            <div class="attendance-toolbar">
+                <MudTextField @bind-Value="_search" Immediate="true" Label="@Loc["Attendance_SearchLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+                <MudCheckBox T="bool" @bind-Value="_onlyUnmarked" Label="@Loc["Attendance_OnlyUnmarked"]" Color="Color.Primary" />
+                <MudText Typo="Typo.caption" Class="attendance-save-state" role="status" aria-live="polite">@(_saving.Count > 0 ? Loc["Attendance_Saving"] : _saveError ? Loc["Attendance_NotSaved"] : Loc["Attendance_SavedInstantly"])</MudText>
+            </div>
+            <div class="attendance-rollcall">
+                @foreach (var participant in Visible)
+                {
+                    var locked = _saving.Contains(participant.StudentId) || _bulkBusy || !_details.Enabled || !participant.CanManage;
+                    <div class="attendance-person" @key="participant.StudentId">
+                        <span class="@AttendanceStyles.Css(participant.Status)">@AttendanceStyles.Symbol(participant.Status)</span>
+                        <div class="attendance-person-identity">
+                            <strong><ProfileLink UserId="participant.StudentId">@participant.FullName</ProfileLink></strong><small>@participant.GroupName · @AttendanceStyles.Text(participant.Status)</small>
+                            @if (participant.UpdatedAt.HasValue)
+                            {
+                                <small>@(participant.MarkedBy ?? Loc["Attendance_TeacherDeleted"]) · @AttendanceStyles.Moscow(participant.UpdatedAt.Value).ToString("dd.MM.yyyy HH:mm")</small>
+                            }
+                            @if (!participant.CanManage) { <small>@Loc["Attendance_GroupForbidden"]</small> }
+                        </div>
+                        <div class="attendance-person-actions">
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Present ? Variant.Filled : Variant.Outlined)" Color="Color.Success" Size="Size.Medium" aria-pressed="@(participant.Status == AttendanceStatus.Present)" aria-label="@Loc["Attendance_MarkPresentLabel", participant.FullName]" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Present))" Disabled="@locked">@Loc["Attendance_PresentShort"]</MudButton>
+                            <MudButton Variant="@(participant.Status == AttendanceStatus.Absent ? Variant.Filled : Variant.Outlined)" Color="Color.Error" Size="Size.Medium" aria-pressed="@(participant.Status == AttendanceStatus.Absent)" aria-label="@Loc["Attendance_MarkAbsentLabel", participant.FullName]" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Absent))" Disabled="@locked">@Loc["Attendance_AbsentShort"]</MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.RestartAlt" Size="Size.Small" title="@Loc["Attendance_ResetMark"]" aria-label="@Loc["Attendance_ResetMarkLabel", participant.FullName]" OnClick="@(() => MarkAsync(participant, AttendanceStatus.Unmarked))" Disabled="@(locked || participant.Status == AttendanceStatus.Unmarked)" />
+                        </div>
+                    </div>
+                }
+                @if (!Visible.Any()) { <div class="attendance-empty"><MudText Typo="Typo.h6">@(_details.Participants.Count == 0 ? Loc["Attendance_EmptySession"] : Loc["Attendance_AllMarked"])</MudText><MudText>@Loc["Attendance_EmptyHint"]</MudText></div> }
+            </div>
+        </MudPaper>
+        <div class="attendance-bulk">
+            <div><strong>@Loc["Attendance_FinishTitle"]</strong><small>@Loc["Attendance_FinishHint"]</small></div>
+            <div class="attendance-bulk-actions">
+                <MudButton Variant="Variant.Outlined" Color="Color.Success" OnClick="@(() => MarkRemainingAsync(AttendanceStatus.Present))" Disabled="@(Busy || !_details.Enabled || Remaining.Count == 0)">@Loc["Attendance_MarkRemainingPresent", Remaining.Count]</MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="@(() => MarkRemainingAsync(AttendanceStatus.Absent))" Disabled="@(Busy || !_details.Enabled || Remaining.Count == 0)">@Loc["Attendance_MarkRemainingAbsent", Remaining.Count]</MudButton>
+            </div>
+        </div>
+    }
+</div>

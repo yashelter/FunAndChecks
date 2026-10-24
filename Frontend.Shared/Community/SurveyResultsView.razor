@@ -1,0 +1,186 @@
+@inject SurveyApi Api
+@inject FileDownloader Downloader
+@inject ISnackbar Snackbar
+
+<PageTitle>@CommunityText.T("Итоги опроса", "Survey results")</PageTitle>
+<a class="fc-profile-back" href="@($"/admin/surveys/{SurveyId}")">← @CommunityText.T("К опросу", "Back to survey")</a>
+@if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert> }
+@if (_results is null) { if (_error is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> } }
+else
+{
+    <div class="fc-page-heading"><div>
+        <MudText Typo="Typo.h4">@_results.Title</MudText>
+        <MudText Class="fc-muted">@CommunityText.T($"Ответили {_results.ResponseCount} из {_results.AudienceCount}", $"{_results.ResponseCount} of {_results.AudienceCount} answered")@(_results.IsAnonymous ? CommunityText.T(" · анонимный", " · anonymous") : "")</MudText>
+    </div>
+        @if (!_results.HiddenForAnonymity && _results.ResponseCount > 0)
+        {
+            <div class="fc-profile-heading-actions">
+                @if (!_results.IsAnonymous) { <MudButton Variant="Variant.Outlined" OnClick="ToggleResponsesAsync">@(_responses is null ? CommunityText.T("Ответы по людям", "Individual answers") : CommunityText.T("Сводка", "Summary"))</MudButton> }
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Download" OnClick="ExportAsync">XLSX</MudButton>
+            </div>
+        }
+    </div>
+    <div class="fc-progress-bar fc-survey-coverage" role="progressbar" aria-valuemin="0" aria-valuemax="@_results.AudienceCount" aria-valuenow="@_results.ResponseCount"
+         aria-label="@CommunityText.T("Охват", "Coverage")"><span style="width:@Percent(_results.ResponseCount, _results.AudienceCount)%"></span></div>
+
+    @if (_results.Groups is { Count: > 1 } groups)
+    {
+        @* Разбивка по группам: охват каждой и итоги только по ней. Порог анонимности действует и внутри группы. *@
+        <div class="fc-forum-sections fc-survey-filter" role="group" aria-label="@CommunityText.T("Группы", "Groups")">
+            <button type="button" class="@(_groupId is null ? "selected" : "")" @onclick="() => SelectGroupAsync(null)">@CommunityText.T("Все группы", "All groups")</button>
+            @foreach (var group in groups)
+            {
+                <button type="button" class="@(_groupId == group.GroupId ? "selected" : "")" @onclick="() => SelectGroupAsync(group.GroupId)">
+                    @group.Name <small>@group.ResponseCount/@group.AudienceCount</small></button>
+            }
+        </div>
+    }
+
+    @if (_results.HiddenForAnonymity)
+    {
+        @if (_results.GroupId is not null && _results.ResponseCount >= _results.AnonymityThreshold)
+        {
+            <MudAlert Severity="Severity.Info">@CommunityText.T($"Анонимный опрос: по этой группе сводка скрыта — в остальных группах меньше {_results.AnonymityThreshold} ответов, и их можно было бы вычислить вычитанием.", $"Anonymous survey: this group is hidden because the other groups have fewer than {_results.AnonymityThreshold} answers, which could then be worked out by subtraction.")</MudAlert>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">@CommunityText.T($"Анонимный опрос: сводка появится, когда ответят хотя бы {_results.AnonymityThreshold} человека — иначе ответ легко узнать.", $"Anonymous survey: the summary appears after at least {_results.AnonymityThreshold} answers, otherwise answers would be easy to attribute.")</MudAlert>
+        }
+    }
+    else if (_responses is not null)
+    {
+        <div class="fc-panel fc-survey-table">
+            <table>
+                <thead><tr>
+                    <th><button type="button" class="fc-sort-button" @onclick="() => SortBy(ResponseSort.Name)">@CommunityText.T("Студент", "Student")@SortMark(ResponseSort.Name)</button></th>
+                    <th><button type="button" class="fc-sort-button" @onclick="() => SortBy(ResponseSort.Group)">@CommunityText.T("Группа", "Group")@SortMark(ResponseSort.Group)</button></th>
+                    <th><button type="button" class="fc-sort-button" @onclick="() => SortBy(ResponseSort.Time)">@CommunityText.T("Когда", "When")@SortMark(ResponseSort.Time)</button></th>
+                    @foreach (var q in _results.Questions) { <th>@q.Text</th> }
+                </tr></thead>
+                <tbody>
+                    @foreach (var response in SortedResponses)
+                    {
+                        var answers = response.Answers.ToDictionary(a => a.QuestionId, a => a.Value);
+                        <tr><td><UserChip UserId="response.RespondentId" Name="@response.RespondentName" Compact="true" /></td>
+                            <td>@response.GroupName</td>
+                            <td>@response.SubmittedAtUtc.ToLocalTime().ToString("g")</td>
+                            @foreach (var q in _results.Questions) { <td>@answers.GetValueOrDefault(q.QuestionId, "—")</td> }</tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        @if (_results.Questions.Any(q => q.TextAnswers.Count > 0))
+        {
+            <div class="fc-panel fc-forum-toolbar">
+                <MudTextField T="string" @bind-Value="_textSearch" Immediate="true" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Placeholder="@CommunityText.T("Поиск по текстовым ответам", "Search text answers")" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+            </div>
+        }
+        @foreach (var question in _results.Questions)
+        {
+            var texts = FilteredTexts(question);
+            <section class="fc-panel fc-profile-section">
+                <div class="fc-profile-section-heading"><h2>@question.Text</h2><span>@CommunityText.Answers(question.AnswerCount)</span></div>
+                @if (question.Average is decimal average)
+                {
+                    <p class="fc-survey-average">@CommunityText.T("Среднее", "Average") <strong>@average.ToString("0.##")</strong> · @CommunityText.T("медиана", "median") <strong>@question.Median?.ToString("0.##")</strong></p>
+                }
+                @if (question.Options.Count > 0)
+                {
+                    var max = Math.Max(1, question.Options.Max(o => o.Count));
+                    <ul class="fc-bars">
+                        @foreach (var option in question.Options)
+                        {
+                            <li><span class="fc-bar-label">@option.Text</span>
+                                <span class="fc-bar"><span style="width:@Percent(option.Count, max)%"></span></span>
+                                <span class="fc-bar-value">@option.Count · @Percent(option.Count, Math.Max(1, question.AnswerCount))%</span></li>
+                        }
+                    </ul>
+                }
+                @if (texts.Count > 0)
+                {
+                    <ul class="fc-text-answers">@foreach (var text in texts) { <li>@text</li> }</ul>
+                }
+                else if (question.TextAnswers.Count > 0) { <p class="fc-muted">@CommunityText.T("Ничего не нашлось.", "Nothing found.")</p> }
+                @if (question.AnswerCount == 0) { <p class="fc-profile-empty">@CommunityText.T("Нет ответов.", "No answers.")</p> }
+            </section>
+        }
+    }
+}
+
+@code {
+    private enum ResponseSort { Name, Group, Time }
+    [Parameter, EditorRequired] public int SurveyId { get; set; }
+    private SurveyResultsDto? _results;
+    private List<SurveyIndividualResponseDto>? _responses;
+    private string? _error, _textSearch;
+    private int? _groupId;
+    private ResponseSort _sort = ResponseSort.Time;
+    private bool _descending;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try { _results = await Api.ResultsAsync(SurveyId, _groupId); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task SelectGroupAsync(int? groupId)
+    {
+        _groupId = groupId;
+        try
+        {
+            _results = await Api.ResultsAsync(SurveyId, groupId);
+            if (_responses is not null) _responses = _results.HiddenForAnonymity ? null : await Api.ResponsesAsync(SurveyId, groupId);
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task ToggleResponsesAsync()
+    {
+        if (_responses is not null) { _responses = null; return; }
+        try { _responses = await Api.ResponsesAsync(SurveyId, _groupId); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void SortBy(ResponseSort sort)
+    {
+        _descending = _sort == sort && !_descending;
+        _sort = sort;
+    }
+
+    private string SortMark(ResponseSort sort) => _sort != sort ? "" : _descending ? " ↓" : " ↑";
+
+    private IEnumerable<SurveyIndividualResponseDto> SortedResponses
+    {
+        get
+        {
+            var items = _responses ?? [];
+            IOrderedEnumerable<SurveyIndividualResponseDto> ordered = _sort switch
+            {
+                ResponseSort.Name => _descending ? items.OrderByDescending(r => r.RespondentName) : items.OrderBy(r => r.RespondentName),
+                ResponseSort.Group => _descending ? items.OrderByDescending(r => r.GroupName) : items.OrderBy(r => r.GroupName),
+                _ => _descending ? items.OrderByDescending(r => r.SubmittedAtUtc) : items.OrderBy(r => r.SubmittedAtUtc),
+            };
+            return ordered.ThenBy(r => r.ResponseId);
+        }
+    }
+
+    private List<string> FilteredTexts(SurveyQuestionResultDto question) => string.IsNullOrWhiteSpace(_textSearch)
+        ? question.TextAnswers
+        : question.TextAnswers.Where(t => t.Contains(_textSearch.Trim(), StringComparison.CurrentCultureIgnoreCase)).ToList();
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            await using var stream = await Api.ExportAsync(SurveyId);
+            await Downloader.DownloadAsync($"survey-{SurveyId}.xlsx", stream);
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private static int Percent(int value, int total) => total <= 0 ? 0 : (int)Math.Round(100d * value / total);
+}

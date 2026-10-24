@@ -1,5 +1,6 @@
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
+using FunAndChecks.Infrastructure.Files;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using FunAndChecks.Infrastructure.Workers;
@@ -25,6 +26,13 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
     public CapturingEmailSender Email { get; } = new();
+
+    public TestWebAppFactory()
+    {
+        // Match production PostgreSQL's Unicode case conversion for SQL name search.
+        // The local UI review host reuses this factory and therefore this connection.
+        _connection.CreateFunction<string?, string?>("lower", value => value?.ToLowerInvariant(), isDeterministic: true);
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -64,7 +72,8 @@ public class TestWebAppFactory : WebApplicationFactory<Program>
             services.RemoveAll<UnconfirmedAccountCleanupService>();
             var cleanupWorkers = services
                 .Where(d => d.ServiceType == typeof(IHostedService) &&
-                            d.ImplementationType == typeof(UnconfirmedAccountCleanupService))
+                            (d.ImplementationType == typeof(UnconfirmedAccountCleanupService) ||
+                             d.ImplementationType == typeof(AttachmentCleanupService)))
                 .ToList();
             foreach (var worker in cleanupWorkers)
                 services.Remove(worker);

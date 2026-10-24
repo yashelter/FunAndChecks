@@ -10,3 +10,6 @@ public record SubmissionLogDto(SubmissionStatus Status, string? Comment, DateTim
 
 /// <summary>Событие для подписчиков SignalR об изменении результата.</summary>
 public record ResultUpdateDto(Guid StudentId, int TaskId, string NewStatus);
+
+/// <summary>Результат отмены отметки: какой статус стал текущим.</summary>
+public record UndoSubmissionResultDto(SubmissionStatus Status);

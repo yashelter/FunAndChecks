@@ -1,0 +1,79 @@
+@inject SurveyApi Api
+
+<PageTitle>@CommunityText.T("Опросы", "Surveys")</PageTitle>
+<div class="fc-page-heading"><div>
+    <MudText Typo="Typo.h4">@CommunityText.T("Опросы", "Surveys")</MudText>
+    <MudText Class="fc-muted">@CommunityText.T("Короткие анкеты для студентов: сразу или после N сдач по предмету.", "Short forms for students: right away or after N submissions in a subject.")</MudText>
+</div>
+    <MudButton Href="/admin/surveys/new" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add">@CommunityText.T("Новый опрос", "New survey")</MudButton>
+</div>
+<div class="fc-forum-sections fc-survey-filter">
+    @foreach (var (status, label) in Filters)
+    {
+        <button type="button" class="@(_status == status ? "selected" : "")" @onclick="() => FilterAsync(status)">@label</button>
+    }
+</div>
+@if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert> }
+@if (_page is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+else if (_page.Items.Count == 0) { <div class="fc-panel fc-forum-empty"><MudIcon Icon="@Icons.Material.Outlined.Poll" /><p>@CommunityText.T("Опросов пока нет.", "No surveys yet.")</p></div> }
+else
+{
+    <ul class="fc-panel fc-topic-list">
+        @foreach (var survey in _page.Items)
+        {
+            <li>
+                <a class="fc-topic-title" href="@($"/admin/surveys/{survey.Id}")"><strong>@survey.Title</strong>
+                    <span class="fc-chip @(survey.Status == SurveyStatus.Published ? "accent" : "")">@StatusName(survey.Status)</span>
+                    @if (survey.IsAnonymous) { <span class="fc-chip">@CommunityText.T("Анонимный", "Anonymous")</span> }</a>
+                <div class="fc-topic-meta">
+                    <span class="fc-chip">@(survey.SubjectName ?? CommunityText.T("Общий", "General"))</span>
+                    <span>@Trigger(survey)</span>
+                    <span>@CommunityText.Questions(survey.QuestionCount) · @CommunityText.Answers(survey.ResponseCount)</span>
+                    @if (survey.Status != SurveyStatus.Draft) { <a href="@($"/admin/surveys/{survey.Id}/results")">@CommunityText.T("Итоги →", "Results →")</a> }
+                </div>
+            </li>
+        }
+    </ul>
+    @if (_page.TotalCount > _page.PageSize)
+    {
+        <MudPagination Count="@((int)Math.Ceiling(_page.TotalCount / (double)_page.PageSize))" Selected="_pageNumber" SelectedChanged="PageAsync" Class="mt-3" />
+    }
+}
+
+@code {
+    private SurveyPageDto? _page;
+    private SurveyStatus? _status;
+    private int _pageNumber = 1;
+    private string? _error;
+    private static readonly (SurveyStatus? Status, string Label)[] Filters =
+    [
+        (null, CommunityText.T("Все", "All")), (SurveyStatus.Draft, CommunityText.T("Черновики", "Drafts")),
+        (SurveyStatus.Published, CommunityText.T("Идут", "Running")), (SurveyStatus.Closed, CommunityText.T("Завершены", "Closed")),
+    ];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _page = await Api.ListAsync(_status, _pageNumber); _error = null; }
+        catch (ApiException ex) { _error = ex.Message; _page ??= new([], 0, 1, 25); }
+    }
+
+    private async Task FilterAsync(SurveyStatus? status) { _status = status; _pageNumber = 1; await LoadAsync(); }
+
+    private async Task PageAsync(int page) { _pageNumber = page; await LoadAsync(); }
+
+    private static string StatusName(SurveyStatus status) => status switch
+    {
+        SurveyStatus.Draft => CommunityText.T("Черновик", "Draft"),
+        SurveyStatus.Published => CommunityText.T("Идёт", "Running"),
+        _ => CommunityText.T("Завершён", "Closed"),
+    };
+
+    private static string Trigger(SurveySummaryDto s) => s.TriggerType switch
+    {
+        SurveyTriggerType.AcceptedInSubject => CommunityText.T($"после {s.TriggerThreshold} принятых", $"after {s.TriggerThreshold} accepted"),
+        SurveyTriggerType.AttemptsInSubject => CommunityText.T($"после {s.TriggerThreshold} попыток", $"after {s.TriggerThreshold} attempts"),
+        _ => CommunityText.T("сразу", "immediately"),
+    };
+}

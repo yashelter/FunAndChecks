@@ -1,0 +1,19 @@
+@implements IDisposable
+@inject SeasonalThemes Seasons
+@inject DashboardAppearanceService Appearance
+
+@* Значок FunAndChecks; в сезон его может заменить тема (например, тыква на Хэллоуин). *@
+@if (Seasons.Enabled.Select(t => t.BrandMark).FirstOrDefault(t => t is not null) is { } seasonal)
+{
+    <DynamicComponent Type="seasonal" />
+}
+else
+{
+    <span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span>
+}
+
+@code {
+    protected override void OnInitialized() => Appearance.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Appearance.Changed -= Refresh;
+}

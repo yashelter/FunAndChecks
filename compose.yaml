@@ -36,21 +36,56 @@ services:
       - "587"
 
   caddy:
-    image: caddy:latest
+    image: caddy:2.11.7
     container_name: caddy-proxy
     restart: always
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
+      API_INTERNAL_PORT: ${API_INTERNAL_PORT:-8080}
+      MONITORING_PROXY_KEY: ${MONITORING_PROXY_KEY:?Set MONITORING_PROXY_KEY}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - funandchecks-api
+      - grafana
     networks:
       - default
       - caddy_net
+      - monitoring_net
+
+  # Разовая подготовка прав существующих томов после перехода API с root на app.
+  app-volume-init:
+    image: funandchecks-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    network_mode: none
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p /app/logs/import &&
+        chown -R app:app /app/backups /app/media-temp /app/attachments /app/logs /home/app/.aspnet/DataProtection-Keys /var/lib/alloy &&
+        chmod 750 /app/logs /app/logs/import &&
+        chmod 700 /app/media-temp /app/attachments /home/app/.aspnet/DataProtection-Keys &&
+        chown -R 472:472 /var/lib/grafana &&
+        chown -R 65534:65534 /prometheus &&
+        chown -R 10001:10001 /loki
+    volumes:
+      - backups:/app/backups
+      - media-temp:/app/media-temp
+      - attachments-data:/app/attachments
+      - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
+      - app-logs:/app/logs
+      - alloy-data:/var/lib/alloy
+      - grafana-data:/var/lib/grafana
+      - prometheus-data:/prometheus
+      - loki-data:/loki
 
   funandchecks-api:
     container_name: funandchecks-api
@@ -59,12 +94,15 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
-    user: root
+    user: app
+    mem_limit: 2g
     depends_on:
       db:
         condition: service_healthy
       mail:
         condition: service_started
+      app-volume-init:
+        condition: service_completed_successfully
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:${API_INTERNAL_PORT}
@@ -80,8 +118,20 @@ services:
       - Smtp__FromName=FunAndChecks
       # Каталог бэкапов внутри контейнера (смонтирован на том backups).
       - Backup__Directory=/app/backups
+      # Только временные исходники редактора; готовые аватары и значки хранятся в БД.
+      - ProfileMedia__TemporaryDirectory=/app/media-temp
+      # Файлы форума (в БД — только метаданные). Входят в бэкап как *.attachments.zip.
+      - Attachments__RootDirectory=/app/attachments
       # Разрешённые источники для CORS в проде (через запятую отображаются как массив).
       - Cors__AllowedOrigins__0=https://${APP_DOMAIN}
+      - Monitoring__Enabled=true
+      - Monitoring__ProxyKey=${MONITORING_PROXY_KEY:?Set MONITORING_PROXY_KEY}
+      - Monitoring__ScrapeKey=${METRICS_SCRAPE_KEY:?Set METRICS_SCRAPE_KEY}
+      - Serilog__WriteTo__1__Args__path=/app/logs/server-log-.txt
+      - Serilog__WriteTo__1__Args__fileSizeLimitBytes=67108864
+      - Serilog__WriteTo__1__Args__rollOnFileSizeLimit=true
+      - Serilog__WriteTo__1__Args__retainedFileCountLimit=32
+      - AdminAudit__Directory=/app/logs
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${API_INTERNAL_PORT}/health || exit 1"]
       interval: 10s
@@ -96,6 +146,152 @@ services:
       - ./secrets.json:/app/secrets.json:ro
       # Том для дампов БД (ручка POST /api/admin/backup).
       - backups:/app/backups
+      - media-temp:/app/media-temp
+      - attachments-data:/app/attachments
+      - app-logs:/app/logs
+    networks:
+      - default
+      - monitoring_net
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    restart: always
+    user: "65534:65534"
+    mem_limit: 768m
+    cpus: 1.0
+    environment:
+      METRICS_SCRAPE_KEY: ${METRICS_SCRAPE_KEY:?Set METRICS_SCRAPE_KEY}
+      API_INTERNAL_PORT: ${API_INTERNAL_PORT:-8080}
+      METRICS_RETENTION: ${METRICS_RETENTION:-30d}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        umask 077;
+        printf '%s' "$$METRICS_SCRAPE_KEY" > /prometheus/scrape-key;
+        sed "s/__API_INTERNAL_PORT__/$$API_INTERNAL_PORT/g" /etc/prometheus/prometheus.yml > /prometheus/config.yml;
+        exec /bin/prometheus --config.file=/prometheus/config.yml
+        --storage.tsdb.path=/prometheus/data
+        --storage.tsdb.retention.time=$${METRICS_RETENTION:-30d}
+        --storage.tsdb.retention.size=5GB
+        --web.listen-address=0.0.0.0:9090
+    depends_on:
+      app-volume-init:
+        condition: service_completed_successfully
+      funandchecks-api:
+        condition: service_started
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks: [monitoring_net]
+
+  loki:
+    image: grafana/loki:3.7.8
+    restart: always
+    user: "10001:10001"
+    mem_limit: 1g
+    cpus: 1.0
+    environment:
+      TECHNICAL_LOG_RETENTION: ${TECHNICAL_LOG_RETENTION:-336h}
+      ADMIN_AUDIT_RETENTION: ${ADMIN_AUDIT_RETENTION:-8760h}
+    command: ["-config.file=/etc/loki/loki.yml", "-config.expand-env=true"]
+    depends_on:
+      app-volume-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    networks: [monitoring_net]
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    restart: always
+    # Same numeric uid as .NET app; log volume is mounted read-only.
+    user: "1654:1654"
+    mem_limit: 384m
+    cpus: 0.5
+    environment:
+      TECHNICAL_LOG_RETENTION: ${TECHNICAL_LOG_RETENTION:-336h}
+    command: ["run", "--disable-reporting", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    depends_on:
+      app-volume-init:
+        condition: service_completed_successfully
+      loki:
+        condition: service_started
+    volumes:
+      - ./monitoring/config.alloy:/etc/alloy/config.alloy:ro
+      - app-logs:/app/logs:ro
+      - alloy-data:/var/lib/alloy
+    networks: [monitoring_net]
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    restart: always
+    user: "472:472"
+    mem_limit: 512m
+    cpus: 0.5
+    environment:
+      GF_SERVER_ROOT_URL: https://${APP_DOMAIN}/metrics/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_BOOTSTRAP_PASSWORD:?Set GRAFANA_BOOTSTRAP_PASSWORD}
+      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY:?Set GRAFANA_SECRET_KEY}
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: lax
+      GF_AUTH_PROXY_ENABLED: "true"
+      GF_AUTH_PROXY_HEADER_NAME: X-WEBAUTH-USER
+      GF_AUTH_PROXY_HEADER_PROPERTY: username
+      GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
+      GF_AUTH_PROXY_ENABLE_LOGIN_TOKEN: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+      GF_AUTH_BASIC_ENABLED: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_USERS_DEFAULT_LANGUAGE: ru-RU
+      GF_LIVE_MAX_CONNECTIONS: "0"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/load.json
+    depends_on:
+      app-volume-init:
+        condition: service_completed_successfully
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    volumes:
+      - ./monitoring/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    networks: [monitoring_net]
+
+  # Manual one-off tools; never run as part of normal `compose up`.
+  log-import:
+    image: funandchecks-api
+    profiles: [tools]
+    user: app
+    network_mode: none
+    entrypoint: ["/bin/bash", "/tools/import-files.sh"]
+    environment:
+      LOG_IMPORT_LIMIT_BYTES: ${LOG_IMPORT_LIMIT_BYTES:-1073741824}
+    volumes:
+      - ${LOG_IMPORT_DIRECTORY:-./monitoring/empty-import}:/import:ro
+      - app-logs:/app/logs
+      - ./monitoring/import-files.sh:/tools/import-files.sh:ro
+
+  log-import-cleanup:
+    image: funandchecks-api
+    profiles: [tools]
+    user: app
+    network_mode: none
+    entrypoint: ["/bin/sh", "/tools/cleanup-import.sh"]
+    environment:
+      TECHNICAL_LOG_RETENTION: ${TECHNICAL_LOG_RETENTION:-336h}
+    volumes:
+      - app-logs:/app/logs
+      - ./monitoring/cleanup-import.sh:/tools/cleanup-import.sh:ro
 
 
 volumes:
@@ -105,8 +301,17 @@ volumes:
   caddy_config:
   maildkim:
   backups:
+  media-temp:
+  attachments-data:
+  app-logs:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  alloy-data:
 
 
 networks:
+  monitoring_net:
+    internal: true
   caddy_net:
     external: true

@@ -20,7 +20,7 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
 {
     public Task<string?> GetTokenAsync() => tokenStore.GetTokenAsync();
 
-    public Task<AuthResult> LoginAsync(LoginRequest request) =>
+    public Task<AuthResult> LoginAsync(LoginRequest request, bool sharedComputer = false) =>
         ApiClientBase.GuardAsync(async () =>
         {
             var response = await http.PostAsJsonAsync("api/auth/login", request);
@@ -34,7 +34,7 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
             if (string.IsNullOrEmpty(auth?.AccessToken) || string.IsNullOrEmpty(auth.RefreshToken))
                 return new AuthResult(false, loc["Auth_EmptyTokensError"]);
 
-            await tokenStore.SetTokensAsync(auth.AccessToken, auth.RefreshToken);
+            await tokenStore.SetTokensAsync(auth.AccessToken, auth.RefreshToken, sharedComputer);
             return AuthResult.Ok;
         }, loc);
 
@@ -83,8 +83,9 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
         try
         {
             var refreshToken = await tokenStore.GetRefreshTokenAsync();
-            if (!string.IsNullOrEmpty(refreshToken))
-                await http.PostAsJsonAsync("api/auth/logout", new RefreshRequest(refreshToken));
+            // Even without a local refresh token the server must clear the
+            // dedicated monitoring cookie, which JavaScript cannot access.
+            using var response = await http.PostAsJsonAsync("api/auth/logout", new RefreshRequest(refreshToken ?? ""));
         }
         catch
         {
@@ -93,6 +94,29 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
 
         await tokenStore.ClearAsync();
     }
+
+    /// <summary>Получить статус согласия с политикой конфиденциальности и Пользовательским соглашением.</summary>
+    public async Task<PrivacyPolicyStatus> GetPrivacyPolicyStatusAsync() =>
+        await ApiClientBase.GuardAsync<PrivacyPolicyStatus>(async () =>
+        {
+            var response = await http.GetAsync("api/auth/privacy-policy-status");
+            if (!response.IsSuccessStatusCode)
+            {
+                var (message, _) = await response.ReadErrorInfoAsync(loc);
+                throw new ApiException(response.StatusCode, message);
+            }
+            var status = await response.Content.ReadFromJsonAsync<PrivacyPolicyStatus>();
+            return status ?? new PrivacyPolicyStatus(false, null, false, null);
+        }, loc);
+
+    /// <summary>Принять политику конфиденциальности и Пользовательское соглашение.</summary>
+    public async Task AcceptPrivacyPolicyAsync() =>
+        await ApiClientBase.GuardAsync<int>(async () =>
+        {
+            var response = await http.PostAsJsonAsync("api/auth/accept-privacy-policy", new AcceptLegalRequest(true, true));
+            await response.EnsureSuccessAsync(loc);
+            return 0;
+        }, loc);
 
     private async Task<AuthResult> ReadResultAsync(HttpResponseMessage response)
     {

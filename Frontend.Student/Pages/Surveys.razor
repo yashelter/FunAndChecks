@@ -1,0 +1,8 @@
+@page "/student/surveys"
+@page "/student/surveys/{SurveyId:int}"
+@layout StudentLayout
+@attribute [Authorize]
+<StudentSurveys SurveyId="SurveyId" />
+@code {
+    [Parameter] public int? SurveyId { get; set; }
+}

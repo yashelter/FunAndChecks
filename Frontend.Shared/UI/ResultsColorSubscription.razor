@@ -1,0 +1,174 @@
+@namespace Frontend.Shared.UI
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject AuthenticationStateProvider Authentication
+@inject AuthService Auth
+@inject ResultsApi ResultsApi
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<AppStrings> Loc
+
+@code {
+    [Parameter] public int SubjectId { get; set; }
+    [Parameter] public EventCallback<IReadOnlyList<StudentColorUpdateDto>> OnColorsUpdated { get; set; }
+    /// <summary>Чья-то отметка по задаче изменилась (сервер шлёт после каждой сдачи и отмены).</summary>
+    [Parameter] public EventCallback<ResultUpdateDto> OnResultUpdated { get; set; }
+
+    private readonly SemaphoreSlim _subscriptionLock = new(1, 1);
+    private readonly CancellationTokenSource _lifetime = new();
+    private HubConnection? _hub;
+    private int? _subscribedSubject;
+    private string? _account;
+    private bool _disposed;
+    private long _colorRevision;
+    private readonly Dictionary<Guid, long> _latestChanges = [];
+
+    protected override void OnInitialized() => Authentication.AuthenticationStateChanged += AccountChanged;
+
+    protected override Task OnParametersSetAsync() => UpdateSubscriptionAsync();
+
+    private void AccountChanged(Task<AuthenticationState> state) => _ = InvokeAsync(UpdateSubscriptionAsync);
+
+    private async Task UpdateSubscriptionAsync()
+    {
+        if (_disposed)
+            return;
+
+        try
+        {
+            await _subscriptionLock.WaitAsync(_lifetime.Token);
+        }
+        catch (OperationCanceledException) { return; }
+
+        try
+        {
+            if (_disposed)
+                return;
+
+            var user = (await Authentication.GetAuthenticationStateAsync()).User;
+            var account = user.Identity?.IsAuthenticated == true
+                ? user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value ?? user.FindFirst("nameid")?.Value ?? user.Identity.Name
+                : null;
+            var subject = account is not null && SubjectId > 0 ? SubjectId : (int?)null;
+            if (_subscribedSubject == subject && _account == account)
+                return;
+
+            var previous = _hub;
+            _hub = null;
+            _subscribedSubject = subject;
+            _account = account;
+            _latestChanges.Clear();
+            if (previous is not null)
+                await previous.DisposeAsync();
+            if (subject is null || _disposed)
+                return;
+
+            var subjectId = subject.Value;
+            var hub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/resultsHub"), options =>
+                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
+                .WithAutomaticReconnect()
+                .Build();
+            _hub = hub;
+            hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(async () =>
+            {
+                if (IsCurrent(hub, subjectId))
+                {
+                    _latestChanges[update.StudentId] = ++_colorRevision;
+                    await OnColorsUpdated.InvokeAsync(new[] { update });
+                }
+            }));
+            hub.On<ResultUpdateDto>("ResultUpdated", update => InvokeAsync(async () =>
+            {
+                if (IsCurrent(hub, subjectId) && OnResultUpdated.HasDelegate)
+                    await OnResultUpdated.InvokeAsync(update);
+            }));
+            hub.Reconnected += async _ =>
+            {
+                if (!IsCurrent(hub, subjectId))
+                    return;
+                try
+                {
+                    await hub.InvokeAsync("SubscribeToSubjectResults", subjectId, _lifetime.Token);
+                    await RefreshColorsAsync(hub, subjectId);
+                }
+                catch (OperationCanceledException) when (_disposed) { }
+                catch (Exception ex)
+                {
+                    if (IsCurrent(hub, subjectId))
+                        await InvokeAsync(() => Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Warning));
+                }
+            };
+
+            try
+            {
+                await hub.StartAsync(_lifetime.Token);
+                if (!IsCurrent(hub, subjectId))
+                    return;
+                await hub.InvokeAsync("SubscribeToSubjectResults", subjectId, _lifetime.Token);
+                // Also close the gap between the page's initial request and joining the hub group.
+                await RefreshColorsAsync(hub, subjectId);
+            }
+            catch (OperationCanceledException) when (_disposed) { }
+            catch (Exception ex)
+            {
+                if (IsCurrent(hub, subjectId))
+                    Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
+            }
+        }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception ex)
+        {
+            if (!_disposed)
+                Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
+        }
+        finally
+        {
+            _subscriptionLock.Release();
+        }
+    }
+
+    private bool IsCurrent(HubConnection hub, int subjectId) =>
+        !_disposed && ReferenceEquals(_hub, hub) && _subscribedSubject == subjectId && SubjectId == subjectId;
+
+    private async Task RefreshColorsAsync(HubConnection hub, int subjectId)
+    {
+        var revision = _colorRevision;
+        var current = await ResultsApi.GetSubjectResultsAsync(subjectId, _lifetime.Token);
+        await InvokeAsync(async () =>
+        {
+            if (IsCurrent(hub, subjectId))
+            {
+                // A snapshot must not overwrite a newer hub update received while the request was in flight.
+                var colors = current.UserResults
+                    .Where(row => !_latestChanges.TryGetValue(row.StudentId, out var changed) || changed <= revision)
+                    .Select(row => new StudentColorUpdateDto(row.StudentId, row.StudentColor)).ToArray();
+                await OnColorsUpdated.InvokeAsync(colors);
+            }
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+        Authentication.AuthenticationStateChanged -= AccountChanged;
+        _lifetime.Cancel();
+        await _subscriptionLock.WaitAsync();
+        try
+        {
+            var hub = _hub;
+            _hub = null;
+            if (hub is not null)
+                await hub.DisposeAsync();
+        }
+        finally
+        {
+            _subscriptionLock.Release();
+            _lifetime.Dispose();
+        }
+    }
+}

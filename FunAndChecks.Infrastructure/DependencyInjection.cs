@@ -1,11 +1,16 @@
+using FunAndChecks.Application.Backups;
+using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Profiles;
 using FunAndChecks.Infrastructure.Backup;
 using FunAndChecks.Infrastructure.Caching;
 using FunAndChecks.Infrastructure.Email;
+using FunAndChecks.Infrastructure.Files;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using FunAndChecks.Infrastructure.Persistence.Seeding;
 using FunAndChecks.Infrastructure.Workers;
+using FunAndChecks.Infrastructure.Profiles;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -53,10 +58,22 @@ public static class DependencyInjection
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<BackupOptions>(configuration.GetSection(BackupOptions.SectionName));
+        services.Configure<ProfileMediaOptions>(configuration.GetSection("ProfileMedia"));
         services.AddOptions<EmailCodeTokenProviderOptions>();
 
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IDatabaseBackupService, PgDumpBackupService>();
+        services.AddSingleton<MaintenanceModeState>();
+        services.AddSingleton<IDatabaseRestoreTarget, PostgresRestoreTarget>();
+        services.AddSingleton<IDatabaseRestoreService, DatabaseRestoreService>();
+        services.AddSingleton<FfmpegProfileMediaProcessor>();
+        services.AddSingleton<IProfileMediaProcessor>(sp => sp.GetRequiredService<FfmpegProfileMediaProcessor>());
+        services.AddHostedService<MediaSessionCleanupService>();
+
+        services.Configure<AttachmentStorageOptions>(configuration.GetSection(AttachmentStorageOptions.SectionName));
+        services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+        services.AddSingleton<IAttachmentUrlSigner, HmacAttachmentUrlSigner>();
+        services.AddHostedService<AttachmentCleanupService>();
 
         services.AddSingleton<IResultsCacheService, ResultsCacheService>();
         services.AddMemoryCache();

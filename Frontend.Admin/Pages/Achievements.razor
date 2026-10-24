@@ -1,0 +1,5 @@
+@page "/admin/achievements"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+@using Frontend.Shared.Profiles
+<AchievementCatalog IsAdminLayout="true" />

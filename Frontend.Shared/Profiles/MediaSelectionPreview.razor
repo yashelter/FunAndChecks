@@ -1,0 +1,90 @@
+@namespace Frontend.Shared.Profiles
+@implements IAsyncDisposable
+@inject ProfileApi Api
+@inject IJSRuntime JS
+
+<span @ref="_element" class="fc-profile-media @Class" role="img" aria-label="@Alt">
+    @if (_url is not null)
+    {
+        @if (Selection.Media.Mode == "Animated")
+        {
+            <video src="@_url" style="@CropStyle" muted autoplay loop playsinline aria-hidden="true"></video>
+        }
+        else { <img src="@_url" style="@CropStyle" alt="@Alt" /> }
+    }
+    else if (_error is null) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }
+    else { <span class="fc-profile-initials" title="@_error">◇</span> }
+</span>
+@if (_error is not null) { <p class="fc-profile-hint" role="alert">@_error</p> }
+
+@code {
+    [Parameter, EditorRequired] public MediaSelection Selection { get; set; } = default!;
+    [Parameter] public string Alt { get; set; } = "";
+    [Parameter] public string Class { get; set; } = "";
+    private ElementReference _element;
+    private IJSObjectReference? _module;
+    private Task<IJSObjectReference>? _moduleLoad;
+    private readonly List<Task> _loads = [];
+    private MediaSelection? _loaded;
+    private string? _url, _error;
+    private bool _disposed;
+    private readonly CancellationTokenSource _life = new();
+    private string CropStyle => FormattableString.Invariant($"width:{100 / Selection.Media.Width}%;height:{100 / Selection.Media.Height}%;left:{-100 * Selection.Media.X / Selection.Media.Width}%;top:{-100 * Selection.Media.Y / Selection.Media.Height}%;right:auto;bottom:auto;object-fit:fill;max-width:none");
+
+    protected override Task OnParametersSetAsync()
+    {
+        if (_disposed || Selection == _loaded) return Task.CompletedTask;
+        var selection = Selection; _loaded = selection; _error = null;
+        _loads.RemoveAll(task => task.IsCompleted);
+        var load = LoadAsync(selection); _loads.Add(load);
+        return load;
+    }
+    private async Task LoadAsync(MediaSelection selection)
+    {
+        var token = _life.Token;
+        string? next = null;
+        try
+        {
+            var module = _module ?? await (_moduleLoad ??= JS.InvokeAsync<IJSObjectReference>("import", ProfileMediaModule.Url).AsTask());
+            if (_disposed) return;
+            _module = module;
+            async Task ReceiveAsync(Stream stream)
+            {
+                using var reference = new DotNetStreamReference(stream, leaveOpen: true);
+                next = await module.InvokeAsync<string>("objectUrl", reference, selection.Media.Mode == "Animated" ? "video/mp4" : "image/webp");
+            }
+            if (selection.Media.Mode == "Animated") await Api.ConsumePreviewAsync(selection.SessionId, ReceiveAsync, token);
+            else await Api.ConsumeFrameAsync(selection.SessionId, selection.Media.FrameSeconds, ReceiveAsync, token);
+            if (_disposed || selection != _loaded) { if (next is not null) await module.InvokeVoidAsync("release", next); return; }
+            var previous = _url; _url = next;
+            if (previous is not null) await module.InvokeVoidAsync("release", previous);
+        }
+        catch (ApiException ex) { if (!_disposed && selection == _loaded) _error = ex.Message; }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch (Exception ex) when (_disposed && ex is JSException or ObjectDisposedException) { }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var module = _module; var selection = _loaded;
+        if (_disposed || module is null || _url is null || selection?.Media.Mode != "Animated") return;
+        try { await module.InvokeVoidAsync("loopSegment", _element, selection.Media.StartSeconds, selection.Media.EndSeconds, false); }
+        catch (Exception ex) when (_disposed && ex is JSException or ObjectDisposedException) { }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true; _life.Cancel();
+        try
+        {
+            await Task.WhenAll(_loads);
+            var module = _module ?? (_moduleLoad is null ? null : await _moduleLoad);
+            if (module is not null)
+            {
+                if (_url is not null) await module.InvokeVoidAsync("release", _url);
+                await module.DisposeAsync();
+            }
+        }
+        catch (JSException) { }
+        finally { _url = null; _life.Dispose(); }
+    }
+}

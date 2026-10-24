@@ -1,0 +1,205 @@
+@namespace Frontend.Shared.Profiles
+@using System.Globalization
+@implements IDisposable
+@inject ProfileApi Api
+@inject AuthenticationStateProvider Authentication
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject ResultsNavigationState ResultsNavigation
+@inject UnsavedChangesTracker Dirty
+@inject StudentsApi Students
+@inject ConfirmService Confirm
+
+<PageTitle>@(_profile?.FullName ?? ProfileText.T("Личный кабинет", "Profile"))</PageTitle>
+<div class="fc-page-heading"><div>
+    @if (!_mine) { <a class="fc-profile-back" href="@ReturnPath">← @ProfileText.T("Назад", "Back")</a> }
+    <MudText Typo="Typo.h4">@(_mine ? ProfileText.T("Мой кабинет", "My profile") : ProfileText.T("Профиль пользователя", "User profile"))</MudText>
+    <MudText Class="fc-muted">@ProfileText.T("Немного о себе и о том, что уже получилось.", "A little about you and what you have achieved.")</MudText>
+</div>@if (_admin && _profile is not null) { <div class="d-flex gap-2 flex-wrap"><MudButton OnClick="() => _grant = true" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.EmojiEvents">@ProfileText.T("Выдать достижение", "Grant achievement")</MudButton>@if (CanDeleteStudent) { <MudButton OnClick="DeleteStudentAsync" Disabled="@_busy" Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteForever">@ProfileText.T("Удалить студента", "Delete student")</MudButton> }</div> }</div>
+@if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-4">@_error <MudButton OnClick="LoadAsync">@ProfileText.T("Повторить", "Retry")</MudButton></MudAlert> }
+@if (_loading) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+else if (_profile is not null)
+{
+    <section class="fc-panel fc-profile-hero">
+        <ProfileMedia Media="_profile.Avatar" Alt="@_profile.FullName" Fallback="@ProfileText.Initials(_profile.FullName)" Class="fc-profile-avatar" />
+        <div class="fc-profile-identity"><h1>@_profile.FullName</h1><div class="fc-profile-tags"><span>@(_profile.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : ProfileText.T("Студент", "Student"))</span>@if (_profile.GroupName is not null) { <span>@_profile.GroupName</span> }</div></div>
+        @if (_mine)
+        {
+            <div class="fc-profile-hero-actions">
+                @* Имя и почту студент меняет сам; у преподавателей их ведёт администратор. *@
+                @if (!_profile.IsAdmin) { <MudButton OnClick="() => _account = true" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ManageAccounts">@ProfileText.T("Имя и почта", "Name and email")</MudButton> }
+                <MudButton OnClick="Edit" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Edit">@ProfileText.T("Редактировать", "Edit profile")</MudButton>
+            </div>
+        }
+    </section>
+    <div class="fc-profile-columns">
+        <div>
+            <section class="fc-panel fc-profile-section"><div class="fc-profile-section-heading"><h2>@ProfileText.T("Закреплённые достижения", "Pinned achievements")</h2><span>@_profile.Awards.Count(x => x.PinPosition.HasValue) / 3</span></div>
+                @if (!_profile.Awards.Any(x => x.PinPosition.HasValue)) { <p class="fc-profile-empty">@(_mine ? ProfileText.T("Откройте полученную награду, чтобы закрепить её здесь.", "Open an earned achievement to pin it here.") : ProfileText.T("Пока нет закреплённых достижений.", "No pinned achievements yet."))</p> }
+                else { <div class="fc-profile-badge-grid">@foreach (var award in _profile.Awards.Where(x => x.PinPosition.HasValue).OrderBy(x => x.PinPosition)) { <AchievementCard @key="award.Id" Name="@award.Name" Description="@award.Description" Image="award.Image" Pinned="true" Meta="@Date(award.GrantedAtUtc)" Click="() => _award = award" /> }</div> }
+            </section>
+            <section class="fc-panel fc-profile-section"><div class="fc-profile-section-heading"><h2>@ProfileText.T("Все достижения", "All achievements")</h2><span>@_profile.Awards.Count</span></div>
+                @if (_profile.Awards.Count == 0) { <p class="fc-profile-empty">@ProfileText.T("Первые достижения ещё впереди.", "Your first achievements are still ahead.")</p> }
+                else { <div class="fc-profile-badge-grid">@foreach (var award in _profile.Awards.OrderByDescending(x => x.GrantedAtUtc)) { <AchievementCard @key="award.Id" Name="@award.Name" Description="@award.Description" Image="award.Image" Meta="@Date(award.GrantedAtUtc)" Click="() => _award = award" /> }</div> }
+            </section>
+        </div>
+        <div>
+            <section class="fc-panel fc-profile-section"><h2>@ProfileText.T("О себе", "About me")</h2><p class="fc-profile-bio">@(string.IsNullOrWhiteSpace(_profile.AboutMe) ? ProfileText.T("Пользователь пока не добавил описание.", "This user has not added a description yet.") : _profile.AboutMe)</p>
+                <div class="fc-profile-links">@if (_profile.GitHubUrl is not null) { <a href="@_profile.GitHubUrl" target="_blank" rel="noopener noreferrer">↗ GitHub</a> }@if (_profile.PortfolioUrl is not null) { <a href="@_profile.PortfolioUrl" target="_blank" rel="noopener noreferrer">↗ @ProfileText.T("Портфолио", "Portfolio")</a> }</div>
+            </section>
+            @if (_stats is not null)
+            {
+                <section class="fc-panel fc-profile-section fc-profile-stats"><h2>@ProfileText.T("Активность", "Activity")</h2>
+                    @if (_stats.Detailed && _stats.Subjects.Count > 0)
+                    {
+                        @foreach (var subject in _stats.Subjects)
+                        {
+                            <div class="fc-profile-progress"><div><span>@subject.Name</span><small>@subject.AcceptedTasks / @subject.TotalTasks · @subject.Points / @subject.MaxPoints @ProfileText.T("б.", "pts")</small></div>
+                                <div class="fc-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@subject.TotalTasks" aria-valuenow="@subject.AcceptedTasks"><span style="width:@(subject.TotalTasks == 0 ? 0 : 100 * subject.AcceptedTasks / subject.TotalTasks)%"></span></div></div>
+                        }
+                    }
+                    <dl class="fc-profile-numbers">
+                        @if (_stats.Attendance is { } attendance) { <div><dt>@ProfileText.T("Посещаемость", "Attendance")</dt><dd>@(100 * attendance.Present / Math.Max(1, attendance.Marked))%</dd></div> }
+                        <div><dt>@ProfileText.T("Темы на форуме", "Forum topics")</dt><dd>@_stats.ForumTopics</dd></div>
+                        <div><dt>@ProfileText.T("Сообщения", "Messages")</dt><dd>@_stats.ForumPosts</dd></div>
+                        @if (!_profile.IsAdmin) { <div><dt>@ProfileText.T("Пройдено опросов", "Surveys done")</dt><dd>@_stats.SurveysCompleted</dd></div> }
+                    </dl>
+                    @if (!_stats.Detailed && !_profile.IsAdmin) { <p class="fc-profile-hint">@ProfileText.T("Учебный прогресс видят сам студент и его преподаватели.", "Academic progress is visible to the student and their teachers.")</p> }
+                </section>
+            }
+            @if (_mine) { <section class="fc-panel fc-profile-section"><h2>@ProfileText.T("Продолжить работу", "Continue learning")</h2><div class="fc-profile-quick-links"><a href="@BasePath">@ProfileText.T("Результаты", "Results") →</a><a href="@(BasePath + "/queues")">@ProfileText.T("Очереди", "Queues") →</a><a href="@(BasePath + "/achievements")">@ProfileText.T("Каталог достижений", "Achievement catalog") →</a><a href="@(BasePath + "/forum")">@ProfileText.T("Форум", "Forum") →</a></div></section> }
+        </div>
+    </div>
+}
+@if (_edit && !_avatarEditor)
+{
+    <ProfileDialog Title="@ProfileText.T("Редактировать профиль", "Edit profile")" Close="CancelEdit" Busy="@_busy">
+        <ChildContent><div class="fc-profile-edit-avatar"><ProfileMedia Media="_profile?.Avatar" Alt="@(_profile?.FullName ?? "")" Fallback="@ProfileText.Initials(_profile?.FullName ?? "")" Class="fc-profile-avatar" /><div><MudButton OnClick="() => _avatarEditor = true" Variant="Variant.Outlined">@ProfileText.T("Изменить аватар", "Change avatar")</MudButton>@if (_profile?.Avatar is not null) { <MudButton OnClick="RemoveAvatarAsync" Disabled="@_busy" Color="Color.Error">@ProfileText.T("Удалить", "Remove")</MudButton> }</div></div>
+            @if (_editError is not null) { <MudAlert Severity="Severity.Error">@_editError</MudAlert> }
+            <MudTextField T="string" @bind-Value="_about" Immediate="true" Label="@ProfileText.T("О себе", "About me")" Lines="5" MaxLength="2000" Variant="Variant.Outlined" Class="mt-4" />
+            <MudTextField T="string" @bind-Value="_github" Immediate="true" Label="GitHub" MaxLength="500" Variant="Variant.Outlined" Class="mt-3" />
+            <MudTextField T="string" @bind-Value="_portfolio" Immediate="true" Label="@ProfileText.T("Портфолио", "Portfolio")" MaxLength="500" Variant="Variant.Outlined" Class="mt-3" />
+            <p class="fc-profile-hint">@(_profile?.IsAdmin == false
+                ? ProfileText.T("Описание и ссылки видны другим пользователям после входа. Имя и почту можно поменять в «Имя и почта», группу меняет преподаватель.", "Your description and links are visible to signed-in users. Change your name and email under “Name and email”; your teacher manages your group.")
+                : ProfileText.T("Описание и ссылки видны другим пользователям после входа. ФИО и группу меняет администратор.", "Your description and links are visible to signed-in users. Administrators manage your name and group."))</p>
+        </ChildContent><Actions><MudButton OnClick="CancelEdit" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="SaveProfileAsync" Disabled="@_busy" Color="Color.Primary" Variant="Variant.Filled">@ProfileText.T("Сохранить", "Save")</MudButton></Actions>
+    </ProfileDialog>
+}
+@if (_account && _mine) { <AccountSettingsDialog Changed="LoadAsync" Close="() => _account = false" /> }
+@if (_avatarEditor) { <MediaEditor Save="SaveAvatarAsync" Close="() => _avatarEditor = false" /> }
+@if (_award is not null) { <AchievementDetail AchievementId="_award.AchievementId" Award="_award" Mine="_mine" IsAdmin="_admin" BasePath="@BasePath" Pin="TogglePinAsync" Changed="RefreshAwardAsync" Close="() => _award = null" /> }
+@if (_grant && _admin && _profile is not null) { <GrantAchievementDialog Recipient="@(new AchievementUserDto(_profile.UserId, _profile.FullName, _profile.GroupName, _profile.IsAdmin))" Changed="GrantDoneAsync" Close="() => _grant = false" /> }
+
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [Parameter] public bool IsAdminLayout { get; set; }
+    [Parameter] public string? ReturnUrl { get; set; }
+    private string BasePath => IsAdminLayout ? "/admin" : "/student";
+    private string ReturnPath => ReturnUrl is { Length: > 0 } value && value.StartsWith('/') && !value.StartsWith("//") && !value.Contains('\\') ? value : ResultsNavigation.ReturnUrl;
+    private UserProfileDto? _profile;
+    private ProfileStatsDto? _stats;
+    private AchievementAwardDto? _award;
+    private bool _mine, _admin, _superAdmin, _loading = true, _edit, _avatarEditor, _grant, _busy, _account;
+    private string? _error, _editError, _about, _github, _portfolio;
+    private readonly CancellationTokenSource _life = new();
+    private Guid? _routeUserId;
+    private bool _routeInitialized, _routeAdminLayout;
+    private int _routeGeneration, _loadVersion;
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_routeInitialized && _routeUserId == UserId && _routeAdminLayout == IsAdminLayout) return;
+        _routeInitialized = true; _routeUserId = UserId; _routeAdminLayout = IsAdminLayout; _routeGeneration++;
+        _award = null; _grant = _edit = _avatarEditor = _busy = _account = false; _profile = null; _stats = null;
+        _about = _github = _portfolio = _editError = null; Dirty.MarkClean();
+        await LoadAsync();
+    }
+    private async Task LoadAsync()
+    {
+        var version = ++_loadVersion; var userId = UserId;
+        _loading = true; _error = null;
+        try
+        {
+            // Свой ли это профиль — по токену: /api/me падает у аккаунта без учебной записи.
+            var state = await Authentication.GetAuthenticationStateAsync();
+            if (version != _loadVersion) return;
+            Guid.TryParse(state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var viewerId);
+            var admin = IsAdminLayout && (state.User.IsInRole(Frontend.Shared.Auth.Roles.Admin) || state.User.IsInRole(Frontend.Shared.Auth.Roles.SuperAdmin));
+            var superAdmin = IsAdminLayout && state.User.IsInRole(Frontend.Shared.Auth.Roles.SuperAdmin);
+            var mine = userId is null || userId == viewerId;
+            // Статистика необязательна и грузится параллельно с профилем; её ошибка профиль не ломает.
+            var statsTask = StatsOrNullAsync(mine ? null : userId);
+            var profile = mine ? await Api.MineAsync(_life.Token) : await Api.GetProfileAsync(userId!.Value, _life.Token);
+            var stats = await statsTask;
+            if (version != _loadVersion || _life.IsCancellationRequested) return;
+            _admin = admin; _superAdmin = superAdmin; _mine = mine; _profile = profile; _stats = stats;
+        }
+        catch (ApiException ex) { if (version == _loadVersion) _error = ex.Message; }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+        finally { if (version == _loadVersion) _loading = false; }
+    }
+    private async Task<ProfileStatsDto?> StatsOrNullAsync(Guid? userId)
+    {
+        try { return await Api.StatsAsync(userId, _life.Token); }
+        catch (ApiException) { return null; }
+    }
+    private void Edit() { _about = _profile!.AboutMe; _github = _profile.GitHubUrl; _portfolio = _profile.PortfolioUrl; _editError = null; _edit = true; }
+    private void CancelEdit() { _edit = false; Dirty.MarkClean(); }
+    private async Task SaveProfileAsync()
+    {
+        var generation = _routeGeneration; _busy = true; _editError = null;
+        try { var profile = await Api.SaveProfileAsync(new(_about, _github, _portfolio, Pins()), _life.Token); if (generation != _routeGeneration) return; _profile = profile; _edit = false; Dirty.MarkClean(); Snackbar.Add(ProfileText.T("Профиль сохранён", "Profile saved"), Severity.Success); }
+        catch (ApiException ex) { if (generation == _routeGeneration) _editError = ex.Message; }
+        finally { if (generation == _routeGeneration) _busy = false; }
+    }
+    private List<int> Pins() => _profile!.Awards.Where(x => x.PinPosition.HasValue).OrderBy(x => x.PinPosition).Select(x => x.Id).ToList();
+    private async Task<bool> SaveAvatarAsync(MediaSelection media)
+    {
+        var generation = _routeGeneration;
+        await Api.SetAvatarAsync(media, _life.Token); var profile = await Api.MineAsync(_life.Token);
+        if (generation != _routeGeneration) return true;
+        _profile = profile;
+        Snackbar.Add(ProfileText.T("Аватар сохранён", "Avatar saved"), Severity.Success); return true;
+    }
+    private async Task RemoveAvatarAsync()
+    {
+        var generation = _routeGeneration; _busy = true; _editError = null;
+        try { await Api.RemoveAvatarAsync(_life.Token); var profile = await Api.MineAsync(_life.Token); if (generation == _routeGeneration) _profile = profile; }
+        catch (ApiException ex) { if (generation == _routeGeneration) _editError = ex.Message; }
+        finally { if (generation == _routeGeneration) _busy = false; }
+    }
+    private async Task TogglePinAsync(AchievementAwardDto award)
+    {
+        if (!_mine || _profile is null) return;
+        var pins = Pins();
+        if (!pins.Remove(award.Id)) { if (pins.Count >= 3) { Snackbar.Add(ProfileText.T("Можно закрепить до трёх достижений", "You can pin up to three achievements"), Severity.Warning); return; } pins.Add(award.Id); }
+        var generation = _routeGeneration;
+        try { var profile = await Api.SaveProfileAsync(new(_profile.AboutMe, _profile.GitHubUrl, _profile.PortfolioUrl, pins), _life.Token); if (generation != _routeGeneration) return; _profile = profile; _award = _profile.Awards.FirstOrDefault(x => x.Id == award.Id); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+    private async Task RefreshAwardAsync() { _award = null; await LoadAsync(); }
+    // Удалять можно только чужой профиль студента; сервер дополнительно запрещает удаление админов.
+    private bool CanDeleteStudent => _superAdmin && !_mine && _profile is { IsAdmin: false };
+    private async Task DeleteStudentAsync()
+    {
+        if (_profile is not { } profile) return;
+        var who = profile.GroupName is null ? profile.FullName : profile.FullName + " (" + profile.GroupName + ")";
+        var confirmed = await Confirm.ConfirmAsync(ProfileText.T("Удалить студента навсегда?", "Permanently delete student?"),
+            who + "\n" + ProfileText.T("Это действие необратимо: аккаунт, профиль, сдачи, оценки, достижения, записи в очередях и посещаемость будут удалены без возможности восстановления.",
+                "This cannot be undone: the account, profile, submissions, grades, achievements, queue entries and attendance will be permanently deleted."),
+            ProfileText.T("Удалить навсегда", "Delete permanently"));
+        if (!confirmed) return;
+        var generation = _routeGeneration; _busy = true;
+        try
+        {
+            await Students.DeleteAccountAsync(profile.UserId, _life.Token);
+            Snackbar.Add(ProfileText.T("Студент удалён", "Student deleted"), Severity.Success);
+            if (generation == _routeGeneration) Nav.NavigateTo(ReturnPath);
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+        finally { if (generation == _routeGeneration) _busy = false; }
+    }
+    private async Task GrantDoneAsync() { _grant = false; await LoadAsync(); }
+    private static string Date(DateTime value) => value.ToLocalTime().ToString("d", CultureInfo.CurrentCulture);
+    public void Dispose() { _life.Cancel(); _life.Dispose(); }
+}

@@ -1,7 +1,10 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using System.Globalization;
+using System.Security.Claims;
 using FunAndChecks.Application;
+using FunAndChecks.Application.Auditing;
+using FunAndChecks.Application.Backups;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
@@ -11,6 +14,8 @@ using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using FunAndChecks.Infrastructure.Persistence.Seeding;
 using FunAndChecks.Middleware;
+using FunAndChecks.Monitoring;
+using FunAndChecks.Observability;
 using FunAndChecks.OpenApi;
 using FunAndChecks.Realtime;
 using HealthChecks.UI.Client;
@@ -24,6 +29,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
+using Prometheus;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -48,11 +54,21 @@ builder.Configuration.AddJsonFile(
 // Слои приложения
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<ApiMetrics>();
+builder.Services.Configure<AdminAuditOptions>(builder.Configuration.GetSection("AdminAudit"));
+if (builder.Environment.IsEnvironment("Testing"))
+    builder.Services.PostConfigure<AdminAuditOptions>(options => options.Enabled = false);
+builder.Services.AddSingleton<FileAdminAuditWriter>();
+builder.Services.AddSingleton<IAdminAuditWriter>(services => services.GetRequiredService<FileAdminAuditWriter>());
+builder.Services.AddHostedService(services => services.GetRequiredService<FileAdminAuditWriter>());
+builder.Services.AddScoped<AdminAuditContext>();
 
 // SignalR-нотификаторы — реализация прикладных интерфейсов на уровне Presentation
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IQueueNotifier, QueueNotifier>();
 builder.Services.AddScoped<IResultsNotifier, ResultsNotifier>();
+builder.Services.AddScoped<IUserNotifier, UserNotifier>();
+builder.Services.AddScoped<IForumNotifier, ForumNotifier>();
 
 // Настройки JWT из appsettings (секция "Jwt")
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
@@ -89,6 +105,18 @@ builder.Services.AddAuthentication(options =>
                     context.Token = accessToken;
                 return Task.CompletedTask;
             },
+            OnTokenValidated = async context =>
+            {
+                // Во время восстановления БД заблокирована транзакцией restore; пропускает только опрос
+                // статуса (MaintenanceModeMiddleware), поэтому достаточно подписи и ролей из токена.
+                if (context.HttpContext.RequestServices.GetRequiredService<MaintenanceModeState>().IsActive)
+                    return;
+                var id = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                var db = context.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+                if (!Guid.TryParse(id, out var userId) ||
+                    !await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId, context.HttpContext.RequestAborted))
+                    context.Fail("The account no longer exists.");
+            },
             OnChallenge = async context =>
             {
                 context.HandleResponse();
@@ -103,11 +131,16 @@ builder.Services.AddAuthentication(options =>
                 "You do not have permission to perform this action.", "access.forbidden"),
         };
     });
+builder.Services.AddMonitoringAuthentication(builder.Configuration);
+builder.Services.AddAuthentication()
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, MetricsScrapeHandler>(MetricsScrapeHandler.SchemeName, _ => { });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.SuperAdmin,
         policy => policy.RequireRole(Roles.SuperAdmin));
+    options.AddPolicy(MetricsScrapeHandler.SchemeName, policy =>
+        policy.AddAuthenticationSchemes(MetricsScrapeHandler.SchemeName).RequireAuthenticatedUser());
 });
 
 // Защита эндпоинтов аутентификации от перебора: лимит по IP.
@@ -128,6 +161,18 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+    // Форум и загрузки: по пользователю, чтобы общий NAT аудитории не делил один бакет.
+    options.AddPolicy(RateLimitPolicies.ForumWrite, httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6,
                 QueueLimit = 0,
             }));
 });
@@ -180,6 +225,8 @@ var forwardedHeadersOptions = new ForwardedHeadersOptions
 forwardedHeadersOptions.KnownNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
+app.UseMiddleware<RequestCorrelationMiddleware>();
+app.UseMiddleware<ApiMetricsMiddleware>();
 
 var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("ru-RU") };
 app.UseRequestLocalization(new RequestLocalizationOptions
@@ -189,7 +236,27 @@ app.UseRequestLocalization(new RequestLocalizationOptions
     SupportedUICultures = supportedCultures,
 });
 
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate =
+        "HTTP {RequestMethod} {RequestPath} responded {StatusCode} " +
+        "in {Elapsed:0.0000} ms | UserId={UserId} | IP={ClientIp}";
+
+    options.EnrichDiagnosticContext = (diagnosticContext, context) =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        var userId = context.User.Identity?.IsAuthenticated == true
+            ? context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+              ?? context.User.FindFirstValue("sub")
+              ?? "unknown"
+            : "anonymous";
+
+        diagnosticContext.Set("ClientIp", ip);
+        diagnosticContext.Set("UserId", userId);
+        diagnosticContext.Set("RequestId", context.TraceIdentifier);
+    };
+});
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseStatusCodePages(async statusContext =>
 {
@@ -216,6 +283,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Имена файлов интерфейса без отпечатков (index.html, css, js, _content/*). Без Cache-Control браузер кеширует их
+// эвристически и после обновления смешивает новый код со старыми стилями и скриптами: «ломаются стили»,
+// страница не догружается. no-cache = «можно хранить, но перед использованием спросить» (ETag -> дешёвый 304).
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (!path.StartsWithSegments("/api") && !path.StartsWithSegments("/apiHub") && !path.StartsWithSegments("/internal"))
+        context.Response.OnStarting(() =>
+        {
+            if (!context.Response.Headers.ContainsKey(Microsoft.Net.Http.Headers.HeaderNames.CacheControl))
+                context.Response.Headers.CacheControl = "no-cache";
+            return Task.CompletedTask;
+        });
+    await next(context);
+});
+
 // Хостинг Blazor WASM (AdminUI) — статические файлы и SPA-fallback.
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
@@ -228,7 +311,7 @@ app.Use(async (context, next) =>
 {
     var endpoint = context.GetEndpoint();
     var isSpaFallback = endpoint?.Metadata.Any(metadata => metadata.GetType().Name == "FallbackMetadata") == true;
-    if (context.Request.Path.StartsWithSegments("/api") && (endpoint is null || isSpaFallback))
+    if ((context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/internal")) && (endpoint is null || isSpaFallback))
     {
         await ApiProblemDetails.WriteAsync(context, StatusCodes.Status404NotFound,
             ApiProblemDetails.DetailForStatus(StatusCodes.Status404NotFound),
@@ -241,14 +324,21 @@ app.Use(async (context, next) =>
 
 app.UseCors(corsPolicy);
 
-app.UseRateLimiter();
+// Лимитер после аутентификации: политика форума делит бакеты по пользователю.
 app.UseAuthentication();
+app.UseMiddleware<MaintenanceModeMiddleware>();
+app.UseRateLimiter();
+app.UseMiddleware<AdminAuditMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapMetrics("/internal/metrics", app.Services.GetRequiredService<ApiMetrics>().Registry)
+    .RequireAuthorization(MetricsScrapeHandler.SchemeName);
 
 app.MapHub<QueueHub>("/apiHub/queueHub");
 app.MapHub<ResultsHub>("/apiHub/resultsHub");
+app.MapHub<NotificationsHub>("/apiHub/notificationsHub");
+app.MapHub<ForumHub>("/apiHub/forumHub");
 
 // Миграции и сидинг при старте (в тестовой среде БД готовит сам тест-хост).
 if (!app.Environment.IsEnvironment("Testing"))
@@ -290,6 +380,8 @@ app.MapGet("/api/loading-assets", () =>
     var contents = app.Environment.WebRootFileProvider.GetDirectoryContents("loading");
     var files = contents
         .Where(f => !f.IsDirectory)
+        .Where(f => new[] { ".gif", ".mp4", ".webm", ".ogg", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".avif" }
+            .Contains(Path.GetExtension(f.Name), StringComparer.OrdinalIgnoreCase))
         .Select(f => $"loading/{f.Name}")
         .ToList();
     return Results.Ok(files);

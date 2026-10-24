@@ -1,0 +1,99 @@
+@inject ForumApi Api
+@inject ISnackbar Snackbar
+@inject ConfirmService Confirm
+
+<PageTitle>@CommunityText.T("Модерация форума", "Forum moderation")</PageTitle>
+<a class="fc-profile-back" href="/admin/forum">← @CommunityText.T("К форуму", "Back to forum")</a>
+<div class="fc-page-heading"><div>
+    <MudText Typo="Typo.h4">@CommunityText.T("Модерация", "Moderation")</MudText>
+    <MudText Class="fc-muted">@CommunityText.T("Жалобы по вашим разделам и ограничения пользователей.", "Reports in your sections and user restrictions.")</MudText>
+</div></div>
+
+<section class="fc-panel fc-profile-section">
+    <div class="fc-profile-section-heading"><h2>@CommunityText.T("Жалобы", "Reports")</h2><span>@(_reports?.TotalCount ?? 0)</span></div>
+    @if (_reports is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+    else if (_reports.Items.Count == 0) { <p class="fc-profile-empty">@CommunityText.T("Открытых жалоб нет.", "No open reports.")</p> }
+    else
+    {
+        <ul class="fc-report-list">
+            @foreach (var report in _reports.Items)
+            {
+                <li>
+                    <div>
+                        <a href="@($"/admin/forum/{report.TopicId}?post={report.PostId}")"><strong>@report.TopicTitle</strong></a>
+                        <p>@(report.PostDeleted ? CommunityText.T("Сообщение уже удалено", "The message is already deleted") : ForumMarkdown.ToPlainText(report.PostExcerpt))</p>
+                        <small>@CommunityText.T("Автор", "Author"): @report.PostAuthor.Name · @CommunityText.T("Пожаловался", "Reported by") @report.ReporterName · @CommunityText.Ago(report.CreatedAtUtc)</small>
+                        <blockquote>@report.Reason</blockquote>
+                    </div>
+                    <div class="fc-report-actions">
+                        <MudButton Size="Size.Small" OnClick="() => ResolveAsync(report, false)">@CommunityText.T("Отклонить", "Dismiss")</MudButton>
+                        @if (!report.PostDeleted) { <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined" OnClick="() => ResolveAsync(report, true)">@CommunityText.T("Удалить сообщение", "Delete message")</MudButton> }
+                    </div>
+                </li>
+            }
+        </ul>
+        @if (_reports.TotalCount > _reports.PageSize)
+        {
+            <MudPagination Count="@((int)Math.Ceiling(_reports.TotalCount / (double)_reports.PageSize))" Selected="_page" SelectedChanged="PageAsync" Class="mt-3" />
+        }
+    }
+</section>
+
+<section class="fc-panel fc-profile-section">
+    <div class="fc-profile-section-heading"><h2>@CommunityText.T("Ограничения", "Restrictions")</h2><span>@_bans.Count</span></div>
+    @if (_bans.Count == 0) { <p class="fc-profile-empty">@CommunityText.T("Сейчас никто не ограничен. Ограничить автора можно из меню его сообщения.", "Nobody is restricted. Restrict an author from their message menu.")</p> }
+    else
+    {
+        <ul class="fc-report-list">
+            @foreach (var ban in _bans)
+            {
+                <li><div><UserChip UserId="ban.UserId" Name="@ban.FullName" Subtitle="@ban.GroupName" />
+                        <small>@CommunityText.T("до", "until") @ban.UntilUtc.ToLocalTime().ToString("g")@(string.IsNullOrWhiteSpace(ban.Reason) ? "" : " · " + ban.Reason)</small></div>
+                    <div class="fc-report-actions"><MudButton Size="Size.Small" OnClick="() => UnbanAsync(ban)">@CommunityText.T("Снять", "Lift")</MudButton></div></li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    private ForumReportPageDto? _reports;
+    private List<ForumBanDto> _bans = [];
+    private int _page = 1;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var reports = Api.ReportsAsync(_page);
+            var bans = Api.BansAsync();
+            await Task.WhenAll(reports, bans);
+            _reports = reports.Result;
+            _bans = bans.Result;
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); _reports ??= new([], 0, 1, 25); }
+    }
+
+    private async Task PageAsync(int page) { _page = page; await LoadAsync(); }
+
+    private async Task ResolveAsync(ForumReportDto report, bool deletePost)
+    {
+        if (deletePost && !await Confirm.ConfirmAsync(CommunityText.T("Удалить сообщение?", "Delete the message?"),
+                CommunityText.T($"Сообщение {report.PostAuthor.Name} в теме «{report.TopicTitle}» будет удалено, жалоба закроется.",
+                    $"The message by {report.PostAuthor.Name} in “{report.TopicTitle}” will be deleted and the report closed.")))
+            return;
+        try { await Api.ResolveReportAsync(report.Id, deletePost); await LoadAsync(); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task UnbanAsync(ForumBanDto ban)
+    {
+        if (!await Confirm.ConfirmAsync(CommunityText.T("Снять ограничение?", "Lift the restriction?"),
+                CommunityText.T($"{ban.FullName} снова сможет писать на форуме.", $"{ban.FullName} will be able to post again."),
+                CommunityText.T("Снять", "Lift")))
+            return;
+        try { await Api.UnbanAsync(ban.UserId); await LoadAsync(); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+}

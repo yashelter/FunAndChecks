@@ -25,4 +25,8 @@
         <ProjectReference Include="..\FunAndChecks.Application\FunAndChecks.Application.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="FunAndChecks.Tests" />
+    </ItemGroup>
+
 </Project>

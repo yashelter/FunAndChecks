@@ -72,8 +72,44 @@ public interface IIdentityService
     /// </summary>
     Task<AccountResult> ResetPasswordAsync(string email, string code, string newPassword);
 
+    /// <summary>Проверяет пароль пользователя (без блокировки за неудачи — запрос уже под лимитом).</summary>
+    Task<bool> CheckPasswordAsync(Guid userId, string password);
+
+    /// <summary>Код смены почты, привязанный к новому адресу; null — если пользователя нет.</summary>
+    Task<string?> GenerateEmailChangeCodeAsync(Guid userId, string newEmail);
+
+    /// <summary>
+    /// Меняет почту (и логин) по коду, отправленному на новый адрес. Возвращает прежний адрес;
+    /// null — код неверный или истёк. Занятый адрес — <c>ConflictException</c> «account.email_taken».
+    /// </summary>
+    Task<string?> ChangeEmailAsync(Guid userId, string newEmail, string code);
+
     /// <summary>
     /// Редактирование учётки админом: смена email, пароля, разбан и подтверждение.
     /// </summary>
     Task UpdateAccountAdminAsync(Guid userId, string email, string? newPassword);
+
+    /// <summary>Страничный поиск всех учётных записей без роли и профиля администратора; только для супер-админа.</summary>
+    Task<FunAndChecks.Application.Students.UserAccountPageDto> GetNonAdminAccountsAsync(
+        Guid actingAdminId, string? query, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Атомарно удаляет учётную запись, не принадлежащую администратору; только для супер-админа.</summary>
+    Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Current database roles, independent of potentially stale token claims.</summary>
+    Task<IReadOnlyCollection<string>> GetCurrentRolesAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Accounts currently holding the role in the database.</summary>
+    Task<IReadOnlyCollection<Guid>> GetUserIdsInRoleAsync(string role, CancellationToken cancellationToken = default);
+
+    /// <summary>Confirmed active student or administrator; never exposes account email.</summary>
+    Task<FunAndChecks.Application.Profiles.ProfileAccountInfo?> GetProfileAccountAsync(Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyDictionary<Guid, FunAndChecks.Application.Profiles.ProfileAccountInfo>> GetProfileAccountsAsync(
+        IEnumerable<Guid> userIds, CancellationToken cancellationToken = default);
+
+    /// <summary>Global eligible directory for achievement granting, without academic access restrictions.</summary>
+    Task<FunAndChecks.Application.Profiles.AchievementRecipientAccountPageDto> SearchAchievementRecipientsAsync(
+        string? query, int page, int pageSize, CancellationToken cancellationToken = default);
 }

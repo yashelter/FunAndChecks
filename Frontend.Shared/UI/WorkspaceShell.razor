@@ -1,0 +1,143 @@
+@implements IDisposable
+@inject DashboardAppearanceService Appearance
+@inject MeApi Me
+@inject CultureService Culture
+@inject AuthService Auth
+@inject JwtAuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@inject UnsavedChangesTracker Dirty
+@inject IStringLocalizer<AppStrings> Loc
+@inject IJSRuntime JS
+@using Frontend.Shared.Profiles
+@inject ProfileApi Profiles
+
+<MudThemeProvider Theme="Appearance.Theme" IsDarkMode="Appearance.IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<a class="fc-skip-link" href="@ContentAnchor">@Text("Перейти к содержимому", "Skip to content")</a>
+<div class="fc-shell @(Public ? "fc-shell-public" : "")">
+    @if (!Public)
+    {
+        @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
+        <aside class="fc-sidebar @(_mobileOpen ? "open" : "")" aria-label="@Text("Навигация", "Navigation")">
+            <a class="fc-brand" href="@(IsAdmin ? "/admin" : "/student")">
+                <BrandMark />
+                <span><strong>FunAndChecks</strong><small title="@_caption">@_caption</small></span>
+            </a>
+            <div class="fc-workspace"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /><div><strong>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : _group ?? Text("Кабинет студента", "Student workspace"))</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : Text("Студент", "Student"))</small></div></div>
+            <nav class="fc-navigation" @onclick="CloseNav">@Navigation</nav>
+            <div class="fc-sidebar-bottom"><button type="button" class="fc-logout" @onclick="LogoutAsync"><MudIcon Icon="@Icons.Material.Outlined.Logout" Size="Size.Small" />@Loc["App_Logout"]</button>
+                <a class="fc-account fc-account-link" href="@(IsAdmin ? "/admin/profile" : "/student/profile")" aria-label="@Text("Открыть мой кабинет", "Open my profile")"><ProfileMedia Media="_avatar" Fallback="@Initials" Alt="@_userName" /><div><strong>@_userName</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : _group)</small></div></a>
+            </div>
+        </aside>
+    }
+    <div class="fc-main-shell">
+        <SeasonalDecorations />
+        @if (!Public && !IsAdmin) { <LegalConsentGate /> }
+        <header class="fc-topbar">
+            @if (!Public) { <MudIconButton Icon="@Icons.Material.Outlined.Menu" OnClick="ToggleNav" Class="fc-mobile-menu" aria-label="@Text("Открыть навигацию", "Open navigation")" /> }
+            @if (Public)
+            {
+                <a class="fc-brand" href="/">
+                    <BrandMark />
+                    <strong>FunAndChecks</strong>
+                </a>
+            }
+            else
+            {
+                <div class="fc-breadcrumb"><a href="@(IsAdmin ? "/admin" : "/student")">@(IsAdmin ? Text("Рабочее пространство", "Workspace") : Text("Кабинет студента", "Student workspace"))</a><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" /><strong>@PageName</strong></div>
+            }
+            <div class="fc-topbar-actions">@if (!Public) { <NotificationBell IsAdmin="IsAdmin" /> }<LangSwitcher /><MudIconButton Class="fc-theme-button" Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="OpenSettings" aria-label="@Text("Цвет и вид интерфейса", "Colour and appearance")" title="@Text("Цвет и вид интерфейса", "Colour and appearance")" />
+            </div>
+        </header>
+        <main id="workspace-content" class="fc-main" tabindex="-1"><div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">
+            @* Ошибка в одной странице не должна останавливать всё приложение (иначе — только перезагрузка):
+               показываем замену с «Повторить», меню и шапка продолжают работать. *@
+            <ErrorBoundary @ref="_boundary">
+                <ChildContent>@ChildContent</ChildContent>
+                <ErrorContent>
+                    <section class="fc-panel fc-page-error" role="alert">
+                        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Size="Size.Large" />
+                        <h2>@Text("Не удалось показать страницу", "This page could not be shown")</h2>
+                        <p class="fc-muted">@Text("Что-то пошло не так при отрисовке. Попробуйте ещё раз — остальной интерфейс работает.", "Something went wrong while rendering. Try again — the rest of the interface still works.")</p>
+                        <div><MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RecoverPage">@Text("Повторить", "Try again")</MudButton>
+                            <MudButton OnClick="ReloadPage">@Text("Перезагрузить страницу", "Reload page")</MudButton></div>
+                    </section>
+                </ErrorContent>
+            </ErrorBoundary>
+        </div>
+            <footer class="fc-footer"><span>FunAndChecks <span>/</span> @Text("пространство для учебного прогресса", "a workspace for learning progress")</span><a class="fc-footer-github" href="https://github.com/yashelter/FunAndChecks_V2" target="_blank" rel="noopener noreferrer"><MudIcon Icon="@Icons.Custom.Brands.GitHub" Size="Size.Small" />@Text("Исходный код на GitHub — поставьте звёздочку ⭐", "Source code on GitHub — leave a star ⭐")</a></footer>
+        </main>
+    </div>
+</div>
+<AppearanceSettings @bind-Open="_settingsOpen" />
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public bool Public { get; set; }
+    [Parameter] public RenderFragment? Navigation { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private bool _mobileOpen, _settingsOpen;
+    private string _userName = "";
+    private string? _group;
+    private string _caption = "";
+    private MediaDto? _avatar;
+    private string ContentAnchor => new Uri(Nav.Uri).PathAndQuery + "#workspace-content";
+    private string Initials => string.Concat(_userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
+    private string PageName
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath;
+            if (path.Contains("/student-accounts")) return Text("Управление аккаунтами", "Manage accounts");
+            if (path.Contains("/achievements")) return Text("Достижения", "Achievements");
+            if (path.Contains("/profile")) return Text("Личный кабинет", "Profile");
+            if (path.Contains("/forum")) return Text("Форум", "Forum");
+            if (path.Contains("/surveys")) return Text("Опросы", "Surveys");
+            return path.Contains("/queues") ? Loc["AdminNav_Queues"] : path.Contains("/attendance") ? Text("Посещаемость", "Attendance") :
+                path.Contains("/management") ? Loc["AdminNav_Management"] : path.Contains("/grading") ? Loc["AdminNav_Grading"] :
+                path.Contains("/admins") ? Loc["AdminNav_Admins"] : path.Contains("/maintenance") ? Loc["AdminNav_Maintenance"] :
+                path.Contains("/logs") ? Text("История сдач", "Submission history") : Loc["AdminNav_Results"];
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        Appearance.Changed += Refresh;
+        Nav.LocationChanged += LocationChanged;
+        if (!Public)
+        {
+            Profiles.ProfileChanged += ProfileChanged;
+            try { var me = await Me.GetMeAsync(); _userName = me.FullName; _group = me.GroupName; }
+            catch (ApiException) { /* The page handles data errors; the account label is optional. */ }
+            try { _avatar = (await Profiles.MineAsync()).Avatar; }
+            catch (ApiException) { }
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await Appearance.InitializeAsync();
+        try { _caption = await JS.InvokeAsync<string>("dashboardCaptions.get", Culture.CurrentCulture); }
+        catch (JSException) { }
+        StateHasChanged();
+    }
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    private async void ProfileChanged()
+    {
+        try { _avatar = (await Profiles.MineAsync()).Avatar; await InvokeAsync(StateHasChanged); }
+        catch (ApiException) { }
+    }
+    private void ToggleNav() => _mobileOpen = !_mobileOpen;
+    private void CloseNav() => _mobileOpen = false;
+    private void OpenSettings() => _settingsOpen = true;
+    private async Task LogoutAsync() { await Auth.LogoutAsync(); AuthState.NotifyAuthenticationStateChanged(); Nav.NavigateTo("/login"); }
+    private ErrorBoundary? _boundary;
+    private void RecoverPage() => _boundary?.Recover();
+    private void ReloadPage() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+    // Переход на другую страницу сбрасывает прошлую ошибку — новая страница рисуется заново.
+    private void LocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) { Dirty.ClearAll(); _mobileOpen = false; InvokeAsync(() => { _boundary?.Recover(); StateHasChanged(); }); }
+    public void Dispose() { Appearance.Changed -= Refresh; Nav.LocationChanged -= LocationChanged; Profiles.ProfileChanged -= ProfileChanged; Dirty.ClearAll(); }
+    private static string Text(string ru, string en) => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+}

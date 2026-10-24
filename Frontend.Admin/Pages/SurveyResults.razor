@@ -1,0 +1,7 @@
+@page "/admin/surveys/{SurveyId:int}/results"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+<SurveyResultsView SurveyId="SurveyId" />
+@code {
+    [Parameter] public int SurveyId { get; set; }
+}

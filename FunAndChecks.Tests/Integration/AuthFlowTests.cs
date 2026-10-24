@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -40,6 +41,8 @@ public class AuthFlowTests
             email,
             password = "secret1",
             groupId,
+            acceptedPrivacyPolicy = true,
+            acceptedTerms = true,
             gitHubUrl = (string?)null,
             color = "#abcdef",
         });
@@ -73,6 +76,45 @@ public class AuthFlowTests
         // Старый refresh после ротации больше не действует.
         var reuse = await _client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = payload.RefreshToken });
         reuse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task Register_RecipientRejectedBySmtp_Returns400_AndLeavesNoAccount()
+    {
+        int groupId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Infrastructure.Persistence.ApplicationDbContext>();
+            var group = new Domain.Entities.Group { Name = "M8O-nullmx" };
+            db.Groups.Add(group);
+            await db.SaveChangesAsync();
+            groupId = group.Id;
+        }
+
+        var email = "typo@nullmx.example";
+        _factory.Email.RejectedRecipients[email] = true;
+
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Typo",
+            lastName = "Student",
+            email,
+            password = "secret1",
+            groupId,
+            acceptedPrivacyPolicy = true,
+            acceptedTerms = true,
+            gitHubUrl = (string?)null,
+            color = "#abcdef",
+        });
+
+        register.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await register.Content.ReadAsStringAsync()).Should().Contain("email.recipient_rejected");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Infrastructure.Persistence.ApplicationDbContext>();
+            (await db.Users.AnyAsync(u => u.Email == email)).Should().BeFalse();
+            (await db.Students.AnyAsync(s => s.GroupId == groupId)).Should().BeFalse();
+        }
     }
 
     [Fact]

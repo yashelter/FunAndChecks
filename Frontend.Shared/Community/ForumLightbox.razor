@@ -1,0 +1,40 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Тот же захват фокуса, что и у ProfileDialog: Tab остаётся внутри, Escape закрывает, фокус возвращается к миниатюре. *@
+<div @ref="_element" class="fc-lightbox" @onclick="Close" @onkeydown="KeyDown" role="dialog" aria-modal="true" aria-label="@Image.FileName" tabindex="-1">
+    <img src="@Image.Url" alt="@Image.FileName" />
+    <div class="fc-lightbox-actions" @onclick:stopPropagation="true">
+        <a href="@Image.Url" download="@Image.FileName">@CommunityText.T("Скачать", "Download")</a>
+        <button type="button" @onclick="Close">@CommunityText.T("Закрыть", "Close")</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public AttachmentDto Image { get; set; } = null!;
+    [Parameter] public EventCallback Close { get; set; }
+    private ElementReference _element;
+    private IJSObjectReference? _module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", Frontend.Shared.Profiles.ProfileMediaModule.Url);
+            await _module.InvokeVoidAsync("trapDialog", _element);
+        }
+        catch (JSException) { }
+    }
+
+    private async Task KeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") await Close.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+        try { await _module.InvokeVoidAsync("releaseDialog", _element); await _module.DisposeAsync(); } catch (JSException) { } catch (JSDisconnectedException) { }
+    }
+}

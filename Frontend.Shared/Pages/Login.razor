@@ -3,16 +3,25 @@
 
 <PageTitle>@Loc["Login_PageTitle"]</PageTitle>
 
-<MudPaper Class="pa-8" Elevation="4" Style="width: 100%;">
-    <MudText Typo="Typo.h5" Class="mb-4" Align="Align.Center">@Loc["Login_Title"]</MudText>
+<section class="fc-auth-card">
+    <AuthIntro />
+    <div class="fc-auth-form">
+    <MudText Typo="Typo.h5">@Loc["Login_Title"]</MudText>
 
+    @* Настоящая форма: Enter отправляет из любого поля, менеджеры паролей её распознают. *@
+    <form @onsubmit="SubmitAsync" @onsubmit:preventDefault="true" novalidate>
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
-                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Class="mb-3" />
-        <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
-                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]"
-                      OnKeyDown="HandleKeyDownAsync" />
+        <MudTextField @bind-Value="_email" Immediate="true" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
+                      Required="true" RequiredError="@Loc["Common_EmailRequired"]" Variant="Variant.Outlined" autocomplete="email" />
+        <MudTextField @bind-Value="_password" Immediate="true" Label="@Loc["Login_PasswordLabel"]"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]" Variant="Variant.Outlined" autocomplete="current-password"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPassword = !_showPassword)" AdornmentAriaLabel="@Loc["Register_ShowPassword"]" />
     </MudForm>
+    <MudCheckBox @bind-Value="_sharedComputer" Color="Color.Primary" Dense="true" Class="mt-2" Label="@Loc["Login_SharedComputer"]" />
+    @if (_sharedComputer) { <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Login_SharedComputerHint"]</MudText> }
 
     @if (_error is not null)
     {
@@ -24,17 +33,20 @@
         }
     }
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-               OnClick="SubmitAsync" Disabled="_busy">
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+               Disabled="_busy">
         @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
         @Loc["Login_SubmitButton"]
     </MudButton>
+    </form>
 
-    <div class="d-flex justify-space-between mt-4">
+    <div class="fc-auth-links">
         <MudLink Href="/register">@Loc["Login_GoToRegister"]</MudLink>
         <MudLink Href="/forgot-password">@Loc["Login_ForgotPassword"]</MudLink>
     </div>
-    <div class="d-flex justify-center mt-2">
+    <div class="fc-auth-public-link">
         <MudLink Href="/results">@Loc["Login_ViewResults"]</MudLink>
     </div>
-</MudPaper>
+    </div>
+</section>
+

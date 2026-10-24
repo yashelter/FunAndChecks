@@ -1,0 +1,4 @@
+@page "/admin/surveys"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+<SurveyAdminList />

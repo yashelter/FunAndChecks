@@ -2,29 +2,65 @@
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
 @implements IAsyncDisposable
+@using Microsoft.AspNetCore.SignalR.Client
 
 <PageTitle>@Loc["QueueDetails_PageTitle"]</PageTitle>
 
 @if (_loading)
 {
-    <div class="d-flex justify-center align-center" style="height: 50vh;">
-        <MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
-    </div>
+    <div class="fc-panel fc-core-empty" role="status"><MudProgressCircular Color="Color.Primary" Size="Size.Large" Indeterminate="true" /></div>
 }
 else if (_details is not null)
 {
-    <div class="d-flex align-center mb-2">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/queues" Edge="Edge.Start" />
-        <MudText Typo="Typo.h4" Class="ml-2">@_details.EventName</MudText>
+    <div class="fc-page-heading">
+        <div>
+            <div class="fc-core-back"><MudLink Href="/admin/queues"><MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />@Loc["AdminNav_Queues"]</MudLink></div>
+            <MudText Typo="Typo.h4">@_details.EventName</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@_details.SubjectName · @_details.EventDateTime.ToLocalTime().ToString("g")</MudText>
+        </div>
+        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="@(_hub?.State == HubConnectionState.Connected ? Color.Success : Color.Warning)"
+                 Icon="@(_hub?.State == HubConnectionState.Connected ? Icons.Material.Filled.Circle : Icons.Material.Outlined.SyncProblem)">
+            @Loc[_hub?.State == HubConnectionState.Connected ? "QueueDetails_Live" : "QueueDetails_Offline"]
+        </MudChip>
     </div>
-    <MudText Typo="Typo.subtitle1" GutterBottom="true">@Loc["QueueDetails_Subject", _details.SubjectName]</MudText>
 
-    <div class="d-flex flex-wrap gap-3 align-center mt-2">
-        <MudTextField @bind-Value="_filter" Label="@Loc["QueueDetails_FilterLabel"]" Variant="Variant.Outlined"
-                      Margin="Margin.Dense" Clearable="true" Style="max-width: 280px;"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
-        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="@Loc["QueueDetails_SortLabel"]" Variant="Variant.Outlined"
-                   Margin="Margin.Dense" Style="max-width: 240px;">
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">@Loc["QueueDetails_Stale"] <MudLink OnClick="LoadAsync">@Loc["QueueDetails_Retry"]</MudLink></MudAlert>
+    }
+
+    <div class="fc-stats fc-queue-stats">
+        <div class="fc-stat"><span>@Loc["Queue_StatusWaiting"]</span><strong>@StatCount(QueueEntryStatus.Waiting)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusChecking"]</span><strong class="fc-semantic-info">@StatCount(QueueEntryStatus.Checking)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusSkipped"]</span><strong class="fc-semantic-error">@StatCount(QueueEntryStatus.Skipped)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusFinished"]</span><strong class="fc-semantic-success">@StatCount(QueueEntryStatus.Finished)</strong></div>
+    </div>
+
+    <div class="fc-panel fc-queue-next">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.SkipNext" OnClick="TakeNextAsync"
+                   Disabled="@(NextWaiting() is null)">@Loc["QueueDetails_TakeNext"]</MudButton>
+    </div>
+
+    @if (_participants.Any(p => p.Status == QueueEntryStatus.Checking))
+    {
+        <section class="fc-panel fc-reviewers">
+            <MudText Typo="Typo.subtitle2">@Loc["QueueDetails_Reviewers"]</MudText>
+            <div class="fc-reviewer-list">
+                @foreach (var participant in _participants.Where(p => p.Status == QueueEntryStatus.Checking))
+                {
+                    <div class="fc-reviewer"><MudIcon Icon="@Icons.Material.Outlined.Person" Size="Size.Small" /><span><strong>@(participant.CheckingByAdminName ?? Loc["Queue_StatusChecking"])</strong><small>@participant.LastName @participant.FirstName</small></span></div>
+                }
+            </div>
+        </section>
+    }
+
+    <div class="fc-panel fc-toolbar fc-queue-filters">
+        @* Фильтр только по группам, которые есть в этой очереди; «Взять следующего» тоже его учитывает. *@
+        <MudSelect T="string" MultiSelection="true" SelectedValues="_groups" SelectedValuesChanged="OnGroupsChangedAsync" MultiSelectionTextFunc="GroupsText"
+                   Label="@Loc["QueueDetails_Groups"]" Placeholder="@Loc["AttendanceJournal_AllGroups"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            @foreach (var (group, count) in Groups) { <MudSelectItem T="string" Value="@group">@group <span class="fc-muted">· @count</span></MudSelectItem> }
+        </MudSelect>
+        <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="@Loc["QueueDetails_SortLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense">
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">@Loc["QueueDetails_SortPoints"]</MudSelectItem>
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">@Loc["QueueDetails_SortGroup"]</MudSelectItem>
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.JoinedAt">@Loc["QueueDetails_SortJoinedAt"]</MudSelectItem>
@@ -33,30 +69,26 @@ else if (_details is not null)
 
     @if (Visible.Count == 0)
     {
-        <MudAlert Severity="Severity.Info" Class="mt-4">@Loc["QueueDetails_NoParticipants"]</MudAlert>
+        <div class="fc-panel fc-core-empty"><MudText Class="fc-muted">@Loc["QueueDetails_NoParticipants"]</MudText></div>
     }
     else
     {
-        <MudList T="QueueParticipantDto" Class="mt-2">
+        <section class="fc-panel fc-queue-participants">
             @foreach (var p in Visible)
             {
-                <MudListItem T="QueueParticipantDto" OnClick="@(() => OpenStudentAsync(p))" Style="@QueueStyles.RowStyle(p.Status)">
-                    <div class="d-flex justify-space-between align-center flex-grow-1">
-                        <div class="d-flex align-center gap-2">
-                            <span style="@QueueStyles.NameStyle(p.StudentColor)"><b>@p.LastName @p.FirstName</b></span>
-                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@p.GroupName</MudChip>
-                        </div>
-                        <div class="d-flex align-center gap-2">
-                            <MudText>@Loc["QueueDetails_Points"]<b>@p.TotalPoints</b></MudText>
-                            <MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">
-                                @QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)
-                            </MudChip>
-                        </div>
+                <article class="fc-queue-person @QueueClass(p.Status)">
+                    <div class="fc-queue-person-identity">
+                        <UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" />
+                        <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")</MudText>
+                        @if (!p.CanManage) { <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText> }
                     </div>
-                </MudListItem>
-                <MudDivider />
+                    <div class="fc-queue-person-score"><strong>@p.TotalPoints</strong><span>@Loc["Common_PointsAbbr"]</span></div>
+                    <div class="fc-queue-person-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip></div>
+                    <div class="fc-queue-person-action"><MudButton Variant="@(IsReadOnly(p) ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" Disabled="@(!p.CanManage)"
+                        OnClick="@(() => OpenStudentAsync(p))" StartIcon="@(IsReadOnly(p) ? Icons.Material.Outlined.Visibility : Icons.Material.Outlined.Assignment)">@Loc[IsReadOnly(p) ? "QueueDetails_View" : "QueueDetails_Review"]</MudButton></div>
+                </article>
             }
-        </MudList>
+        </section>
     }
 }
 else

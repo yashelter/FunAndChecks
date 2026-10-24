@@ -1,6 +1,7 @@
 @inject IStringLocalizer<AppStrings> Loc
 
 <MudNavMenu>
+    <div class="fc-nav-label" role="presentation">@CommunityText.T("Учёба", "Study")</div>
     <MudNavLink Href="/student" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
         @Loc["StudentNav_Results"]
     </MudNavLink>
@@ -9,5 +10,18 @@
     </MudNavLink>
     <MudNavLink Href="/student/logs" Icon="@Icons.Material.Filled.History">
         @Loc["StudentNav_History"]
+    </MudNavLink>
+    <MudNavLink Href="/student/attendance" Icon="@Icons.Material.Filled.FactCheck">
+        @Loc["Nav_Attendance"]
+    </MudNavLink>
+    <div class="fc-nav-label" role="presentation">@CommunityText.T("Сообщество", "Community")</div>
+    <MudNavLink Href="/student/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
+        @CommunityText.T("Достижения", "Achievements")
+    </MudNavLink>
+    <MudNavLink Href="/student/forum" Icon="@Icons.Material.Outlined.Forum">
+        <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
+    </MudNavLink>
+    <MudNavLink Href="/student/surveys" Icon="@Icons.Material.Outlined.Poll">
+        <span class="fc-nav-with-badge">@CommunityText.T("Опросы", "Surveys")<SurveyPendingBadge /></span>
     </MudNavLink>
 </MudNavMenu>

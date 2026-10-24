@@ -3,7 +3,7 @@ using System.Resources;
 
 namespace FunAndChecks.Application.Auth;
 
-public enum EmailTemplateKind { Confirmation, PasswordReset, ExistingAccount }
+public enum EmailTemplateKind { Confirmation, PasswordReset, ExistingAccount, EmailChange, EmailChanged }
 
 public sealed record EmailTemplate(string Subject, string HtmlBody);
 
@@ -25,6 +25,8 @@ internal sealed class EmailTemplateRenderer : IEmailTemplateRenderer
             EmailTemplateKind.Confirmation => "Confirmation",
             EmailTemplateKind.PasswordReset => "PasswordReset",
             EmailTemplateKind.ExistingAccount => "ExistingAccount",
+            EmailTemplateKind.EmailChange => "EmailChange",
+            EmailTemplateKind.EmailChanged => "EmailChanged",
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
         var subject = Resources.GetString($"{prefix}Subject", selected)

@@ -10,7 +10,8 @@ public record StudentDetailsDto(
     string LastName,
     string? Email,
     string? Color,
-    int? GroupId);
+    int? GroupId,
+    string? GroupName = null);
 
 /// <summary>Карточка админа (публично видны цвет и буква в таблице результатов).</summary>
 public record AdminDto(Guid Id, string FirstName, string LastName, string? Color, string? Letter);
@@ -23,4 +24,13 @@ public record SetPreferredCultureRequest(string Culture);
 /// <summary>Установка админом цвета студента (null — убрать заливку).</summary>
 public record SetStudentColorRequest(string? Color);
 
+/// <summary>Общий цвет студента изменился; подписчики обновляют таблицу или очередь.</summary>
+public record StudentColorUpdateDto(Guid StudentId, string? Color);
+
 public record UpdateStudentAccountRequest(string FirstName, string LastName, int? GroupId, string Email, string? NewPassword);
+
+/// <summary>Учётная запись без административных прав, включая неподтверждённые регистрации.</summary>
+public record UserAccountDto(Guid Id, string? FirstName, string? LastName, string? Email, string? GroupName,
+    bool EmailConfirmed, bool IsActive, bool HasStudentProfile);
+
+public record UserAccountPageDto(List<UserAccountDto> Items, int TotalCount, int Page, int PageSize);

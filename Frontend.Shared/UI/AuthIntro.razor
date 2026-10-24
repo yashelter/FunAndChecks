@@ -1,0 +1,16 @@
+@namespace Frontend.Shared.UI
+@inject IStringLocalizer<AppStrings> Loc
+
+<aside class="fc-auth-intro">
+    <div>
+        <span class="fc-eyebrow">FUNANDCHECKS / @Loc["Design_AuthEyebrow"]</span>
+        <h2>@Loc["Design_AuthTitle"]</h2>
+        <p class="fc-muted">@Loc["Design_AuthSubtitle"]</p>
+        <div class="fc-auth-benefits">
+            <div><MudIcon Icon="@Icons.Material.Filled.CheckCircleOutline" /><div><strong>@Loc["Design_AuthProgress"]</strong><small>@Loc["Design_AuthProgressHint"]</small></div></div>
+            <div><MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" /><div><strong>@Loc["Design_AuthQueue"]</strong><small>@Loc["Design_AuthQueueHint"]</small></div></div>
+            <div><MudIcon Icon="@Icons.Material.Filled.EventNote" /><div><strong>@Loc["Design_AuthAttendance"]</strong><small>@Loc["Design_AuthAttendanceHint"]</small></div></div>
+        </div>
+    </div>
+    <MudButton Href="/results" Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">@Loc["Login_ViewResults"]</MudButton>
+</aside>
