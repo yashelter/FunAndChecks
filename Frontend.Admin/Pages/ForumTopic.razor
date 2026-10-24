@@ -1,0 +1,8 @@
+@page "/admin/forum/{TopicId:int}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+<ForumTopicView TopicId="TopicId" PostId="PostId" IsAdmin="true" />
+@code {
+    [Parameter] public int TopicId { get; set; }
+    [SupplyParameterFromQuery(Name = "post")] public long? PostId { get; set; }
+}

@@ -1,4 +1,5 @@
 @page "/student/queues"
+@page "/student/queues/{EventId:int}"
 @layout StudentLayout
 @attribute [Authorize(Roles = Roles.Student)]
 @implements IAsyncDisposable
@@ -45,15 +46,31 @@ else if (_details is not null)
             </div>
         </div>
     }
+    @if (MyEntry is { } mine)
+    {
+        <div class="fc-panel fc-queue-me">
+            <div>
+                <strong>@(MyPosition is int place ? Loc["StudentQueues_MyPlace", place, Waiting.Count] : QueueStyles.StatusText(mine.Status, mine.CheckingByAdminName, Loc))</strong>
+                <small class="fc-muted">@Loc["StudentQueues_OrderHint"]</small>
+            </div>
+            @* В очередь, заполненную преподавателем, нельзя записаться снова — поэтому и выйти из неё нельзя. *@
+            @if (_details.AllowSelfJoin && mine.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Skipped)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Logout" OnClick="LeaveAsync">@Loc["StudentQueues_Leave"]</MudButton>
+            }
+        </div>
+    }
     <section class="fc-panel">
         <div class="fc-table-wrap">
             <table class="fc-queue-table">
-                <thead><tr><th>@Loc["Results_ColName"]</th><th>@Loc["Results_ColGroup"]</th><th>@Loc["MyLogs_TotalPoints"]</th><th>@Loc["MyLogs_CurrentStatus"]</th></tr></thead>
+                <thead><tr><th>#</th><th>@Loc["Results_ColName"]</th><th>@Loc["Results_ColGroup"]</th><th>@Loc["MyLogs_TotalPoints"]</th><th>@Loc["MyLogs_CurrentStatus"]</th></tr></thead>
                 <tbody>
-                    @foreach (var p in _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status)).ThenByDescending(x => x.TotalPoints))
+                    @foreach (var p in Ordered)
                     {
-                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.StudentId">
-                            <td><span class="fc-result-name" style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span></td>
+                        var place = Waiting.IndexOf(p);
+                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.StudentId" class="@(p.StudentId == _myId ? "fc-queue-me-row" : "")">
+                            <td class="fc-queue-place">@(place >= 0 ? place + 1 : "")</td>
+                            <td><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-result-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /></td>
                             <td class="fc-queue-group">@p.GroupName</td>
                             <td class="fc-queue-points">@p.TotalPoints</td>
                             <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip></td>
@@ -73,8 +90,12 @@ else
             @foreach (var ev in _myEvents)
             {
                 <section class="fc-panel fc-queue-event" @key="ev.Id">
-                    <div><MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" /><div><strong>@ev.Name</strong><small>@ev.EventDateTime.ToLocalTime().ToString("g")</small></div></div>
-                    <div class="fc-toolbar"><MudButton Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton></div>
+                    <div><MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" /><div><strong>@ev.Name</strong>
+                        <small>@(ev.SubjectName is { } subject ? subject + " · " : "")@ev.EventDateTime.ToLocalTime().ToString("g")</small>
+                        @if (ev.MyPosition is int place) { <small class="fc-queue-place-chip">@Loc["StudentQueues_MyPlace", place, ev.WaitingCount ?? place]</small> }
+                        else if (ev.MyStatus is { } status) { <small class="fc-queue-place-chip">@QueueStyles.StatusText(status, null, Loc)</small> }
+                    </div></div>
+                    <div class="fc-toolbar"><MudButton Variant="Variant.Outlined" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward" OnClick="@(() => Open(ev.Id))">@Loc["Queues_Open"]</MudButton></div>
                 </section>
             }
         </div>
@@ -93,10 +114,17 @@ else
                 <section class="fc-panel fc-queue-event" @key="ev.Id">
                     <div><MudIcon Icon="@Icons.Material.Filled.EventNote" /><div><strong>@ev.Name</strong><small>@ev.EventDateTime.ToLocalTime().ToString("g")</small></div></div>
                     <div class="fc-toolbar">
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => ViewQueueAsync(ev.Id))">@Loc["Queues_Open"]</MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => Open(ev.Id))">@Loc["Queues_Open"]</MudButton>
                         @if (ev.AllowSelfJoin)
                         {
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => JoinAsync(ev.Id))">@Loc["StudentQueues_SignUp"]</MudButton>
+                            @* В хэллоуин-режиме вместо обычной иконки — тыква, нарисованная на CSS. *@
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => JoinAsync(ev.Id))" Class="@SignUpButtonClass" StartIcon="@SignUpButtonIcon">
+                                @if (HalloweenActive)
+                                {
+                                    <span class="fc-pumpkin" aria-hidden="true"></span>
+                                }
+                                @Loc["StudentQueues_SignUp"]
+                            </MudButton>
                         }
                     </div>
                 </section>

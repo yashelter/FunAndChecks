@@ -31,6 +31,10 @@ public class GroupsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task<List<int>> GetSubjectIdsAsync(int groupId, CancellationToken ct = default) =>
         GetAsync<List<int>>($"api/groups/{groupId}/subject-ids", ct);
 
+    /// <summary>Доступы всех видимых групп к предметам одним запросом.</summary>
+    public Task<List<GroupSubjectsDto>> GetSubjectLinksAsync(CancellationToken ct = default) =>
+        GetAsync<List<GroupSubjectsDto>>("api/groups/subject-links", ct);
+
     public Task<List<int>> GetGroupIdsForSubjectAsync(int subjectId, CancellationToken ct = default) =>
         GetAsync<List<int>>($"api/groups/for-subject/{subjectId}", ct);
 

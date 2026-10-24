@@ -27,10 +27,16 @@ public interface IAdminAccessService
 
     Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
     Task<bool> IsGroupRestrictedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default);
+    /// <summary>Актуальная роль супер-администратора в Identity, без доверия устаревшему JWT.</summary>
+    Task<bool> IsSuperAdminAsync(Guid adminId, CancellationToken cancellationToken = default);
 
     // --- Глобальные ограничения (только супер-админ) ---
     Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default);
     Task SetGroupRestrictedAsync(Guid adminId, int groupId, bool restricted, CancellationToken cancellationToken = default);
+    /// <summary>Атомарно заменяет глобальные запреты, сохраняя локальные скрытия.</summary>
+    Task ReplaceRestrictionsAsync(Guid adminId, ReplaceAdminRestrictionsRequest request, CancellationToken cancellationToken = default);
+    /// <summary>Явно разрешённые предметы и запрещённые группы; новые предметы не получают доступ автоматически.</summary>
+    Task ReplacePermissionsAsync(Guid adminId, ReplaceAdminPermissionsRequest request, CancellationToken cancellationToken = default);
 
     // --- Локальные скрытия (сам админ) ---
     Task SetSubjectHiddenAsync(Guid adminId, int subjectId, bool hidden, CancellationToken cancellationToken = default);

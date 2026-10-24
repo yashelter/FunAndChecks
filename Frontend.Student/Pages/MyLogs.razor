@@ -49,17 +49,21 @@ else if (_results is not null)
     }
 
     <h3 class="fc-subsection-title">@Loc["MyLogs_Tasks"]</h3>
-    @foreach (var task in _results.TaskResults.OrderBy(t => t.TaskName))
+    @* Порядок задач — как во всех списках: его задаёт сервер (лексикографически по названию). *@
+    @foreach (var task in _results.TaskResults)
     {
-        <section class="fc-panel fc-task-card" @key="task.TaskId">
+        var lastComment = task.CurrentStatus == SubmissionStatus.Rejected
+            ? task.SubmissionHistory?.OrderByDescending(l => l.SubmittedAt).FirstOrDefault()?.Comment : null;
+        <section id="task-@task.TaskId" class="fc-panel fc-task-card @(task.TaskId == FocusTask ? "fc-task-focused" : "")" @key="task.TaskId">
             <div class="fc-panel-heading">
-                <div><h3>@task.TaskName</h3><small class="fc-muted">@task.MaxPoints @Loc["Common_PointsAbbr"]</small></div>
+                <div><h3>@task.TaskName</h3><small class="fc-muted">@task.MaxPoints @Loc["Common_PointsAbbr"]</small>
+                    @if (!string.IsNullOrWhiteSpace(lastComment)) { <p class="fc-task-last-comment">«@lastComment»</p> }</div>
                 <MudChip T="string" Label="true" Size="Size.Small" Color="@StatusColor(task.CurrentStatus)" Variant="Variant.Outlined">@StatusText(task.CurrentStatus)</MudChip>
             </div>
             @if (task.SubmissionHistory is { Count: > 0 })
             {
                 <MudExpansionPanels>
-                    <MudExpansionPanel Text="@Loc["MyLogs_ShowHistory"]" Expanded="@(task.CurrentStatus == SubmissionStatus.Rejected)">
+                    <MudExpansionPanel Text="@Loc["MyLogs_ShowHistory"]" Expanded="@(task.CurrentStatus == SubmissionStatus.Rejected || task.TaskId == FocusTask)">
                         <div class="fc-review-history">
                             @foreach (var log in task.SubmissionHistory.OrderByDescending(l => l.SubmittedAt))
                             {
@@ -68,7 +72,7 @@ else if (_results is not null)
                                     <div>
                                         <strong>@StatusText(log.Status)</strong>
                                         @if (!string.IsNullOrWhiteSpace(log.Comment)) { <p>@log.Comment</p> }
-                                        <small>@Loc["MyLogs_CheckedBy", log.Admin.FullName, log.SubmittedAt.ToLocalTime().ToString("g")]</small>
+                                        <small><ProfileLink UserId="log.Admin.Id">@Loc["MyLogs_CheckedBy", log.Admin.FullName, log.SubmittedAt.ToLocalTime().ToString("g")]</ProfileLink></small>
                                     </div>
                                 </div>
                             }

@@ -1,0 +1,158 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+  destination = "stderr"
+}
+
+local.file_match "technical" {
+  path_targets = [
+    {__path__ = "/app/logs/server-log-*.txt", job = "funandchecks", log_kind = "technical", source_kind = "live"},
+    {__path__ = "/app/logs/import/server-log-*.txt", job = "funandchecks", log_kind = "technical", source_kind = "import"},
+  ]
+  sync_period = "10s"
+}
+
+loki.source.file "technical" {
+  targets    = local.file_match.technical.targets
+  forward_to = [loki.process.technical.receiver]
+  tail_from_end = false
+  on_positions_file_error = "skip"
+}
+
+loki.process "technical" {
+  forward_to = [loki.write.local.receiver]
+
+  // Preserve exceptions and multiline messages as one Serilog event.
+  stage.multiline {
+    firstline     = `^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2} \[[A-Z]{3}\] \[`
+    max_wait_time = "3s"
+    max_lines     = 500
+  }
+  stage.regex {
+    expression = `(?s)^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} [+-]\d{2}:\d{2}) \[(?P<level>[A-Z]{3})\] \[(?P<source>[^\]]*)\] (?P<message>.*)$`
+  }
+  // stage.timestamp's skip/fudge fallback would turn malformed dates into
+  // ingestion timestamps. Validate first; invalid events are counted and dropped.
+  stage.template {
+    source = "valid_timestamp"
+    template = `{{ if .timestamp }}{{ $t := toDate "2006-01-02 15:04:05.000 -07:00" .timestamp }}{{ if $t.IsZero }}invalid{{ else }}valid{{ end }}{{ else }}invalid{{ end }}`
+  }
+  stage.drop {
+    source = "valid_timestamp"
+    value = "invalid"
+    drop_counter_reason = "invalid_serilog_timestamp"
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "2006-01-02 15:04:05.000 -07:00"
+    action_on_failure = "skip"
+  }
+  stage.drop {
+    older_than = sys.env("TECHNICAL_LOG_RETENTION")
+    drop_counter_reason = "technical_retention"
+  }
+  stage.template {
+    source = "level"
+    template = `{{ if eq .Value "INF" }}info{{ else if eq .Value "WRN" }}warn{{ else if eq .Value "ERR" }}error{{ else if eq .Value "FTL" }}fatal{{ else if eq .Value "DBG" }}debug{{ else if eq .Value "VRB" }}trace{{ else }}unknown{{ end }}`
+  }
+  stage.labels {
+    values = {level = "", source = ""}
+  }
+  stage.regex {
+    expression = `\[RequestId:(?P<requestId>[^\]]+)\]`
+  }
+  stage.structured_metadata {
+    values = {requestId = ""}
+  }
+
+  // Apply the same masking to historical and current files. Original files
+  // remain untouched. Named captures contain only the sensitive value.
+  stage.replace {
+    expression = `(?i)\b(?:authorization\s*[:=]\s*)?Bearer\s+([A-Za-z0-9._~+/=-]+)`
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = `(?i)(?:\b(?:password|passwd|pwd|access_token|refresh_token|token|jwt|secret|verificationcode|verification_code|confirmationcode|confirmation_code|code)\b|код(?: подтверждения)?)["']?\s*[=:]\s*"((?:\\.|[^"\\])*)"`
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = `(?i)(?:\b(?:password|passwd|pwd|access_token|refresh_token|token|jwt|secret|verificationcode|verification_code|confirmationcode|confirmation_code|code)\b|код(?: подтверждения)?)["']?\s*[=:]\s*'((?:\\.|[^'\\])*)'`
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = `(?i)(?:\b(?:password|passwd|pwd|access_token|refresh_token|token|jwt|secret|verificationcode|verification_code|confirmationcode|confirmation_code|code)\b|код(?: подтверждения)?)["']?\s*[=:]\s*([^\s"'&,;<>]+)`
+    replace = "[REDACTED]"
+  }
+  // Old SMTP fallback logged the actual localized email template: a styled
+  // paragraph with letter-spacing: 4px contains the confirmation/reset code.
+  // Limit masking to that paragraph rather than ordinary numeric log fields.
+  stage.replace {
+    expression = `(?is)<p\s+style=["'][^"']*letter-spacing\s*:\s*4px[^"']*["']\s*>\s*([^<]+)</p>`
+    replace = "[REDACTED]"
+  }
+  stage.replace {
+    expression = `\b(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b`
+    replace = "[REDACTED]"
+  }
+  stage.drop {
+    longer_than = "256KB"
+    drop_counter_reason = "technical_event_too_large"
+  }
+}
+
+local.file_match "audit" {
+  path_targets = [{__path__ = "/app/logs/admin-audit-*.jsonl", job = "funandchecks", log_kind = "admin_audit", source_kind = "live"}]
+  sync_period = "10s"
+}
+
+loki.source.file "audit" {
+  targets = local.file_match.audit.targets
+  forward_to = [loki.process.audit.receiver]
+  tail_from_end = false
+  on_positions_file_error = "skip"
+}
+
+loki.process "audit" {
+  forward_to = [loki.write.local.receiver]
+  stage.json {
+    expressions = {timestamp = "", actorRole = "", action = "", objectType = "", outcome = "", requestId = ""}
+  }
+  stage.template {
+    source = "valid_timestamp"
+    template = `{{ if .timestamp }}{{ $t := toDate "2006-01-02T15:04:05.999999999Z07:00" .timestamp }}{{ if $t.IsZero }}invalid{{ else }}valid{{ end }}{{ else }}invalid{{ end }}`
+  }
+  stage.drop {
+    source = "valid_timestamp"
+    value = "invalid"
+    drop_counter_reason = "invalid_audit_timestamp"
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+    action_on_failure = "skip"
+  }
+  stage.labels {
+    values = {actorRole = "", action = "", objectType = "", outcome = ""}
+  }
+  stage.structured_metadata {
+    values = {requestId = ""}
+  }
+  stage.drop {
+    longer_than = "256KB"
+    drop_counter_reason = "audit_event_too_large"
+  }
+}
+
+// File checkpoints persist on alloy-data. Write retries are bounded; there is
+// no experimental WAL. A crashed process or extended outage can lose a batch.
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+    batch_wait = "1s"
+    batch_size = "256KiB"
+    min_backoff_period = "500ms"
+    max_backoff_period = "30s"
+    max_backoff_retries = 20
+  }
+}
+

@@ -1,0 +1,192 @@
+@using Frontend.Shared.Community
+@implements IDisposable
+@inject NotificationApi Api
+@inject CommunityRealtime Realtime
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<div class="fc-bell" @onkeydown="KeyDown">
+    <MudIconButton Icon="@Icons.Material.Outlined.Notifications" OnClick="ToggleAsync"
+                   aria-label="@CommunityText.T($"Уведомления, непрочитанных: {_unread}", $"Notifications, {_unread} unread")" aria-expanded="@_open" />
+    @if (_unread > 0) { <span class="fc-bell-count" aria-hidden="true">@(_unread > 99 ? "99+" : _unread)</span> }
+    @if (_open)
+    {
+        <button type="button" class="fc-bell-overlay" @onclick="Close" aria-label="@CommunityText.T("Закрыть", "Close")"></button>
+        <section @ref="_panel" class="fc-bell-panel" role="dialog" tabindex="-1" aria-label="@CommunityText.T("Уведомления", "Notifications")">
+            <header><strong>@CommunityText.T("Уведомления", "Notifications")</strong>
+                <span class="fc-bell-actions">
+                    @if (_unread > 0) { <button type="button" class="fc-link-button" @onclick="ReadAllAsync">@CommunityText.T("Прочитать все", "Mark all read")</button> }
+                    @if (_page?.Items.Any(i => i.IsRead) == true) { <button type="button" class="fc-link-button" @onclick="DeleteReadAsync">@CommunityText.T("Убрать прочитанные", "Clear read")</button> }
+                </span>
+            </header>
+            @if (_page is null) { <div class="fc-bell-empty"><MudProgressCircular Indeterminate="true" Size="Size.Small" /></div> }
+            else if (_page.Items.Count == 0) { <p class="fc-bell-empty">@CommunityText.T("Пока ничего нового.", "Nothing new yet.")</p> }
+            else
+            {
+                <ul>
+                    @foreach (var item in _page.Items)
+                    {
+                        <li @key="item.Id" class="@(item.IsRead ? "" : "unread")">
+                            <button type="button" @onclick="() => OpenAsync(item)">
+                                <MudIcon Icon="@IconFor(item.Type)" Size="Size.Small" />
+                                <span><span>@CommunityText.Notification(item)</span>
+                                    <small>@(item.ActorName is { Length: > 0 } actor ? actor + " · " : "")@CommunityText.Ago(item.CreatedAtUtc)</small></span>
+                            </button>
+                            @* Убрать можно только прочитанное: непрочитанное сначала откройте или отметьте прочитанным. *@
+                            @if (item.IsRead)
+                            {
+                                <button type="button" class="fc-bell-dismiss" @onclick="() => DeleteAsync(item)" aria-label="@CommunityText.T("Убрать уведомление", "Remove notification")">×</button>
+                            }
+                        </li>
+                    }
+                </ul>
+                @if (_page.Items.Count < _page.TotalCount)
+                {
+                    <button type="button" class="fc-link-button fc-bell-more" @onclick="MoreAsync" disabled="@_loadingMore">@CommunityText.T("Показать ещё", "Show more")</button>
+                }
+            }
+        </section>
+    }
+</div>
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+    private bool _open;
+    private int _unread;
+    private NotificationPageDto? _page;
+    private string BasePath => IsAdmin ? "/admin" : "/student";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Realtime.NotificationReceived += Received;
+        Realtime.Reconnected += Refresh;
+        await Realtime.EnsureStartedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try { _page = await Api.ListAsync(); _unread = _page.UnreadCount; }
+        catch (ApiException) { /* Колокольчик не должен ломать страницу. */ }
+    }
+
+    private async Task ToggleAsync()
+    {
+        _open = !_open;
+        _focusPanel = _open;
+        if (_open) await LoadAsync();
+    }
+
+    private void Close() => _open = false;
+
+    private ElementReference _panel;
+    private bool _focusPanel;
+
+    private void KeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape" && _open) _open = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_focusPanel || !_open) return;
+        _focusPanel = false;
+        try { await _panel.FocusAsync(); } catch (InvalidOperationException) { } catch (Microsoft.JSInterop.JSException) { }
+    }
+
+    private async Task OpenAsync(NotificationDto item)
+    {
+        _open = false;
+        if (!item.IsRead)
+        {
+            try { await Api.MarkReadAsync(item.Id); _unread = Math.Max(0, _unread - 1); }
+            catch (ApiException) { }
+        }
+        if (item.Link is { Length: > 0 } link && !link.StartsWith('/') && !link.Contains("//"))
+            Nav.NavigateTo($"{BasePath}/{link}");
+    }
+
+    private async Task ReadAllAsync()
+    {
+        try { await Api.MarkAllReadAsync(); await LoadAsync(); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task DeleteAsync(NotificationDto item)
+    {
+        try
+        {
+            await Api.DeleteAsync(item.Id);
+            if (_page is not null)
+                _page = _page with { Items = _page.Items.Where(i => i.Id != item.Id).ToList(), TotalCount = Math.Max(0, _page.TotalCount - 1) };
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task DeleteReadAsync()
+    {
+        try { await Api.DeleteReadAsync(); await LoadAsync(); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private bool _loadingMore;
+    private readonly List<NotificationDto> _toastQueue = [];
+    private bool _toastScheduled;
+
+    private async Task MoreAsync()
+    {
+        if (_page is null) return;
+        _loadingMore = true;
+        try
+        {
+            var next = await Api.ListAsync(_page.Items.Count / Math.Max(1, _page.PageSize) + 1);
+            var known = _page.Items.Select(i => i.Id).ToHashSet();
+            _page = _page with { Items = [.. _page.Items, .. next.Items.Where(i => !known.Contains(i.Id))], TotalCount = next.TotalCount };
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _loadingMore = false; }
+    }
+
+    private void Received(NotificationDto notification) => InvokeAsync(async () =>
+    {
+        _unread++;
+        _page = _page is null ? null : _page with { Items = [notification, .. _page.Items], TotalCount = _page.TotalCount + 1 };
+        StateHasChanged();
+        // Пользователь уже смотрит то, о чём уведомление (например, эту тему), — всплывашка лишняя.
+        if (IsCurrentPage(notification.Link)) return;
+        _toastQueue.Add(notification);
+        if (_toastScheduled) return;
+        _toastScheduled = true;
+        // Пачку (объявление, несколько ответов подряд) показываем одним сообщением.
+        await Task.Delay(1200);
+        _toastScheduled = false;
+        if (_toastQueue.Count == 1) Snackbar.Add(CommunityText.Notification(_toastQueue[0]), Severity.Info);
+        else if (_toastQueue.Count > 1)
+            Snackbar.Add(CommunityText.T($"{CommunityText.Notifications(_toastQueue.Count)} — откройте колокольчик", $"{CommunityText.Notifications(_toastQueue.Count)} — open the bell"), Severity.Info);
+        _toastQueue.Clear();
+    });
+
+    private bool IsCurrentPage(string? link)
+    {
+        if (link is not { Length: > 0 }) return false;
+        var target = $"{BasePath}/{link}".Split('?')[0];
+        return string.Equals(new Uri(Nav.Uri).AbsolutePath.TrimEnd('/'), target.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void Refresh() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    private static string IconFor(NotificationType type) => type switch
+    {
+        NotificationType.AchievementGranted => Icons.Material.Outlined.EmojiEvents,
+        NotificationType.SurveyAvailable => Icons.Material.Outlined.Poll,
+        NotificationType.ForumAnnouncement => Icons.Material.Outlined.Campaign,
+        NotificationType.ForumMention => Icons.Material.Outlined.AlternateEmail,
+        _ => Icons.Material.Outlined.Forum,
+    };
+
+    public void Dispose()
+    {
+        Realtime.NotificationReceived -= Received;
+        Realtime.Reconnected -= Refresh;
+    }
+}

@@ -36,6 +36,29 @@ public class FrontendAuthServiceTests
         [
             ("localStorage.setItem", new object[] { "access_token", "at-123" }),
             ("localStorage.setItem", new object[] { "refresh_token", "rt-456" }),
+            ("sessionStorage.removeItem", new object[] { "access_token" }),
+            ("sessionStorage.removeItem", new object[] { "refresh_token" }),
+        ]);
+    }
+
+    [Fact]
+    public async Task LoginAsync_SharedComputer_KeepsTokensOnlyForTheTab()
+    {
+        var js = new RecordingJsRuntime();
+        var sut = CreateSut(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"accessToken":"at-1","refreshToken":"rt-1"}""", Encoding.UTF8, "application/json"),
+        }, js);
+
+        var result = await sut.LoginAsync(new LoginRequest("a@b.c", "pwd"), sharedComputer: true);
+
+        result.Success.Should().BeTrue();
+        js.Calls.Should().BeEquivalentTo(
+        [
+            ("sessionStorage.setItem", new object[] { "access_token", "at-1" }),
+            ("sessionStorage.setItem", new object[] { "refresh_token", "rt-1" }),
+            ("localStorage.removeItem", new object[] { "access_token" }),
+            ("localStorage.removeItem", new object[] { "refresh_token" }),
         ]);
     }
 
@@ -79,6 +102,39 @@ public class FrontendAuthServiceTests
         js.Calls.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task Logout_RequestsServerCookieRemovalWithoutRefreshTokenAndAlwaysClearsLocalTokens(HttpStatusCode status)
+    {
+        var js = new RecordingJsRuntime();
+        var handler = new LogoutHandler(status);
+        using var http = new HttpClient(handler) { BaseAddress = new Uri("https://localhost") };
+        var sut = new AuthService(http, new TokenStore(js), Substitute.For<IStringLocalizer<AppStrings>>());
+
+        await sut.LogoutAsync();
+
+        handler.Calls.Should().Be(1);
+        handler.Path.Should().Be("/api/auth/logout");
+        js.Calls.Where(call => call.Identifier == "localStorage.removeItem").Select(call => call.Args.Single())
+            .Should().BeEquivalentTo(new object[] { "access_token", "refresh_token" });
+    }
+
+    [Theory]
+    [InlineData("nameid")]
+    [InlineData("sub")]
+    public void ClientIdentity_ExposesServerUserIdAsNameIdentifier(string claimType)
+    {
+        var id = Guid.NewGuid().ToString();
+        var identity = JwtAuthenticationStateProvider.CreateIdentity([
+            new System.Security.Claims.Claim(claimType, id),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, "Student"),
+        ]);
+
+        identity.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value.Should().Be(id);
+        new System.Security.Claims.ClaimsPrincipal(identity).IsInRole("Student").Should().BeTrue();
+    }
+
     private static AuthService CreateSut(HttpResponseMessage response, RecordingJsRuntime js, IStringLocalizer<AppStrings>? loc = null)
     {
         var http = new HttpClient(new StubHandler(response)) { BaseAddress = new Uri("https://localhost") };
@@ -107,5 +163,17 @@ public class FrontendAuthServiceTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(response);
+    }
+
+    private sealed class LogoutHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+        public string? Path { get; private set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Path = request.RequestUri!.AbsolutePath;
+            return Task.FromResult(new HttpResponseMessage(status));
+        }
     }
 }

@@ -10,4 +10,10 @@ public class BackupOptions
 
     /// <summary>Путь к утилите pg_dump (по умолчанию ищется в PATH).</summary>
     public string PgDumpPath { get; set; } = "pg_dump";
+
+    /// <summary>Путь к утилите pg_restore (восстановление из бэкапа).</summary>
+    public string PgRestorePath { get; set; } = "pg_restore";
+
+    /// <summary>Путь к утилите psql (восстановление из бэкапа).</summary>
+    public string PsqlPath { get; set; } = "psql";
 }

@@ -4,36 +4,49 @@
 
 <PageTitle>@Loc["Grading_PageTitle"]</PageTitle>
 
-<div class="fc-page-heading"><div><div class="fc-eyebrow">@Loc["AdminNav_Grading"]</div><MudText Typo="Typo.h4">@Loc["Grading_Title"]</MudText></div></div>
+<div class="fc-page-heading"><div><div class="fc-eyebrow">@Loc["AdminNav_Grading"]</div><MudText Typo="Typo.h4">@Loc["Grading_Title"]</MudText></div>
+    <AuthorizeView Roles="@Roles.SuperAdmin"><Authorized>
+        <MudButton Variant="Variant.Outlined" Href="/admin/student-accounts" StartIcon="@Icons.Material.Outlined.ManageAccounts">
+            @Loc["Grading_ManageAccounts"]
+        </MudButton>
+    </Authorized></AuthorizeView>
+</div>
 
 <div class="fc-panel fc-toolbar fc-grading-filters">
-    <MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="SearchAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
+    <MudSelect T="int?" @bind-Value="_subjectId" @bind-Value:after="OnSubjectChangedAsync" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined"
                Placeholder="@Loc["Grading_SelectSubject"]" Margin="Margin.Dense">
         @foreach (var s in _subjects) { <MudSelectItem T="int?" Value="@s.Id">@s.Name</MudSelectItem> }
     </MudSelect>
+    @if (StudentGroups.Count > 1)
+    {
+        <MudSelect T="int" MultiSelection="true" SelectedValues="_groups" SelectedValuesChanged="OnGroupsChangedAsync" MultiSelectionTextFunc="GroupsText"
+                   Label="@Loc["QueueDetails_Groups"]" Placeholder="@Loc["AttendanceJournal_AllGroups"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            @foreach (var (id, name, count) in StudentGroups) { <MudSelectItem T="int" Value="@id">@name <span class="fc-muted">· @count</span></MudSelectItem> }
+        </MudSelect>
+    }
     <MudTextField @bind-Value="_query" Label="@Loc["Grading_SearchLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                  Immediate="true" DebounceInterval="300" OnDebounceIntervalElapsed="SearchAsync"
-                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Clearable="true" />
+                  Immediate="true" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Clearable="true" />
 </div>
 
 @if (_subjectId is null)
 {
     <div class="fc-panel fc-core-empty"><MudIcon Icon="@Icons.Material.Outlined.PersonSearch" Size="Size.Large" /><MudText Class="fc-muted">@Loc["Grading_SelectSubjectHint"]</MudText></div>
 }
-else if (_searching)
+else if (_loading)
 {
     <MudProgressLinear Indeterminate="true" Class="mt-3" />
 }
-else if (_results.Count > 0)
+else if (Visible is { Count: > 0 } visible)
 {
     <section class="fc-panel fc-grading-list">
-        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@Loc["AdminNav_Grading"]</MudText><MudText Typo="Typo.caption" Class="fc-muted">@_results.Count</MudText></div>
-        @foreach (var student in _results)
+        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@Loc["AdminNav_Grading"]</MudText><MudText Typo="Typo.caption" Class="fc-muted">@visible.Count</MudText></div>
+        @foreach (var student in visible)
         {
-            <article class="fc-grading-row">
+            <article class="fc-grading-row" @key="student.Id">
                 <div class="fc-grading-identity">
-                    <span class="fc-student-name" style="@QueueStyles.NameStyle(student.Color)">@student.LastName @student.FirstName</span>
-                    <MudText Typo="Typo.caption" Class="fc-muted">@student.Email</MudText>
+                    <UserChip UserId="student.Id" Name="@($"{student.LastName} {student.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(student.Color)" Compact="true"
+                              Subtitle="@student.GroupName" />
+                    <MudText Typo="Typo.caption" Class="fc-muted">@(ProgressText(student) is { Length: > 0 } progress ? $"{progress} · {student.Email}" : student.Email)</MudText>
                     @if (IsGroupRestricted(student))
                     {
                         <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText>

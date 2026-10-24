@@ -7,4 +7,8 @@
   <data name="PasswordResetBody" xml:space="preserve"><value>&lt;p&gt;Здравствуйте!&lt;/p&gt;&lt;p&gt;Ваш код для сброса пароля в FunAndChecks:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;Код действует около 10 минут. Если вы не запрашивали сброс — просто проигнорируйте это письмо.&lt;/p&gt;</value></data>
   <data name="ExistingAccountSubject" xml:space="preserve"><value>FunAndChecks — попытка регистрации</value></data>
   <data name="ExistingAccountBody" xml:space="preserve"><value>&lt;p&gt;Кто-то попытался зарегистрироваться с этой почтой, но аккаунт уже существует. Если это были не вы — проигнорируйте письмо.&lt;/p&gt;</value></data>
+  <data name="EmailChangeSubject" xml:space="preserve"><value>FunAndChecks — подтверждение новой почты</value></data>
+  <data name="EmailChangeBody" xml:space="preserve"><value>&lt;p&gt;Здравствуйте!&lt;/p&gt;&lt;p&gt;Этот адрес хотят привязать к аккаунту FunAndChecks. Ваш код:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;Код действует около 10 минут. Если вы этого не запрашивали — просто проигнорируйте письмо: адрес не будет привязан.&lt;/p&gt;</value></data>
+  <data name="EmailChangedSubject" xml:space="preserve"><value>FunAndChecks — почта аккаунта изменена</value></data>
+  <data name="EmailChangedBody" xml:space="preserve"><value>&lt;p&gt;Здравствуйте!&lt;/p&gt;&lt;p&gt;Почта вашего аккаунта FunAndChecks изменена на &lt;b&gt;{0}&lt;/b&gt;. Теперь входить нужно с новым адресом.&lt;/p&gt;&lt;p&gt;Если это были не вы — сразу сообщите преподавателю.&lt;/p&gt;</value></data>
 </root>

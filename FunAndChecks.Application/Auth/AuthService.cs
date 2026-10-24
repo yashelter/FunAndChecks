@@ -78,6 +78,8 @@ public class AuthService(
                 GroupId = request.GroupId,
                 IsActive = false,
                 CreatedAt = DateTime.UtcNow,
+                PrivacyPolicyAcceptedAt = request.AcceptedPrivacyPolicy ? DateTime.UtcNow : null,
+                TermsAcceptedAt = request.AcceptedTerms ? DateTime.UtcNow : null,
             });
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -88,7 +90,16 @@ public class AuthService(
             throw;
         }
 
-        await SendConfirmationCodeAsync(request.Email, cancellationToken);
+        try
+        {
+            await SendConfirmationCodeAsync(request.Email, cancellationToken);
+        }
+        catch (EmailDeliveryException)
+        {
+            // Письмо на этот адрес не доставить никогда — аккаунт-сироту не оставляем.
+            await DeleteAccountAndProfileAsync(studentId, CancellationToken.None);
+            throw;
+        }
 
         return studentId;
     }
@@ -169,6 +180,55 @@ public class AuthService(
 
     public Task LogoutAsync(RefreshRequest request, CancellationToken cancellationToken = default) =>
         refreshTokenService.RevokeAsync(request.RefreshToken, cancellationToken);
+
+    public async Task<PrivacyPolicyStatusDto> GetPrivacyPolicyStatusAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var student = await db.Students.FindAsync([userId], cancellationToken);
+        if (student is null)
+        {
+            // Админа (преподавателя) создаёт суперадмин, отдельного согласия он не даёт —
+            // основание обработки другое. Считаем согласие данным.
+            if (await db.Admins.AnyAsync(a => a.Id == userId, cancellationToken))
+                return new PrivacyPolicyStatusDto(Accepted: true, AcceptedAt: null, TermsAccepted: true, TermsAcceptedAt: null);
+
+            throw new NotFoundException($"User with ID {userId} not found.");
+        }
+
+        return new PrivacyPolicyStatusDto(
+            Accepted: student.PrivacyPolicyAcceptedAt.HasValue,
+            AcceptedAt: student.PrivacyPolicyAcceptedAt,
+            TermsAccepted: student.TermsAcceptedAt.HasValue,
+            TermsAcceptedAt: student.TermsAcceptedAt);
+    }
+
+    public async Task AcceptLegalAsync(Guid userId, AcceptLegalRequest request, CancellationToken cancellationToken = default)
+    {
+        var student = await db.Students.FindAsync([userId], cancellationToken);
+        if (student is null)
+        {
+            // Админу согласие не требуется — принимать нечего.
+            if (await db.Admins.AnyAsync(a => a.Id == userId, cancellationToken))
+                return;
+
+            throw new NotFoundException($"User with ID {userId} not found.");
+        }
+
+        bool save = false;
+        if (request.AcceptedPrivacyPolicy && !student.PrivacyPolicyAcceptedAt.HasValue)
+        {
+            student.PrivacyPolicyAcceptedAt = DateTime.UtcNow;
+            save = true;
+        }
+        if (request.AcceptedTerms && !student.TermsAcceptedAt.HasValue)
+        {
+            student.TermsAcceptedAt = DateTime.UtcNow;
+            save = true;
+        }
+        if (save)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+    }
 
     private async Task<AuthResponse> IssueTokensAsync(Guid userId, CancellationToken cancellationToken)
     {

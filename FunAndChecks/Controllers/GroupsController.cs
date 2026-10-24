@@ -74,6 +74,12 @@ public class GroupsController(IGroupService groupService) : ControllerBase
     public async Task<ActionResult<List<int>>> GetSubjectIds(int groupId, CancellationToken cancellationToken) =>
         Ok(await groupService.GetSubjectIdsAsync(User.GetUserId(), groupId, cancellationToken));
 
+    /// <summary>Доступы всех видимых групп к предметам одним запросом (обзор в «Управлении»).</summary>
+    [HttpGet("subject-links")]
+    [Authorize(Roles = Roles.Admin)]
+    public async Task<ActionResult<List<GroupSubjectsDto>>> GetSubjectLinks(CancellationToken cancellationToken) =>
+        Ok(await groupService.GetSubjectLinksAsync(User.GetUserId(), cancellationToken));
+
     /// <summary>Id групп, которым доступен предмет (для настройки доступа).</summary>
     [HttpGet("for-subject/{subjectId:int}")]
     [Authorize(Roles = Roles.Admin)]

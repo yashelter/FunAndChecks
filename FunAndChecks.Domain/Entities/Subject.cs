@@ -10,6 +10,7 @@ public class Subject
     public bool AttendanceEnabled { get; set; }
 
     public ICollection<CourseTask> Tasks { get; set; } = new List<CourseTask>();
+    public ICollection<TaskGroup> TaskGroups { get; set; } = new List<TaskGroup>();
     public ICollection<GradeComponent> GradeComponents { get; set; } = new List<GradeComponent>();
     public ICollection<GroupSubject> GroupSubjects { get; set; } = new List<GroupSubject>();
 }

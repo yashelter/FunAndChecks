@@ -1,4 +1,5 @@
-TGBot/config.json
+graphify-out/
+AGENTS.md
 
 # Секреты приложения, включая InitialAdmins — реальный файл (шаблон рядом: secrets.template.json)
 **/secrets.json
@@ -229,3 +230,5 @@ project.lock.json
  
 
 *.db
+# Local forum attachments (Attachments:RootDirectory)
+/attachments/

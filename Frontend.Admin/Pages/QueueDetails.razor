@@ -24,11 +24,21 @@ else if (_details is not null)
         </MudChip>
     </div>
 
+    @if (_loadError is not null)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">@Loc["QueueDetails_Stale"] <MudLink OnClick="LoadAsync">@Loc["QueueDetails_Retry"]</MudLink></MudAlert>
+    }
+
     <div class="fc-stats fc-queue-stats">
-        <div class="fc-stat"><span>@Loc["Queue_StatusWaiting"]</span><strong>@_participants.Count(p => p.Status == QueueEntryStatus.Waiting)</strong></div>
-        <div class="fc-stat"><span>@Loc["Queue_StatusChecking"]</span><strong class="fc-semantic-info">@_participants.Count(p => p.Status == QueueEntryStatus.Checking)</strong></div>
-        <div class="fc-stat"><span>@Loc["Queue_StatusSkipped"]</span><strong class="fc-semantic-error">@_participants.Count(p => p.Status == QueueEntryStatus.Skipped)</strong></div>
-        <div class="fc-stat"><span>@Loc["Queue_StatusFinished"]</span><strong class="fc-semantic-success">@_participants.Count(p => p.Status == QueueEntryStatus.Finished)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusWaiting"]</span><strong>@StatCount(QueueEntryStatus.Waiting)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusChecking"]</span><strong class="fc-semantic-info">@StatCount(QueueEntryStatus.Checking)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusSkipped"]</span><strong class="fc-semantic-error">@StatCount(QueueEntryStatus.Skipped)</strong></div>
+        <div class="fc-stat"><span>@Loc["Queue_StatusFinished"]</span><strong class="fc-semantic-success">@StatCount(QueueEntryStatus.Finished)</strong></div>
+    </div>
+
+    <div class="fc-panel fc-queue-next">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.SkipNext" OnClick="TakeNextAsync"
+                   Disabled="@(NextWaiting() is null)">@Loc["QueueDetails_TakeNext"]</MudButton>
     </div>
 
     @if (_participants.Any(p => p.Status == QueueEntryStatus.Checking))
@@ -45,9 +55,11 @@ else if (_details is not null)
     }
 
     <div class="fc-panel fc-toolbar fc-queue-filters">
-        <MudTextField @bind-Value="_filter" Label="@Loc["QueueDetails_FilterLabel"]" Variant="Variant.Outlined"
-                      Margin="Margin.Dense" Clearable="true" Immediate="true"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+        @* Фильтр только по группам, которые есть в этой очереди; «Взять следующего» тоже его учитывает. *@
+        <MudSelect T="string" MultiSelection="true" SelectedValues="_groups" SelectedValuesChanged="OnGroupsChangedAsync" MultiSelectionTextFunc="GroupsText"
+                   Label="@Loc["QueueDetails_Groups"]" Placeholder="@Loc["AttendanceJournal_AllGroups"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            @foreach (var (group, count) in Groups) { <MudSelectItem T="string" Value="@group">@group <span class="fc-muted">· @count</span></MudSelectItem> }
+        </MudSelect>
         <MudSelect T="ParticipantSort" @bind-Value="_sort" Label="@Loc["QueueDetails_SortLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense">
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Points">@Loc["QueueDetails_SortPoints"]</MudSelectItem>
             <MudSelectItem T="ParticipantSort" Value="ParticipantSort.Group">@Loc["QueueDetails_SortGroup"]</MudSelectItem>
@@ -66,7 +78,7 @@ else if (_details is not null)
             {
                 <article class="fc-queue-person @QueueClass(p.Status)">
                     <div class="fc-queue-person-identity">
-                        <span class="fc-student-name" style="@QueueStyles.NameStyle(p.StudentColor)">@p.LastName @p.FirstName</span>
+                        <UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" />
                         <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")</MudText>
                         @if (!p.CanManage) { <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText> }
                     </div>

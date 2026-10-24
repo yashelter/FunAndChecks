@@ -1,0 +1,347 @@
+@using System.Security.Claims
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject ForumApi Api
+@inject AuthService Auth
+@inject AuthenticationStateProvider Authentication
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ConfirmService Confirm
+@inject ForumListState ListState
+
+<PageTitle>@(_topic?.Topic.Title ?? CommunityText.T("Тема", "Topic"))</PageTitle>
+<a class="fc-profile-back" href="@(ListState.LastUrl(BasePath))">← @CommunityText.T("Все темы", "All topics")</a>
+@if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert> }
+@if (_topic is null) { if (_error is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> } }
+else
+{
+    var summary = _topic.Topic;
+    <section class="fc-panel fc-topic-header">
+        <div>
+            <div class="fc-topic-badges">
+                <span class="fc-chip">@(summary.SubjectName ?? CommunityText.T("Общее", "General"))</span>
+                @if (summary.IsPinned) { <span class="fc-chip accent"><MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" />@CommunityText.T("Закреплена", "Pinned")</span> }
+                @if (summary.IsAnnouncement) { <span class="fc-chip accent">@CommunityText.T("Объявление", "Announcement")</span> }
+                @if (summary.IsClosed) { <span class="fc-chip"><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />@CommunityText.T("Закрыта", "Closed")</span> }
+            </div>
+            @if (_renaming)
+            {
+                <div class="fc-topic-rename"><MudTextField T="string" @bind-Value="_title" MaxLength="200" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" />
+                    <MudButton OnClick="RenameAsync" Color="Color.Primary">@CommunityText.T("Сохранить", "Save")</MudButton><MudButton OnClick="() => _renaming = false">@CommunityText.T("Отмена", "Cancel")</MudButton></div>
+            }
+            else { <h1>@summary.Title</h1> }
+            <div class="fc-topic-meta"><UserChip UserId="summary.Author.UserId" Name="@summary.Author.Name" Compact="true" /><span>@CommunityText.Ago(summary.CreatedAtUtc)</span><span>@CommunityText.Posts(summary.PostCount)</span>
+                @if (!_live) { <span class="fc-chip" title="@CommunityText.T("Новые сообщения появятся после обновления страницы", "New messages appear after a refresh")"><MudIcon Icon="@Icons.Material.Outlined.SyncDisabled" Size="Size.Small" />@CommunityText.T("без живых обновлений", "live updates off")</span> }</div>
+        </div>
+        <div class="fc-topic-actions">
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="ToggleSubscriptionAsync"
+                       StartIcon="@(_topic.Permissions.IsSubscribed ? Icons.Material.Outlined.NotificationsOff : Icons.Material.Outlined.NotificationsActive)">
+                @(_topic.Permissions.IsSubscribed ? CommunityText.T("Не следить", "Unfollow") : CommunityText.T("Следить", "Follow"))</MudButton>
+            @if (_topic.Permissions.CanModerate)
+            {
+                <MudMenu Icon="@Icons.Material.Outlined.Settings" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" aria-label="@CommunityText.T("Модерация темы", "Moderate topic")">
+                    <MudMenuItem OnClick="() => UpdateAsync(new(IsPinned: !summary.IsPinned))">@(summary.IsPinned ? CommunityText.T("Открепить тему", "Unpin topic") : CommunityText.T("Закрепить тему", "Pin topic"))</MudMenuItem>
+                    <MudMenuItem OnClick="() => UpdateAsync(new(IsClosed: !summary.IsClosed))">@(summary.IsClosed ? CommunityText.T("Открыть тему", "Reopen topic") : CommunityText.T("Закрыть тему", "Close topic"))</MudMenuItem>
+                    <MudMenuItem OnClick="() => UpdateAsync(new(IsAnnouncement: !summary.IsAnnouncement))">@(summary.IsAnnouncement ? CommunityText.T("Сделать обсуждением", "Make a discussion") : CommunityText.T("Сделать объявлением", "Make an announcement"))</MudMenuItem>
+                    <MudMenuItem OnClick="StartRename">@CommunityText.T("Переименовать", "Rename")</MudMenuItem>
+                    <MudMenuItem OnClick="OpenMoveAsync">@CommunityText.T("Перенести в раздел…", "Move to section…")</MudMenuItem>
+                    <MudMenuItem OnClick="DeleteTopicAsync" Class="fc-danger">@CommunityText.T("Удалить тему", "Delete topic")</MudMenuItem>
+                </MudMenu>
+            }
+        </div>
+    </section>
+
+    @if (_topic.PinnedPosts.Count > 0)
+    {
+        <section class="fc-pinned-posts" aria-label="@CommunityText.T("Закреплённые сообщения", "Pinned messages")">
+            <h2><MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" />@CommunityText.T("Закреплено", "Pinned")</h2>
+            @foreach (var post in _topic.PinnedPosts)
+            {
+                <button type="button" class="fc-post-quote" @onclick="() => JumpToAsync(post.Id)"><strong>@post.Author.Name</strong>
+                    <span>@Excerpt(post.Body)</span></button>
+            }
+        </section>
+    }
+
+    @if (_posts is not null)
+    {
+        @if (_newPosts) { <button type="button" class="fc-new-posts" @onclick="LastPageAsync">@CommunityText.T("Есть новые сообщения — показать", "New messages — show")</button> }
+        <div class="fc-post-list">
+            @foreach (var post in _posts.Items)
+            {
+                <PostCard @key="@($"{post.Id}-{post.EditedAtUtc?.Ticks}-{post.IsDeleted}-{post.IsPinned}-{post.Reactions.Sum(r => r.Count)}")" Post="post" ViewerId="_viewerId"
+                          CanModerate="_topic.Permissions.CanModerate" CanReply="_topic.Permissions.CanReply" BasePath="@BasePath"
+                          Reply="StartReply" JumpTo="JumpToAsync" Changed="ReloadAsync" />
+            }
+        </div>
+        @if (_posts.TotalCount > _posts.PageSize)
+        {
+            <MudPagination Count="@PageCount" Selected="_posts.Page" SelectedChanged="PageAsync" Class="mt-3 mb-3" />
+        }
+    }
+
+    @if (_topic.Permissions.CanReply)
+    {
+        <section class="fc-panel fc-reply-box" id="reply">
+            <h2>@CommunityText.T("Ваш ответ", "Your reply")</h2>
+            <PostComposer TopicId="TopicId" BasePath="@BasePath" DraftKey="@($"fc-draft:reply:{TopicId}")" ReplyTo="_replyTo" ReplyCancelled="() => _replyTo = null" Submit="SendAsync" />
+        </section>
+    }
+    else
+    {
+        <div class="fc-panel fc-reply-blocked"><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />@CommunityText.ReplyBlocked(_topic.Permissions.ReplyBlockedCode, _topic.Permissions.BannedUntilUtc)</div>
+    }
+}
+
+@if (_moving)
+{
+    <Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Перенести тему", "Move topic")" Close="() => _moving = false">
+        <ChildContent>
+            <MudSelect T="string" @bind-Value="_moveTarget" Label="@CommunityText.T("Раздел", "Section")" Variant="Variant.Outlined">
+                @foreach (var section in _sections.Where(s => s.CanCreateTopics))
+                {
+                    <MudSelectItem Value="@(section.SubjectId?.ToString() ?? "general")">@(section.SubjectName ?? CommunityText.T("Общее", "General"))</MudSelectItem>
+                }
+            </MudSelect>
+            <p class="fc-muted mt-3">@CommunityText.T("Тему увидят все, у кого есть доступ к новому разделу.", "Everyone with access to the new section will see the topic.")</p>
+        </ChildContent>
+        <Actions><MudButton OnClick="() => _moving = false">@CommunityText.T("Отмена", "Cancel")</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="MoveAsync">@CommunityText.T("Перенести", "Move")</MudButton></Actions>
+    </Frontend.Shared.Profiles.ProfileDialog>
+}
+
+@code {
+    [Parameter, EditorRequired] public int TopicId { get; set; }
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public long? PostId { get; set; }
+    private string BasePath => IsAdmin ? "/admin" : "/student";
+    private ForumTopicDto? _topic;
+    private ForumPostPageDto? _posts;
+    private ForumQuoteDto? _replyTo;
+    private List<ForumSectionDto> _sections = [];
+    private Guid _viewerId;
+    private string? _error, _title, _moveTarget;
+    private bool _renaming, _moving, _newPosts;
+    private int _loadedTopic;
+    private bool _live = true;
+    private long? _loadedPost;
+    private long? _scrollTo;
+    private HubConnection? _hub;
+    private IJSObjectReference? _module;
+    private readonly CancellationTokenSource _life = new();
+    private int PageCount => _posts is null ? 1 : Math.Max(1, (int)Math.Ceiling(_posts.TotalCount / (double)_posts.PageSize));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedTopic == TopicId)
+        {
+            // Та же тема, другая ссылка на сообщение (например, из уведомления).
+            if (PostId is long post && post != _loadedPost) { _loadedPost = post; await JumpToAsync(post); }
+            return;
+        }
+        _loadedTopic = TopicId;
+        _loadedPost = PostId;
+        _topic = null; _posts = null; _replyTo = null; _error = null;
+        var state = await Authentication.GetAuthenticationStateAsync();
+        Guid.TryParse(state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _viewerId);
+        if (!await LoadTopicAsync()) return;
+        // Без явной ссылки на сообщение открываем первое непрочитанное.
+        var target = PostId ?? (_topic!.LastReadPostId > 0 ? _topic.LastReadPostId + 1 : null);
+        await LoadPostsAsync(1, target);
+        _scrollTo = PostId;
+        await ConnectAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_scrollTo is not long id || _posts is null) return;
+        _scrollTo = null;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        await _module.InvokeAsync<bool>("scrollToElement", $"post-{id}");
+    }
+
+    private async Task<bool> LoadTopicAsync()
+    {
+        try { _topic = await Api.TopicAsync(TopicId, _life.Token); return true; }
+        catch (ApiException ex) { _error = ex.Message; return false; }
+        catch (OperationCanceledException) { return false; }
+    }
+
+    private async Task LoadPostsAsync(int page, long? around = null)
+    {
+        try
+        {
+            _posts = await Api.PostsAsync(TopicId, page, around, _life.Token);
+            _newPosts = false;
+            var last = _posts.Items.Count == 0 ? 0 : _posts.Items.Max(p => p.Id);
+            if (_topic is not null && last > _topic.LastReadPostId)
+            {
+                _topic = _topic with { LastReadPostId = last };
+                await Api.MarkReadAsync(TopicId, last, _life.Token);
+            }
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task ConnectAsync()
+    {
+        await DisconnectAsync();
+        try
+        {
+            _hub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/forumHub"), options => options.AccessTokenProvider = () => Auth.GetTokenAsync())
+                .WithAutomaticReconnect().Build();
+            _hub.On<ForumTopicEventDto>("TopicChanged", update => InvokeAsync(() => OnTopicChangedAsync(update)));
+            var hub = _hub;
+            _hub.Reconnected += async _ =>
+            {
+                try { await hub.InvokeAsync("SubscribeToTopic", TopicId); await InvokeAsync(ReloadAsync); }
+                catch (Exception) { }
+            };
+            _hub.Closed += _ => InvokeAsync(() => { _live = false; StateHasChanged(); });
+            _hub.Reconnecting += _ => InvokeAsync(() => { _live = false; StateHasChanged(); });
+            _hub.Reconnected += _ => InvokeAsync(() => { _live = true; StateHasChanged(); });
+            await _hub.StartAsync(_life.Token);
+            await _hub.InvokeAsync("SubscribeToTopic", TopicId, _life.Token);
+            _live = true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Тема работает и без живых обновлений — перечитается при действиях; честно показываем это.
+            _live = false;
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        var hub = _hub;
+        _hub = null;
+        if (hub is null) return;
+        try { await hub.DisposeAsync(); } catch (Exception) { }
+    }
+
+    private async Task OnTopicChangedAsync(ForumTopicEventDto update)
+    {
+        if (update.TopicId != TopicId) return;
+        if (update.Kind == "post-created")
+        {
+            var mine = _posts?.Items.Any(p => p.Id == update.PostId) == true;
+            if (!mine && _posts is not null && _posts.Page >= PageCount && _posts.Items.Count < _posts.PageSize) await LoadPostsAsync(_posts.Page);
+            else if (!mine) _newPosts = true;
+            await LoadTopicAsync();
+        }
+        else await ReloadAsync();
+        StateHasChanged();
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (!await LoadTopicAsync()) { Nav.NavigateTo($"{BasePath}/forum"); return; }
+        await LoadPostsAsync(_posts?.Page ?? 1);
+    }
+
+    private async Task PageAsync(int page) => await LoadPostsAsync(page);
+
+    private async Task LastPageAsync()
+    {
+        var total = (_posts?.TotalCount ?? 0) + 1;
+        var pageSize = Math.Max(1, _posts?.PageSize ?? 30);
+        await LoadPostsAsync(Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
+    }
+
+    private async Task JumpToAsync(long postId)
+    {
+        if (_posts?.Items.Any(p => p.Id == postId) != true) await LoadPostsAsync(1, postId);
+        _scrollTo = postId;
+        StateHasChanged();
+    }
+
+    private void StartReply(ForumPostDto post)
+    {
+        _replyTo = new ForumQuoteDto(post.Id, post.Author.Name, Excerpt(post.Body), false, post.Author.UserId);
+        _scrollTo = null;
+        _ = ScrollToReplyAsync();
+    }
+
+    private async Task ScrollToReplyAsync()
+    {
+        await Task.Yield();
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        await _module.InvokeAsync<bool>("scrollToElement", "reply");
+    }
+
+    private async Task<bool> SendAsync(string body, List<Guid> files)
+    {
+        try
+        {
+            var created = await Api.CreatePostAsync(TopicId, new(body, _replyTo?.Id, files));
+            _replyTo = null;
+            await LoadTopicAsync();
+            await LoadPostsAsync(1, created.Id);
+            _scrollTo = created.Id;
+            return true;
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); return false; }
+    }
+
+    private async Task UpdateAsync(UpdateForumTopicRequest request)
+    {
+        try { _topic = await Api.UpdateTopicAsync(TopicId, request); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private void StartRename() { _title = _topic?.Topic.Title; _renaming = true; }
+
+    private async Task RenameAsync()
+    {
+        await UpdateAsync(new(Title: _title));
+        _renaming = false;
+    }
+
+    private async Task OpenMoveAsync()
+    {
+        try { _sections = await Api.SectionsAsync(); } catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); return; }
+        _moveTarget = _topic?.Topic.SubjectId?.ToString() ?? "general";
+        _moving = true;
+    }
+
+    private async Task MoveAsync()
+    {
+        _moving = false;
+        await UpdateAsync(new(ChangeSubject: true, SubjectId: _moveTarget == "general" ? null : int.Parse(_moveTarget!)));
+    }
+
+    private async Task ToggleSubscriptionAsync()
+    {
+        if (_topic is null) return;
+        var subscribe = !_topic.Permissions.IsSubscribed;
+        try
+        {
+            await Api.SubscribeAsync(TopicId, subscribe);
+            _topic = _topic with { Permissions = _topic.Permissions with { IsSubscribed = subscribe } };
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private async Task DeleteTopicAsync()
+    {
+        if (_topic is null || !await Confirm.ConfirmDeleteAsync(_topic.Topic.Title)) return;
+        try { await Api.DeleteTopicAsync(TopicId); Nav.NavigateTo($"{BasePath}/forum"); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private static string Excerpt(string body) => ForumMarkdown.ToPlainText(body, 140);
+
+    public async ValueTask DisposeAsync()
+    {
+        _life.Cancel();
+        await DisconnectAsync();
+        if (_module is not null)
+        {
+            try { await _module.DisposeAsync(); } catch (JSDisconnectedException) { }
+        }
+        _life.Dispose();
+    }
+}

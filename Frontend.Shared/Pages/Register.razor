@@ -34,13 +34,20 @@
                       Required="true" RequiredError="@Loc["Register_ConfirmPasswordRequired"]" Variant="Variant.Outlined" autocomplete="new-password"
                       Validation="@(new Func<string, string?>(ValidateConfirm))" />
 
-        <MudSelect T="int" For="@(() => _model.GroupId)" @bind-Value="_model.GroupId" Label="@Loc["Register_GroupLabel"]" Required="true"
+        <MudSelect T="int?" For="@(() => _model.GroupId)" @bind-Value="_model.GroupId" Label="@Loc["Register_GroupLabel"]" Required="true" Strict="true"
                    RequiredError="@Loc["Register_GroupRequired"]" Variant="Variant.Outlined" Placeholder="@Loc["Register_GroupPlaceholder"]">
             @foreach (var group in _groups)
             {
-                <MudSelectItem T="int" Value="group.Id">@group.Name</MudSelectItem>
+                <MudSelectItem T="int?" Value="group.Id">@group.Name</MudSelectItem>
             }
         </MudSelect>
+
+        <div class="mt-4">
+            @* Одна галочка: соглашение одно (licence/agreement.md). *@
+            <MudCheckBox @bind-Value="_model.AcceptedTerms" Label="@Loc["Register_AcceptTerms"]" Required="true"
+                         RequiredError="@Loc["Register_AcceptTermsRequired"]" Color="Color.Primary" Dense="true" />
+            <MudLink Href="/privacy-policy" Target="_blank" Class="ms-2">@Loc["Register_TermsLink"]</MudLink>
+        </div>
 
         @if (_error is not null)
         {

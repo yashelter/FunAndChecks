@@ -26,7 +26,8 @@
 }
 else if (_results is not null)
 {
-    <SubjectResultsView Results="_results" />
+    @if (_mine is not null) { <StudentStatusCard Results="_mine" Queues="_queues" /> }
+    <SubjectResultsView Results="_results" HighlightStudentId="_myId" OnResultUpdated="OnResultUpdatedAsync" />
 }
 else
 {

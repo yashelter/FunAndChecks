@@ -1,12 +1,26 @@
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Application.Admins;
+using FunAndChecks.Application.Common.Interfaces;
+using NSubstitute;
 
 namespace FunAndChecks.Tests.Common;
 
 /// <summary>Хелперы для наполнения тестовой БД.</summary>
 public static class Seed
 {
+    public static AdminAccessService Access(this ApplicationDbContext db)
+    {
+        var identity = Substitute.For<IIdentityService>();
+        identity.GetCurrentRolesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<string>());
+        return new AdminAccessService(db, identity);
+    }
+
+    public static void GrantSubject(this ApplicationDbContext db, Admin admin, Subject subject) =>
+        db.AdminSubjectAccesses.Add(new AdminSubjectAccess { Admin = admin, Subject = subject });
+
     /// <summary>
     /// Профили Student/Admin связаны FK с учётной записью по общему Id —
     /// под SQLite (с включёнными FK) аккаунт обязателен.
@@ -71,7 +85,7 @@ public static class Seed
         return student;
     }
 
-    public static CourseTask Task(this ApplicationDbContext db, Subject subject, int maxPoints = 10, string name = "Task")
+    public static CourseTask Task(this ApplicationDbContext db, Subject subject, int maxPoints = 10, string name = "Task", TaskGroup? group = null)
     {
         var task = new CourseTask
         {
@@ -79,9 +93,17 @@ public static class Seed
             Description = "desc",
             MaxPoints = maxPoints,
             SubjectId = subject.Id,
+            TaskGroup = group,
         };
         db.Tasks.Add(task);
         return task;
+    }
+
+    public static TaskGroup TaskGroup(this ApplicationDbContext db, Subject subject, string name = "Group")
+    {
+        var group = new TaskGroup { Name = name, SubjectId = subject.Id };
+        db.TaskGroups.Add(group);
+        return group;
     }
 
     public static GradeComponent Component(this ApplicationDbContext db, Subject subject, int maxPoints = 100, int minPoints = 0, string name = "Exam")

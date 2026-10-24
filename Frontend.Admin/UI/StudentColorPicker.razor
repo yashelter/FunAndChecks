@@ -1,0 +1,173 @@
+@namespace Frontend.Admin.UI
+@using MudBlazor.Utilities
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="fc-rgb-picker" aria-disabled="@(Disabled ? "true" : "false")">
+    <label class="fc-rgb-hue-label">@HueLabel
+        <input class="fc-rgb-hue" type="range" min="0" max="359" step="1" value="@Number(_hue)"
+               disabled="@Disabled" aria-label="@HueLabel" @oninput="ChangeHueAsync" />
+    </label>
+    <div @ref="_spectrum" class="fc-rgb-spectrum" role="slider" tabindex="@(Disabled ? -1 : 0)"
+         aria-label="@SpectrumLabel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Math.Round(_saturation * 100)"
+         aria-valuetext="@($"S {Math.Round(_saturation * 100)}%, V {Math.Round(_brightness * 100)}%")"
+         data-disabled="@(Disabled ? "true" : "false")" style="@SpectrumStyle"
+         @onkeydown="ChangeSpectrumKeyAsync">
+        <span class="fc-rgb-marker" style="@MarkerStyle" aria-hidden="true"></span>
+    </div>
+    <div class="fc-rgb-channels">
+        @foreach (var channel in new[] { "R", "G", "B" })
+        {
+            <label>@channel<input @key="_channelRevisions[channel]" type="number" min="0" max="255" step="1" inputmode="numeric" aria-label="@channel"
+                                  value="@Channel(channel)" disabled="@Disabled" @onchange="@(e => ChangeChannelAsync(channel, e))" /></label>
+        }
+    </div>
+    <div class="fc-rgb-hex-row">
+        <label>HEX<input @key="_hexRevision" type="text" value="@_hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="HEX"
+                         disabled="@Disabled" @onchange="ChangeHexAsync" /></label>
+        <span class="fc-rgb-swatch" style="@($"background:{_hex};")" title="@_hex" aria-label="@_hex"></span>
+    </div>
+</div>
+
+@code {
+    [Parameter] public MudColor? Value { get; set; }
+    [Parameter] public EventCallback<MudColor> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string HueLabel { get; set; } = "Hue";
+    [Parameter] public string SpectrumLabel { get; set; } = "Saturation and brightness";
+
+    private double _hue = 160, _saturation = .75, _brightness = .8;
+    private string _hex = "#33CC99";
+    private string? _lastParameter;
+    private ElementReference _spectrum;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<StudentColorPicker>? _reference;
+    private bool _disposed;
+    private readonly Dictionary<string, int> _channelRevisions = new() { ["R"] = 0, ["G"] = 0, ["B"] = 0 };
+    private int _hexRevision;
+    private string SpectrumStyle => $"background-color:hsl({Number(_hue)} 100% 50%);";
+    private string MarkerStyle => $"left:{Number(_saturation * 100)}%;top:{Number((1 - _brightness) * 100)}%;background:{_hex};";
+    private static string Number(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    private int Channel(string channel) => Convert.ToInt32(_hex.Substring(channel == "R" ? 1 : channel == "G" ? 3 : 5, 2), 16);
+
+    protected override void OnParametersSet()
+    {
+        var hex = Value is null ? null : $"#{Value.R:X2}{Value.G:X2}{Value.B:X2}";
+        if (hex is null || hex == _lastParameter)
+            return;
+        _lastParameter = hex;
+        ReadRgb(Value!.R, Value.G, Value.B);
+        _hex = hex;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _disposed)
+            return;
+        var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Admin/student-color-picker.js?v=1");
+        if (_disposed) { await module.DisposeAsync(); return; }
+        _module = module;
+        _reference = DotNetObjectReference.Create(this);
+        await _module.InvokeVoidAsync("attach", _spectrum, _reference);
+    }
+
+    [JSInvokable]
+    public async Task SetSpectrumAsync(double saturation, double brightness)
+    {
+        if (_disposed || Disabled || !double.IsFinite(saturation) || !double.IsFinite(brightness))
+            return;
+        _saturation = Math.Clamp(saturation, 0, 1);
+        _brightness = Math.Clamp(brightness, 0, 1);
+        await EmitAsync();
+        StateHasChanged();
+    }
+
+    private async Task ChangeHueAsync(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var hue))
+        {
+            _hue = Math.Clamp(hue, 0, 359);
+            await EmitAsync();
+        }
+    }
+
+    private async Task ChangeSpectrumKeyAsync(KeyboardEventArgs e)
+    {
+        var step = e.ShiftKey ? .1 : .01;
+        var saturation = _saturation;
+        var brightness = _brightness;
+        switch (e.Key)
+        {
+            case "ArrowLeft": saturation -= step; break;
+            case "ArrowRight": saturation += step; break;
+            case "ArrowUp": brightness += step; break;
+            case "ArrowDown": brightness -= step; break;
+            case "Home": saturation = 0; break;
+            case "End": saturation = 1; break;
+            default: return;
+        }
+        await SetSpectrumAsync(saturation, brightness);
+    }
+
+    private async Task ChangeChannelAsync(string channel, ChangeEventArgs e)
+    {
+        _channelRevisions[channel]++;
+        if (!int.TryParse(e.Value?.ToString(), out var value))
+            return;
+        value = Math.Clamp(value, 0, 255);
+        ReadRgb(channel == "R" ? value : Channel("R"), channel == "G" ? value : Channel("G"), channel == "B" ? value : Channel("B"));
+        await EmitAsync();
+    }
+
+    private async Task ChangeHexAsync(ChangeEventArgs e)
+    {
+        _hexRevision++;
+        var hex = e.Value?.ToString()?.Trim().TrimStart('#');
+        if (hex?.Length != 6 || !uint.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
+            return;
+        ReadRgb((int)(rgb >> 16), (int)((rgb >> 8) & 255), (int)(rgb & 255));
+        await EmitAsync();
+    }
+
+    private void ReadRgb(int red, int green, int blue)
+    {
+        var r = red / 255d; var g = green / 255d; var b = blue / 255d;
+        var max = Math.Max(r, Math.Max(g, b)); var min = Math.Min(r, Math.Min(g, b)); var delta = max - min;
+        _brightness = max;
+        if (max > 0) _saturation = delta / max;
+        if (delta == 0) return;
+        _hue = 60 * (max == r ? (g - b) / delta : max == g ? (b - r) / delta + 2 : (r - g) / delta + 4);
+        if (_hue < 0) _hue += 360;
+    }
+
+    private async Task EmitAsync()
+    {
+        if (Disabled || _disposed) return;
+        var chroma = _brightness * _saturation;
+        var x = chroma * (1 - Math.Abs(_hue / 60 % 2 - 1));
+        var m = _brightness - chroma;
+        double r, g, b;
+        if (_hue < 60) { r = chroma; g = x; b = 0d; }
+        else if (_hue < 120) { r = x; g = chroma; b = 0d; }
+        else if (_hue < 180) { r = 0d; g = chroma; b = x; }
+        else if (_hue < 240) { r = 0d; g = x; b = chroma; }
+        else if (_hue < 300) { r = x; g = 0d; b = chroma; }
+        else { r = chroma; g = 0d; b = x; }
+        var color = new MudColor((int)Math.Round((r + m) * 255), (int)Math.Round((g + m) * 255), (int)Math.Round((b + m) * 255), 255);
+        _hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        _lastParameter = _hex;
+        await ValueChanged.InvokeAsync(color);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_module is not null)
+        {
+            try { await _module.InvokeVoidAsync("detach", _spectrum); }
+            catch (JSDisconnectedException) { }
+            await _module.DisposeAsync();
+        }
+        _reference?.Dispose();
+    }
+}

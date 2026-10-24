@@ -67,6 +67,19 @@ public class QueuesController(IQueueService queueService) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Студент выходит из очереди (пока его не взяли на проверку).</summary>
+    [HttpDelete("{eventId:int}/join")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Leave(int eventId, CancellationToken cancellationToken)
+    {
+        if (User.IsInRole(Roles.Admin))
+            return Forbid();
+
+        await queueService.LeaveAsync(eventId, User.GetUserId(), cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Админ меняет статус студента в очереди (берёт на проверку, завершает и т.д.).</summary>
     [HttpPut("{eventId:int}/students/{studentId:guid}/status")]
     [Authorize(Roles = Roles.Admin)]

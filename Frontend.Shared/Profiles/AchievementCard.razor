@@ -1,0 +1,17 @@
+@namespace Frontend.Shared.Profiles
+<MudTooltip Text="@Description" Placement="Placement.Top">
+    <button type="button" class="fc-profile-achievement @(Pinned ? "pinned" : "")" @onclick="Click" aria-label="@Name">
+        @if (Pinned) { <span class="fc-profile-pin" aria-label="@ProfileText.T("Закреплено", "Pinned")">⌖</span> }
+        <ProfileMedia Media="Image" Alt="@Name" Class="fc-profile-badge-image" />
+        <strong>@Name</strong>
+        @if (!string.IsNullOrEmpty(Meta)) { <small>@Meta</small> }
+    </button>
+</MudTooltip>
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public string? Meta { get; set; }
+    [Parameter] public MediaDto? Image { get; set; }
+    [Parameter] public bool Pinned { get; set; }
+    [Parameter] public EventCallback Click { get; set; }
+}

@@ -8,13 +8,20 @@
     <div class="fc-auth-form">
     <MudText Typo="Typo.h5">@Loc["Login_Title"]</MudText>
 
+    @* Настоящая форма: Enter отправляет из любого поля, менеджеры паролей её распознают. *@
+    <form @onsubmit="SubmitAsync" @onsubmit:preventDefault="true" novalidate>
     <MudForm @ref="_form">
-        <MudTextField @bind-Value="_email" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
+        <MudTextField @bind-Value="_email" Immediate="true" Label="@Loc["Common_EmailLabel"]" InputType="InputType.Email"
                       Required="true" RequiredError="@Loc["Common_EmailRequired"]" Variant="Variant.Outlined" autocomplete="email" />
-        <MudTextField @bind-Value="_password" Label="@Loc["Login_PasswordLabel"]" InputType="InputType.Password"
-                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]"
-                      OnKeyDown="HandleKeyDownAsync" Variant="Variant.Outlined" autocomplete="current-password" />
+        <MudTextField @bind-Value="_password" Immediate="true" Label="@Loc["Login_PasswordLabel"]"
+                      InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                      Required="true" RequiredError="@Loc["Common_PasswordRequired"]" Variant="Variant.Outlined" autocomplete="current-password"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => _showPassword = !_showPassword)" AdornmentAriaLabel="@Loc["Register_ShowPassword"]" />
     </MudForm>
+    <MudCheckBox @bind-Value="_sharedComputer" Color="Color.Primary" Dense="true" Class="mt-2" Label="@Loc["Login_SharedComputer"]" />
+    @if (_sharedComputer) { <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Login_SharedComputerHint"]</MudText> }
 
     @if (_error is not null)
     {
@@ -26,11 +33,12 @@
         }
     }
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-               OnClick="SubmitAsync" Disabled="_busy">
+    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+               Disabled="_busy">
         @if (_busy) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
         @Loc["Login_SubmitButton"]
     </MudButton>
+    </form>
 
     <div class="fc-auth-links">
         <MudLink Href="/register">@Loc["Login_GoToRegister"]</MudLink>
@@ -41,3 +49,4 @@
     </div>
     </div>
 </section>
+

@@ -17,5 +17,11 @@ public class CourseTaskConfiguration : IEntityTypeConfiguration<CourseTask>
             .WithOne(s => s.Task)
             .HasForeignKey(s => s.TaskId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Удаление группы не удаляет задания — они остаются без группы.
+        builder.HasOne(t => t.TaskGroup)
+            .WithMany(g => g.Tasks)
+            .HasForeignKey(t => t.TaskGroupId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

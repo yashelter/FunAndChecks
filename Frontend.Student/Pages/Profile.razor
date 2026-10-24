@@ -1,0 +1,10 @@
+@page "/student/profile"
+@page "/student/profile/{UserId:guid}"
+@layout StudentLayout
+@attribute [Authorize]
+@using Frontend.Shared.Profiles
+<ProfileView UserId="UserId" ReturnUrl="@ReturnUrl" />
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+}

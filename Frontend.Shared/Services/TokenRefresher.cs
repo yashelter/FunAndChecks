@@ -35,10 +35,7 @@ public class TokenRefresher(IHttpClientFactory httpClientFactory, TokenStore tok
             using var response = await http.PostAsJsonAsync("api/auth/refresh", new RefreshRequest(refreshToken));
 
             if (!response.IsSuccessStatusCode)
-            {
-                await tokenStore.ClearAsync();
-                return null;
-            }
+                return await TakeSiblingTokenOrClearAsync(refreshToken);
 
             var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
             if (auth is null || string.IsNullOrEmpty(auth.AccessToken))
@@ -62,4 +59,29 @@ public class TokenRefresher(IHttpClientFactory httpClientFactory, TokenStore tok
             }
         }
     }
+
+    /// <summary>
+    /// Отказ при refresh может значить, что соседняя вкладка с тем же localStorage успела ротировать
+    /// токен раньше нас. Тогда её пара уже (или вот-вот) в хранилище — берём её вместо выхода из системы.
+    /// </summary>
+    private async Task<string?> TakeSiblingTokenOrClearAsync(string sentRefreshToken)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var current = await tokenStore.GetRefreshTokenAsync();
+            if (string.IsNullOrEmpty(current))
+                return null;
+            if (current != sentRefreshToken)
+                return await tokenStore.GetTokenAsync();
+
+            // Ответ проигравшему может прийти раньше, чем победитель запишет новую пару.
+            if (attempt == 0)
+                await Task.Delay(SiblingWriteGrace);
+        }
+
+        await tokenStore.ClearAsync();
+        return null;
+    }
+
+    private static readonly TimeSpan SiblingWriteGrace = TimeSpan.FromMilliseconds(500);
 }

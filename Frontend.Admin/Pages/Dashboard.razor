@@ -20,6 +20,7 @@
             <MudSelectItem T="SubjectDto" Value="subject">@subject.Name</MudSelectItem>
         }
     </MudSelect>
+    <MudSwitch T="bool" @bind-Value="_showAcceptedTeacherColors" Color="Color.Primary" Label="@Loc["Results_ShowAcceptedTeacherColors"]" Class="fc-results-teacher-colors" />
 </div>
 
 @if (_loading)
@@ -28,28 +29,33 @@
 }
 else if (_results is not null)
 {
+    <ResultsColorSubscription SubjectId="_results.SubjectId" OnColorsUpdated="UpdateStudentColors" OnResultUpdated="OnResultUpdatedAsync" />
     <div class="fc-stats fc-results-stats">
         <div class="fc-stat"><span>@Loc["Dashboard_Students"]</span><strong>@_results.UserResults.Count</strong><MudIcon Icon="@Icons.Material.Outlined.People" /></div>
         <div class="fc-stat"><span>@Loc["Dashboard_Tasks"]</span><strong>@_results.TaskHeaders.Count</strong><MudIcon Icon="@Icons.Material.Outlined.Assignment" /></div>
-        <div class="fc-stat"><span>@Loc["Dashboard_Accepted"]</span><strong class="fc-semantic-success">@_results.UserResults.Sum(r => r.Results.Values.Count(c => c.Status == SubmissionStatus.Accepted))</strong><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
-        <div class="fc-stat"><span>@Loc["Dashboard_Rework"]</span><strong class="fc-semantic-warning">@_results.UserResults.Sum(r => r.Results.Values.Count(c => c.Status == SubmissionStatus.Rejected))</strong><MudIcon Icon="@Icons.Material.Outlined.History" /></div>
+        <div class="fc-stat"><span>@Loc["Dashboard_Accepted"]</span><strong class="fc-semantic-success">@_acceptedCount</strong><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
+        <div class="fc-stat"><span>@Loc["Dashboard_Rework"]</span><strong class="fc-semantic-warning">@_reworkCount</strong><MudIcon Icon="@Icons.Material.Outlined.History" /></div>
+        <div class="fc-stat"><span>@Loc["Results_AveragePoints"]</span><strong>@AveragePoints</strong><MudIcon Icon="@Icons.Material.Outlined.Functions" /></div>
     </div>
     <section class="fc-panel fc-results-panel">
-        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@_results.SubjectName</MudText><MudText Typo="Typo.caption" Class="fc-muted">@_results.UserResults.Count @Loc["Dashboard_Students"]</MudText></div>
+        <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@_results.SubjectName</MudText><MudText Typo="Typo.caption" Class="fc-muted">@CommunityText.Students(_results.UserResults.Count)</MudText></div>
         <div class="fc-table-wrap fc-results-grid">
-            <MudDataGrid @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
+            <MudDataGrid @key="ColumnsKey" @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
                          Filterable="true" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None">
                 <Columns>
                     <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" StickyLeft="true" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
-                        <CellTemplate><span class="fc-student-name" style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</span></CellTemplate>
+                        <CellTemplate><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></CellTemplate>
                     </TemplateColumn>
                     <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
                     @foreach (var task in _results.TaskHeaders)
                     {
-                        <TemplateColumn Title="@task.TaskName" Sortable="false" CellClass="fc-results-task-column">
+                        <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-task-column" HeaderClass="fc-results-task-header">
                             <CellTemplate>
                                 @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
-                                <span class="fc-result-cell @CellClass(cell)" style="@CellStyle(cell)" title="@(cell?.Status == SubmissionStatus.Rejected ? Loc["Task_StatusRejected"] : cell?.Status == SubmissionStatus.Accepted ? Loc["Task_StatusAccepted"] : Loc["Task_StatusNotSubmitted"])">@CellText(cell)</span>
+                                @* Любая ячейка открывает студента с этой задачей: принять или вернуть можно прямо отсюда. *@
+                                <button type="button" class="fc-result-cell fc-result-history-button @CellClass(cell)" style="@CellStyle(cell)"
+                                        title="@Loc["Dashboard_CellAction"]" aria-label="@CellLabel(context.Item, task)"
+                                        @onclick="@(() => OpenStudentAsync(context.Item, task))">@CellText(cell)</button>
                             </CellTemplate>
                         </TemplateColumn>
                     }
@@ -64,14 +70,14 @@ else if (_results is not null)
                             </CellTemplate>
                         </TemplateColumn>
                     }
-                    <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-core-score" />
+                    <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" CellClass="fc-core-score" />
                     @if (_attendance is not null)
                     {
-                        <TemplateColumn Title="Посещаемость" Sortable="false">
+                        <TemplateColumn Title="@Loc["Nav_Attendance"]" Sortable="false">
                             <CellTemplate>
                                 @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
-                                <MudLink Href="@($"/admin/attendance?subjectId={_results.SubjectId}&studentId={context.Item.StudentId}")">@counts.Present посещений · @counts.Absent пропусков</MudLink>
-                                @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption">Не отмечено: @counts.Unmarked</MudText> }
+                                <MudLink Href="@("/admin/attendance?subjectId=" + _results.SubjectId + "&studentId=" + context.Item.StudentId)">@Loc["Dashboard_AttendanceCounts", counts.Present, counts.Absent]</MudLink>
+                                @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption" Class="fc-results-attendance-unmarked">@Loc["Dashboard_AttendanceUnmarked", counts.Unmarked]</MudText> }
                             </CellTemplate>
                         </TemplateColumn>
                     }

@@ -14,9 +14,29 @@ namespace FunAndChecks.Controllers;
 public class StudentsController(
     IStudentService studentService,
     ISubjectService subjectService,
-    IGradeService gradeService)
+    IGradeService gradeService,
+    IUserAccountService userAccountService)
     : ControllerBase
 {
+    /// <summary>Страничный поиск учётных записей без административных прав, независимо от предмета.</summary>
+    [HttpGet("accounts")]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    public async Task<ActionResult<UserAccountPageDto>> Accounts([FromQuery] string? query,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken cancellationToken = default) =>
+        Ok(await userAccountService.GetAsync(User.GetUserId(), query, page, pageSize, cancellationToken));
+
+    /// <summary>Удалить учётную запись без административных прав и связанные данные студента.</summary>
+    [HttpDelete("accounts/{userId:guid}")]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteAccount(Guid userId, CancellationToken cancellationToken)
+    {
+        await userAccountService.DeleteAsync(User.GetUserId(), userId, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Поиск студентов по фамилии/имени. Пустой запрос → все студенты (по алфавиту).</summary>
     [HttpGet("search")]
     [Authorize(Roles = Roles.Admin)]

@@ -1,0 +1,43 @@
+@using Frontend.Shared.Community
+@implements IDisposable
+@inject SurveyApi Api
+@inject CommunityRealtime Realtime
+@inject NavigationManager Nav
+
+@if (_count > 0) { <span class="fc-nav-badge" aria-label="@CommunityText.T($"ждут ответа: {_count}", $"{_count} waiting")">@(_count > 99 ? "99+" : _count)</span> }
+
+@code {
+    private int _count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Realtime.NotificationReceived += Received;
+        Nav.LocationChanged += Moved;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try { _count = (await Api.PendingAsync()).Count; }
+        catch (ApiException) { }
+    }
+
+    private void Refresh() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    private void Received(NotificationDto notification)
+    {
+        if (notification.Type == NotificationType.SurveyAvailable) Refresh();
+    }
+
+    // Ответ или «позже» всегда заканчиваются переходом, поэтому этого достаточно, чтобы счётчик не отставал.
+    private void Moved(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        if (args.Location.Contains("/surveys") || args.Location.TrimEnd('/').EndsWith("/student")) Refresh();
+    }
+
+    public void Dispose()
+    {
+        Realtime.NotificationReceived -= Received;
+        Nav.LocationChanged -= Moved;
+    }
+}

@@ -1,7 +1,11 @@
 using FunAndChecks.Application.Auth;
 using FunAndChecks.Common;
+using FunAndChecks.Monitoring;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace FunAndChecks.Controllers;
 
@@ -56,9 +60,13 @@ public class AuthController(IAuthService authService) : ControllerBase
 
     /// <summary>Выход: отзывает refresh-токен.</summary>
     [HttpPost("logout")]
+    [DisableRateLimiting]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Logout(RefreshRequest request, CancellationToken cancellationToken)
     {
+        // The cookie is scoped to /metrics, so it is not sent to this API path.
+        // Signing out still expires that exact cookie in the browser.
+        await HttpContext.SignOutAsync(MonitoringAuthentication.Scheme);
         await authService.LogoutAsync(request, cancellationToken);
         return NoContent();
     }
@@ -80,5 +88,40 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         await authService.ResetPasswordAsync(request, cancellationToken);
         return NoContent();
+    }
+
+    /// <summary>Получить статус согласия с политикой конфиденциальности и Пользовательским соглашением текущего пользователя.</summary>
+    [HttpGet("privacy-policy-status")]
+    // Только для вошедших: перебирать нечего, а общий лимит входа по IP задевал бы аудиторию за одним NAT.
+    [DisableRateLimiting]
+    [Authorize]
+    [ProducesResponseType(typeof(PrivacyPolicyStatusDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<PrivacyPolicyStatusDto>> GetPrivacyPolicyStatus(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var status = await authService.GetPrivacyPolicyStatusAsync(userId, cancellationToken);
+        return Ok(status);
+    }
+
+    /// <summary>Принять политику конфиденциальности и/или Пользовательское соглашение от имени текущего пользователя.</summary>
+    [HttpPost("accept-privacy-policy")]
+    // Только для вошедших: перебирать нечего, а общий лимит входа по IP задевал бы аудиторию за одним NAT.
+    [DisableRateLimiting]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> AcceptPrivacyPolicy(AcceptLegalRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        await authService.AcceptLegalAsync(userId, request, cancellationToken);
+        return NoContent();
+    }
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value;
+        return Guid.Parse(userIdClaim!);
     }
 }

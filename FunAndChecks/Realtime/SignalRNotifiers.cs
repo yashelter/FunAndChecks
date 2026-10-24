@@ -1,7 +1,10 @@
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Forum;
 using FunAndChecks.Application.Grades;
+using FunAndChecks.Application.Notifications;
 using FunAndChecks.Application.Queues;
 using FunAndChecks.Application.Submissions;
+using FunAndChecks.Application.Students;
 using FunAndChecks.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
@@ -13,6 +16,11 @@ public class QueueNotifier(IHubContext<QueueHub> hubContext) : IQueueNotifier
         hubContext.Clients
             .Group(QueueHub.GroupName(update.EventId))
             .SendAsync("QueueEntryUpdated", update, cancellationToken);
+
+    public Task StudentColorUpdatedAsync(int eventId, StudentColorUpdateDto update, CancellationToken cancellationToken = default) =>
+        hubContext.Clients
+            .Group(QueueHub.GroupName(eventId))
+            .SendAsync("StudentColorUpdated", update, cancellationToken);
 }
 
 public class ResultsNotifier(IHubContext<ResultsHub> hubContext) : IResultsNotifier
@@ -26,4 +34,24 @@ public class ResultsNotifier(IHubContext<ResultsHub> hubContext) : IResultsNotif
         hubContext.Clients
             .Group(ResultsHub.GroupName(subjectId))
             .SendAsync("GradeUpdated", update, cancellationToken);
+
+    public Task StudentColorUpdatedAsync(int subjectId, StudentColorUpdateDto update, CancellationToken cancellationToken = default) =>
+        hubContext.Clients
+            .Group(ResultsHub.GroupName(subjectId))
+            .SendAsync("StudentColorUpdated", update, cancellationToken);
+}
+
+public class UserNotifier(IHubContext<NotificationsHub> hubContext) : IUserNotifier
+{
+    public Task NotificationCreatedAsync(Guid userId, NotificationDto notification, CancellationToken cancellationToken = default) =>
+        hubContext.Clients.User(userId.ToString()).SendAsync("NotificationCreated", notification, cancellationToken);
+
+    public Task SurveysChangedAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        hubContext.Clients.User(userId.ToString()).SendAsync("SurveysChanged", cancellationToken);
+}
+
+public class ForumNotifier(IHubContext<ForumHub> hubContext) : IForumNotifier
+{
+    public Task TopicChangedAsync(ForumTopicEventDto update, CancellationToken cancellationToken = default) =>
+        hubContext.Clients.Group(ForumHub.GroupName(update.TopicId)).SendAsync("TopicChanged", update, cancellationToken);
 }

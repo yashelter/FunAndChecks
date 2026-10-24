@@ -1,30 +1,44 @@
 @namespace Frontend.Shared.UI
 @using Frontend.Shared.Models
 @inject IStringLocalizer<AppStrings> Loc
+@inject ResultsNavigationState ProfileReturn
+@inject NavigationManager Nav
 
 @if (Results is not null)
 {
+    <ResultsColorSubscription SubjectId="Results.SubjectId" OnColorsUpdated="UpdateStudentColors" OnResultUpdated="OnResultUpdated" />
+    <div class="fc-results-average fc-muted">@Loc["Results_AveragePoints"]: <strong>@AveragePoints</strong></div>
     <section class="fc-panel fc-results-panel">
     <div class="fc-panel-heading">
         <h3>@Results.SubjectName</h3>
-        <span class="fc-muted">@Results.UserResults.Count @Loc["Design_Students"]</span>
+        <span class="fc-muted">@Frontend.Shared.Community.CommunityText.Students(Results.UserResults.Count)</span>
+        <MudSwitch T="bool" @bind-Value="_showAcceptedTeacherColors" Color="Color.Primary" Label="@Loc["Results_ShowAcceptedTeacherColors"]" Class="fc-results-teacher-colors" />
     </div>
-    <MudDataGrid T="StudentResultRowDto" Items="@Results.UserResults" Dense="true" Breakpoint="Breakpoint.None"
-                 Filterable="true" Hover="true" Class="fc-results-grid">
+    @* @key: другой набор колонок — новая таблица, иначе новая колонка встала бы в конец, после Σ. *@
+    <MudDataGrid @key="ResultsColumns.Key(Results)" @ref="_grid" T="StudentResultRowDto" Items="@_rows" Dense="true" Breakpoint="Breakpoint.None"
+                 Filterable="true" Hover="true" Class="fc-results-grid" RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
         <Columns>
             <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-sticky" HeaderClass="fc-results-sticky">
                 <CellTemplate>
-                    <span class="fc-result-name" style="@FioStyle(context.Item.StudentColor)">@context.Item.FullName</span>
+                    <ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink>
                 </CellTemplate>
             </TemplateColumn>
             <PropertyColumn Property="x => x.GroupName" Title="@Loc["Results_ColGroup"]" />
 
             @foreach (var task in Results.TaskHeaders)
             {
-                <TemplateColumn Title="@task.TaskName" Sortable="false" CellClass="fc-results-number">
+                <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-number" HeaderClass="fc-results-task-header">
                     <CellTemplate>
                         @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
-                        <span class="@CellClass(cell)" style="@CellStyle(cell)" title="@CellStatus(cell)" aria-label="@($"{task.TaskName}: {CellStatus(cell)} {CellText(cell)}")">@CellText(cell)</span>
+                        @if (context.Item.StudentId == HighlightStudentId)
+                        {
+                            @* Свою ячейку можно открыть: история и комментарии преподавателя по задаче. *@
+                            <a href="@($"/student/logs?task={task.TaskId}")" class="@CellClass(cell)" style="@CellStyle(cell)" title="@CellStatus(cell)" aria-label="@($"{task.TaskName}: {CellStatus(cell)} {CellText(cell)}")">@CellText(cell)</a>
+                        }
+                        else
+                        {
+                            <span class="@CellClass(cell)" style="@CellStyle(cell)" title="@CellStatus(cell)" aria-label="@($"{task.TaskName}: {CellStatus(cell)} {CellText(cell)}")">@CellText(cell)</span>
+                        }
                     </CellTemplate>
                 </TemplateColumn>
             }
@@ -41,7 +55,9 @@
                 </TemplateColumn>
             }
 
-            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score" />
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score">
+                <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
+            </PropertyColumn>
         </Columns>
     </MudDataGrid>
     <div class="fc-results-legend">
@@ -54,6 +70,32 @@
 
 @code {
     [Parameter] public SubjectResultsDto? Results { get; set; }
+    /// <summary>Строка текущего студента — подсвечена, её ячейки ведут к истории.</summary>
+    [Parameter] public Guid? HighlightStudentId { get; set; }
+    [Parameter] public EventCallback<ResultUpdateDto> OnResultUpdated { get; set; }
+    private MudDataGrid<StudentResultRowDto>? _grid;
+    private SubjectResultsDto? _parameterResults;
+    private List<StudentResultRowDto> _rows = [];
+    private bool _showAcceptedTeacherColors;
+    private readonly Guid _profileViewInstance = Guid.NewGuid();
+    private string StateKey => new Uri(Nav.Uri).AbsolutePath;
+    protected override async Task OnInitializedAsync() => await ProfileReturn.InitializeAsync();
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_parameterResults, Results))
+        {
+            _parameterResults = Results;
+            _rows = Results?.UserResults ?? [];
+        }
+        if (Results is not null)
+            ProfileReturn.SelectSubject(StateKey, Results.SubjectId);
+    }
+    private void UpdateStudentColors(IReadOnlyList<StudentColorUpdateDto> updates) => _rows = StudentColorRows.Apply(_rows, updates);
+    protected override Task OnAfterRenderAsync(bool firstRender) => ProfileReturn.RestoreAsync(StateKey, _grid, _profileViewInstance);
+    private Task RememberResultsAsync() => ProfileReturn.CaptureAsync(StateKey, _grid, _profileViewInstance);
+    private string AveragePoints => Results?.UserResults is { Count: > 0 } rows
+        ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
+        : "—";
 
     private static string CellText(ResultCellDto? cell) =>
         cell?.Status == SubmissionStatus.Accepted ? "+" : string.IsNullOrWhiteSpace(cell?.DisplayValue) ? "—" : cell.DisplayValue;
@@ -72,9 +114,13 @@
         _ => Loc["Task_StatusNotSubmitted"],
     };
 
-    private static string CellStyle(ResultCellDto? cell)
+    private string CellStyle(ResultCellDto? cell)
     {
-        if (cell?.Status != SubmissionStatus.Rejected || string.IsNullOrWhiteSpace(cell.AdminColor))
+        if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
+            return string.Empty;
+        if (cell.Status == SubmissionStatus.Accepted)
+            return _showAcceptedTeacherColors ? $"background-color:{cell.AdminColor};color:#000000;border-color:{cell.AdminColor};text-shadow:0 0 3px rgba(255,255,255,.7);" : string.Empty;
+        if (cell.Status != SubmissionStatus.Rejected)
             return string.Empty;
         return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};border-color:{cell.AdminColor};";
     }

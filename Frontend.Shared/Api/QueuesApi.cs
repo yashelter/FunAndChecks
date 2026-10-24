@@ -28,6 +28,9 @@ public class QueuesApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task JoinAsync(int eventId, CancellationToken ct = default) =>
         PostAsync($"api/queues/{eventId}/join", body: null, ct);
 
+    public Task LeaveAsync(int eventId, CancellationToken ct = default) =>
+        DeleteAsync($"api/queues/{eventId}/join", ct);
+
     public Task UpdateStatusAsync(int eventId, Guid studentId, UpdateQueueStatusRequest request, CancellationToken ct = default) =>
         PutAsync($"api/queues/{eventId}/students/{studentId}/status", request, ct);
 }

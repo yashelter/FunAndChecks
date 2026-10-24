@@ -21,7 +21,7 @@ public partial class ResetPassword
     private string _code = string.Empty;
     private string _newPassword = string.Empty;
     private string? _error;
-    private bool _busy;
+    private bool _busy, _showPassword;
 
     protected override void OnInitialized()
     {

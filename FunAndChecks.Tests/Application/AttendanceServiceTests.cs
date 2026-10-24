@@ -15,7 +15,7 @@ namespace FunAndChecks.Tests.Application;
 public class AttendanceServiceTests : IDisposable
 {
     private readonly TestDatabase _db = new();
-    private static AttendanceService Service(ApplicationDbContext db) => new(db, new AdminAccessService(db),
+    private static AttendanceService Service(ApplicationDbContext db) => new(db, db.Access(),
         new CreateAttendanceSessionRequestValidator(), new SetAttendanceRequestValidator(), new RemainingAttendanceRequestValidator());
 
     private async Task<(Guid AdminId, int SubjectId, int GroupId, Guid StudentId)> SeedAsync()
@@ -23,6 +23,7 @@ public class AttendanceServiceTests : IDisposable
         await using var db = _db.NewContext();
         var admin = db.Admin();
         var subject = db.Subject();
+        db.GrantSubject(admin, subject);
         subject.AttendanceEnabled = true;
         var group = db.Group();
         await db.SaveChangesAsync();
@@ -166,7 +167,7 @@ public class AttendanceServiceTests : IDisposable
         var service = Service(db);
         var session = await CreateAsync(service, data);
         var record = (await service.GetSessionAsync(data.AdminId, session.Id)).Participants.Single();
-        var access = new AdminAccessService(db);
+        var access = db.Access();
         await access.SetGroupRestrictedAsync(data.AdminId, data.GroupId, true);
         (await service.GetSessionAsync(data.AdminId, session.Id)).Participants.Single().CanManage.Should().BeFalse();
         await ((Func<Task>)(() => CreateAsync(service, data))).Should().ThrowAsync<ForbiddenException>();
@@ -219,7 +220,7 @@ public class AttendanceServiceTests : IDisposable
             new(null, DateTime.UtcNow, [allowedGroup.Id, data.GroupId]));
         var late = db.Student((await db.Groups.FindAsync(data.GroupId))!, "Late student");
         await db.SaveChangesAsync();
-        var access = new AdminAccessService(db);
+        var access = db.Access();
         if (hidden) await access.SetGroupHiddenAsync(data.AdminId, data.GroupId, true);
         else await access.SetGroupRestrictedAsync(data.AdminId, data.GroupId, true);
 
@@ -334,7 +335,7 @@ public class AttendanceServiceTests : IDisposable
         unconfirmed.IsActive = false;
         await db.SaveChangesAsync();
         (await service.GetAvailableStudentsAsync(data.AdminId, session.Id)).Should().ContainSingle().Which.Id.Should().Be(late.Id);
-        await new AdminAccessService(db).SetGroupRestrictedAsync(data.AdminId, data.GroupId, true);
+        await db.Access().SetGroupRestrictedAsync(data.AdminId, data.GroupId, true);
         (await service.GetAvailableStudentsAsync(data.AdminId, session.Id)).Should().BeEmpty();
     }
 
@@ -350,6 +351,7 @@ public class AttendanceServiceTests : IDisposable
         var unrelatedSubject = db.Subject("Someone else's history");
         unrelatedSubject.AttendanceEnabled = true;
         await db.SaveChangesAsync();
+        await db.Access().SetSubjectRestrictedAsync(data.AdminId, unrelatedSubject.Id, false);
         db.LinkGroupSubject(currentGroup, currentSubject);
         var unrelatedGroup = db.Group("Other students");
         await db.SaveChangesAsync();

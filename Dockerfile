@@ -11,7 +11,6 @@ COPY ["Frontend/Frontend.csproj", "Frontend/"]
 COPY ["Frontend.Shared/Frontend.Shared.csproj", "Frontend.Shared/"]
 COPY ["Frontend.Admin/Frontend.Admin.csproj", "Frontend.Admin/"]
 COPY ["Frontend.Student/Frontend.Student.csproj", "Frontend.Student/"]
-COPY ["Frontend.Legacy/Frontend.Legacy.csproj", "Frontend.Legacy/"]
 
 # Восстанавливаем NuGet-пакеты
 RUN dotnet restore "FunAndChecks/FunAndChecks.csproj"
@@ -25,7 +24,8 @@ COPY ["Frontend/", "Frontend/"]
 COPY ["Frontend.Shared/", "Frontend.Shared/"]
 COPY ["Frontend.Admin/", "Frontend.Admin/"]
 COPY ["Frontend.Student/", "Frontend.Student/"]
-COPY ["Frontend.Legacy/", "Frontend.Legacy/"]
+# Пользовательское соглашение (licence/agreement.md) встраивается в Frontend.Shared.
+COPY ["licence/", "licence/"]
 
 # Публикуем основной API проект
 RUN dotnet publish "FunAndChecks/FunAndChecks.csproj" -c Release -o /app/publish /p:UseAppHost=false
@@ -45,9 +45,10 @@ RUN apt-get update \
     && curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo $VERSION_CODENAME)-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client-17 \
+    && apt-get install -y --no-install-recommends postgresql-client-17 ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/backups && chown app:app /app/backups
+    && mkdir -p /app/backups /app/media-temp /app/attachments /app/logs/import /home/app/.aspnet/DataProtection-Keys \
+    && chown -R app:app /app/backups /app/media-temp /app/attachments /app/logs /home/app/.aspnet
 USER app
 
 ENTRYPOINT ["dotnet", "FunAndChecks.dll"]

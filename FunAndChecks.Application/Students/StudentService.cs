@@ -7,6 +7,7 @@ using FunAndChecks.Application.Groups;
 using FunAndChecks.Application.Queues;
 using FunAndChecks.Application.Subjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FunAndChecks.Application.Students;
 
@@ -16,7 +17,10 @@ public class StudentService(
     IResultsCacheService cache,
     IAdminAccessService accessService,
     IValidator<SetStudentColorRequest> setColorValidator,
-    IValidator<UpdateStudentAccountRequest> updateAccountValidator)
+    IValidator<UpdateStudentAccountRequest> updateAccountValidator,
+    IResultsNotifier resultsNotifier,
+    IQueueNotifier queueNotifier,
+    ILogger<StudentService> logger)
     : IStudentService
 {
     /// <summary>Защитный предел глобального поиска (фактически все похожие).</summary>
@@ -39,7 +43,7 @@ public class StudentService(
     {
         var student = await db.Students
             .Where(s => s.Id == studentId)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId, s.Group != null ? s.Group.Name : null))
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Student with ID {studentId} not found.");
 
@@ -86,7 +90,7 @@ public class StudentService(
         var students = await filtered
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
             .Take(SearchLimit)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId, s.Group != null ? s.Group.Name : null))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));
@@ -108,11 +112,40 @@ public class StudentService(
         student.Color = request.Color;
         await db.SaveChangesAsync(cancellationToken);
 
-        await InvalidateStudentResultsCacheAsync(studentId, cancellationToken);
+        var subjectIds = await InvalidateStudentResultsCacheAsync(studentId, cancellationToken);
+        var eventIds = await db.QueueEntries
+            .Where(e => e.StudentId == studentId)
+            .Select(e => e.QueueEventId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var update = new StudentColorUpdateDto(studentId, student.Color);
+        foreach (var subjectId in subjectIds)
+        {
+            try
+            {
+                await resultsNotifier.StudentColorUpdatedAsync(subjectId, update, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Student color committed, but results notification failed for subject {SubjectId}.", subjectId);
+            }
+        }
+        foreach (var eventId in eventIds)
+        {
+            try
+            {
+                await queueNotifier.StudentColorUpdatedAsync(eventId, update, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Student color committed, but queue notification failed for event {EventId}.", eventId);
+            }
+        }
     }
 
     /// <summary>Сбрасывает кэш результатов всех предметов группы студента (цвет влияет на таблицу).</summary>
-    private async Task InvalidateStudentResultsCacheAsync(Guid studentId, CancellationToken cancellationToken)
+    private async Task<List<int>> InvalidateStudentResultsCacheAsync(Guid studentId, CancellationToken cancellationToken)
     {
         var groupId = await db.Students
             .Where(s => s.Id == studentId)
@@ -120,7 +153,7 @@ public class StudentService(
             .FirstOrDefaultAsync(cancellationToken);
 
         if (groupId is null)
-            return;
+            return [];
 
         var subjectIds = await db.GroupSubjects
             .Where(gs => gs.GroupId == groupId)
@@ -129,6 +162,8 @@ public class StudentService(
 
         foreach (var subjectId in subjectIds)
             cache.Invalidate(subjectId);
+
+        return subjectIds;
     }
 
     public async Task<List<SubjectDto>> GetMySubjectsAsync(Guid studentId, CancellationToken cancellationToken = default)
@@ -166,7 +201,7 @@ public class StudentService(
             .Where(s => !db.AdminGroupAccesses.Any(a =>
                 a.AdminId == adminId && a.GroupId == s.GroupId && (a.IsRestricted || a.IsHidden)))
             .OrderBy(s => s.LastName).ThenBy(s => s.FirstName)
-            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId))
+            .Select(s => new StudentDetailsDto(s.Id, s.FirstName, s.LastName, null, s.Color, s.GroupId, s.Group != null ? s.Group.Name : null))
             .ToListAsync(cancellationToken);
 
         var emails = await identityService.GetEmailsAsync(students.Select(s => s.Id));

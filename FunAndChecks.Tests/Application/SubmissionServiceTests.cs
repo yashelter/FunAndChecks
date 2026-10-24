@@ -18,7 +18,7 @@ public class SubmissionServiceTests : IDisposable
     private readonly IResultsNotifier _notifier = Substitute.For<IResultsNotifier>();
 
     private SubmissionService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, new AdminAccessService(ctx), _cache, _notifier, new CreateSubmissionRequestValidator(), NullLogger<SubmissionService>.Instance);
+        new(ctx, ctx.Access(), _cache, _notifier, new CreateSubmissionRequestValidator(), NullLogger<SubmissionService>.Instance);
 
     [Fact]
     public async Task Create_Valid_InvalidatesCacheAndNotifies()
@@ -28,6 +28,7 @@ public class SubmissionServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -51,13 +52,14 @@ public class SubmissionServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var student = ctx.Student(group);
         var task = ctx.Task(subject);
         await ctx.SaveChangesAsync();
         adminId = admin.Id; studentId = student.Id; taskId = task.Id;
 
-        await new AdminAccessService(ctx).SetSubjectRestrictedAsync(adminId, subject.Id, true);
+        await ctx.Access().SetSubjectRestrictedAsync(adminId, subject.Id, true);
 
         var sut = CreateSut(ctx);
         var act = () => sut.CreateAsync(adminId, new CreateSubmissionRequest(studentId, taskId, SubmissionStatus.Accepted, null));
@@ -71,12 +73,13 @@ public class SubmissionServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         var task = ctx.Task(subject);
         await ctx.SaveChangesAsync();
-        await new AdminAccessService(ctx).SetGroupRestrictedAsync(admin.Id, group.Id, true);
+        await ctx.Access().SetGroupRestrictedAsync(admin.Id, group.Id, true);
 
         var act = () => CreateSut(ctx).CreateAsync(admin.Id,
             new CreateSubmissionRequest(student.Id, task.Id, SubmissionStatus.Accepted, null));
@@ -92,6 +95,7 @@ public class SubmissionServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var student = ctx.Student(group);
         var task = ctx.Task(subject);
@@ -114,6 +118,7 @@ public class SubmissionServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);

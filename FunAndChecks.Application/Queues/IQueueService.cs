@@ -21,6 +21,12 @@ public interface IQueueService
 
     Task JoinAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default);
 
+    /// <summary>Студент сам выходит из очереди, пока его не взяли на проверку.</summary>
+    Task LeaveAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Очереди, где записан студент, — со статусом и местом среди ожидающих.</summary>
+    Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, bool includePast, CancellationToken cancellationToken = default);
+
     Task UpdateParticipantStatusAsync(
         int eventId, Guid studentId, Guid adminId, QueueEntryStatus status,
         CancellationToken cancellationToken = default);

@@ -16,12 +16,33 @@
 .fc-results-grid .fc-results-sticky { position:sticky; left:0; min-width:210px; max-width:260px; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); z-index:1; }
 .fc-results-grid thead .fc-results-sticky { z-index:3; }
 .fc-results-grid .fc-results-number { text-align:center; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fc-results-grid .fc-results-task-header { text-align:center; }
+.fc-results-grid .fc-results-task-header .column-header { position:relative; justify-content:center; padding-inline:32px; min-height:32px; }
+.fc-results-grid .fc-results-task-header .column-options { position:absolute; inset-inline-end:0; }
+.fc-results-attendance-unmarked { display:block; margin-top:4px; }
+.fc-results-teacher-colors { margin:0; }
 .fc-result-cell { display:inline-flex; align-items:center; justify-content:center; width:32px; min-height:30px; border:1px solid var(--mud-palette-lines-default); border-radius:7px; font-weight:750; font-size:14px; }
 .fc-result-cell.accepted { background:rgba(var(--mud-palette-success-rgb),.12); color:var(--mud-palette-success); border-color:rgba(var(--mud-palette-success-rgb),.28); }
 .fc-result-cell.empty { color:var(--mud-palette-text-disabled); background:var(--mud-palette-background); }
 .fc-results-legend { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; border-top:1px solid var(--mud-palette-lines-default); padding:14px 22px; font-size:12px; color:var(--mud-palette-text-secondary); }
 .fc-results-legend > span { display:inline-flex; align-items:center; gap:7px; }
 .fc-results-legend .fc-result-cell { width:24px; min-height:24px; font-size:12px; }
+.fc-results-summary { margin-bottom:22px; }
+.fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.fc-result-history-button { font-family:inherit; cursor:pointer; transition:box-shadow .15s,transform .15s; }
+.fc-result-history-button:hover { box-shadow:0 0 0 2px rgba(var(--mud-palette-primary-rgb),.3); transform:translateY(-1px); }
+.fc-result-history-button:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:3px; }
+.fc-result-history-heading { padding-bottom:18px; margin-bottom:18px; border-bottom:1px solid var(--mud-palette-lines-default); }
+.fc-result-history-heading .mud-typography-h6 { font-size:18px; overflow-wrap:anywhere; }
+.fc-result-history-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:22px; }
+.fc-result-history-list li { display:flex; gap:12px; align-items:flex-start; }
+.fc-result-history-list li>div { min-width:0; flex:1; }
+.fc-result-history-teacher { display:inline-flex; justify-content:center; align-items:center; min-width:30px; height:30px; border:1px solid var(--mud-palette-lines-default); border-radius:7px; font-weight:700; }
+.fc-result-history-meta { display:flex; gap:5px 12px; align-items:center; flex-wrap:wrap; font-size:12px; }
+.fc-result-history-meta strong { font-weight:600; }
+.fc-result-history-meta time { color:var(--mud-palette-text-secondary); }
+.fc-result-history-meta .mud-chip { margin:0; }
+.fc-result-history-comment { margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; color:var(--mud-palette-text-secondary); font-size:14px; line-height:1.7; }
 .fc-score { font-variant-numeric:tabular-nums; font-weight:700; }
 .fc-grade-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .fc-grade-card { min-width:0; padding:18px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; background:var(--mud-palette-surface); }
@@ -69,6 +90,7 @@
 .fc-student-attendance .attendance-history-row { padding:18px 22px; }
 .fc-student-attendance .attendance-history-row:last-child { border-bottom:0; }
 @media (max-width:900px) {
+    .fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .fc-auth-intro { padding:30px; }
     .fc-auth-form { padding:30px; }
     .fc-auth-intro h2 { font-size:27px; }
@@ -89,7 +111,28 @@
     .fc-queue-table .fc-queue-status .mud-chip { margin-left:0; }
     .fc-queue-table .fc-queue-points { text-align:right; }
 }
+
+/* Legal page (Privacy Policy, Terms of Service) */
+.fc-legal-card { border:1px solid var(--mud-palette-lines-default); border-radius:14px; background:var(--mud-palette-surface); width:100%; }
+.fc-legal-head { padding:32px 40px 0; }
+.fc-legal-body { padding:0 40px 40px; }
+.fc-legal-content { max-width:76ch; font-size:14px; line-height:1.75; color:var(--mud-palette-text-primary); }
+.fc-legal-content h1 { font-size:24px; font-weight:650; letter-spacing:-.02em; margin:0 0 20px; }
+.fc-legal-content h2 { font-size:18px; font-weight:650; margin:30px 0 12px; }
+.fc-legal-content h3 { font-size:15px; font-weight:650; margin:22px 0 8px; }
+.fc-legal-content p { margin:0 0 14px; }
+.fc-legal-content ul,.fc-legal-content ol { padding-left:24px; margin:0 0 14px; }
+.fc-legal-content li { margin-bottom:6px; }
+.fc-legal-content a { color:var(--mud-palette-primary); text-decoration:underline; }
+.fc-legal-content hr { border:0; border-top:1px solid var(--mud-palette-lines-default); margin:28px 0; }
+.fc-legal-content strong { font-weight:650; }
+.fc-legal-content code { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12.5px; background:rgba(var(--mud-palette-primary-rgb),.08); padding:1px 5px; border-radius:4px; }
+.fc-legal-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:32px; }
+.fc-legal-nav { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:12px; font-size:13px; }
+.fc-legal-content + .fc-legal-content { margin-top:36px; padding-top:32px; border-top:1px solid var(--mud-palette-lines-default); }
+@media (max-width:760px) { .fc-legal-head { padding:24px 20px 0; } .fc-legal-body { padding:0 20px 28px; } }
 @media (max-width:600px) {
+    .fc-stats.fc-results-summary,.fc-stats.fc-results-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .fc-panel-body, .fc-panel-heading { padding:16px; }
     .fc-auth-form { padding:24px 20px; }
     .fc-auth-form .mud-input-slot input { font-size:16px; }
@@ -101,3 +144,331 @@
     .fc-student-attendance .attendance-history-row { padding:16px; align-items:flex-start; }
     .fc-task-card .mud-expand-panel-header { padding:14px 16px; }
 }
+.fc-results-average { margin:0 0 14px; font-size:12px; }
+.fc-results-average strong { color:var(--fc-text); font-variant-numeric:tabular-nums; }
+/* Колонки задач — по ширине названия задачи: таблица не растягивается на всю ширину,
+   а у ячеек задач нет запаса под меню фильтра (фильтр по ним отключён). */
+.fc-results-grid .mud-table-root { width:auto; min-width:0; }
+.fc-results-grid .mud-table-cell.fc-results-task-header,
+.fc-results-grid .mud-table-cell.fc-results-task-column,
+.fc-results-grid td.mud-table-cell.fc-results-number { min-width:0; width:1%; padding-inline:10px; }
+.fc-results-grid .fc-results-task-header .column-header { padding-inline:0; justify-content:center; }
+
+/* Halloween event — тыквенная кнопка записи в очередь.
+   Показывается только при включённом флаге FeatureFlags:HalloweenEvent
+   и выбранном пользователем сезонном режиме. */
+:root {
+    --fc-halloween-pumpkin-top:#ff7a00; --fc-halloween-pumpkin-mid:#cc5d00;
+    --fc-halloween-pumpkin-bottom:#ff9d3a; --fc-halloween-pumpkin-edge:rgba(255,170,0,.65);
+    --fc-halloween-pumpkin-shadow:rgba(120,45,0,.45); --fc-halloween-text:#33170a; --fc-halloween-face:#3b1a07;
+    --fc-halloween-pumpkin-light:#ffb457;
+}
+:root[data-theme=light] {
+    --fc-halloween-pumpkin-top:#ffbc6b; --fc-halloween-pumpkin-mid:#e8590c;
+    --fc-halloween-pumpkin-bottom:#b8470a; --fc-halloween-pumpkin-edge:rgba(255,196,140,.8);
+    --fc-halloween-pumpkin-shadow:rgba(110,40,0,.32); --fc-halloween-text:#3a1b08; --fc-halloween-face:#3b1a07;
+    --fc-halloween-pumpkin-light:#ffc877;
+}
+/* Тыква целиком на CSS: бот, глаза, рот, рёбра и стебель. */
+.fc-pumpkin {
+    position:relative; display:inline-block; width:16px; height:14px; margin-inline-end:8px; vertical-align:-2px;
+    border-radius:52% 52% 46% 46% / 62% 62% 40% 40%;
+    background:
+        radial-gradient(circle 1.4px at 34% 42%, var(--fc-halloween-face) 96%, transparent),
+        radial-gradient(circle 1.4px at 66% 42%, var(--fc-halloween-face) 96%, transparent),
+        radial-gradient(ellipse 3.6px 1.7px at 50% 70%, var(--fc-halloween-face) 94%, transparent),
+        repeating-linear-gradient(90deg, rgba(110,35,0,.22) 0 1.5px, transparent 1.5px 5px),
+        linear-gradient(180deg, var(--fc-halloween-pumpkin-top), var(--fc-halloween-pumpkin-mid) 58%, var(--fc-halloween-pumpkin-bottom));
+    box-shadow:inset 0 -1px 2px rgba(90,30,0,.35);
+}
+.fc-pumpkin::before {
+    content:""; position:absolute; top:-3px; left:50%; width:4px; height:4px; margin-left:-2px;
+    border-radius:2px 2px 0 0; background:#4f7a2a;
+}
+.mud-button-root.fc-halloween-btn {
+    background-color:var(--fc-halloween-pumpkin-mid);
+    background-image:linear-gradient(140deg, var(--fc-halloween-pumpkin-top), var(--fc-halloween-pumpkin-mid) 55%, var(--fc-halloween-pumpkin-bottom));
+    color:var(--fc-halloween-text); --mud-ripple-color:var(--fc-halloween-text);
+    border:1px solid var(--fc-halloween-pumpkin-edge); border-radius:7px;
+    font-size:14px; font-weight:550; letter-spacing:0; text-transform:none;
+    box-shadow:0 2px 0 var(--fc-halloween-pumpkin-shadow);
+    transition:transform .16s ease, filter .16s ease, box-shadow .16s ease;
+}
+.mud-button-root.fc-halloween-btn:hover {
+    background-image:linear-gradient(140deg, #ffbc6b, var(--fc-halloween-pumpkin-mid) 55%, var(--fc-halloween-pumpkin-bottom));
+    animation:fc-halloween-breathe 1.6s ease-in-out infinite;
+    transform: translateY(-2px);
+    box-shadow:0 4px 0 var(--fc-halloween-pumpkin-shadow);
+}
+.mud-button-root.fc-halloween-btn:active { 
+    transform:scale(0.98) translateY(1px); 
+    box-shadow:0 1px 0 var(--fc-halloween-pumpkin-shadow); 
+}
+.mud-button-root.fc-halloween-btn:focus-visible { 
+    outline:3px solid var(--fc-halloween-pumpkin-light); outline-offset:3px; 
+}
+.mud-button-root.fc-halloween-btn:disabled { 
+    opacity:.5; filter:none; animation:none; box-shadow:none; 
+}
+@keyframes fc-halloween-breathe {
+    0%, 100% { filter:brightness(1) saturate(1); transform:scale(1); }
+    50% { filter:brightness(1.09) saturate(1.08); transform:scale(1.03); }
+}
+/* Pumpkin logo replacement — активен всегда, когда включён Halloween-режим. */
+.fc-halloween-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, var(--fc-halloween-pumpkin-top), var(--fc-halloween-pumpkin-mid));
+    box-shadow: inset 0 -1px 3px rgba(90,30,0,.35), 0 0 0 1px var(--fc-halloween-pumpkin-edge);
+}
+.fc-halloween-logo .fc-pumpkin {
+    width: 22px;
+    height: 19px;
+    margin: 0;
+    vertical-align: middle;
+}
+/* Reduced motion: кнопка не «дышит». */
+@media (prefers-reduced-motion:reduce) {
+    .mud-button-root.fc-halloween-btn,.mud-button-root.fc-halloween-btn:hover { animation:none; }
+}
+
+/* ==========================================================================
+   Halloween Animations — ghosts & spider
+   Shown when Flags.HalloweenEvent && Appearance.IsHalloweenMode
+   ========================================================================== */
+
+/* Container: fixed viewport overlay, non-interactive */
+.fc-halloween-animations {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000; /* above content, below modals/dialogs */
+    overflow: hidden;
+}
+
+/* Скрытые определения символов ( ghost / spider ) — переиспользуются через <use>. */
+.fc-halloween-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .fc-halloween-animations {
+        display: none !important;
+    }
+}
+
+/* --- Ghosts: пять «теневых» призраков, каждый со своей траекторией через весь экран --- */
+.fc-halloween-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 80px;
+    height: 80px;
+    opacity: 0; /* появляются только благодаря анимации */
+    pointer-events: none;
+    will-change: transform, opacity;
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .35));
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+}
+
+/* Ghost 1 — верхняя волна, слева направо */
+.fc-halloween-ghost-1 { z-index: 1001; animation: ghost-path-1 22s ease-in-out infinite; }
+/* Ghost 2 — средняя волна, справа налево */
+.fc-halloween-ghost-2 { z-index: 1002; animation: ghost-path-2 27s ease-in-out infinite; }
+/* Ghost 3 — нижняя волна, слева направо */
+.fc-halloween-ghost-3 { z-index: 1003; animation: ghost-path-3 31s ease-in-out infinite; }
+/* Ghost 4 — диагональ из левого верхнего угла в правый нижний */
+.fc-halloween-ghost-4 { z-index: 1004; animation: ghost-path-4 25s ease-in-out infinite; }
+/* Ghost 5 — диагональ из правого нижнего угла в левый верхний */
+.fc-halloween-ghost-5 { z-index: 1005; animation: ghost-path-5 29s ease-in-out infinite; }
+
+/* Мобильные — призраки мельче и прозрачнее, чтобы не спорить с контентом */
+@media (max-width: 760px) {
+    .fc-halloween-ghost { width: 56px; height: 56px; }
+}
+@media (max-width: 480px) {
+    .fc-halloween-ghost { width: 44px; height: 44px; }
+}
+
+/* Траектория 1: слева направо через верхнюю треть экрана */
+@keyframes ghost-path-1 {
+    0%   { transform: translate3d(-100px, 6vh, 0) rotate(-8deg) scale(.9); opacity: 0; }
+    8%   { opacity: .18; }
+    25%  { transform: translate3d(20vw, 18vh, 0) rotate(6deg) scale(1.05); }
+    50%  { transform: translate3d(48vw, 8vh, 0) rotate(-4deg) scale(1); }
+    75%  { transform: translate3d(78vw, 22vh, 0) rotate(7deg) scale(1.03); }
+    92%  { opacity: .18; }
+    100% { transform: translate3d(calc(100vw + 20px), 12vh, 0) rotate(-6deg) scale(.9); opacity: 0; }
+}
+
+/* Траектория 2: справа налево через середину экрана */
+@keyframes ghost-path-2 {
+    0%   { transform: translate3d(calc(100vw + 20px), 58vh, 0) rotate(7deg) scale(.95); opacity: 0; }
+    8%   { opacity: .16; }
+    30%  { transform: translate3d(72vw, 44vh, 0) rotate(-6deg) scale(1.05); }
+    55%  { transform: translate3d(45vw, 62vh, 0) rotate(5deg) scale(1); }
+    80%  { transform: translate3d(18vw, 48vh, 0) rotate(-7deg) scale(1.02); }
+    92%  { opacity: .16; }
+    100% { transform: translate3d(-100px, 54vh, 0) rotate(6deg) scale(.95); opacity: 0; }
+}
+
+/* Траектория 3: слева направо через нижнюю треть экрана */
+@keyframes ghost-path-3 {
+    0%   { transform: translate3d(-100px, 82vh, 0) rotate(-5deg) scale(.9); opacity: 0; }
+    10%  { opacity: .15; }
+    35%  { transform: translate3d(25vw, 68vh, 0) rotate(6deg) scale(1.04); }
+    60%  { transform: translate3d(55vw, 88vh, 0) rotate(-5deg) scale(1); }
+    85%  { transform: translate3d(85vw, 70vh, 0) rotate(6deg) scale(1.02); }
+    94%  { opacity: .15; }
+    100% { transform: translate3d(calc(100vw + 20px), 80vh, 0) rotate(-6deg) scale(.9); opacity: 0; }
+}
+
+/* Траектория 4: диагональ сверху-слева вниз-вправо */
+@keyframes ghost-path-4 {
+    0%   { transform: translate3d(-100px, -60px, 0) rotate(-10deg) scale(.9); opacity: 0; }
+    8%   { opacity: .17; }
+    30%  { transform: translate3d(25vw, 22vh, 0) rotate(7deg) scale(1.05); }
+    55%  { transform: translate3d(52vw, 45vh, 0) rotate(-6deg) scale(1); }
+    80%  { transform: translate3d(80vw, 68vh, 0) rotate(8deg) scale(1.03); }
+    92%  { opacity: .17; }
+    100% { transform: translate3d(calc(100vw + 20px), calc(100vh + 40px), 0) rotate(-8deg) scale(.9); opacity: 0; }
+}
+
+/* Траектория 5: диагональ снизу-справа вверх-влево */
+@keyframes ghost-path-5 {
+    0%   { transform: translate3d(calc(100vw + 20px), calc(100vh + 40px), 0) rotate(9deg) scale(.9); opacity: 0; }
+    8%   { opacity: .16; }
+    30%  { transform: translate3d(74vw, 70vh, 0) rotate(-7deg) scale(1.04); }
+    55%  { transform: translate3d(46vw, 42vh, 0) rotate(6deg) scale(1); }
+    80%  { transform: translate3d(16vw, 16vh, 0) rotate(-8deg) scale(1.02); }
+    92%  { opacity: .16; }
+    100% { transform: translate3d(-100px, -60px, 0) rotate(7deg) scale(.9); opacity: 0; }
+}
+
+/* Ghost SVG color adapts to theme via currentColor */
+.fc-ghost-svg {
+    width: 100%;
+    height: 100%;
+    color: var(--fc-halloween-ghost-color, #f5f0e8);
+}
+
+/* --- Spider (top) — descends, pauses, ascends --- */
+.fc-halloween-spider {
+    position: fixed;
+    top: -80px;
+    left: var(--spider-x, 50%);
+    transform: translateX(-50%);
+    width: 56px;
+    height: 56px;
+    opacity: 0;
+    pointer-events: none;
+    will-change: transform, opacity;
+    z-index: 1010; /* поверх призраков */
+    /* Single infinite animation: wait off-screen → descend → pause → ascend → wait */
+    animation: spider-up-down 25s ease-in-out infinite;
+    /* --spider-x set via inline style for random horizontal position */
+}
+
+/* Web thread drawn via pseudo-element on the spider container */
+.fc-halloween-spider::before {
+    content: "";
+    position: absolute;
+    top: -100vh; /* extends from top of viewport */
+    left: 50%;
+    width: 2px;
+    height: 100vh; /* full viewport height */
+    background: linear-gradient(180deg,
+        transparent 0%,
+        var(--fc-halloween-spider-thread, rgba(45, 26, 14, 0.3)) 10%,
+        var(--fc-halloween-spider-thread, rgba(45, 26, 14, 0.4)) 90%,
+        transparent 100%);
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: -1; /* behind spider */
+}
+
+/* Desktop spider size */
+@media (min-width: 761px) {
+    .fc-halloween-spider { width: 56px; height: 56px; }
+}
+@media (max-width: 760px) {
+    .fc-halloween-spider { width: 44px; height: 44px; }
+}
+
+/* Spider keyframes:
+   Цикл 25с. Видимая фаза — первые 20% (0-5с): спуск сверху → пауза → подъём.
+   Остальные 80% — ожидание за верхним краем экрана.
+   Важно: видимая фаза должна укладываться в интервал таймера (20с), иначе
+   элемент пересоздаётся (@key) раньше, чем паук доедет до экрана. */
+@keyframes spider-up-down {
+    0% {
+        top: -80px;
+        opacity: 0;
+        transform: translateX(-50%) rotate(0deg);
+    }
+    3% {
+        top: 10vh;
+        opacity: 0.9;
+        transform: translateX(-50%) rotate(90deg);
+    }
+    7% {
+        top: 35vh;
+        opacity: 0.95;
+        transform: translateX(-50%) rotate(200deg);
+    }
+    12% {
+        top: 35vh;
+        opacity: 0.95;
+        transform: translateX(-50%) rotate(320deg);
+    }
+    16% {
+        top: 10vh;
+        opacity: 0.9;
+        transform: translateX(-50%) rotate(440deg);
+    }
+    19% {
+        top: -80px;
+        opacity: 0;
+        transform: translateX(-50%) rotate(540deg);
+    }
+    100% {
+        top: -80px;
+        opacity: 0;
+        transform: translateX(-50%) rotate(540deg);
+    }
+}
+
+/* Spider SVG color adapts to theme via currentColor */
+.fc-spider-svg {
+    width: 100%;
+    height: 100%;
+    color: var(--fc-halloween-spider-color, #2d1a0e);
+}
+
+/* Theme-specific ghost/spider colors using existing Halloween palette */
+:root {
+    --fc-halloween-ghost-color: #f5f0e8;
+    --fc-halloween-spider-color: #2d1a0e;
+    --fc-halloween-spider-thread: rgba(45, 26, 14, 0.35);
+}
+:root[data-theme=light] {
+    --fc-halloween-ghost-color: #fff8f0;
+    --fc-halloween-spider-color: #1a0d05;
+    --fc-halloween-spider-thread: rgba(26, 13, 5, 0.3);
+}
+:root[data-theme=dark] {
+    --fc-halloween-ghost-color: #f5f0e8;
+    --fc-halloween-spider-color: #2d1a0e;
+    --fc-halloween-spider-thread: rgba(45, 26, 14, 0.4);
+}
+
+/* Уведомления смахиваются в сторону (js/snackbar-swipe.js): горизонтальный жест не прокручивает страницу. */
+.mud-snackbar { touch-action: pan-y; }
+
+/* Ссылка на репозиторий в подвале кабинетов. */
+.fc-footer-github { display:inline-flex; align-items:center; gap:6px; color:inherit; text-decoration:none; }
+.fc-footer-github:hover, .fc-footer-github:focus-visible { color:var(--mud-palette-primary); text-decoration:underline; }

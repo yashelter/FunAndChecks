@@ -103,7 +103,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         await access.EnsureGroupsAllowedAsync(adminId, records.Select(r => r.GroupId), ct);
         // Проверяем весь пакет до изменений; при конфликте не сохраняется ни одна отметка.
         if (records.Any(r => r.Version != expected[r.StudentId] || r.Status != AttendanceStatus.Unmarked)) throw ChangedException();
-        foreach (var record in records) ApplyMark(record, adminId, AttendanceStatus.Absent);
+        foreach (var record in records) ApplyMark(record, adminId, request.Status);
         await SaveMarksAsync(ct);
     }
 
@@ -166,7 +166,7 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
             new AttendanceStudentRowDto(g.Key.StudentId, g.First().Student.FullName, g.Key.GroupId, g.Key.GroupName,
                 g.ToDictionary(r => r.SessionId, r => r.Status),
                 g.Count(r => r.Status == AttendanceStatus.Present), g.Count(r => r.Status == AttendanceStatus.Absent),
-                g.Count(r => r.Status == AttendanceStatus.Unmarked)))
+                g.Count(r => r.Status == AttendanceStatus.Unmarked), g.First().Student.LastName, g.First().Student.FirstName))
             .OrderBy(s => s.GroupName).ThenBy(s => s.FullName).ToList();
         return new(subjectId, subject.Name, subject.AttendanceEnabled, sessions, students);
     }

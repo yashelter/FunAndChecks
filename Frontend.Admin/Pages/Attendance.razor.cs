@@ -11,9 +11,11 @@ public partial class Attendance
 {
     [Inject] private AttendanceApi Api { get; set; } = null!;
     [Inject] private MeApi Me { get; set; } = null!;
+    [Inject] private CurrentSubject CurrentSubject { get; set; } = null!;
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private Microsoft.Extensions.Localization.IStringLocalizer<Frontend.Shared.Resources.AppStrings> Loc { get; set; } = null!;
     [SupplyParameterFromQuery(Name = "subjectId")] public int? SubjectId { get; set; }
     [SupplyParameterFromQuery(Name = "studentId")] public Guid? StudentId { get; set; }
 
@@ -45,15 +47,16 @@ public partial class Attendance
             return _sortAbsences ? rows.OrderByDescending(s => s.Absent).ThenBy(s => s.FullName) : rows;
         }
     }
-    private string LoadedPeriod => _loadedFrom is null && _loadedTo is null ? "весь период"
-        : $"{(_loadedFrom?.ToString("dd.MM.yyyy") ?? "начало")} — {(_loadedTo?.ToString("dd.MM.yyyy") ?? "сегодня и далее")}";
+    private string LoadedPeriod => _loadedFrom is null && _loadedTo is null ? Loc["AttendanceJournal_AllTime"].Value
+        : $"{(_loadedFrom?.ToString("dd.MM.yyyy") ?? Loc["AttendanceJournal_Start"].Value)} — {(_loadedTo?.ToString("dd.MM.yyyy") ?? Loc["AttendanceJournal_Onwards"].Value)}";
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _subjects = await Me.GetVisibleSubjectsAsync();
-            _subjectId = _subjects.Any(s => s.Id == SubjectId) ? SubjectId : _subjects.FirstOrDefault()?.Id;
+            _subjectId = _subjects.Any(s => s.Id == SubjectId) ? SubjectId
+                : await CurrentSubject.PickAsync(_subjects.Select(s => s.Id)) ?? _subjects.FirstOrDefault()?.Id;
             if (_subjectId.HasValue) _groups = await Api.GetGroupsAsync(_subjectId.Value);
             await LoadAsync();
         }
@@ -67,6 +70,7 @@ public partial class Attendance
     private async Task ChangeSubjectAsync(int? id)
     {
         _subjectId = id;
+        await CurrentSubject.SetAsync(id);
         _groupId = null;
         _creating = false;
         _selectedStudent = null;
@@ -117,7 +121,7 @@ public partial class Attendance
             await Api.SetEnabledAsync(_journal.SubjectId, enabled);
             _journal = _journal with { Enabled = enabled };
             if (!enabled) _creating = false;
-            Snackbar.Add(enabled ? "Учёт посещаемости включён." : "Учёт выключен, история сохранена.", Severity.Success);
+            Snackbar.Add(enabled ? Loc["AttendanceJournal_TurnedOn"] : Loc["AttendanceJournal_TurnedOff"], Severity.Success);
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException) { Snackbar.Add(ex.Message, Severity.Error); }
         finally { _working = false; }

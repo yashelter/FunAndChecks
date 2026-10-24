@@ -1,0 +1,39 @@
+@page "/privacy-policy"
+@layout AuthLayout
+@using Frontend.Shared.Community
+@using System.Reflection
+@using System.IO
+@inject IStringLocalizer<AppStrings> Loc
+@inject NavigationManager NavigationManager
+
+<PageTitle>@Loc["PrivacyPolicy_PageTitle"]</PageTitle>
+
+<section class="fc-legal-card">
+    @* Заголовок — первая строка самого licence/agreement.md, поэтому отдельной шапки нет. *@
+    <div class="fc-legal-body">
+        <div class="fc-legal-content">
+            @((MarkupString)ForumMarkdown.ToHtml(_agreement, "/student"))
+        </div>
+        <div class="fc-legal-actions">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/register">
+                @Loc["PrivacyPolicy_BackToRegister"]
+            </MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/login">
+                @Loc["Common_BackToLogin"]
+            </MudButton>
+        </div>
+    </div>
+</section>
+
+@code {
+    // Единственный документ — шуточное соглашение из licence/agreement.md (встроен в сборку, только на русском).
+    private string _agreement = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("agreement.md");
+        if (stream is null) return;
+        using var reader = new StreamReader(stream);
+        _agreement = await reader.ReadToEndAsync();
+    }
+}

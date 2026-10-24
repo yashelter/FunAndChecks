@@ -13,6 +13,7 @@ public partial class Queues
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
+    [Inject] private IDialogService Dialogs { get; set; } = null!;
 
     private List<QueueEventDto> _queues = [];
     private bool _loading = true;
@@ -44,4 +45,13 @@ public partial class Queues
     }
 
     private void Open(int eventId) => Nav.NavigateTo($"/admin/queues/{eventId}");
+
+    /// <summary>Новая очередь прямо со страницы очередей — та же форма, что в «Управлении».</summary>
+    private async Task CreateAsync()
+    {
+        var dialog = await Dialogs.ShowAsync<Frontend.Admin.Dialogs.CreateQueueDialog>(Loc["Management_CreateQueue"],
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true });
+        // Уведомление «Очередь создана» показывает сама форма; новая очередь появляется в списке.
+        if (await dialog.Result is { Canceled: false }) await LoadAsync();
+    }
 }

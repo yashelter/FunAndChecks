@@ -1,0 +1,281 @@
+@implements IAsyncDisposable
+@inject ForumApi Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+@* Редактор сообщения: Markdown с предпросмотром, файлы (кнопка, вставка из буфера, перетаскивание), упоминания. *@
+<div class="fc-composer @(Compact ? "compact" : "")" @ref="_zone">
+    @if (ReplyTo is not null)
+    {
+        <div class="fc-composer-reply"><MudIcon Icon="@Icons.Material.Outlined.Reply" Size="Size.Small" />
+            <span>@CommunityText.T("Ответ на сообщение", "Replying to") <strong>@ReplyTo.AuthorName</strong>: @ForumMarkdown.ToPlainText(ReplyTo.Excerpt)</span>
+            <button type="button" class="fc-icon-link" @onclick="CancelReply" aria-label="@CommunityText.T("Не отвечать", "Cancel reply")">×</button></div>
+    }
+    <div class="fc-composer-toolbar" role="toolbar" aria-label="@CommunityText.T("Форматирование", "Formatting")">
+        <button type="button" class="@(_preview ? "" : "selected")" aria-pressed="@(_preview ? "false" : "true")" @onclick="() => _preview = false">@CommunityText.T("Текст", "Write")</button>
+        <button type="button" class="@(_preview ? "selected" : "")" aria-pressed="@(_preview ? "true" : "false")" @onclick="() => _preview = true">@CommunityText.T("Предпросмотр", "Preview")</button>
+        <span class="fc-composer-spacer"></span>
+        @if (!_preview)
+        {
+            <button type="button" title="@CommunityText.T("Жирный", "Bold")" @onclick="@(() => WrapAsync("**", "**"))"><b>B</b></button>
+            <button type="button" title="@CommunityText.T("Курсив", "Italic")" @onclick="@(() => WrapAsync("_", "_"))"><i>I</i></button>
+            <button type="button" title="@CommunityText.T("Код", "Code")" @onclick="@(() => WrapAsync("`", "`"))">&lt;/&gt;</button>
+            <button type="button" title="@CommunityText.T("Блок кода", "Code block")" @onclick="@(() => WrapAsync("\n```\n", "\n```\n"))">{ }</button>
+            @if (TopicId is not null) { <button type="button" title="@CommunityText.T("Упомянуть", "Mention")" @onclick="ToggleMentions">@@</button> }
+        }
+        <button type="button" title="@CommunityText.T("Прикрепить файл", "Attach a file")" @onclick="PickFilesAsync" disabled="@(_files.Count >= MaxFiles)">
+            <MudIcon Icon="@Icons.Material.Outlined.AttachFile" Size="Size.Small" /></button>
+    </div>
+    @if (_mentionsOpen)
+    {
+        <div class="fc-composer-mentions">
+            <input @ref="_mentionInput" class="fc-input" placeholder="@CommunityText.T("Кого упомянуть? Начните вводить фамилию", "Who to mention? Start typing a name")"
+                   aria-label="@CommunityText.T("Поиск человека для упоминания", "Find someone to mention")"
+                   @bind="_mentionQuery" @bind:event="oninput" @bind:after="SearchMentionsAsync" @onkeydown="MentionKeyDownAsync" />
+            @if (_mentionQuery.Trim().Length >= 2 && _candidates.Count == 0) { <small class="fc-muted">@CommunityText.T("Никого не нашли", "Nobody found")</small> }
+            @foreach (var user in _candidates)
+            {
+                <button type="button" @onclick="() => InsertMentionAsync(user)"><UserChip UserId="user.UserId" Name="@user.FullName" Link="false" Compact="true"
+                    Subtitle="@(user.IsAdmin ? CommunityText.T("Преподаватель", "Teacher") : user.GroupName)" /></button>
+            }
+        </div>
+    }
+    @if (_preview)
+    {
+        <div class="fc-composer-preview">@if (string.IsNullOrWhiteSpace(_body)) { <span class="fc-muted">@CommunityText.T("Нечего показать.", "Nothing to preview.")</span> } else { <MarkdownView Text="@_body" BasePath="@BasePath" /> }</div>
+    }
+    else
+    {
+        <textarea @ref="_textarea" class="fc-composer-input" rows="@(Compact ? 3 : 6)" maxlength="10000" @bind="_body" @bind:event="oninput" @bind:after="ScheduleDraftSave"
+                  placeholder="@Placeholder" aria-label="@CommunityText.T("Текст сообщения", "Message")"></textarea>
+    }
+    <InputFile @ref="_input" OnChange="UploadAsync" multiple class="fc-hidden-input" />
+    @if (_files.Count > 0 || _uploading > 0)
+    {
+        <ul class="fc-composer-files">
+            @foreach (var file in _files)
+            {
+                <li><MudIcon Icon="@(file.IsImage ? Icons.Material.Outlined.Image : Icons.Material.Outlined.Description)" Size="Size.Small" />
+                    <span>@file.FileName</span><small>@CommunityText.Size(file.SizeBytes)</small>
+                    <button type="button" class="fc-icon-link" @onclick="() => RemoveAsync(file)" aria-label="@CommunityText.T("Убрать файл", "Remove file")">×</button></li>
+            }
+            @if (_uploading > 0) { <li><MudProgressCircular Indeterminate="true" Size="Size.Small" /><span>@CommunityText.T("Загружаем…", "Uploading…")</span></li> }
+        </ul>
+    }
+    <div class="fc-composer-actions">
+        <small class="fc-muted">@CommunityText.T("Markdown, до 5 файлов по 10 МБ, картинки — из буфера. Ctrl+Enter — отправить, @ — упомянуть.", "Markdown, up to 5 files of 10 MB, paste images. Ctrl+Enter sends, @ mentions.")</small>
+        @if (Cancel.HasDelegate) { <MudButton OnClick="Cancel" Disabled="_busy">@CommunityText.T("Отмена", "Cancel")</MudButton> }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync" Disabled="@(_busy || _uploading > 0 || (string.IsNullOrWhiteSpace(_body) && _files.Count == 0))">@SubmitLabel</MudButton>
+    </div>
+</div>
+
+@code {
+    private const int MaxFiles = 5;
+    private const long MaxBytes = 10L * 1024 * 1024;
+    [Parameter] public int? TopicId { get; set; }
+    [Parameter] public string BasePath { get; set; } = "/student";
+    [Parameter] public string InitialBody { get; set; } = "";
+    [Parameter] public List<AttachmentDto>? InitialFiles { get; set; }
+    [Parameter] public ForumQuoteDto? ReplyTo { get; set; }
+    [Parameter] public EventCallback ReplyCancelled { get; set; }
+    [Parameter] public string SubmitLabel { get; set; } = CommunityText.T("Отправить", "Send");
+    [Parameter] public string Placeholder { get; set; } = CommunityText.T("Напишите сообщение…", "Write a message…");
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public EventCallback Cancel { get; set; }
+    /// <summary>Ключ черновика в браузере (тема, правка сообщения, новая тема). null — без черновика.</summary>
+    [Parameter] public string? DraftKey { get; set; }
+    /// <summary>Отправка: true — очистить редактор.</summary>
+    [Parameter, EditorRequired] public Func<string, List<Guid>, Task<bool>> Submit { get; set; } = default!;
+
+    private ElementReference _zone, _textarea, _mentionInput;
+    private InputFile? _input;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<PostComposer>? _self;
+    private bool _draftLoaded, _focusMentions;
+    private CancellationTokenSource? _draftSave;
+    private string _body = "";
+    private List<AttachmentDto> _files = [];
+    private readonly HashSet<Guid> _initialIds = [];
+    private bool _preview, _busy, _mentionsOpen, _bound;
+    private int _uploading;
+    private string _mentionQuery = "";
+    private List<ForumMentionCandidateDto> _candidates = [];
+
+    protected override void OnInitialized()
+    {
+        _body = InitialBody;
+        _files = InitialFiles?.ToList() ?? [];
+        foreach (var file in _files) _initialIds.Add(file.Id);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_input?.Element is not ElementReference input) return;
+        _module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        _self ??= DotNetObjectReference.Create(this);
+        if (!_bound)
+        {
+            await _module.InvokeVoidAsync("bindComposer", _zone, input);
+            _bound = true;
+        }
+        // Поле пересоздаётся после предпросмотра — JS сам не вешает обработчики дважды.
+        if (!_preview) await _module.InvokeVoidAsync("bindShortcuts", _textarea, _self);
+        if (!_draftLoaded)
+        {
+            _draftLoaded = true;
+            if (DraftKey is not null && string.IsNullOrEmpty(InitialBody) &&
+                await _module.InvokeAsync<string?>("loadDraft", DraftKey) is { Length: > 0 } draft)
+            {
+                _body = draft;
+                StateHasChanged();
+            }
+        }
+        if (_focusMentions)
+        {
+            _focusMentions = false;
+            await _module.InvokeVoidAsync("focusElement", _mentionInput);
+        }
+    }
+
+    private void ScheduleDraftSave()
+    {
+        if (DraftKey is null || _module is null) return;
+        _draftSave?.Cancel();
+        var token = (_draftSave = new CancellationTokenSource()).Token;
+        _ = Task.Delay(700, token).ContinueWith(async _ =>
+        {
+            if (!token.IsCancellationRequested) await _module.InvokeVoidAsync("saveDraft", DraftKey, _body);
+        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Current);
+    }
+
+    [JSInvokable] public Task SubmitFromKeyboard() => InvokeAsync(SubmitAsync);
+
+    [JSInvokable] public Task CancelFromKeyboard() => InvokeAsync(async () =>
+    {
+        if (_mentionsOpen) { _mentionsOpen = false; StateHasChanged(); return; }
+        if (Cancel.HasDelegate) await Cancel.InvokeAsync();
+        else if (ReplyTo is not null) await ReplyCancelled.InvokeAsync();
+    });
+
+    [JSInvokable] public Task OpenMentionsFromKeyboard() => InvokeAsync(() =>
+    {
+        if (TopicId is null) return;
+        _mentionsOpen = true;
+        _candidates = [];
+        _mentionQuery = "";
+        _focusMentions = true;
+        StateHasChanged();
+    });
+
+    [JSInvokable] public Task BodyChangedFromKeyboard(string value) => InvokeAsync(() =>
+    {
+        _body = value;
+        ScheduleDraftSave();
+        StateHasChanged();
+    });
+
+    private async Task MentionKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _candidates.Count > 0) await InsertMentionAsync(_candidates[0]);
+        else if (e.Key == "Escape") { _mentionsOpen = false; if (_module is not null) await _module.InvokeVoidAsync("focusElement", _textarea); }
+    }
+
+    private async Task PickFilesAsync()
+    {
+        if (_module is not null && _input?.Element is ElementReference input) await _module.InvokeVoidAsync("openFilePicker", input);
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        foreach (var file in args.GetMultipleFiles(20))
+        {
+            if (_files.Count + _uploading >= MaxFiles) { Snackbar.Add(CommunityText.T("Не больше пяти файлов.", "At most five files."), Severity.Warning); break; }
+            if (file.Size > MaxBytes) { Snackbar.Add(CommunityText.T($"«{file.Name}» больше 10 МБ.", $"“{file.Name}” is larger than 10 MB."), Severity.Warning); continue; }
+            _uploading++;
+            StateHasChanged();
+            try
+            {
+                await using var stream = file.OpenReadStream(MaxBytes);
+                var name = string.IsNullOrWhiteSpace(file.Name) || file.Name == "image.png" ? $"image-{DateTime.Now:HHmmss}.png" : file.Name;
+                _files.Add(await Api.UploadAsync(stream, name, file.ContentType));
+            }
+            catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+            catch (IOException) { Snackbar.Add(CommunityText.T("Не удалось прочитать файл.", "Could not read the file."), Severity.Error); }
+            finally { _uploading--; }
+        }
+    }
+
+    private async Task RemoveAsync(AttachmentDto file)
+    {
+        _files.Remove(file);
+        // Ещё не опубликованный файл удаляем сразу; прикреплённый отвяжется при сохранении правки.
+        if (!_initialIds.Contains(file.Id))
+        {
+            try { await Api.RemoveUploadAsync(file.Id); }
+            catch (ApiException) { /* Висячий файл всё равно уберёт фоновая очистка. */ }
+        }
+    }
+
+    private async Task WrapAsync(string before, string after)
+    {
+        if (_module is null) return;
+        _body = await _module.InvokeAsync<string?>("wrapSelection", _textarea, before, after) ?? _body;
+    }
+
+    private void ToggleMentions() { _mentionsOpen = !_mentionsOpen; _candidates = []; _mentionQuery = ""; }
+
+    private async Task SearchMentionsAsync()
+    {
+        if (TopicId is not int topicId || _mentionQuery.Trim().Length < 2) { _candidates = []; return; }
+        var query = _mentionQuery;
+        try
+        {
+            var found = await Api.MentionCandidatesAsync(topicId, query);
+            if (query == _mentionQuery) _candidates = found;
+        }
+        catch (ApiException) { }
+    }
+
+    private async Task InsertMentionAsync(ForumMentionCandidateDto user)
+    {
+        var text = ForumMarkdown.Mention(user.FullName, user.UserId) + " ";
+        _mentionsOpen = false;
+        StateHasChanged();
+        await Task.Yield();
+        _body = _module is null ? _body + text : await _module.InvokeAsync<string?>("insertMention", _textarea, text) ?? _body + text;
+        ScheduleDraftSave();
+    }
+
+    private Task CancelReply() => ReplyCancelled.InvokeAsync();
+
+    private async Task SubmitAsync()
+    {
+        if (_busy || _uploading > 0 || (string.IsNullOrWhiteSpace(_body) && _files.Count == 0)) return;
+        _busy = true;
+        try
+        {
+            if (await Submit(_body, _files.Select(f => f.Id).ToList()))
+            {
+                _body = "";
+                _files = [];
+                _preview = false;
+                _draftSave?.Cancel();
+                if (DraftKey is not null && _module is not null) await _module.InvokeVoidAsync("saveDraft", DraftKey, "");
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null) return;
+        try
+        {
+            _draftSave?.Cancel();
+            await _module.InvokeVoidAsync("unbindComposer", _zone);
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException) { }
+        _self?.Dispose();
+    }
+}

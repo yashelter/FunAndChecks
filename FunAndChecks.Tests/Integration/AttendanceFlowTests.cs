@@ -50,7 +50,7 @@ public class AttendanceFlowTests : IDisposable
         export.Content.Headers.ContentType!.MediaType.Should().Be("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         using var stream = new MemoryStream(await export.Content.ReadAsByteArrayAsync());
         using var workbook = new XLWorkbook(stream);
-        var sheet = workbook.Worksheet("Посещаемость");
+        var sheet = workbook.Worksheet("M8O-101");
         sheet.Cell(4, 3).GetString().Should().Contain("05.10.2026 10:00").And.Contain("Практика");
         sheet.Cell(5, 3).GetString().Should().Be("✓");
         sheet.Cell(5, 4).GetValue<int>().Should().Be(1);
@@ -65,6 +65,75 @@ public class AttendanceFlowTests : IDisposable
         (await student.GetFromJsonAsync<List<StudentAttendanceDto>>($"/api/me/attendance/subjects/{data.SubjectId}"))!.Should().ContainSingle();
         (await admin.PostAsJsonAsync($"{subjectUrl}/sessions", new CreateAttendanceSessionRequest(null, DateTime.UtcNow, [data.GroupId])))
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task ExportWithoutGroupFilter_SeparatesGroupsIntoSheets()
+    {
+        var data = await SeedAsync();
+        int otherGroupId;
+        Guid otherStudentId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var group = db.Group("M8O-102");
+            await db.SaveChangesAsync();
+            db.GroupSubjects.Add(new FunAndChecks.Domain.Entities.GroupSubject
+            {
+                GroupId = group.Id,
+                SubjectId = data.SubjectId,
+            });
+            otherStudentId = db.Student(group, "Gamma").Id;
+            otherGroupId = group.Id;
+            await db.SaveChangesAsync();
+        }
+        using var admin = Client(data.AdminToken);
+        var subjectUrl = $"/api/attendance/subjects/{data.SubjectId}";
+        (await admin.PutAsJsonAsync($"{subjectUrl}/settings", new AttendanceSettingsDto(true)))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var create = await admin.PostAsJsonAsync($"{subjectUrl}/sessions",
+            new CreateAttendanceSessionRequest("Общее занятие", new DateTime(2026, 10, 5, 7, 0, 0, DateTimeKind.Utc),
+                [data.GroupId, otherGroupId]));
+        create.StatusCode.Should().Be(HttpStatusCode.Created);
+        var session = (await create.Content.ReadFromJsonAsync<AttendanceSessionDto>())!;
+        var sessionUrl = $"/api/attendance/sessions/{session.Id}";
+        var details = (await admin.GetFromJsonAsync<AttendanceSessionDetailsDto>(sessionUrl))!;
+        foreach (var (studentId, status) in new[]
+        {
+            (data.StudentId, AttendanceStatus.Present),
+            (otherStudentId, AttendanceStatus.Absent),
+        })
+        {
+            var version = details.Participants.Single(p => p.StudentId == studentId).Version;
+            (await admin.PutAsJsonAsync($"{sessionUrl}/students/{studentId}", new SetAttendanceRequest(status, version)))
+                .StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+        // Занятие только первой группы: на листе второй группы ему не место (там был бы столбец из одних «н/у»).
+        (await admin.PostAsJsonAsync($"{subjectUrl}/sessions",
+                new CreateAttendanceSessionRequest("Только 101", new DateTime(2026, 10, 6, 7, 0, 0, DateTimeKind.Utc), [data.GroupId])))
+            .StatusCode.Should().Be(HttpStatusCode.Created);
+
+        using var response = await admin.GetAsync($"{subjectUrl}/export");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var stream = new MemoryStream(await response.Content.ReadAsByteArrayAsync());
+        using var workbook = new XLWorkbook(stream);
+        workbook.Worksheets.Should().HaveCount(2);
+        var firstGroup = workbook.Worksheet("M8O-101");
+        firstGroup.Cell(1, 1).GetString().Should().EndWith("M8O-101");
+        firstGroup.Cell(4, 1).GetString().Should().Be("Фамилия");
+        firstGroup.Cell(4, 2).GetString().Should().Be("Имя");
+        firstGroup.Cell(5, 2).GetString().Should().Be("Test");
+        firstGroup.Cell(6, 2).GetString().Should().Be("Test");
+        firstGroup.Cell(7, 1).IsEmpty().Should().BeTrue();
+        firstGroup.Cell(5, 3).GetString().Should().Be("✓");
+        firstGroup.Cell(4, 4).GetString().Should().Contain("Только 101");
+        var secondGroup = workbook.Worksheet("M8O-102");
+        secondGroup.Cell(5, 1).GetString().Should().Be("Gamma");
+        secondGroup.Cell(5, 2).GetString().Should().Be("Test");
+        secondGroup.Cell(6, 1).IsEmpty().Should().BeTrue();
+        secondGroup.Cell(5, 3).GetString().Should().Be("✕");
+        secondGroup.Cell(4, 4).GetString().Should().Be("Посещений");
+        secondGroup.Cell(5, 5).GetValue<int>().Should().Be(1);
     }
 
     [Fact]
@@ -107,6 +176,8 @@ public class AttendanceFlowTests : IDisposable
         var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         (await users.AddToRoleAsync((await users.FindByIdAsync(admin.Id.ToString()))!, Roles.Admin)).Succeeded.Should().BeTrue();
         (await users.AddToRoleAsync((await users.FindByIdAsync(student.Id.ToString()))!, Roles.Student)).Succeeded.Should().BeTrue();
+        var access = scope.ServiceProvider.GetRequiredService<FunAndChecks.Application.Admins.IAdminAccessService>();
+        await access.SetSubjectRestrictedAsync(admin.Id, subject.Id, false);
         var tokens = scope.ServiceProvider.GetRequiredService<ITokenService>();
         return (admin.Id, subject.Id, group.Id, student.Id,
             await tokens.CreateTokenAsync(admin.Id), await tokens.CreateTokenAsync(student.Id));

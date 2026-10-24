@@ -1,3 +1,34 @@
-funandchecks.ru {
-    reverse_proxy funandchecks-api:8080
+{$APP_DOMAIN} {
+    # Internal endpoints are reachable only inside the Compose network.
+    @internal path /internal /internal/*
+    handle @internal {
+        respond 404
+    }
+
+    # The exact URL loads the application's JWT-to-cookie bridge.
+    handle /metrics {
+        reverse_proxy funandchecks-api:{$API_INTERNAL_PORT:8080}
+    }
+
+    handle /metrics/* {
+        route {
+            # Never trust identity or gateway headers supplied by a browser.
+            request_header -X-WEBAUTH-*
+            request_header -X-Monitoring-*
+            forward_auth funandchecks-api:{$API_INTERNAL_PORT:8080} {
+                uri /internal/monitoring/authorize
+                header_up X-Monitoring-Proxy-Key {$MONITORING_PROXY_KEY}
+                header_up X-Monitoring-Original-Uri {uri}
+                copy_headers X-Monitoring-User>X-WEBAUTH-USER
+            }
+            reverse_proxy grafana:3000 {
+                header_up -Authorization
+                header_up -X-Monitoring-*
+            }
+        }
+    }
+
+    handle {
+        reverse_proxy funandchecks-api:{$API_INTERNAL_PORT:8080}
+    }
 }

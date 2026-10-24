@@ -1,0 +1,213 @@
+@implements IDisposable
+@inject ForumApi Api
+@inject NavigationManager Nav
+@inject ForumListState ListState
+@inject ISnackbar Snackbar
+
+<PageTitle>@CommunityText.T("Форум", "Forum")</PageTitle>
+<div class="fc-page-heading"><div>
+    <MudText Typo="Typo.h4">@CommunityText.T("Форум", "Forum")</MudText>
+    <MudText Class="fc-muted">@CommunityText.T("Вопросы по предметам, объявления и обсуждения.", "Subject questions, announcements and discussions.")</MudText>
+    @if (!IsAdmin && _sections.Count > 0 && CreatableSections.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Class="fc-muted">@CommunityText.T("Темы открывают преподаватели — задавайте вопросы в подходящей теме.", "Teachers open topics — ask your question in a matching one.")</MudText>
+    }
+</div>
+    <div class="fc-profile-heading-actions">
+        @if (IsAdmin) { <MudButton Href="/admin/forum/moderation" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Flag">@CommunityText.T("Модерация", "Moderation")</MudButton> }
+        @if (CreatableSections.Count > 0) { <MudButton OnClick="OpenCreate" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add">@CommunityText.T("Новая тема", "New topic")</MudButton> }
+    </div>
+</div>
+
+<div class="fc-forum-layout">
+    <nav class="fc-panel fc-forum-sections" aria-label="@CommunityText.T("Разделы", "Sections")">
+        <button type="button" class="@(_filter == Filter.All ? "selected" : "")" @onclick="() => SelectAsync(Filter.All, null)">
+            <span>@CommunityText.T("Все темы", "All topics")</span><small>@_sections.Sum(s => s.TopicCount)</small></button>
+        @foreach (var section in _sections)
+        {
+            var selected = section.SubjectId is null ? _filter == Filter.General : _filter == Filter.Subject && _subjectId == section.SubjectId;
+            var badgeHtml = section.UnreadTopicCount > 0
+                ? $"<span class=\"fc-nav-badge\">{section.UnreadTopicCount}</span>"
+                : $"<small>{section.TopicCount}</small>";
+            <button type="button" class="@(selected ? "selected" : "")" @onclick="() => SelectAsync(section.SubjectId is null ? Filter.General : Filter.Subject, section.SubjectId)">
+                <span>@SectionName(section)</span>
+                @((MarkupString)badgeHtml)
+            </button>
+        }
+    </nav>
+    <section class="fc-forum-topics">
+        <div class="fc-panel fc-forum-toolbar">
+            <MudTextField T="string" @bind-Value="_search" DebounceInterval="350" OnDebounceIntervalElapsed="SearchAsync" Immediate="true"
+                          Placeholder="@CommunityText.T("Поиск по темам и сообщениям", "Search topics and messages")" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Search" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+        </div>
+        @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert> }
+        @if (_page is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+        else if (_page.Items.Count == 0)
+        {
+            <div class="fc-panel fc-forum-empty"><MudIcon Icon="@Icons.Material.Outlined.Forum" />
+                <p>@(string.IsNullOrWhiteSpace(_search) ? CommunityText.T("Здесь пока нет тем.", "No topics here yet.") : CommunityText.T("Ничего не нашлось.", "Nothing found."))</p></div>
+        }
+        else
+        {
+            <ul class="fc-panel fc-topic-list">
+                @foreach (var topic in _page.Items)
+                {
+                    <li class="@(topic.UnreadCount > 0 ? "unread" : "")">
+                        <a href="@($"{BasePath}/forum/{topic.Id}")" class="fc-topic-title">
+                            @if (topic.IsPinned) { <MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" Class="fc-topic-pin" /> }
+                            <strong>@topic.Title</strong>
+                            @if (topic.IsAnnouncement) { <span class="fc-chip accent">@CommunityText.T("Объявление", "Announcement")</span> }
+                            @if (topic.IsClosed) { <span class="fc-chip"><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />@CommunityText.T("Закрыта", "Closed")</span> }
+                        </a>
+                        <div class="fc-topic-meta">
+                            <UserChip UserId="topic.Author.UserId" Name="@topic.Author.Name" Compact="true" />
+                            <span class="fc-chip">@(topic.SubjectName ?? CommunityText.T("Общее", "General"))</span>
+                            <span>@CommunityText.Posts(topic.PostCount)</span>
+                            <span>@CommunityText.Ago(topic.LastActivityAtUtc)</span>
+                            @if (topic.UnreadCount > 0) { <span class="fc-nav-badge">+@CommunityText.NewPosts(topic.UnreadCount)</span> }
+                        </div>
+                    </li>
+                }
+            </ul>
+            @if (_page.TotalCount > _page.PageSize)
+            {
+                <MudPagination Count="@((int)Math.Ceiling(_page.TotalCount / (double)_page.PageSize))" Selected="_pageNumber" SelectedChanged="PageAsync" Class="mt-3" />
+            }
+        }
+    </section>
+</div>
+
+@if (_creating)
+{
+    <Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Новая тема", "New topic")" Close="() => _creating = false" Busy="_busy">
+        <ChildContent>
+            <MudSelect T="string" @bind-Value="_newSection" Label="@CommunityText.T("Раздел", "Section")" Variant="Variant.Outlined"
+                       Placeholder="@CommunityText.T("Выберите раздел", "Choose a section")" Required="true">
+                @foreach (var section in CreatableSections) { <MudSelectItem Value="@Key(section.SubjectId)">@SectionName(section)</MudSelectItem> }
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_newTitle" Label="@CommunityText.T("Заголовок", "Title")" MaxLength="200" Variant="Variant.Outlined" Class="mt-3" Immediate="true" />
+            <div class="fc-forum-flags">
+                <MudCheckBox T="bool" @bind-Value="_newAnnouncement" Label="@CommunityText.T("Объявление (отвечают только преподаватели)", "Announcement (only teachers reply)")" />
+                <MudCheckBox T="bool" @bind-Value="_newPinned" Label="@CommunityText.T("Закрепить вверху раздела", "Pin to the top")" />
+            </div>
+            <PostComposer BasePath="@BasePath" DraftKey="fc-draft:new-topic" SubmitLabel="@CommunityText.T("Создать тему", "Create topic")" Submit="CreateAsync"
+                          Placeholder="@CommunityText.T("Первое сообщение темы…", "The first message…")" />
+        </ChildContent>
+    </Frontend.Shared.Profiles.ProfileDialog>
+}
+
+@code {
+    private enum Filter { All, General, Subject }
+    [Parameter] public bool IsAdmin { get; set; }
+    private string BasePath => IsAdmin ? "/admin" : "/student";
+    private List<ForumSectionDto> _sections = [];
+    private ForumTopicPageDto? _page;
+    private Filter _filter = Filter.All;
+    private int? _subjectId;
+    private int _pageNumber = 1;
+    private string? _search, _error, _newTitle, _newSection;
+    private bool _creating, _busy, _newAnnouncement, _newPinned;
+    private readonly CancellationTokenSource _life = new();
+    private List<ForumSectionDto> CreatableSections => _sections.Where(s => s.CanCreateTopics).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Api.UnreadChanged += Refresh;
+        ReadQuery();
+        try { _sections = await Api.SectionsAsync(_life.Token); }
+        catch (ApiException ex) { _error = ex.Message; }
+        await LoadAsync();
+    }
+
+    /// <summary>Раздел, поиск и страница живут в адресе: обновление страницы и «назад» сохраняют список.</summary>
+    private void ReadQuery()
+    {
+        var query = new Uri(Nav.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => part.Split('=', 2)).Where(p => p.Length == 2)
+            .GroupBy(p => p[0]).ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1].Replace('+', ' ')));
+        if (query.GetValueOrDefault("section") is "general") _filter = Filter.General;
+        else if (int.TryParse(query.GetValueOrDefault("section"), out var subject)) { _filter = Filter.Subject; _subjectId = subject; }
+        _search = query.GetValueOrDefault("q");
+        if (int.TryParse(query.GetValueOrDefault("page"), out var page) && page > 1) _pageNumber = page;
+    }
+
+    private void WriteQuery()
+    {
+        var parts = new List<string>();
+        if (_filter == Filter.General) parts.Add("section=general");
+        else if (_filter == Filter.Subject && _subjectId is int id) parts.Add($"section={id}");
+        if (!string.IsNullOrWhiteSpace(_search)) parts.Add("q=" + Uri.EscapeDataString(_search.Trim()));
+        if (_pageNumber > 1) parts.Add($"page={_pageNumber}");
+        var url = $"{BasePath}/forum" + (parts.Count > 0 ? "?" + string.Join("&", parts) : "");
+        ListState.Remember(BasePath, url);
+        if (new Uri(Nav.Uri).PathAndQuery != url) Nav.NavigateTo(url, replace: true);
+    }
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        WriteQuery();
+        try { _page = await Api.TopicsAsync(_filter == Filter.Subject ? _subjectId : null, _filter == Filter.General, _search, _pageNumber, _life.Token); }
+        catch (ApiException ex) { _error = ex.Message; _page ??= new([], 0, 1, 25); }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task SelectAsync(Filter filter, int? subjectId)
+    {
+        _filter = filter; _subjectId = subjectId; _pageNumber = 1;
+        await LoadAsync();
+    }
+
+    private async Task SearchAsync(string _) { _pageNumber = 1; await LoadAsync(); }
+
+    private async Task PageAsync(int page) { _pageNumber = page; await LoadAsync(); }
+
+    private void OpenCreate()
+    {
+        // Раздел подставляем только когда он очевиден; при «Все темы» выбирает автор, а не «Общее» по умолчанию.
+        var preferred = _filter switch
+        {
+            Filter.Subject => CreatableSections.FirstOrDefault(s => s.SubjectId == _subjectId),
+            Filter.General => CreatableSections.FirstOrDefault(s => s.SubjectId is null),
+            _ => CreatableSections.Count == 1 ? CreatableSections[0] : null,
+        };
+        _newSection = preferred is null ? null : Key(preferred.SubjectId);
+        _newTitle = null; _newAnnouncement = _newPinned = false;
+        _creating = true;
+    }
+
+    private async Task<bool> CreateAsync(string body, List<Guid> files)
+    {
+        if (_newSection is null) { Snackbar.Add(CommunityText.T("Выберите раздел", "Choose a section"), Severity.Warning); return false; }
+        if (string.IsNullOrWhiteSpace(_newTitle)) { Snackbar.Add(CommunityText.T("Добавьте заголовок", "Add a title"), Severity.Warning); return false; }
+        _busy = true;
+        try
+        {
+            var subjectId = _newSection == "general" ? (int?)null : int.Parse(_newSection!);
+            var topic = await Api.CreateTopicAsync(new(subjectId, _newTitle, body, files, _newAnnouncement, _newPinned));
+            _creating = false;
+            Nav.NavigateTo($"{BasePath}/forum/{topic.Topic.Id}");
+            return true;
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); return false; }
+        finally { _busy = false; }
+    }
+
+    private static string Key(int? subjectId) => subjectId?.ToString() ?? "general";
+
+    private static string SectionName(ForumSectionDto section) => section.SubjectName ?? CommunityText.T("Общее", "General");
+
+    private void Refresh() => InvokeAsync(async () =>
+    {
+        try { _sections = await Api.SectionsAsync(_life.Token); } catch (ApiException) { }
+        StateHasChanged();
+    });
+
+    public void Dispose()
+    {
+        Api.UnreadChanged -= Refresh;
+        _life.Cancel();
+        _life.Dispose();
+    }
+}

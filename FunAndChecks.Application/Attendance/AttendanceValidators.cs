@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Domain.Enums;
 
 namespace FunAndChecks.Application.Attendance;
 
@@ -28,6 +29,8 @@ public class RemainingAttendanceRequestValidator : AbstractValidator<RemainingAt
     public RemainingAttendanceRequestValidator()
     {
         RuleFor(x => x.Students).NotEmpty().Must(s => s is null || s.Count <= 5000);
+        RuleFor(x => x.Status).Must(s => s is AttendanceStatus.Present or AttendanceStatus.Absent)
+            .WithMessage("Bulk marking sets either present or absent.");
         RuleForEach(x => x.Students).ChildRules(student =>
         {
             student.RuleFor(x => x.StudentId).NotEmpty();

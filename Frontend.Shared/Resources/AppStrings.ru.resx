@@ -59,6 +59,11 @@
   <data name="Login_GoToRegister" xml:space="preserve"><value>Регистрация</value></data>
   <data name="Login_ViewResults" xml:space="preserve"><value>Посмотреть результаты без входа</value></data>
   <data name="Login_ConfirmEmailButton" xml:space="preserve"><value>Подтвердить почту</value></data>
+  <data name="Login_PrivacyConsentTitle" xml:space="preserve"><value>Примите пользовательское соглашение</value></data>
+  <data name="Login_PrivacyConsentMessage" xml:space="preserve"><value>Чтобы продолжить, примите пользовательское соглашение FunAndChecks. Главный пункт: лабы надо делать.</value></data>
+  <data name="Login_PrivacyConsentAccept" xml:space="preserve"><value>Принимаю</value></data>
+  <data name="Login_PrivacyConsentRead" xml:space="preserve"><value>Прочитать соглашение</value></data>
+  <data name="Login_PrivacyConsentAcceptRequired" xml:space="preserve"><value>Отметьте галочку, чтобы продолжить</value></data>
 
   <!-- ==================== Register ==================== -->
   <data name="Register_PageTitle" xml:space="preserve"><value>Регистрация</value></data>
@@ -205,7 +210,8 @@
   <data name="Dialog_HideHistory" xml:space="preserve"><value>Скрыть историю</value></data>
   <data name="Dialog_NoSubmissions" xml:space="preserve"><value>Сдач ещё не было.</value></data>
   <data name="Dialog_NoGradeComponents" xml:space="preserve"><value>У предмета нет оценочных колонок (билет, курсовая).</value></data>
-  <data name="Dialog_ColorSubtitle" xml:space="preserve"><value>Заливка ячейки ФИО студента в таблице результатов.</value></data>
+  <data name="Dialog_ColorSubtitle" xml:space="preserve"><value>Цвет ФИО студента в результатах и очередях. Цвет статуса очереди остаётся отдельным.</value></data>
+  <data name="Dialog_ColorSpectrumHint" xml:space="preserve"><value>Выберите оттенок на радужной полосе, затем яркость и насыщенность в квадрате. Можно также ввести RGB или HEX.</value></data>
   <data name="Dialog_ColorPreview" xml:space="preserve"><value>Предпросмотр:</value></data>
   <data name="Dialog_RemoveFill" xml:space="preserve"><value>Убрать заливку</value></data>
   <data name="Dialog_Green" xml:space="preserve"><value>Зелёный</value></data>
@@ -290,6 +296,8 @@
   <data name="Management_QueueUpdated" xml:space="preserve"><value>Очередь обновлена.</value></data>
   <data name="Management_QueueDeleted" xml:space="preserve"><value>Очередь удалена.</value></data>
   <data name="Management_SubjectCreated" xml:space="preserve"><value>Предмет создан.</value></data>
+  <data name="Management_SubjectCreatedPendingAccess" xml:space="preserve"><value>Предмет создан. Доступ к нему должен выдать суперадминистратор.</value></data>
+  <data name="Management_SubjectPermissionRequired" xml:space="preserve"><value>Для настройки нового предмета сначала получите разрешение суперадминистратора.</value></data>
   <data name="Management_SubjectDeleted" xml:space="preserve"><value>Предмет удалён.</value></data>
   <data name="Management_GroupCreated" xml:space="preserve"><value>Группа создана.</value></data>
   <data name="Management_GroupDeleted" xml:space="preserve"><value>Группа удалена.</value></data>
@@ -421,6 +429,7 @@
   <data name="Error_SubjectNameTaken" xml:space="preserve"><value>Предмет с таким названием уже существует.</value></data>
   <data name="Error_TaskNameTaken" xml:space="preserve"><value>Задание с таким названием уже есть в этом предмете.</value></data>
   <data name="Error_EmailRateLimited" xml:space="preserve"><value>Подождите {0} секунд перед повторной отправкой письма.</value></data>
+  <data name="Error_EmailRecipientRejected" xml:space="preserve"><value>На этот адрес нельзя доставить письмо. Проверьте, нет ли в нём опечатки.</value></data>
   <data name="Error_EmailNotConfirmed" xml:space="preserve"><value>Email не подтверждён. Проверьте почту — там код подтверждения.</value></data>
   <data name="Error_AccountLocked" xml:space="preserve"><value>Аккаунт временно заблокирован из-за слишком частых неудачных попыток. Попробуйте позже.</value></data>
   <data name="Error_InvalidCredentials" xml:space="preserve"><value>Неверный email или пароль.</value></data>
@@ -479,4 +488,312 @@
   <data name="Design_ChooseSubject" xml:space="preserve"><value>Выберите предмет, чтобы увидеть результаты.</value></data>
   <data name="Design_MaxPoints" xml:space="preserve"><value>Максимум баллов</value></data>
   <data name="Error_QueueCheckedByOther" xml:space="preserve"><value>Студента проверяет другой преподаватель. Обновите очередь.</value></data>
+  <data name="Results_AveragePoints" xml:space="preserve"><value>Средний балл</value></data>
+  <data name="Results_ShowAcceptedTeacherColors" xml:space="preserve"><value>Цвета преподавателей у зачтённых заданий</value></data>
+  <data name="QueueDetails_OtherTeacherWarning" xml:space="preserve"><value>При открытии окна студента уже принимал преподаватель {0}. Вы можете продолжить проверку.</value></data>
+  <data name="Maintenance_BackupListTitle" xml:space="preserve"><value>Бэкапы на сервере</value></data>
+  <data name="Maintenance_BackupCount" xml:space="preserve"><value>Файлов: {0}</value></data>
+  <data name="Maintenance_BackupRefresh" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Maintenance_BackupLoading" xml:space="preserve"><value>Загрузка бэкапов…</value></data>
+  <data name="Maintenance_BackupLoadFailed" xml:space="preserve"><value>Не удалось загрузить список бэкапов. Попробуйте обновить.</value></data>
+  <data name="Maintenance_BackupEmpty" xml:space="preserve"><value>На сервере пока нет бэкапов.</value></data>
+  <data name="Maintenance_BackupFile" xml:space="preserve"><value>Файл</value></data>
+  <data name="Maintenance_BackupDate" xml:space="preserve"><value>Дата</value></data>
+  <data name="Maintenance_BackupSize" xml:space="preserve"><value>Размер</value></data>
+  <data name="Maintenance_BackupActions" xml:space="preserve"><value>Действия</value></data>
+  <data name="Maintenance_BackupDownload" xml:space="preserve"><value>Скачать</value></data>
+  <data name="Maintenance_BackupDownloadLabel" xml:space="preserve"><value>Скачать бэкап: {0}</value></data>
+  <data name="Maintenance_BackupDelete" xml:space="preserve"><value>Удалить</value></data>
+  <data name="Maintenance_BackupDeleteLabel" xml:space="preserve"><value>Удалить бэкап: {0}</value></data>
+  <data name="Maintenance_BackupDeleteTitle" xml:space="preserve"><value>Удалить бэкап?</value></data>
+  <data name="Maintenance_BackupDeleteConfirm" xml:space="preserve"><value>Файл «{0}» будет удалён с сервера без возможности восстановления. Уже скачанные копии останутся.</value></data>
+  <data name="Maintenance_BackupDeleted" xml:space="preserve"><value>Бэкап удалён с сервера.</value></data>
+  <data name="Maintenance_BackupRowsPerPage" xml:space="preserve"><value>Файлов на странице</value></data>
+  <data name="Maintenance_BackupNotFound" xml:space="preserve"><value>Этого бэкапа больше нет на сервере. Обновите список.</value></data>
+  <data name="Maintenance_BackupInvalidName" xml:space="preserve"><value>Недопустимое имя файла бэкапа.</value></data>
+  <data name="ProfileError_ProfileNotFound" xml:space="preserve"><value>Профиль недоступен.</value></data>
+  <data name="ProfileError_PinsInvalid" xml:space="preserve"><value>Выберите до трёх собственных действующих наград.</value></data>
+  <data name="ProfileError_UrlInvalid" xml:space="preserve"><value>Укажите HTTPS-ссылку; для GitHub используйте github.com.</value></data>
+  <data name="ProfileError_Archived" xml:space="preserve"><value>Это достижение находится в архиве и недоступно для выдачи.</value></data>
+  <data name="ProfileError_AlreadyAwarded" xml:space="preserve"><value>У пользователя уже есть это достижение.</value></data>
+  <data name="ProfileError_RevokeForbidden" xml:space="preserve"><value>Отозвать награду может выдавший её администратор или суперадмин.</value></data>
+  <data name="ProfileError_Changed" xml:space="preserve"><value>Награда изменилась. Обновите страницу и повторите действие.</value></data>
+  <data name="ProfileError_AchievementNotFound" xml:space="preserve"><value>Достижение недоступно.</value></data>
+  <data name="ProfileError_AwardNotFound" xml:space="preserve"><value>Выдача награды не найдена.</value></data>
+  <data name="ProfileError_MediaNotFound" xml:space="preserve"><value>Изображение недоступно.</value></data>
+  <data name="ProfileError_SessionLimit" xml:space="preserve"><value>Закройте другой редактор или повторите загрузку позже.</value></data>
+  <data name="ProfileError_SessionNotFound" xml:space="preserve"><value>Сессия редактора истекла. Загрузите исходник снова.</value></data>
+  <data name="ProfileError_ProcessingUnavailable" xml:space="preserve"><value>Обработка медиа временно недоступна. Прежнее изображение сохранено.</value></data>
+  <data name="ProfileError_SourceTooLarge" xml:space="preserve"><value>Исходный файл должен быть не больше 20 МБ.</value></data>
+  <data name="ProfileError_ResultTooLarge" xml:space="preserve"><value>Результат превышает 2 МБ. Выберите более короткий фрагмент.</value></data>
+  <data name="ProfileError_SelectionInvalid" xml:space="preserve"><value>Проверьте область обрезки и границы фрагмента: анимация должна быть не длиннее 10 секунд.</value></data>
+  <data name="ProfileError_SourceInvalid" xml:space="preserve"><value>Не удалось прочитать файл. Выберите поддерживаемое фото, GIF или видео.</value></data>
+  <data name="ProfileError_DimensionsInvalid" xml:space="preserve"><value>Слишком большие размеры исходного изображения. Выберите файл меньшего разрешения.</value></data>
+  <data name="ProfileError_DurationInvalid" xml:space="preserve"><value>Исходник слишком длинный. Выберите видео или GIF до пяти минут.</value></data>
+  <data name="ProfileError_PreviewTooLarge" xml:space="preserve"><value>Не удалось подготовить компактное превью. Выберите более короткий исходник.</value></data>
+  <data name="ProfileError_ProcessingFailed" xml:space="preserve"><value>Не удалось обработать файл. Прежнее изображение сохранено.</value></data>
+  <data name="ProfileError_ProcessingTimeout" xml:space="preserve"><value>Обработка заняла слишком много времени. Попробуйте файл меньшего размера.</value></data>
+  <data name="ProfileError_ProcessingMemoryLimit" xml:space="preserve"><value>Обработка превысила лимит памяти. Попробуйте файл меньшего разрешения.</value></data>
+  <data name="Dialog_ColorHue" xml:space="preserve"><value>Оттенок</value></data>
+  <data name="Dialog_ColorSaturationBrightness" xml:space="preserve"><value>Насыщенность и яркость</value></data>
+  <data name="Monitoring_Title" xml:space="preserve"><value>Мониторинг</value></data>
+  <data name="Monitoring_Opening" xml:space="preserve"><value>Открываем метрики и логи…</value></data>
+  <data name="Monitoring_SuperAdminOnly" xml:space="preserve"><value>Мониторинг доступен только суперадминистраторам.</value></data>
+  <data name="Monitoring_Disabled" xml:space="preserve"><value>Мониторинг не включён на этом сервере.</value></data>
+  <data name="Monitoring_Retry" xml:space="preserve"><value>Повторить</value></data>
+  <data name="Dialog_Undo" xml:space="preserve"><value>Отменить</value></data>
+  <data name="Dialog_MarkUndone" xml:space="preserve"><value>Отметка отменена</value></data>
+  <data name="Dialog_TaskAccepted" xml:space="preserve"><value>«{0}» зачтено</value></data>
+  <data name="Dialog_TaskRework" xml:space="preserve"><value>«{0}» — на доработку</value></data>
+  <data name="Dialog_FinishAndNext" xml:space="preserve"><value>Завершить и следующий</value></data>
+  <data name="Dialog_TakeForReview" xml:space="preserve"><value>Взять на проверку</value></data>
+  <data name="Dialog_HistoryLoadError" xml:space="preserve"><value>Не удалось загрузить историю.</value></data>
+  <data name="Dialog_GradesAutosaved" xml:space="preserve"><value>Оценки сохранены</value></data>
+  <data name="Dialog_GradeSaving" xml:space="preserve"><value>Сохраняется при выходе из поля</value></data>
+  <data name="QueueDetails_TakeNext" xml:space="preserve"><value>Взять следующего</value></data>
+  <data name="QueueDetails_NoNext" xml:space="preserve"><value>В видимых группах никто не ждёт.</value></data>
+  <data name="QueueDetails_Groups" xml:space="preserve"><value>Группы</value></data>
+  <data name="QueueDetails_ShowAllGroups" xml:space="preserve"><value>Показать все</value></data>
+  <data name="QueueDetails_HiddenGroups" xml:space="preserve"><value>скрыто: {0}</value></data>
+  <data name="QueueDetails_Stale" xml:space="preserve"><value>Проблема со связью — показан последний загруженный список. Повторяем…</value></data>
+  <data name="QueueDetails_Retry" xml:space="preserve"><value>Повторить</value></data>
+  <data name="Common_ConfirmDeleteTitle" xml:space="preserve"><value>Удалить?</value></data>
+  <data name="Common_ConfirmDeleteText" xml:space="preserve"><value>Удалить «{0}»? Это нельзя отменить.</value></data>
+  <data name="Nav_Attendance" xml:space="preserve"><value>Посещаемость</value></data>
+  <data name="Dashboard_CellAction" xml:space="preserve"><value>Открыть студента на этой задаче</value></data>
+  <data name="Dashboard_AttendanceCounts" xml:space="preserve"><value>присутствий: {0} · пропусков: {1}</value></data>
+  <data name="Dashboard_AttendanceUnmarked" xml:space="preserve"><value>Не отмечено: {0}</value></data>
+  <data name="Dashboard_TotalPoints" xml:space="preserve"><value>Σ</value></data>
+  <data name="Grading_ManageAccounts" xml:space="preserve"><value>Управление аккаунтами</value></data>
+  <data name="Grading_Progress" xml:space="preserve"><value>зачтено {0}/{1}</value></data>
+  <data name="Grading_ProgressWithRework" xml:space="preserve"><value>зачтено {0}/{1}, на доработке {2}</value></data>
+  <data name="Attendance_RollCallTitle" xml:space="preserve"><value>Перекличка · посещаемость</value></data>
+  <data name="Attendance_SessionLoadError" xml:space="preserve"><value>Не удалось загрузить занятие.</value></data>
+  <data name="Attendance_BackToJournal" xml:space="preserve"><value>Вернуться к журналу</value></data>
+  <data name="Attendance_Journal" xml:space="preserve"><value>Журнал посещаемости</value></data>
+  <data name="Attendance_RollCall" xml:space="preserve"><value>ПЕРЕКЛИЧКА</value></data>
+  <data name="Attendance_MoscowTime" xml:space="preserve"><value>Москва</value></data>
+  <data name="Attendance_Refresh" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Attendance_AddStudent" xml:space="preserve"><value>Добавить студента</value></data>
+  <data name="Attendance_DisabledInfo" xml:space="preserve"><value>Учёт по предмету выключен. Журнал доступен для просмотра; включить учёт можно на странице посещаемости.</value></data>
+  <data name="Attendance_Present" xml:space="preserve"><value>Есть</value></data>
+  <data name="Attendance_Absent" xml:space="preserve"><value>Нет</value></data>
+  <data name="Attendance_Unmarked" xml:space="preserve"><value>Не отмечены</value></data>
+  <data name="Attendance_AddTitle" xml:space="preserve"><value>Добавить в состав занятия</value></data>
+  <data name="Attendance_AddHint" xml:space="preserve"><value>Для студентов, зарегистрировавшихся после создания занятия. Начальная отметка — «Не отмечен».</value></data>
+  <data name="Attendance_Student" xml:space="preserve"><value>Студент</value></data>
+  <data name="Attendance_Add" xml:space="preserve"><value>Добавить</value></data>
+  <data name="Attendance_NoCandidates" xml:space="preserve"><value>Новых подтверждённых студентов в доступных группах занятия нет.</value></data>
+  <data name="Attendance_SearchLabel" xml:space="preserve"><value>Фамилия или группа</value></data>
+  <data name="Attendance_OnlyUnmarked" xml:space="preserve"><value>Только не отмеченные</value></data>
+  <data name="Attendance_Saving" xml:space="preserve"><value>Сохраняем…</value></data>
+  <data name="Attendance_NotSaved" xml:space="preserve"><value>Изменение не сохранено</value></data>
+  <data name="Attendance_SavedInstantly" xml:space="preserve"><value>Отметки сохраняются сразу</value></data>
+  <data name="Attendance_TeacherDeleted" xml:space="preserve"><value>Преподаватель удалён</value></data>
+  <data name="Attendance_GroupForbidden" xml:space="preserve"><value>Изменение отметок этой группы вам запрещено</value></data>
+  <data name="Attendance_MarkPresentLabel" xml:space="preserve"><value>Отметить {0}: присутствовал</value></data>
+  <data name="Attendance_MarkAbsentLabel" xml:space="preserve"><value>Отметить {0}: отсутствовал</value></data>
+  <data name="Attendance_PresentShort" xml:space="preserve"><value>Есть</value></data>
+  <data name="Attendance_AbsentShort" xml:space="preserve"><value>Нет</value></data>
+  <data name="Attendance_ResetMark" xml:space="preserve"><value>Сбросить в «Не отмечен»</value></data>
+  <data name="Attendance_ResetMarkLabel" xml:space="preserve"><value>Сбросить отметку {0}</value></data>
+  <data name="Attendance_EmptySession" xml:space="preserve"><value>В занятии пока нет студентов</value></data>
+  <data name="Attendance_AllMarked" xml:space="preserve"><value>Все отметки выставлены или студенты не найдены</value></data>
+  <data name="Attendance_EmptyHint" xml:space="preserve"><value>Измените фильтр или добавьте студента в состав занятия.</value></data>
+  <data name="Attendance_FinishTitle" xml:space="preserve"><value>Завершить перекличку</value></data>
+  <data name="Attendance_FinishHint" xml:space="preserve"><value>Отметить разом всех оставшихся доступных студентов занятия. Поиск и фильтры на это действие не влияют.</value></data>
+  <data name="Attendance_MarkRemainingPresent" xml:space="preserve"><value>Отметить оставшихся присутствующими ({0})</value></data>
+  <data name="Attendance_MarkRemainingAbsent" xml:space="preserve"><value>Отметить оставшихся отсутствующими ({0})</value></data>
+  <data name="Attendance_RemainingPresentConfirm" xml:space="preserve"><value>Отметить присутствующими {0} студентов? Уже выставленные отметки сохранятся.</value></data>
+  <data name="Attendance_RemainingAbsentConfirm" xml:space="preserve"><value>Отметить отсутствующими {0} студентов? Уже выставленные отметки сохранятся.</value></data>
+  <data name="Attendance_MarksSet" xml:space="preserve"><value>Выставлено отметок: {0}.</value></data>
+  <data name="Attendance_StudentAdded" xml:space="preserve"><value>Студент добавлен. Отметка пока не выставлена.</value></data>
+  <data name="CommentDialog_CtrlEnter" xml:space="preserve"><value>Ctrl+Enter — отправить</value></data>
+  <data name="CommentDialog_Recent" xml:space="preserve"><value>Недавние</value></data>
+  <data name="Management_TasksBulkLabel" xml:space="preserve"><value>Вставьте несколько задач: по одной в строке, «название;баллы»</value></data>
+  <data name="Management_TasksBulkAdd" xml:space="preserve"><value>Добавить все</value></data>
+  <data name="Management_TasksBulkAdded" xml:space="preserve"><value>Добавлено задач: {0}</value></data>
+  <data name="Management_TasksBulkInvalid" xml:space="preserve"><value>Строка {0}: нужно «название;баллы», баллы от 0 до 1000</value></data>
+  <data name="Management_CopyTasksFrom" xml:space="preserve"><value>Скопировать задачи из…</value></data>
+  <data name="Management_TasksCopied" xml:space="preserve"><value>Скопировано задач: {0}</value></data>
+  <data name="Management_TaskSetLabel" xml:space="preserve"><value>Создать набор задач</value></data>
+  <data name="Management_TaskSetPrefix" xml:space="preserve"><value>Номер набора</value></data>
+  <data name="Management_TaskSetCount" xml:space="preserve"><value>Количество заданий</value></data>
+  <data name="Management_TaskSetCreate" xml:space="preserve"><value>Создать набор</value></data>
+  <data name="Management_TaskSetPreview" xml:space="preserve"><value>Будут созданы: {0} … {1}</value></data>
+  <data name="Management_TaskSetCreated" xml:space="preserve"><value>Создано задач: {0}, пропущено существующих: {1}</value></data>
+  <data name="Management_InvalidDate" xml:space="preserve"><value>Введите дату и время в формате {0}.</value></data>
+  <data name="StudentQueues_MyPlace" xml:space="preserve"><value>Ваше место: {0} из {1}</value></data>
+  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Порядок: больше баллов — раньше, при равенстве — кто раньше записался.</value></data>
+  <data name="StudentQueues_Leave" xml:space="preserve"><value>Выйти из очереди</value></data>
+  <data name="StudentQueues_Left" xml:space="preserve"><value>Вы вышли из очереди</value></data>
+  <data name="StudentStatus_Title" xml:space="preserve"><value>Где вы сейчас</value></data>
+  <data name="StudentStatus_Accepted" xml:space="preserve"><value>Зачтено</value></data>
+  <data name="StudentStatus_Points" xml:space="preserve"><value>Баллы</value></data>
+  <data name="StudentStatus_Rework" xml:space="preserve"><value>На доработке</value></data>
+  <data name="StudentStatus_NoRework" xml:space="preserve"><value>Нечего переделывать</value></data>
+  <data name="StudentStatus_NextQueue" xml:space="preserve"><value>Ближайшая очередь</value></data>
+  <data name="StudentStatus_NoQueue" xml:space="preserve"><value>Вы не записаны ни в одну очередь.</value></data>
+  <data name="StudentStatus_FindQueue" xml:space="preserve"><value>Найти очередь</value></data>
+  <data name="StudentStatus_AllLogs" xml:space="preserve"><value>Вся история</value></data>
+  <data name="Results_ToastAccepted" xml:space="preserve"><value>«{0}» зачтено</value></data>
+  <data name="Results_ToastRework" xml:space="preserve"><value>«{0}» отправлено на доработку</value></data>
+  <data name="Results_ToastOpen" xml:space="preserve"><value>Открыть</value></data>
+  <data name="AttendanceJournal_PageTitle" xml:space="preserve"><value>Посещаемость · журнал</value></data>
+  <data name="AttendanceJournal_Eyebrow" xml:space="preserve"><value>УЧЕБНЫЙ ЖУРНАЛ</value></data>
+  <data name="AttendanceJournal_Intro" xml:space="preserve"><value>Создайте событие, выберите группы и отметьте каждого студента.</value></data>
+  <data name="AttendanceJournal_Download" xml:space="preserve"><value>Скачать XLSX</value></data>
+  <data name="AttendanceJournal_Create" xml:space="preserve"><value>Создать событие переклички</value></data>
+  <data name="AttendanceJournal_AllGroups" xml:space="preserve"><value>Все группы</value></data>
+  <data name="AttendanceJournal_From" xml:space="preserve"><value>С даты</value></data>
+  <data name="AttendanceJournal_To" xml:space="preserve"><value>По дату</value></data>
+  <data name="AttendanceJournal_Show" xml:space="preserve"><value>Показать</value></data>
+  <data name="AttendanceJournal_Enabled" xml:space="preserve"><value>Учитывать посещаемость по предмету</value></data>
+  <data name="AttendanceJournal_EnabledHint" xml:space="preserve"><value>Выключение сохраняет журнал. Даты и время занятий: Москва (UTC+3).</value></data>
+  <data name="AttendanceJournal_NewTitle" xml:space="preserve"><value>Новое событие переклички</value></data>
+  <data name="AttendanceJournal_NewHint" xml:space="preserve"><value>Список подтверждённых студентов выбранных групп будет сохранён на момент создания.</value></data>
+  <data name="AttendanceJournal_Name" xml:space="preserve"><value>Название (необязательно)</value></data>
+  <data name="AttendanceJournal_Groups" xml:space="preserve"><value>Группы события</value></data>
+  <data name="AttendanceJournal_Date" xml:space="preserve"><value>Дата</value></data>
+  <data name="AttendanceJournal_Time" xml:space="preserve"><value>Время (Москва)</value></data>
+  <data name="AttendanceJournal_NoGroups" xml:space="preserve"><value>Сначала свяжите предмет с доступной группой в разделе «Управление».</value></data>
+  <data name="AttendanceJournal_CreateOpen" xml:space="preserve"><value>Создать и открыть перекличку</value></data>
+  <data name="AttendanceJournal_View" xml:space="preserve"><value>Вид посещаемости</value></data>
+  <data name="AttendanceJournal_Events" xml:space="preserve"><value>События переклички</value></data>
+  <data name="AttendanceJournal_ChooseSubject" xml:space="preserve"><value>Выберите предмет</value></data>
+  <data name="AttendanceJournal_ChooseSubjectHint" xml:space="preserve"><value>Здесь появится журнал посещаемости.</value></data>
+  <data name="AttendanceJournal_DisabledInfo" xml:space="preserve"><value>Учёт выключен. Включите его, чтобы создавать занятия и ставить отметки. Существующая история доступна для просмотра и скачивания.</value></data>
+  <data name="AttendanceJournal_NoSessions" xml:space="preserve"><value>Пока нет учтённых занятий</value></data>
+  <data name="AttendanceJournal_NoSessionsHint" xml:space="preserve"><value>Добавьте занятие, когда понадобится провести перекличку. Остальные занятия не считаются пропусками.</value></data>
+  <data name="AttendanceJournal_PresentCount" xml:space="preserve"><value>Посещений</value></data>
+  <data name="AttendanceJournal_AbsentCount" xml:space="preserve"><value>Пропусков</value></data>
+  <data name="AttendanceJournal_UnmarkedCount" xml:space="preserve"><value>Не отмечено</value></data>
+  <data name="AttendanceJournal_Step1" xml:space="preserve"><value>Создать событие</value></data>
+  <data name="AttendanceJournal_Step2" xml:space="preserve"><value>Отметить «Есть / Нет»</value></data>
+  <data name="AttendanceJournal_Step3" xml:space="preserve"><value>Посмотреть журнал</value></data>
+  <data name="AttendanceJournal_Footnote" xml:space="preserve"><value>Учёт ведётся только для созданных событий. Занятия без переклички не считаются пропусками. Счётчики учитывают выбранную группу и период.</value></data>
+  <data name="AttendanceJournal_Search" xml:space="preserve"><value>Поиск студента</value></data>
+  <data name="AttendanceJournal_OnlyMissing" xml:space="preserve"><value>Есть невыставленные отметки</value></data>
+  <data name="AttendanceJournal_SortAbsences" xml:space="preserve"><value>По числу пропусков</value></data>
+  <data name="AttendanceJournal_NotIncluded" xml:space="preserve"><value>не включён</value></data>
+  <data name="AttendanceJournal_TableLabel" xml:space="preserve"><value>Журнал посещаемости, горизонтальная прокрутка</value></data>
+  <data name="AttendanceJournal_NoStudents" xml:space="preserve"><value>Студенты не найдены. Измените фильтр или добавьте студентов в занятие.</value></data>
+  <data name="AttendanceJournal_History" xml:space="preserve"><value>История за выбранный период</value></data>
+  <data name="AttendanceJournal_CloseHistory" xml:space="preserve"><value>Закрыть историю</value></data>
+  <data name="AttendanceJournal_Continue" xml:space="preserve"><value>Продолжить перекличку</value></data>
+  <data name="AttendanceJournal_OpenList" xml:space="preserve"><value>Открыть список</value></data>
+  <data name="AttendanceJournal_NotIncludedLong" xml:space="preserve"><value>Не включён в занятие</value></data>
+  <data name="AttendanceJournal_Caption" xml:space="preserve"><value>занятий: {0}. Нажмите на дату для переклички, на имя — для истории. XLSX содержит всю выбранную группу за этот период.</value></data>
+  <data name="AttendanceJournal_AllTime" xml:space="preserve"><value>весь период</value></data>
+  <data name="AttendanceJournal_Start" xml:space="preserve"><value>начало</value></data>
+  <data name="AttendanceJournal_Onwards" xml:space="preserve"><value>сегодня и далее</value></data>
+  <data name="AttendanceJournal_TurnedOn" xml:space="preserve"><value>Учёт посещаемости включён.</value></data>
+  <data name="AttendanceJournal_TurnedOff" xml:space="preserve"><value>Учёт выключен, история сохранена.</value></data>
+  <data name="MyAttendance_PageTitle" xml:space="preserve"><value>Моя посещаемость</value></data>
+  <data name="MyAttendance_Eyebrow" xml:space="preserve"><value>МОЯ ИСТОРИЯ</value></data>
+  <data name="MyAttendance_Subtitle" xml:space="preserve"><value>Только занятия, на которых преподаватель ведёт учёт.</value></data>
+  <data name="MyAttendance_Empty" xml:space="preserve"><value>Пока нет отметок</value></data>
+  <data name="MyAttendance_EmptyHint" xml:space="preserve"><value>Занятия без учёта посещаемости не считаются пропусками.</value></data>
+  <data name="MyAttendance_History" xml:space="preserve"><value>История занятий</value></data>
+  <data name="MyAttendance_Updated" xml:space="preserve"><value>отметка обновлена</value></data>
+  <data name="Login_SharedComputer" xml:space="preserve"><value>Чужой компьютер — не запоминать вход</value></data>
+  <data name="Login_SharedComputerHint" xml:space="preserve"><value>Вход пропадёт, когда вкладка закроется; в новой вкладке нужно будет войти снова.</value></data>
+  <data name="Dialog_GradeNotSaved" xml:space="preserve"><value>Оценка не сохранилась. Исправьте её или очистите поле и повторите.</value></data>
+  <data name="StudentQueues_LeaveTitle" xml:space="preserve"><value>Выйти из очереди?</value></data>
+  <data name="StudentQueues_LeaveText" xml:space="preserve"><value>Место будет потеряно: при повторной записи вы встанете по баллам и новому времени записи.</value></data>
+  <data name="Dialog_TabAchievements" xml:space="preserve"><value>Достижения</value></data>
+  <data name="TaskGroup_None" xml:space="preserve"><value>Без группы</value></data>
+  <data name="TaskGroup_Progress" xml:space="preserve"><value>принято {0}/{1} · {2}/{3} б.</value></data>
+  <data name="TaskGroup_ReworkCount" xml:space="preserve"><value>на доработке: {0}</value></data>
+  <data name="Management_TaskGroupsTitle" xml:space="preserve"><value>Группы задач ({0})</value></data>
+  <data name="Management_TaskGroupsHint" xml:space="preserve"><value>Группы необязательны. В окне проверки задачи группы свёрнуты под её заголовком; задачи без группы показываются первыми.</value></data>
+  <data name="Management_TaskGroupNameLabel" xml:space="preserve"><value>Новая группа</value></data>
+  <data name="Management_TaskGroupLabel" xml:space="preserve"><value>Группа</value></data>
+  <data name="Management_ColTaskCount" xml:space="preserve"><value>Задач</value></data>
+  <data name="Management_TaskGroupCreated" xml:space="preserve"><value>Группа задач создана</value></data>
+  <data name="Management_TaskGroupDeleted" xml:space="preserve"><value>Группа удалена, её задачи остались без группы</value></data>
+  <data name="Error_TaskGroupNameTaken" xml:space="preserve"><value>Группа задач с таким названием уже есть в этом предмете.</value></data>
+  <data name="Error_TaskGroupInvalid" xml:space="preserve"><value>Группа задач не относится к этому предмету.</value></data>
+  <data name="Maintenance_RestoreTitle" xml:space="preserve"><value>Восстановление из бэкапа</value></data>
+  <data name="Maintenance_RestoreHint" xml:space="preserve"><value>Загрузите бэкап с компьютера (.dump и при желании парный .attachments.zip) или нажмите «Восстановить» у бэкапа в списке. Перед восстановлением текущие данные автоматически сохраняются в бэкап.</value></data>
+  <data name="Maintenance_RestoreDumpLabel" xml:space="preserve"><value>Дамп базы (.dump)</value></data>
+  <data name="Maintenance_RestoreArchiveLabel" xml:space="preserve"><value>Архив вложений (.attachments.zip, необязательно)</value></data>
+  <data name="Maintenance_RestoreUpload" xml:space="preserve"><value>Загрузить бэкап</value></data>
+  <data name="Maintenance_RestoreUploaded" xml:space="preserve"><value>Бэкап загружен</value></data>
+  <data name="Maintenance_RestoreTooLarge" xml:space="preserve"><value>Файлы слишком большие: предел — {0}.</value></data>
+  <data name="Maintenance_Restore" xml:space="preserve"><value>Восстановить</value></data>
+  <data name="Maintenance_RestoreLabel" xml:space="preserve"><value>Восстановить из бэкапа: {0}</value></data>
+  <data name="Maintenance_RestoreConfirmTitle" xml:space="preserve"><value>Восстановить из бэкапа?</value></data>
+  <data name="Maintenance_RestoreConfirmText" xml:space="preserve"><value>Все текущие данные будут заменены содержимым бэкапа: изменения, сделанные после его создания, пропадут. Перед этим автоматически создаётся бэкап текущего состояния. Пока идёт восстановление, сервис недоступен всем.</value></data>
+  <data name="Maintenance_RestoreConfirmFile" xml:space="preserve"><value>Бэкап:</value></data>
+  <data name="Maintenance_RestoreConfirmWord" xml:space="preserve"><value>ВОССТАНОВИТЬ</value></data>
+  <data name="Maintenance_RestoreConfirmPrompt" xml:space="preserve"><value>Введите {0} для подтверждения</value></data>
+  <data name="Maintenance_RestoreRunning" xml:space="preserve"><value>Восстановление из {0}…</value></data>
+  <data name="Maintenance_RestoreSucceeded" xml:space="preserve"><value>Восстановлено из {0}.</value></data>
+  <data name="Maintenance_RestoreFailed" xml:space="preserve"><value>Не удалось восстановить из {0}.</value></data>
+  <data name="Maintenance_RestoreDone" xml:space="preserve"><value>Восстановление завершено</value></data>
+  <data name="Maintenance_RestoreSafetyBackup" xml:space="preserve"><value>Бэкап предыдущего состояния:</value></data>
+  <data name="Maintenance_RestoreRelogin" xml:space="preserve"><value>Сессии восстановлены вместе с данными — войдите заново.</value></data>
+  <data name="Maintenance_RestoreReloginButton" xml:space="preserve"><value>Войти заново</value></data>
+  <data name="Maintenance_RestoreDetails" xml:space="preserve"><value>Подробности</value></data>
+  <data name="Maintenance_RestoreInProgress" xml:space="preserve"><value>Идёт восстановление базы из бэкапа. Повторите через минуту.</value></data>
+  <data name="Maintenance_RestoreInvalidDump" xml:space="preserve"><value>Файл не является дампом базы в формате pg_dump custom (.dump).</value></data>
+  <data name="Maintenance_RestoreInvalidArchive" xml:space="preserve"><value>Файл вложений не является корректным zip-архивом.</value></data>
+  <data name="Maintenance_RestoreStepValidating" xml:space="preserve"><value>Проверка бэкапа…</value></data>
+  <data name="Maintenance_RestoreStepSafetyBackup" xml:space="preserve"><value>Сохранение текущих данных…</value></data>
+  <data name="Maintenance_RestoreStepDatabase" xml:space="preserve"><value>Восстановление базы…</value></data>
+  <data name="Maintenance_RestoreStepMigrating" xml:space="preserve"><value>Обновление схемы базы…</value></data>
+  <data name="Maintenance_RestoreStepAttachments" xml:space="preserve"><value>Восстановление вложений форума…</value></data>
+  <data name="Maintenance_RestoreErrorInvalidDump" xml:space="preserve"><value>Файл не является бэкапом базы FunAndChecks. Данные не изменены.</value></data>
+  <data name="Maintenance_RestoreErrorNewerSchema" xml:space="preserve"><value>Бэкап сделан более новой версией приложения — сначала обновите приложение. Данные не изменены.</value></data>
+  <data name="Maintenance_RestoreErrorSafetyBackup" xml:space="preserve"><value>Не удалось сохранить текущие данные, поэтому восстановление отменено. Данные не изменены.</value></data>
+  <data name="Maintenance_RestoreErrorTools" xml:space="preserve"><value>На сервере недоступны утилиты PostgreSQL (pg_restore, psql). Данные не изменены.</value></data>
+  <data name="Maintenance_RestoreErrorDatabase" xml:space="preserve"><value>Не удалось восстановить базу: транзакция откачена, данные не изменены.</value></data>
+  <data name="Maintenance_RestoreErrorMigration" xml:space="preserve"><value>База восстановлена, но обновить её схему не удалось. Проверьте логи сервера; бэкап предыдущего состояния есть в списке.</value></data>
+  <data name="Maintenance_RestoreErrorGeneric" xml:space="preserve"><value>Восстановление не удалось. Проверьте логи сервера.</value></data>
+  <data name="Maintenance_RestoreWarningNoAttachments" xml:space="preserve"><value>У бэкапа нет архива вложений: файлы форума оставлены как есть.</value></data>
+  <data name="Maintenance_RestoreWarningAttachments" xml:space="preserve"><value>База восстановлена, но вложения форума восстановить не удалось. Проверьте логи сервера.</value></data>
+  <data name="Management_TaskCreateTitle" xml:space="preserve"><value>Добавить задачи</value></data>
+  <data name="Management_TaskModeLabel" xml:space="preserve"><value>Способ добавления</value></data>
+  <data name="Management_TaskModeSingle" xml:space="preserve"><value>Одна задача</value></data>
+  <data name="Management_TaskModeList" xml:space="preserve"><value>Списком</value></data>
+  <data name="Management_TaskModeSet" xml:space="preserve"><value>Набор</value></data>
+  <data name="Management_TaskModeCopy" xml:space="preserve"><value>Из другого предмета</value></data>
+  <data name="Management_TaskGroupForCreate" xml:space="preserve"><value>Группа для добавляемых задач</value></data>
+  <data name="Management_TaskSetHint" xml:space="preserve"><value>Создаёт задачи «номер.01», «номер.02», …; уже существующие пропускаются, так что повтор дозаполнит пропуски.</value></data>
+  <data name="Management_CopyTasksHint" xml:space="preserve"><value>Копируются задачи, которых здесь ещё нет. Группы задач переносятся по названию.</value></data>
+  <data name="Management_TasksSelected" xml:space="preserve"><value>Выбрано: {0}</value></data>
+  <data name="Management_BulkKeep" xml:space="preserve"><value>Не менять</value></data>
+  <data name="Management_BulkApply" xml:space="preserve"><value>Применить</value></data>
+  <data name="Management_BulkClear" xml:space="preserve"><value>Снять выбор</value></data>
+  <data name="Management_BulkDelete" xml:space="preserve"><value>Удалить выбранные</value></data>
+  <data name="Management_BulkDeleteTitle" xml:space="preserve"><value>Удалить задачи?</value></data>
+  <data name="Management_BulkDeleteText" xml:space="preserve"><value>Удалить задачи ({0}) вместе с отметками по ним? Это нельзя отменить.</value></data>
+  <data name="Management_TasksUpdated" xml:space="preserve"><value>Изменено задач: {0}</value></data>
+  <data name="Management_TasksDeleted" xml:space="preserve"><value>Удалено задач: {0}</value></data>
+  <data name="Management_BulkHint" xml:space="preserve"><value>Отметьте задачи галочками (можно провести по ним, не отпуская кнопку мыши), чтобы разом поменять группу или баллы.</value></data>
+  <data name="Management_ColSubjects" xml:space="preserve"><value>Предметы</value></data>
+  <data name="Management_ColGroups" xml:space="preserve"><value>Группы</value></data>
+  <data name="Management_NoSubjectAccess" xml:space="preserve"><value>нет предметов</value></data>
+  <data name="Management_NoGroupAccess" xml:space="preserve"><value>нет групп</value></data>
+  <!-- ==================== Privacy Policy ==================== -->
+  <data name="PrivacyPolicy_PageTitle" xml:space="preserve"><value>Пользовательское соглашение</value></data>
+  
+  <data name="PrivacyPolicy_BackToRegister" xml:space="preserve"><value>К регистрации</value></data>
+  
+  
+  <data name="Terms_PageTitle" xml:space="preserve"><value>Пользовательское соглашение</value></data>
+  <data name="Terms_Title" xml:space="preserve"><value>Пользовательское соглашение</value></data>
+  <data name="Register_AcceptTerms" xml:space="preserve"><value>Принимаю соглашение и обязуюсь делать лабы</value></data>
+  <data name="Register_AcceptTermsRequired" xml:space="preserve"><value>Без этого никак: примите соглашение</value></data>
+  <data name="Register_TermsLink" xml:space="preserve"><value>Пользовательское соглашение</value></data>
+
+  <!-- ==================== Halloween ==================== -->
+  <data name="Halloween_AriaLabel" xml:space="preserve"><value>Хэллоуинские украшения</value></data>
+
+  <data name="Management_TaskGroupsEmptyHint" xml:space="preserve"><value>Групп пока нет: создайте их в блоке «Группы задач» выше</value></data>
+  <data name="Error_EmailUnchanged" xml:space="preserve"><value>Это и так ваша текущая почта.</value></data>
+  <data name="Error_InvalidCurrentPassword" xml:space="preserve"><value>Текущий пароль указан неверно.</value></data>
+  <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Не принимаю, выйти</value></data>
+  <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Далее</value></data>
 </root>

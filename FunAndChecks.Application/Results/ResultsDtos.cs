@@ -22,7 +22,9 @@ public record StudentResultRowDto(
     int TotalPoints,
     IReadOnlyDictionary<int, ResultCellDto> Results,
     IReadOnlyDictionary<int, int> Grades,
-    string? StudentColor);
+    string? StudentColor,
+    string LastName = "",
+    string FirstName = "");
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>
 public record SubjectResultsDto(

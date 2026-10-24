@@ -3,6 +3,7 @@ using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Students;
 using FunAndChecks.Application.Submissions;
+using FunAndChecks.Application.Tasks;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ public class ResultsService(
     private async Task<SubjectResultsDto?> BuildSubjectResultsAsync(int subjectId, CancellationToken cancellationToken)
     {
         var subject = await db.Subjects
-            .Include(s => s.Tasks.OrderBy(t => t.Name))
+            .Include(s => s.Tasks).ThenInclude(t => t.TaskGroup)
             .Include(s => s.GradeComponents.OrderBy(c => c.Name))
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == subjectId, cancellationToken);
@@ -41,6 +42,8 @@ public class ResultsService(
             {
                 s.Id,
                 s.FullName,
+                s.LastName,
+                s.FirstName,
                 GroupName = s.Group != null ? s.Group.Name : "N/A",
                 s.Color,
                 Grades = s.Grades
@@ -83,7 +86,8 @@ public class ResultsService(
                       )
             );
 
-        var taskHeaders = subject.Tasks.Select(t => new TaskHeaderDto(t.Id, t.Name, t.MaxPoints)).ToList();
+        var tasks = TaskOrder.Apply(subject.Tasks);
+        var taskHeaders = tasks.Select(t => new TaskHeaderDto(t.Id, t.Name, t.MaxPoints)).ToList();
         var gradeColumns = subject.GradeComponents.Select(c => new GradeColumnDto(c.Id, c.Name, c.MaxPoints)).ToList();
 
         var rows = studentsData.Select(student =>
@@ -93,7 +97,7 @@ public class ResultsService(
 
             var hasSubmissions = latestSubmissionsByStudent.TryGetValue(student.Id, out var dict);
 
-            foreach (var task in subject.Tasks)
+            foreach (var task in tasks)
             {
                 var lastSubmission = hasSubmissions && dict!.TryGetValue(task.Id, out var sub) ? sub : null;
 
@@ -126,7 +130,9 @@ public class ResultsService(
                 totalPoints,
                 cells,
                 grades,
-                student.Color);
+                student.Color,
+                student.LastName,
+                student.FirstName);
         })
         .OrderByDescending(r => r.TotalPoints)
         .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)
@@ -138,7 +144,7 @@ public class ResultsService(
     public async Task<StudentSubjectResultsDto> GetStudentResultsAsync(Guid studentId, int subjectId, CancellationToken cancellationToken = default)
     {
         var subject = await db.Subjects
-            .Include(s => s.Tasks)
+            .Include(s => s.Tasks).ThenInclude(t => t.TaskGroup)
             .Include(s => s.GradeComponents)
             .FirstOrDefaultAsync(s => s.Id == subjectId, cancellationToken)
             ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
@@ -150,7 +156,7 @@ public class ResultsService(
 
         var taskResults = new List<StudentTaskResultDto>();
 
-        foreach (var task in subject.Tasks)
+        foreach (var task in TaskOrder.Apply(subject.Tasks))
         {
             var taskSubmissions = submissions
                 .Where(s => s.TaskId == task.Id)

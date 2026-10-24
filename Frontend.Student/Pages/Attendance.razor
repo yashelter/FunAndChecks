@@ -2,36 +2,36 @@
 @layout StudentLayout
 @attribute [Authorize(Roles = Roles.Student)]
 
-<PageTitle>Моя посещаемость</PageTitle>
+<PageTitle>@Loc["MyAttendance_PageTitle"]</PageTitle>
 <div class="attendance-page fc-student-attendance">
-    <div class="fc-page-heading"><div><span class="fc-eyebrow">МОЯ ИСТОРИЯ</span><MudText Typo="Typo.h4">Посещаемость</MudText><p class="fc-muted">Только занятия, на которых преподаватель ведёт учёт.</p></div></div>
+    <div class="fc-page-heading"><div><span class="fc-eyebrow">@Loc["MyAttendance_Eyebrow"]</span><MudText Typo="Typo.h4">@Loc["Nav_Attendance"]</MudText><p class="fc-muted">@Loc["MyAttendance_Subtitle"]</p></div></div>
     <section class="fc-panel fc-subject-filter">
         <div class="fc-panel-body fc-toolbar">
-            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")" Label="Предмет" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
                 @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
             </MudSelect>
-            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@(_loading || _subjectId is null)">Обновить</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@(_loading || _subjectId is null)">@Loc["Attendance_Refresh"]</MudButton>
         </div>
     </section>
     @if (_loading) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" /> }
     else if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
     else if (_history.Count == 0)
     {
-        <div class="attendance-empty"><MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" /><MudText Typo="Typo.h6">Пока нет отметок</MudText><MudText>Занятия без учёта посещаемости не считаются пропусками.</MudText></div>
+        <div class="attendance-empty"><MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" /><MudText Typo="Typo.h6">@Loc["MyAttendance_Empty"]</MudText><MudText>@Loc["MyAttendance_EmptyHint"]</MudText></div>
     }
     else
     {
         <div class="fc-stats">
-            <div class="fc-stat present"><span>Посещений</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Present)</strong></div>
-            <div class="fc-stat absent"><span>Пропусков</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Absent)</strong></div>
-            <div class="fc-stat unmarked"><span>Не отмечено</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Unmarked)</strong></div>
+            <div class="fc-stat present"><span>@Loc["AttendanceJournal_PresentCount"]</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Present)</strong></div>
+            <div class="fc-stat absent"><span>@Loc["AttendanceJournal_AbsentCount"]</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Absent)</strong></div>
+            <div class="fc-stat unmarked"><span>@Loc["AttendanceJournal_UnmarkedCount"]</span><strong>@_history.Count(s => s.Status == AttendanceStatus.Unmarked)</strong></div>
         </div>
         <section class="fc-panel">
-            <div class="fc-panel-heading"><h3>История занятий</h3><small class="fc-muted">Москва · UTC+3</small></div>
+            <div class="fc-panel-heading"><h3>@Loc["MyAttendance_History"]</h3><small class="fc-muted">@Loc["Attendance_MoscowTime"] · UTC+3</small></div>
             @foreach (var entry in _history)
             {
-                <div class="attendance-history-row"><span class="@AttendanceStyles.Css(entry.Status)">@AttendanceStyles.Symbol(entry.Status)</span><div><strong>@entry.Name</strong><small class="attendance-group">@AttendanceStyles.Moscow(entry.StartsAt).ToString("dd.MM.yyyy HH:mm") · Москва · @AttendanceStyles.Text(entry.Status)</small>
-                    @if (entry.UpdatedAt.HasValue) { <small class="attendance-group">@(entry.MarkedBy ?? "Преподаватель удалён") · отметка обновлена @AttendanceStyles.Moscow(entry.UpdatedAt.Value).ToString("dd.MM.yyyy HH:mm")</small> }
+                <div class="attendance-history-row"><span class="@AttendanceStyles.Css(entry.Status)">@AttendanceStyles.Symbol(entry.Status)</span><div><strong>@entry.Name</strong><small class="attendance-group">@AttendanceStyles.Moscow(entry.StartsAt).ToString("dd.MM.yyyy HH:mm") · @Loc["Attendance_MoscowTime"] · @AttendanceStyles.Text(entry.Status)</small>
+                    @if (entry.UpdatedAt.HasValue) { <small class="attendance-group">@(entry.MarkedBy ?? Loc["Attendance_TeacherDeleted"]) · @Loc["MyAttendance_Updated"] @AttendanceStyles.Moscow(entry.UpdatedAt.Value).ToString("dd.MM.yyyy HH:mm")</small> }
                 </div></div>
             }
         </section>

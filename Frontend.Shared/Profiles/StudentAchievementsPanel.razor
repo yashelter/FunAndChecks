@@ -1,0 +1,113 @@
+@namespace Frontend.Shared.Profiles
+@implements IDisposable
+@inject ProfileApi Api
+@inject ISnackbar Snackbar
+
+@* Выдача достижений прямо из диалога студента: получатель известен, остаётся выбрать награду. *@
+<div class="fc-student-achievements">
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert> }
+    <section>
+        <h3>@ProfileText.T("Уже получены", "Already granted") <span class="fc-muted">@(_awards?.Count ?? 0)</span></h3>
+        @if (_awards is null) { <MudProgressLinear Indeterminate="true" /> }
+        else if (_awards.Count == 0) { <p class="fc-profile-hint">@ProfileText.T("Пока ни одного достижения.", "No achievements yet.")</p> }
+        else
+        {
+            <div class="fc-student-achievements-owned">
+                @foreach (var award in _awards)
+                {
+                    <span class="fc-chip" title="@award.Description"><MudIcon Icon="@Icons.Material.Outlined.EmojiEvents" Size="Size.Small" />@award.Name</span>
+                }
+            </div>
+        }
+    </section>
+    @if (CanGrant)
+    {
+        <section>
+            <h3>@ProfileText.T("Выдать", "Grant")</h3>
+            <MudTextField T="string" Value="@_query" ValueChanged="QueryAsync" Immediate="true" DebounceInterval="300" Label="@ProfileText.T("Поиск достижения", "Find achievement")"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" MaxLength="200" />
+            <div class="fc-profile-picker-list">
+                @foreach (var item in _catalog.Where(x => !x.IsArchived))
+                {
+                    var owned = Owned(item.Id);
+                    <button type="button" class="fc-profile-picker @(_selected?.Id == item.Id ? "selected" : "")" disabled="@(_busy || owned)"
+                            @onclick="() => _selected = item" aria-pressed="@(_selected?.Id == item.Id)">
+                        <span><strong>@item.Name</strong><small>@item.Description</small></span>
+                        <span>@(owned ? "✓" : _selected?.Id == item.Id ? "●" : "+")</span>
+                    </button>
+                }
+                @if (_catalog.Count == 0) { <p class="fc-profile-empty">@ProfileText.T("Достижения не найдены", "No achievements found")</p> }
+            </div>
+            @if (_total > PageSize) { <MudPagination Count="@((int)Math.Ceiling(_total / (double)PageSize))" Selected="_page" SelectedChanged="PageAsync" Class="mt-2" /> }
+            <MudButton Class="mt-3" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.EmojiEvents"
+                       Disabled="@(_busy || _selected is null)" OnClick="GrantAsync">
+                @(_selected is null ? ProfileText.T("Выберите достижение", "Choose an achievement") : ProfileText.T($"Выдать «{_selected.Name}»", $"Grant “{_selected.Name}”"))
+            </MudButton>
+        </section>
+    }
+</div>
+
+@code {
+    private const int PageSize = 24;
+    [Parameter, EditorRequired] public Guid UserId { get; set; }
+    /// <summary>false — только просмотр полученных (например, нет доступа к группе студента).</summary>
+    [Parameter] public bool CanGrant { get; set; } = true;
+    [Parameter] public EventCallback Granted { get; set; }
+
+    private List<AchievementAwardDto>? _awards;
+    private List<AchievementDefinitionDto> _catalog = [];
+    private AchievementDefinitionDto? _selected;
+    private string _query = "";
+    private string? _error;
+    private bool _busy;
+    private int _page = 1, _total, _version;
+    private readonly CancellationTokenSource _life = new();
+
+    protected override async Task OnInitializedAsync() =>
+        await Task.WhenAll(LoadAwardsAsync(), CanGrant ? LoadCatalogAsync() : Task.CompletedTask);
+
+    private bool Owned(int achievementId) => _awards?.Any(a => a.AchievementId == achievementId) == true;
+
+    private async Task LoadAwardsAsync()
+    {
+        try { _awards = (await Api.GetProfileAsync(UserId, _life.Token)).Awards; }
+        catch (ApiException ex) { _awards = []; _error = ex.Message; }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+    }
+
+    private async Task LoadCatalogAsync()
+    {
+        var version = ++_version;
+        try
+        {
+            var page = await Api.CatalogAsync(_query, _page, ct: _life.Token);
+            if (version != _version) return;
+            _catalog = page.Items; _total = page.TotalCount;
+        }
+        catch (ApiException ex) { if (version == _version) _error = ex.Message; }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+    }
+
+    private async Task QueryAsync(string value) { _query = value ?? ""; _page = 1; await LoadCatalogAsync(); }
+
+    private async Task PageAsync(int page) { _page = page; await LoadCatalogAsync(); }
+
+    private async Task GrantAsync()
+    {
+        if (_selected is not { } achievement) return;
+        _busy = true; _error = null;
+        try
+        {
+            await Api.GrantAsync(achievement.Id, UserId, _life.Token);
+            Snackbar.Add(ProfileText.T($"Достижение «{achievement.Name}» выдано", $"“{achievement.Name}” granted"), Severity.Success);
+            _selected = null;
+            await LoadAwardsAsync();
+            await Granted.InvokeAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
+        finally { _busy = false; }
+    }
+
+    public void Dispose() { _life.Cancel(); _life.Dispose(); }
+}

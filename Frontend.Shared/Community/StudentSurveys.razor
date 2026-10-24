@@ -1,0 +1,108 @@
+@inject SurveyApi Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>@CommunityText.T("Опросы", "Surveys")</PageTitle>
+@if (SurveyId is int id)
+{
+    <a class="fc-profile-back" href="/student/surveys">← @CommunityText.T("Все опросы", "All surveys")</a>
+    @if (_error is not null) { <MudAlert Severity="Severity.Warning" Class="mb-4">@_error</MudAlert> }
+    else if (_form is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+    else
+    {
+        <div class="fc-page-heading"><div>
+            <MudText Typo="Typo.h4">@_form.Title</MudText>
+            <MudText Class="fc-muted">@(_form.SubjectName ?? CommunityText.T("Общий опрос", "General survey"))@(_form.ClosesAtUtc is { } c ? CommunityText.T($" · до {c.ToLocalTime():g}", $" · until {c.ToLocalTime():g}") : "")</MudText>
+        </div></div>
+        @if (_form.IsAnonymous) { <MudAlert Severity="Severity.Info" Class="mb-4">@CommunityText.T("Опрос анонимный: ответы сохраняются без имени, преподаватели видят только сводку.", "This survey is anonymous: answers are stored without your name and teachers only see a summary.")</MudAlert> }
+        @if (!string.IsNullOrWhiteSpace(_form.Description)) { <section class="fc-panel fc-profile-section"><MarkdownView Text="@_form.Description" /></section> }
+        <SurveyForm Questions="_form.Questions" Busy="_busy" Submit="SubmitAsync">
+            <ExtraActions>@if (_form.CanSnooze) { <MudButton Disabled="_busy" OnClick="SnoozeAsync">@CommunityText.T("Позже", "Later")</MudButton> }</ExtraActions>
+        </SurveyForm>
+    }
+}
+else
+{
+    <div class="fc-page-heading"><div>
+        <MudText Typo="Typo.h4">@CommunityText.T("Опросы", "Surveys")</MudText>
+        <MudText Class="fc-muted">@CommunityText.T("Короткие анкеты от преподавателей. Новые появляются по ходу курса.", "Short forms from teachers. New ones appear as the course goes on.")</MudText>
+    </div></div>
+    <section class="fc-panel fc-profile-section">
+        <div class="fc-profile-section-heading"><h2>@CommunityText.T("Ждут ответа", "Waiting for you")</h2><span>@(_pending?.Count ?? 0)</span></div>
+        @if (_pending is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+        else if (_pending.Count == 0) { <p class="fc-profile-empty">@CommunityText.T("Сейчас опросов нет.", "No surveys right now.")</p> }
+        else
+        {
+            <ul class="fc-survey-list">
+                @foreach (var survey in _pending)
+                {
+                    <li><a href="@($"/student/surveys/{survey.Id}")"><strong>@survey.Title</strong>
+                        <small>@(survey.SubjectName ?? CommunityText.T("Общий", "General")) · @CommunityText.Questions(survey.QuestionCount)@(survey.IsAnonymous ? CommunityText.T(" · анонимно", " · anonymous") : "")</small></a>
+                        <span class="fc-profile-recipient-arrow">→</span></li>
+                }
+            </ul>
+        }
+    </section>
+    <section class="fc-panel fc-profile-section">
+        <div class="fc-profile-section-heading"><h2>@CommunityText.T("Пройденные", "Completed")</h2><span>@_completed.Count</span></div>
+        @if (_completed.Count == 0) { <p class="fc-profile-empty">@CommunityText.T("Вы ещё не отвечали на опросы.", "You have not answered any surveys yet.")</p> }
+        else
+        {
+            <ul class="fc-survey-list">
+                @foreach (var survey in _completed)
+                {
+                    <li><span><strong>@survey.Title</strong><small>@(survey.SubjectName ?? CommunityText.T("Общий", "General")) · @survey.CompletedAtUtc?.ToLocalTime().ToString("d")</small></span>
+                        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Success" Size="Size.Small" /></li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public int? SurveyId { get; set; }
+    private SurveyFormDto? _form;
+    private List<PendingSurveyDto>? _pending;
+    private List<MySurveyDto> _completed = [];
+    private string? _error;
+    private bool _busy;
+    private int? _loaded = -1;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loaded == SurveyId) return;
+        _loaded = SurveyId;
+        _error = null; _form = null;
+        try
+        {
+            if (SurveyId is int id) _form = await Api.FormAsync(id);
+            else
+            {
+                _pending = await Api.PendingAsync();
+                _completed = await Api.CompletedAsync();
+            }
+        }
+        catch (ApiException ex) { _error = ex.Message; _pending ??= []; }
+    }
+
+    private async Task SubmitAsync(SubmitSurveyRequest request)
+    {
+        _busy = true;
+        try
+        {
+            await Api.SubmitAsync(_form!.Id, request);
+            Snackbar.Add(CommunityText.T("Спасибо! Ответы сохранены.", "Thank you! Your answers were saved."), Severity.Success);
+            Nav.NavigateTo("/student/surveys");
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task SnoozeAsync()
+    {
+        _busy = true;
+        try { await Api.SnoozeAsync(_form!.Id); Nav.NavigateTo("/student"); }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _busy = false; }
+    }
+}

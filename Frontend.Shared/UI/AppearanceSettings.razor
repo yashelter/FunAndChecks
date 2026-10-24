@@ -1,4 +1,5 @@
 @inject DashboardAppearanceService Appearance
+@inject SeasonalThemes Seasons
 
 @if (Open)
 {
@@ -45,12 +46,21 @@
                 <MudSwitch T="bool" Value="Appearance.IsCompact" ValueChanged="Appearance.SetCompactAsync" Color="Color.Primary" Label="@Text("Компактный вид", "Compact view")" />
                 <p class="fc-settings-hint">@Text("Помогает видеть больше студентов на одном экране.", "See more students on one screen.")</p>
             </section>
+            @* Сезонные темы, которые идут сейчас (окно по дате задаёт сама тема). *@
+            @foreach (var theme in Seasons.InSeason)
+            {
+                <section @key="theme.Id">
+                    <h3>@theme.Title</h3>
+                    <MudSwitch T="bool" Value="Appearance.IsSeasonEnabled(theme.Id)" ValueChanged="@(on => Appearance.SetSeasonEnabledAsync(theme.Id, on))"
+                               Color="Color.Primary" Label="@Text("Сезонное оформление", "Seasonal decorations")" />
+                    <p class="fc-settings-hint">@theme.Description</p>
+                </section>
+            }
             <section>
                 <h3>@Text("Цвета статусов", "Status colors")</h3>
                 <div class="fc-status-legend"><span class="success">✓ @Text("Зачтено", "Accepted")</span><span class="info">@Text("Сдаёт", "Checking")</span><span class="warning">@Text("Доработка", "Rework")</span><span class="error">@Text("Пропуск", "Skipped")</span></div>
                 <p class="fc-settings-hint">@Text("Цвета преподавателей и студентов сохраняют своё значение.", "Teacher and student colors keep their meaning.")</p>
             </section>
-            <section><h3>@Text("Версия интерфейса", "Interface version")</h3><UiVersionSwitch /></section>
         </div>
     </MudFocusTrap>
 </MudDrawer>

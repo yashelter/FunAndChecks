@@ -1,0 +1,79 @@
+@page "/metrics"
+@layout AuthLayout
+@inject AuthenticationStateProvider Authentication
+@inject MeApi Me
+@inject NavigationManager Nav
+@inject IStringLocalizer<AppStrings> Loc
+
+<PageTitle>@Loc["Monitoring_Title"]</PageTitle>
+
+<section class="fc-panel pa-6">
+    <MudText Typo="Typo.h5" GutterBottom="true">@Loc["Monitoring_Title"]</MudText>
+    @if (_busy)
+    {
+        <MudText Typo="Typo.body2" GutterBottom="true">@Loc["Monitoring_Opening"]</MudText>
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_forbidden)
+    {
+        <MudAlert Severity="Severity.Warning">@Loc["Monitoring_SuperAdminOnly"]</MudAlert>
+    }
+    else if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenAsync">@Loc["Monitoring_Retry"]</MudButton>
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    private bool _busy = true, _forbidden;
+    private string? _error;
+
+    // The bridge handles authentication itself to retain the Grafana deep link
+    // through the site's login page instead of using the generic route redirect.
+    protected override Task OnInitializedAsync() => OpenAsync();
+
+    private async Task OpenAsync()
+    {
+        _busy = true;
+        _error = null;
+        var target = SafeReturn(ReturnUrl);
+        try
+        {
+            var state = await Authentication.GetAuthenticationStateAsync();
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                var bridge = "/metrics?returnUrl=" + Uri.EscapeDataString(target);
+                Nav.NavigateTo("/login?returnUrl=" + Uri.EscapeDataString(bridge));
+                return;
+            }
+            if (!state.User.IsInRole(Roles.SuperAdmin))
+            {
+                _forbidden = true;
+                return;
+            }
+            await Me.CreateMonitoringSessionAsync();
+            Nav.NavigateTo(target, forceLoad: true);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.StatusCode == System.Net.HttpStatusCode.NotFound
+                ? Loc["Monitoring_Disabled"].Value : ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string SafeReturn(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || !value.StartsWith("/metrics/", StringComparison.Ordinal) ||
+            value.Contains('\\') || value.Any(char.IsControl))
+            return "/metrics/";
+        return Uri.TryCreate("https://monitoring.invalid" + value, UriKind.Absolute, out var target) &&
+               target.AbsolutePath.StartsWith("/metrics/", StringComparison.Ordinal)
+            ? target.PathAndQuery + target.Fragment : "/metrics/";
+    }
+}

@@ -11,15 +11,12 @@
     <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <script>
-        const legacyUi = /^\/legacy(?:\/|$)/i.test(location.pathname);
-        document.documentElement.dataset.uiVersion = legacyUi ? 'legacy' : 'dashboard';
-        if (!legacyUi) {
-            const preference = (() => { try { return localStorage.getItem('fc-theme'); } catch { return null; } })();
-            document.documentElement.dataset.theme = preference === 'light' ? 'light' : 'dark';
-        }
-        const uiStyles = legacyUi ? ['_content/Frontend.Legacy/legacy.css'] : [
-            'css/app.css', 'css/dashboard.css', '_content/Frontend.Shared/dashboard-content.css',
-            '_content/Frontend.Admin/admin-dashboard.css', '_content/Frontend.Admin/management-dashboard.css'
+        const preference = (() => { try { return localStorage.getItem('fc-theme'); } catch { return null; } })();
+        document.documentElement.dataset.theme = preference === 'light' ? 'light' : 'dark';
+        const uiStyles = [
+            'css/app.css', 'css/dashboard.css', 'Frontend.styles.css?v=queue-picker-1', '_content/Frontend.Shared/dashboard-content.css?v=9',
+            '_content/Frontend.Shared/profiles.css?v=account-2', '_content/Frontend.Shared/profile-navigation.css', '_content/Frontend.Shared/community.css?v=10',
+            '_content/Frontend.Admin/admin-dashboard.css?v=ux-5', '_content/Frontend.Admin/management-dashboard.css?v=ux-4'
         ];
         for (const href of uiStyles) {
             const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/' + href;
@@ -51,6 +48,7 @@
         }
         @keyframes app-slide { 0% { left: -40%; } 100% { left: 100%; } }
     </style>
+    <script src="js/dashboard-bootstrap.js"></script>
 </head>
 
 <body>
@@ -69,22 +67,6 @@
     </div>
 
     <script>
-        window.culturePreference = {
-            get: () => {
-                let stored = null;
-                try { stored = localStorage.getItem('culture_preference'); } catch { }
-                if (stored === 'en-US' || stored === 'ru-RU') return stored;
-                const languages = navigator.languages || [navigator.language || 'en-US'];
-                return languages.some(language => language && language.toLowerCase().startsWith('ru')) ? 'ru-RU' : 'en-US';
-            },
-            set: culture => {
-                if (culture !== 'en-US' && culture !== 'ru-RU') return false;
-                try { localStorage.setItem('culture_preference', culture); } catch { return false; }
-                document.documentElement.lang = culture;
-                return true;
-            }
-        };
-
         const startupCulture = window.culturePreference.get();
         document.documentElement.lang = startupCulture;
         if (startupCulture === 'ru-RU') {
@@ -116,8 +98,9 @@
             fetch('/api/loading-assets')
                 .then(r => r.ok ? r.json() : [])
                 .then(list => {
-                    const pick = Array.isArray(list) && list.length
-                        ? list[Math.floor(Math.random() * list.length)]
+                    const media = Array.isArray(list) ? list.filter(src => typeof src === 'string' && /\.(gif|mp4|webm|ogg|png|jpe?g|webp|svg|avif)$/i.test(src)) : [];
+                    const pick = media.length
+                        ? media[Math.floor(Math.random() * media.length)]
                         : fallback;
                     render(pick);
                 })
@@ -126,6 +109,8 @@
     </script>
 
     <script src="js/dashboard-appearance.js"></script>
+    <script src="js/snackbar-swipe.js"></script>
+    <script src="_content/Frontend.Shared/profile-navigation.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js" autostart="false"></script>
     <script>Blazor.start({ applicationCulture: window.culturePreference.get() });</script>

@@ -1,0 +1,69 @@
+<div class="fc-visibility-list">
+    <div class="fc-access-list-heading">
+        <MudText Typo="Typo.subtitle1">@Title</MudText>
+        <span>@Items.Count(x => !x.Archived) @Text("активных", "active") · @Items.Count(x => x.Archived) @Text("в архиве", "archived")</span>
+    </div>
+    <MudTextField T="string" @bind-Value="_search" Immediate="true" Label="@Text("Поиск", "Search")"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start"
+                  AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+    <MudTable T="Entry" Items="Filtered(false)" Class="fc-access-table" Breakpoint="Breakpoint.Sm" Dense="true" Elevation="0">
+        <HeaderContent><MudTh>@Text("Название", "Name")</MudTh><MudTh></MudTh></HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="@Text("Название", "Name")"><span class="fc-access-name">@context.Name</span></MudTd>
+            <MudTd>
+                @if (context.Restricted)
+                {
+                    <span class="fc-access-locked"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />@Text("Доступ запрещён", "Access restricted")</span>
+                }
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Archive"
+                           Disabled="@(context.Restricted || _saving.Contains(context.Id))" OnClick="@(() => ChangeAsync(context, true))">@Text("В архив", "Archive")</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent><MudText Class="pa-3" Typo="Typo.body2">@Text("Ничего не найдено", "No matches")</MudText></NoRecordsContent>
+        <PagerContent><MudTablePager PageSizeOptions="@(new[] { 10, 25, 50 })" RowsPerPageString="@Text("Строк на странице", "Rows per page")" /></PagerContent>
+    </MudTable>
+    <MudExpansionPanels Elevation="0" Class="fc-visibility-archive">
+        <MudExpansionPanel Text="@($"{Text("Архив", "Archive")} · {Items.Count(x => x.Archived)}")">
+            <MudTable T="Entry" Items="Filtered(true)" Class="fc-access-table" Breakpoint="Breakpoint.Sm" Dense="true" Elevation="0">
+                <HeaderContent><MudTh>@Text("Название", "Name")</MudTh><MudTh></MudTh></HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@Text("Название", "Name")"><span class="fc-access-name">@context.Name</span></MudTd>
+                    <MudTd>
+                        @if (context.Restricted)
+                        {
+                            <span class="fc-access-locked"><MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />@Text("Доступ запрещён", "Access restricted")</span>
+                        }
+                        <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Unarchive"
+                                   Disabled="@(context.Restricted || _saving.Contains(context.Id))" OnClick="@(() => ChangeAsync(context, false))">@Text("Восстановить", "Restore")</MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent><MudText Class="pa-3" Typo="Typo.body2">@Text("Архив пуст или ничего не найдено", "Archive is empty or no matches")</MudText></NoRecordsContent>
+                <PagerContent><MudTablePager PageSizeOptions="@(new[] { 10, 25, 50 })" RowsPerPageString="@Text("Строк на странице", "Rows per page")" /></PagerContent>
+            </MudTable>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</div>
+
+@code {
+    public record Entry(int Id, string Name, bool Archived, bool Restricted);
+    public record ArchiveChange(int Id, bool Archived);
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlyList<Entry> Items { get; set; } = [];
+    [Parameter] public EventCallback<ArchiveChange> OnArchiveChanged { get; set; }
+    private string _search = "";
+    private readonly HashSet<int> _saving = [];
+
+    private IEnumerable<Entry> Filtered(bool archived) => Items.Where(x => x.Archived == archived &&
+        (string.IsNullOrWhiteSpace(_search) || x.Name.Contains(_search.Trim(), StringComparison.CurrentCultureIgnoreCase)))
+        .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase);
+
+    private async Task ChangeAsync(Entry item, bool archived)
+    {
+        if (item.Restricted || !_saving.Add(item.Id)) return;
+        try { await OnArchiveChanged.InvokeAsync(new ArchiveChange(item.Id, archived)); }
+        finally { _saving.Remove(item.Id); }
+    }
+
+    private static string Text(string ru, string en) => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? ru : en;
+}

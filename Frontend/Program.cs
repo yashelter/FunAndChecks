@@ -22,4 +22,10 @@ await cultureService.InitializeAsync();
 CultureInfo.DefaultThreadCurrentCulture = new CultureInfo(cultureService.CurrentCulture);
 CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo(cultureService.CurrentCulture);
 
+// Внешний вид (тема, акцент, выключенные сезонные темы) читаем до первого рендера — иначе
+// первый кадр рисуется с дефолтным состоянием и у выключивших сезонную тему
+// оформление на миг появляется и исчезает.
+var appearance = host.Services.GetRequiredService<DashboardAppearanceService>();
+await appearance.InitializeAsync();
+
 await host.RunAsync();

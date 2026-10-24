@@ -21,3 +21,19 @@ public class UpdateTaskRequestValidator : AbstractValidator<UpdateTaskRequest>
         RuleFor(x => x.MaxPoints).GreaterThanOrEqualTo(0);
     }
 }
+
+public class CreateTaskGroupRequestValidator : AbstractValidator<CreateTaskGroupRequest>
+{
+    public CreateTaskGroupRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+    }
+}
+
+public class UpdateTaskGroupRequestValidator : AbstractValidator<UpdateTaskGroupRequest>
+{
+    public UpdateTaskGroupRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+    }
+}

@@ -1,0 +1,335 @@
+{
+  "uid": "fc-audit",
+  "title": "Действия администраторов",
+  "description": "Мониторинг FunAndChecks. Доступ через актуальную роль суперадминистратора приложения.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "tags": [
+    "FunAndChecks"
+  ],
+  "links": [
+    {
+      "title": "Нагрузка",
+      "url": "/metrics/d/fc-load/load",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Технические логи",
+      "url": "/metrics/d/fc-technical/technical",
+      "type": "link",
+      "keepTime": true
+    },
+    {
+      "title": "Действия администраторов",
+      "url": "/metrics/d/fc-audit/audit",
+      "type": "link",
+      "keepTime": true
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "Role",
+        "label": "Роль",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"admin_audit\"}, actorRole)",
+        "definition": "label_values({log_kind=\"admin_audit\"}, actorRole)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Action",
+        "label": "Действие",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"admin_audit\"}, action)",
+        "definition": "label_values({log_kind=\"admin_audit\"}, action)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "ObjectType",
+        "label": "Тип объекта",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"admin_audit\"}, objectType)",
+        "definition": "label_values({log_kind=\"admin_audit\"}, objectType)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Outcome",
+        "label": "Результат",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "funandchecks-loki"
+        },
+        "query": "label_values({log_kind=\"admin_audit\"}, outcome)",
+        "definition": "label_values({log_kind=\"admin_audit\"}, outcome)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "Все",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "Actor",
+        "label": "ФИО",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "ActorId",
+        "label": "ID сотрудника",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "ObjectId",
+        "label": "ID объекта",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      },
+      {
+        "name": "RequestId",
+        "label": "RequestId",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "История изменений",
+      "description": "События с момента внедрения аудита. Хранение 365 дней; выдача ограничена 1000 событиями. Сузьте период и фильтры для полной истории. Ссылка RequestId открывает связанные технические логи.",
+      "type": "table",
+      "datasource": {
+        "type": "loki",
+        "uid": "funandchecks-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 20
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{job=\"funandchecks\",log_kind=\"admin_audit\",actorRole=~\"${Role:regex}\",action=~\"${Action:regex}\",objectType=~\"${ObjectType:regex}\",outcome=~\"${Outcome:regex}\"} | json | actorName =~ \".*${Actor:regex}.*\" | actorId =~ \".*${ActorId:regex}.*\" | objectId =~ \".*${ObjectId:regex}.*\" | requestId =~ \".*${RequestId:regex}.*\"",
+          "datasource": {
+            "type": "loki",
+            "uid": "funandchecks-loki"
+          },
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": true,
+            "keepTime": true
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "timestamp": true,
+              "kind": true,
+              "labels": true,
+              "id": true
+            },
+            "indexByName": {
+              "Time": 0,
+              "actorName": 1,
+              "actorId": 2,
+              "actorRole": 3,
+              "action": 4,
+              "objectType": 5,
+              "objectId": 6,
+              "outcome": 7,
+              "summary": 8,
+              "before": 9,
+              "after": 10,
+              "requestId": 11
+            },
+            "renameByName": {
+              "Time": "Когда",
+              "actorName": "Кто",
+              "actorId": "ID сотрудника",
+              "actorRole": "Роль",
+              "action": "Действие",
+              "objectType": "Тип объекта",
+              "objectId": "ID объекта",
+              "outcome": "Результат",
+              "summary": "Описание",
+              "before": "Было",
+              "after": "Стало",
+              "requestId": "RequestId"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "Когда",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "inspect": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "RequestId"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Связанные технические логи",
+                    "url": "/metrics/d/fc-technical/technical?var-RequestId=${__value.raw}&from=${__from}&to=${__to}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Было"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Стало"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

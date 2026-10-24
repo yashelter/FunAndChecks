@@ -1,0 +1,148 @@
+@namespace Frontend.Shared.Profiles
+@inject MeApi Me
+@inject ISnackbar Snackbar
+@inject UnsavedChangesTracker Dirty
+
+@* Студент сам меняет фамилию, имя и почту. Почта меняется только после кода, пришедшего на новый адрес. *@
+<ProfileDialog Title="@ProfileText.T("Имя и почта", "Name and email")" Close="CloseAsync" Busy="@_busy" Class="fc-account-dialog">
+    <ChildContent>
+        @if (_loadError is not null) { <MudAlert Severity="Severity.Error">@_loadError</MudAlert> }
+        else if (_me is null) { <MudProgressLinear Indeterminate="true" /> }
+        else
+        {
+            <section class="fc-account-section" aria-labelledby="fc-account-name">
+                <h3 id="fc-account-name">@ProfileText.T("Фамилия и имя", "Name")</h3>
+                <form @onsubmit="SaveNameAsync" @onsubmit:preventDefault="true">
+                    <div class="fc-profile-two-columns">
+                        <MudTextField T="string" @bind-Value="_lastName" Immediate="true" Label="@ProfileText.T("Фамилия", "Last name")" MaxLength="100" Variant="Variant.Outlined" autocomplete="@("family-name")" />
+                        <MudTextField T="string" @bind-Value="_firstName" Immediate="true" Label="@ProfileText.T("Имя", "First name")" MaxLength="100" Variant="Variant.Outlined" autocomplete="@("given-name")" />
+                    </div>
+                    @if (_nameError is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_nameError</MudAlert> }
+                    <div class="fc-account-actions">
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !NameChanged || !NameValid)">@ProfileText.T("Сохранить имя", "Save name")</MudButton>
+                    </div>
+                </form>
+            </section>
+
+            <section class="fc-account-section" aria-labelledby="fc-account-email">
+                <h3 id="fc-account-email">@ProfileText.T("Почта", "Email")</h3>
+                <p class="fc-profile-hint">@ProfileText.T("Сейчас:", "Current:") <strong>@_me.Email</strong></p>
+                @if (_codeSentTo is null)
+                {
+                    <form @onsubmit="SendCodeAsync" @onsubmit:preventDefault="true">
+                        <MudTextField T="string" @bind-Value="_newEmail" Immediate="true" InputType="InputType.Email" Label="@ProfileText.T("Новая почта", "New email")" MaxLength="256" Variant="Variant.Outlined" autocomplete="@("email")" />
+                        <MudTextField T="string" @bind-Value="_password" Immediate="true" InputType="InputType.Password" Label="@ProfileText.T("Текущий пароль", "Current password")" Variant="Variant.Outlined" Class="mt-3" autocomplete="@("current-password")" />
+                        <p class="fc-profile-hint">@ProfileText.T("На новую почту придёт код. Адрес сменится только после того, как вы его введёте; до этого вход остаётся по старой почте.", "A code will be sent to the new address. The email changes only after you enter it; until then you sign in with the current one.")</p>
+                        @if (_emailError is not null) { <MudAlert Severity="Severity.Error" Class="mb-3">@_emailError</MudAlert> }
+                        <div class="fc-account-actions">
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || string.IsNullOrWhiteSpace(_newEmail) || string.IsNullOrEmpty(_password))">@ProfileText.T("Отправить код", "Send code")</MudButton>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <form @onsubmit="ConfirmAsync" @onsubmit:preventDefault="true">
+                        <p class="fc-profile-hint">@ProfileText.T("Код отправлен на", "The code was sent to") <strong>@_codeSentTo</strong>. @ProfileText.T("Он действует около 10 минут.", "It is valid for about 10 minutes.")</p>
+                        <MudTextField T="string" @bind-Value="_code" Immediate="true" Label="@ProfileText.T("Код из письма", "Code from the email")" MaxLength="16" Variant="Variant.Outlined" autocomplete="@("one-time-code")" InputMode="InputMode.numeric" />
+                        @if (_emailError is not null) { <MudAlert Severity="Severity.Error" Class="mt-3">@_emailError</MudAlert> }
+                        <div class="fc-account-actions">
+                            <MudButton OnClick="ChangeAddress" Disabled="@_busy">@ProfileText.T("Другой адрес", "Different address")</MudButton>
+                            <MudButton OnClick="ResendAsync" Disabled="@_busy">@ProfileText.T("Отправить ещё раз", "Resend")</MudButton>
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || string.IsNullOrWhiteSpace(_code))">@ProfileText.T("Подтвердить", "Confirm")</MudButton>
+                        </div>
+                    </form>
+                }
+            </section>
+            <p class="fc-profile-hint">@ProfileText.T("Группу меняет преподаватель.", "Your teacher manages your group.")</p>
+        }
+    </ChildContent>
+    <Actions><MudButton OnClick="CloseAsync" Disabled="@_busy">@ProfileText.T("Закрыть", "Close")</MudButton></Actions>
+</ProfileDialog>
+
+@code {
+    /// <summary>Имя изменилось — профиль нужно перечитать.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+
+    private MeDto? _me;
+    private string? _loadError, _nameError, _emailError;
+    private string _firstName = "", _lastName = "", _newEmail = "", _password = "", _code = "";
+    private string? _codeSentTo;
+    private bool _busy;
+
+    private bool NameChanged => _me is not null && (_firstName.Trim() != _me.FirstName || _lastName.Trim() != _me.LastName);
+    private bool NameValid => !string.IsNullOrWhiteSpace(_firstName) && !string.IsNullOrWhiteSpace(_lastName);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _me = await Me.GetMeAsync();
+            _firstName = _me.FirstName;
+            _lastName = _me.LastName;
+        }
+        catch (ApiException ex) { _loadError = ex.Message; }
+    }
+
+    private async Task SaveNameAsync()
+    {
+        if (_me is null || !NameChanged || !NameValid) return;
+        _busy = true; _nameError = null;
+        try
+        {
+            await Me.ChangeNameAsync(new ChangeNameRequest(_firstName.Trim(), _lastName.Trim()));
+            _me = _me with { FirstName = _firstName.Trim(), LastName = _lastName.Trim() };
+            Dirty.MarkClean();
+            Snackbar.Add(ProfileText.T("Имя сохранено", "Name saved"), Severity.Success);
+            await Changed.InvokeAsync();
+        }
+        catch (ApiException ex) { _nameError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task SendCodeAsync()
+    {
+        var email = _newEmail.Trim();
+        if (await RequestCodeAsync(email)) { _codeSentTo = email; _code = ""; }
+    }
+
+    private Task ResendAsync() => _codeSentTo is null ? Task.CompletedTask : RequestCodeAsync(_codeSentTo);
+
+    private async Task<bool> RequestCodeAsync(string email)
+    {
+        _busy = true; _emailError = null;
+        try
+        {
+            await Me.RequestEmailChangeAsync(new RequestEmailChangeRequest(email, _password));
+            Snackbar.Add(ProfileText.T("Код отправлен", "Code sent"), Severity.Info);
+            return true;
+        }
+        catch (ApiException ex) { _emailError = ex.Message; return false; }
+        finally { _busy = false; }
+    }
+
+    private void ChangeAddress() { _codeSentTo = null; _code = ""; _emailError = null; }
+
+    private async Task ConfirmAsync()
+    {
+        if (_me is null || _codeSentTo is null) return;
+        _busy = true; _emailError = null;
+        try
+        {
+            await Me.ConfirmEmailChangeAsync(new ConfirmEmailChangeRequest(_codeSentTo, _code.Trim()));
+            _me = _me with { Email = _codeSentTo };
+            _codeSentTo = null; _newEmail = _password = _code = "";
+            Dirty.MarkClean();
+            Snackbar.Add(ProfileText.T("Почта изменена. Теперь входите с новым адресом.", "Email changed. Sign in with the new address from now on."), Severity.Success);
+        }
+        catch (ApiException ex) { _emailError = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task CloseAsync()
+    {
+        _password = "";
+        Dirty.MarkClean();
+        await Close.InvokeAsync();
+    }
+}

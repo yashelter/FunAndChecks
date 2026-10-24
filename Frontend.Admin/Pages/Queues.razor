@@ -6,7 +6,10 @@
 
 <div class="fc-page-heading">
     <div><div class="fc-eyebrow">@Loc["AdminNav_Queues"]</div><MudText Typo="Typo.h4">@Loc["Queues_Title"]</MudText></div>
-    <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
+    <div class="fc-admin-queues-actions">
+        <MudSwitch T="bool" Value="_showPast" ValueChanged="OnShowPastChangedAsync" Color="Color.Primary">@Loc["Common_ShowPast"]</MudSwitch>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="CreateAsync">@Loc["Management_CreateQueue"]</MudButton>
+    </div>
 </div>
 
 @if (_loading)

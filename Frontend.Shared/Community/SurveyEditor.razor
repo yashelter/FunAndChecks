@@ -1,0 +1,510 @@
+@using System.Globalization
+@inject SurveyApi Api
+@inject MeApi Me
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject ConfirmService Confirm
+@inject AttendanceApi Attendance
+
+<PageTitle>@(_title is { Length: > 0 } ? _title : CommunityText.T("Новый опрос", "New survey"))</PageTitle>
+@* Незаписанные правки не теряются молча: уход со страницы спрашивает подтверждение. *@
+<NavigationLock OnBeforeInternalNavigation="ConfirmLeaveAsync" ConfirmExternalNavigation="_dirty" />
+<a class="fc-profile-back" href="/admin/surveys">← @CommunityText.T("Все опросы", "All surveys")</a>
+@if (_loading) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+else
+{
+    <div class="fc-page-heading"><div>
+        <MudText Typo="Typo.h4">@(SurveyId is null ? CommunityText.T("Новый опрос", "New survey") : _title)</MudText>
+        <MudText Class="fc-muted">@StatusText</MudText>
+    </div>
+        <div class="fc-profile-heading-actions">
+            <MudButton Variant="Variant.Outlined" OnClick="() => _preview = !_preview" StartIcon="@Icons.Material.Outlined.Visibility">@(_preview ? CommunityText.T("К редактору", "Back to editor") : CommunityText.T("Как увидит студент", "Student preview"))</MudButton>
+            @if (_status != SurveyStatus.Draft && SurveyId is int id)
+            {
+                <MudButton Href="@($"/admin/surveys/{id}/results")" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.BarChart">@CommunityText.T("Итоги", "Results")</MudButton>
+            }
+        </div>
+    </div>
+    @if (_draft is not null)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            @CommunityText.T("Есть несохранённый черновик этого опроса.", "There is an unsaved draft of this survey.")
+            <MudButton Size="Size.Small" Color="Color.Primary" OnClick="RestoreDraftAsync">@CommunityText.T("Восстановить", "Restore")</MudButton>
+            <MudButton Size="Size.Small" OnClick="DropDraftAsync">@CommunityText.T("Отбросить", "Discard")</MudButton>
+        </MudAlert>
+    }
+
+    @if (_preview)
+    {
+        <section class="fc-panel fc-profile-section"><h2>@_title</h2>@if (!string.IsNullOrWhiteSpace(_description)) { <MarkdownView Text="@_description" /> }</section>
+        <SurveyForm Questions="PreviewQuestions" ReadOnly="true" />
+    }
+    else
+    {
+        <div @oninput="MarkDirty" @onchange="MarkDirty">
+        <section class="fc-panel fc-profile-section fc-survey-settings">
+            <h2>@CommunityText.T("Основное", "Basics")</h2>
+            <MudTextField T="string" @bind-Value="_title" Label="@CommunityText.T("Название", "Title")" MaxLength="200" Variant="Variant.Outlined" Immediate="true" />
+            <MudTextField T="string" @bind-Value="_description" Label="@CommunityText.T("Описание (Markdown)", "Description (Markdown)")" Lines="3" MaxLength="4000" Variant="Variant.Outlined" Class="mt-3" Immediate="true" />
+            <div class="fc-survey-grid mt-3">
+                <label>@CommunityText.T("Закрыть опрос", "Closes at")<input type="datetime-local" class="fc-input" @bind="_closes" /></label>
+                @if (Locked) { <span></span> } else { <label>@CommunityText.T("Открыть с", "Opens at")<input type="datetime-local" class="fc-input" @bind="_opens" /></label> }
+            </div>
+            <small class="fc-muted">@CommunityText.T($"Время — по вашему часовому поясу ({TimeZoneInfo.Local.DisplayName}).", $"Times use your time zone ({TimeZoneInfo.Local.DisplayName}).")</small>
+        </section>
+
+        @if (Locked)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">@CommunityText.T("Опрос опубликован: вопросы и условия показа заморожены, чтобы ответы оставались сравнимыми. Чтобы изменить их, сделайте копию.", "The survey is published: questions and conditions are frozen so answers stay comparable. Duplicate it to change them.")</MudAlert>
+            <SurveyForm Questions="PreviewQuestions" ReadOnly="true" />
+        }
+        else
+        {
+            <section class="fc-panel fc-profile-section fc-survey-settings">
+                <h2>@CommunityText.T("Кому и когда показывать", "Audience and timing")</h2>
+                <MudSelect T="string" @bind-Value="_subject" @bind-Value:after="SubjectChangedAsync" Label="@CommunityText.T("Предмет", "Subject")" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("none")">@CommunityText.T("Без предмета (общий опрос)", "No subject (general)")</MudSelectItem>
+                    @foreach (var subject in _subjects) { <MudSelectItem Value="@subject.Id.ToString()">@subject.Name</MudSelectItem> }
+                </MudSelect>
+                <div class="fc-survey-groups mt-3">
+                    <span class="fc-muted">@CommunityText.T("Группы (пусто — все группы предмета):", "Groups (empty means all groups of the subject):")
+                        <button type="button" class="fc-link-button" @onclick="() => SetAllGroups(true)">@CommunityText.T("все", "all")</button>
+                        <button type="button" class="fc-link-button" @onclick="() => SetAllGroups(false)">@CommunityText.T("ни одной", "none")</button></span>
+                    @foreach (var group in SubjectGroups)
+                    {
+                        <label class="fc-choice"><input type="checkbox" checked="@_targets.Contains(group.Id)" @onchange="e => ToggleGroup(group.Id, e.Value is true)" /><span>@group.Name</span></label>
+                    }
+                </div>
+                <div class="fc-survey-trigger mt-3" role="radiogroup" aria-label="@CommunityText.T("Когда показывать", "When to show")">
+                    <label class="fc-choice"><input type="radio" name="trigger" checked="@(_trigger == SurveyTriggerType.Immediate)" @onchange="() => _trigger = SurveyTriggerType.Immediate" />
+                        <span>@CommunityText.T("Сразу после публикации", "Right after publishing")</span></label>
+                    <label class="fc-choice"><input type="radio" name="trigger" checked="@(_trigger == SurveyTriggerType.AcceptedInSubject)" @onchange="() => _trigger = SurveyTriggerType.AcceptedInSubject" />
+                        <span>@CommunityText.T("После N принятых задач по предмету", "After N accepted tasks in the subject")</span></label>
+                    <label class="fc-choice"><input type="radio" name="trigger" checked="@(_trigger == SurveyTriggerType.AttemptsInSubject)" @onchange="() => _trigger = SurveyTriggerType.AttemptsInSubject" />
+                        <span>@CommunityText.T("После N любых попыток сдачи (принятых и отклонённых)", "After N submission attempts (accepted or rejected)")</span></label>
+                    @if (_trigger != SurveyTriggerType.Immediate)
+                    {
+                        <label class="fc-inline-field">N = <input type="number" min="1" max="1000" class="fc-input fc-number" @bind="_threshold" /></label>
+                        @if (_subject == "none") { <p class="fc-field-error">@CommunityText.T("Для условия по сдачам выберите предмет.", "Choose a subject for a submission-based condition.")</p> }
+                    }
+                </div>
+                <div class="fc-survey-flags mt-3">
+                    <MudSwitch T="bool" @bind-Value="_anonymous" Color="Color.Primary" Label="@CommunityText.T("Анонимный (видна только сводка, от 3 ответов)", "Anonymous (summary only, from 3 answers)")" />
+                    <MudSwitch T="bool" @bind-Value="_allowSnooze" Color="Color.Primary" Label="@CommunityText.T("Можно отложить", "Can be postponed")" />
+                    @if (_allowSnooze)
+                    {
+                        <div class="fc-survey-grid">
+                            <label>@CommunityText.T("Напомнить через, ч", "Remind after, h")<input type="number" min="1" max="720" class="fc-input fc-number" @bind="_snoozeHours" /></label>
+                            <label>@CommunityText.T("Сколько раз можно отложить (пусто — без ограничения)", "Max postpones (empty = unlimited)")<input type="number" min="1" max="20" class="fc-input fc-number" @bind="_maxSnoozes" /></label>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            @for (var i = 0; i < _questions.Count; i++)
+            {
+                var index = i;
+                var q = _questions[index];
+                <section class="fc-panel fc-survey-edit-question" @key="q">
+                    <header><strong>@CommunityText.T($"Вопрос {index + 1}", $"Question {index + 1}")</strong>
+                        <span class="fc-composer-spacer"></span>
+                        <MudIconButton Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" Disabled="@(index == 0)" OnClick="() => Move(index, -1)" aria-label="@CommunityText.T("Выше", "Move up")" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" Disabled="@(index == _questions.Count - 1)" OnClick="() => Move(index, 1)" aria-label="@CommunityText.T("Ниже", "Move down")" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small" OnClick="() => Copy(index)" aria-label="@CommunityText.T("Копировать", "Duplicate")" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="() => _questions.RemoveAt(index)" aria-label="@CommunityText.T("Удалить", "Delete")" />
+                    </header>
+                    <div class="fc-survey-grid">
+                        <MudTextField T="string" @bind-Value="q.Text" Label="@CommunityText.T("Вопрос", "Question")" MaxLength="500" Variant="Variant.Outlined" Immediate="true" />
+                        <MudSelect T="SurveyQuestionType" @bind-Value="q.Type" Label="@CommunityText.T("Тип", "Type")" Variant="Variant.Outlined">
+                            @foreach (var type in Enum.GetValues<SurveyQuestionType>()) { <MudSelectItem Value="type">@TypeName(type)</MudSelectItem> }
+                        </MudSelect>
+                    </div>
+                    <MudTextField T="string" @bind-Value="q.Description" Label="@CommunityText.T("Пояснение (необязательно)", "Hint (optional)")" MaxLength="1000" Variant="Variant.Outlined" Class="mt-2" Immediate="true" />
+                    @if (IsChoice(q.Type))
+                    {
+                        <div class="fc-survey-options">
+                            @for (var o = 0; o < q.Options.Count; o++)
+                            {
+                                var optionIndex = o;
+                                @* Ввод сохраняется сразу; Enter — новый вариант; вставка нескольких строк — несколько вариантов. *@
+                                <div><input class="fc-input" maxlength="300" value="@q.Options[optionIndex]" @oninput="e => SetOption(q, optionIndex, e.Value?.ToString())"
+                                            @onkeydown="e => OptionKeyDown(q, optionIndex, e)" placeholder="@CommunityText.T($"Вариант {optionIndex + 1}", $"Option {optionIndex + 1}")" />
+                                    <button type="button" class="fc-icon-link" disabled="@(q.Options.Count <= 2)" @onclick="() => q.Options.RemoveAt(optionIndex)" aria-label="@CommunityText.T("Убрать вариант", "Remove option")">×</button></div>
+                            }
+                            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" Disabled="@(q.Options.Count >= 30)" OnClick="() => q.Options.Add(string.Empty)">@CommunityText.T("Вариант", "Option")</MudButton>
+                        </div>
+                        <MudCheckBox T="bool" @bind-Value="q.AllowOther" Label="@CommunityText.T("Разрешить свой вариант «Другое»", "Allow an “Other” answer")" />
+                    }
+                    else if (q.Type == SurveyQuestionType.Scale)
+                    {
+                        <div class="fc-survey-grid">
+                            <label>@CommunityText.T("От", "From")<select class="fc-input" @bind="q.ScaleMin"><option value="0">0</option><option value="1">1</option></select></label>
+                            <label>@CommunityText.T("До", "To")<input type="number" min="2" max="10" class="fc-input fc-number" @bind="q.ScaleMax" /></label>
+                            <MudTextField T="string" @bind-Value="q.ScaleMinLabel" Label="@CommunityText.T("Подпись слева", "Left label")" MaxLength="100" Variant="Variant.Outlined" Immediate="true" />
+                            <MudTextField T="string" @bind-Value="q.ScaleMaxLabel" Label="@CommunityText.T("Подпись справа", "Right label")" MaxLength="100" Variant="Variant.Outlined" Immediate="true" />
+                        </div>
+                    }
+                    else if (q.Type == SurveyQuestionType.Number)
+                    {
+                        <div class="fc-survey-grid">
+                            <label>@CommunityText.T("Минимум", "Minimum")<input type="number" step="1" class="fc-input fc-number" @bind="q.NumberMin" /></label>
+                            <label>@CommunityText.T("Максимум", "Maximum")<input type="number" step="1" class="fc-input fc-number" @bind="q.NumberMax" /></label>
+                        </div>
+                    }
+                    <MudCheckBox T="bool" @bind-Value="q.IsRequired" Label="@CommunityText.T("Обязательный", "Required")" />
+                </section>
+            }
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddQuestion" Disabled="@(_questions.Count >= 50)" Class="mb-4">@CommunityText.T("Добавить вопрос", "Add question")</MudButton>
+        }
+        </div>
+
+        @if (_problems.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-3">
+                @CommunityText.T("Перед сохранением исправьте:", "Fix before saving:")
+                <ul class="fc-survey-problems">@foreach (var problem in _problems) { <li>@problem</li> }</ul>
+            </MudAlert>
+        }
+        @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert> }
+
+        <div class="fc-survey-actions fc-panel">
+            @if (SurveyId is int existing)
+            {
+                <MudButton Color="Color.Error" Disabled="_busy" OnClick="DeleteAsync">@CommunityText.T("Удалить", "Delete")</MudButton>
+                <MudButton Disabled="_busy" OnClick="DuplicateAsync">@CommunityText.T("Сделать копию", "Duplicate")</MudButton>
+            }
+            <span class="fc-composer-spacer"></span>
+            @if (_status == SurveyStatus.Published) { <MudButton Disabled="_busy" Variant="Variant.Outlined" OnClick="CloseSurveyAsync">@CommunityText.T("Завершить приём ответов", "Stop accepting answers")</MudButton> }
+            <MudButton Disabled="_busy" Variant="Variant.Outlined" OnClick="() => SaveAsync(false)">@CommunityText.T("Сохранить", "Save")</MudButton>
+            @if (_status == SurveyStatus.Draft) { <MudButton Disabled="_busy" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(true)">@CommunityText.T("Опубликовать", "Publish")</MudButton> }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int? SurveyId { get; set; }
+    private sealed class QuestionDraft
+    {
+        public string Text { get; set; } = "";
+        public string? Description { get; set; }
+        public SurveyQuestionType Type { get; set; } = SurveyQuestionType.SingleChoice;
+        public bool IsRequired { get; set; } = true;
+        public bool AllowOther { get; set; }
+        public int ScaleMin { get; set; } = 1;
+        public int ScaleMax { get; set; } = 5;
+        // Границы числового вопроса — целые: сервер хранит их как int, дробные молча обрезались бы.
+        public int? NumberMin { get; set; }
+        public int? NumberMax { get; set; }
+        public string? ScaleMinLabel { get; set; }
+        public string? ScaleMaxLabel { get; set; }
+        public List<string> Options { get; set; } = ["", ""];
+        public QuestionDraft Clone()
+        {
+            var copy = (QuestionDraft)MemberwiseClone();
+            copy.Options = Options.ToList();
+            return copy;
+        }
+    }
+
+    private bool _loading = true, _busy, _preview, _anonymous, _allowSnooze;
+    private string? _error, _title = "", _description = "", _subject = "none";
+    private bool _dirty;
+    private List<string> _problems = [];
+    // Группы выбранного предмета: цели вне предмета сервер всё равно отклонит.
+    private List<GroupDto> _subjectGroups = [];
+    private List<GroupDto> SubjectGroups => _subject == "none" ? _groups : _subjectGroups;
+    private DateTime? _opens, _closes;
+    private SurveyTriggerType _trigger = SurveyTriggerType.Immediate;
+    private int _threshold = 3, _snoozeHours = 24;
+    private int? _maxSnoozes;
+    private SurveyStatus _status = SurveyStatus.Draft;
+    private int _responses;
+    private List<SubjectDto> _subjects = [];
+    private List<GroupDto> _groups = [];
+    private readonly HashSet<int> _targets = [];
+    private List<QuestionDraft> _questions = [];
+    private List<SurveyQuestionDto> _frozen = [];
+    private bool Locked => _status != SurveyStatus.Draft;
+
+    private string StatusText => _status switch
+    {
+        SurveyStatus.Published => CommunityText.T("Опубликован · ", "Published · ") + CommunityText.Answers(_responses),
+        SurveyStatus.Closed => CommunityText.T("Завершён · ", "Closed · ") + CommunityText.Answers(_responses),
+        _ => CommunityText.T("Черновик — студенты его не видят", "Draft — students cannot see it"),
+    };
+
+    private int? _loadedId = -1;
+
+    // Одна страница обслуживает /new и /{id}: после создания Blazor переиспользует компонент.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedId == SurveyId) return;
+        _loadedId = SurveyId;
+        _loading = true; _error = null; _preview = false;
+        try
+        {
+            if (_subjects.Count == 0) _subjects = await Me.GetVisibleSubjectsAsync();
+            if (_groups.Count == 0) _groups = await Me.GetVisibleGroupsAsync();
+            if (SurveyId is int id) Fill(await Api.GetAsync(id));
+            else if (_questions.Count == 0) AddQuestion();
+            await LoadSubjectGroupsAsync();
+            _dirty = false;
+            await CheckDraftAsync();
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void Fill(SurveyAdminDto survey)
+    {
+        _title = survey.Title; _description = survey.Description; _subject = survey.SubjectId?.ToString() ?? "none";
+        _opens = survey.OpensAtUtc?.ToLocalTime(); _closes = survey.ClosesAtUtc?.ToLocalTime();
+        _trigger = survey.TriggerType; _threshold = Math.Max(1, survey.TriggerThreshold); _anonymous = survey.IsAnonymous;
+        _allowSnooze = survey.AllowSnooze; _snoozeHours = survey.SnoozeHours; _maxSnoozes = survey.MaxSnoozes;
+        _status = survey.Status; _responses = survey.ResponseCount; _frozen = survey.Questions;
+        _targets.Clear(); foreach (var g in survey.TargetGroupIds) _targets.Add(g);
+        _questions = survey.Questions.Select(q => new QuestionDraft
+        {
+            Text = q.Text, Description = q.Description, Type = q.Type, IsRequired = q.IsRequired, AllowOther = q.AllowOther,
+            ScaleMin = q.Type == SurveyQuestionType.Scale ? q.ScaleMin ?? 1 : 1, ScaleMax = q.Type == SurveyQuestionType.Scale ? q.ScaleMax ?? 5 : 5,
+            NumberMin = q.Type == SurveyQuestionType.Number ? q.ScaleMin : null, NumberMax = q.Type == SurveyQuestionType.Number ? q.ScaleMax : null,
+            ScaleMinLabel = q.ScaleMinLabel, ScaleMaxLabel = q.ScaleMaxLabel,
+            Options = q.Options.Count > 0 ? q.Options.Select(o => o.Text).ToList() : ["", ""],
+        }).ToList();
+    }
+
+    private List<SurveyQuestionDto> PreviewQuestions => Locked ? _frozen : _questions.Select((q, i) => new SurveyQuestionDto(-(i + 1), i + 1,
+        string.IsNullOrWhiteSpace(q.Text) ? CommunityText.T("(без текста)", "(no text)") : q.Text, q.Description, q.Type, q.IsRequired,
+        q.AllowOther, null, q.Type == SurveyQuestionType.Scale ? q.ScaleMin : null, q.Type == SurveyQuestionType.Scale ? q.ScaleMax : null,
+        q.ScaleMinLabel, q.ScaleMaxLabel, q.Options.Select((o, j) => new SurveyOptionDto(-(j + 1), o)).ToList())).ToList();
+
+    private void AddQuestion() => _questions.Add(new QuestionDraft());
+
+    private void MarkDirty()
+    {
+        _dirty = true;
+        ScheduleDraftSave();
+    }
+
+    // ----- Черновик в браузере: правки опроса переживают закрытую вкладку или сбой сети. -----
+    private string DraftKey => SurveyId is int id ? $"fc-survey-draft:{id}" : "fc-survey-draft:new";
+    private SaveSurveyRequest? _draft;
+    private CancellationTokenSource? _draftSave;
+
+    private void ScheduleDraftSave()
+    {
+        if (Locked) return;
+        _draftSave?.Cancel();
+        var token = (_draftSave = new CancellationTokenSource()).Token;
+        var key = DraftKey;
+        _ = Task.Delay(1000, token).ContinueWith(async _ =>
+        {
+            if (token.IsCancellationRequested) return;
+            try { await JS.InvokeVoidAsync("localStorage.setItem", key, System.Text.Json.JsonSerializer.Serialize(Request())); }
+            catch (JSException) { }
+        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Current);
+    }
+
+    private async Task CheckDraftAsync()
+    {
+        _draft = null;
+        if (Locked) return;
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", DraftKey);
+            if (!string.IsNullOrEmpty(json)) _draft = System.Text.Json.JsonSerializer.Deserialize<SaveSurveyRequest>(json);
+        }
+        catch (Exception ex) when (ex is JSException or System.Text.Json.JsonException) { _draft = null; }
+    }
+
+    private async Task DropDraftAsync()
+    {
+        _draftSave?.Cancel();
+        _draft = null;
+        try { await JS.InvokeVoidAsync("localStorage.removeItem", DraftKey); }
+        catch (JSException) { }
+    }
+
+    private async Task RestoreDraftAsync()
+    {
+        if (_draft is not { } d) return;
+        _title = d.Title; _description = d.Description; _subject = d.SubjectId?.ToString() ?? "none";
+        _opens = d.OpensAtUtc?.ToLocalTime(); _closes = d.ClosesAtUtc?.ToLocalTime();
+        _trigger = d.TriggerType; _threshold = Math.Max(1, d.TriggerThreshold); _anonymous = d.IsAnonymous;
+        _allowSnooze = d.AllowSnooze; _snoozeHours = d.SnoozeHours; _maxSnoozes = d.MaxSnoozes;
+        _targets.Clear(); foreach (var g in d.TargetGroupIds) _targets.Add(g);
+        _questions = d.Questions.Select(q => new QuestionDraft
+        {
+            Text = q.Text, Description = q.Description, Type = q.Type, IsRequired = q.IsRequired, AllowOther = q.AllowOther,
+            ScaleMin = q.Type == SurveyQuestionType.Scale ? q.ScaleMin ?? 1 : 1, ScaleMax = q.Type == SurveyQuestionType.Scale ? q.ScaleMax ?? 5 : 5,
+            NumberMin = q.Type == SurveyQuestionType.Number ? q.ScaleMin : null, NumberMax = q.Type == SurveyQuestionType.Number ? q.ScaleMax : null,
+            ScaleMinLabel = q.ScaleMinLabel, ScaleMaxLabel = q.ScaleMaxLabel,
+            Options = q.Options is { Count: > 0 } options ? options.ToList() : ["", ""],
+        }).ToList();
+        _draft = null;
+        _dirty = true;
+        await LoadSubjectGroupsAsync();
+    }
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        if (!_dirty) return;
+        if (!await Confirm.ConfirmAsync(CommunityText.T("Уйти без сохранения?", "Leave without saving?"),
+                CommunityText.T("Изменения опроса не сохранены и пропадут.", "Your survey changes are not saved and will be lost."),
+                CommunityText.T("Уйти", "Leave")))
+            context.PreventNavigation();
+    }
+
+    private async Task SubjectChangedAsync()
+    {
+        _dirty = true;
+        await LoadSubjectGroupsAsync();
+        // Цели из другого предмета больше не подходят.
+        var allowed = SubjectGroups.Select(g => g.Id).ToHashSet();
+        _targets.RemoveWhere(id => !allowed.Contains(id));
+    }
+
+    private async Task LoadSubjectGroupsAsync()
+    {
+        if (_subject == "none" || !int.TryParse(_subject, out var subjectId)) { _subjectGroups = []; return; }
+        try { _subjectGroups = await Attendance.GetGroupsAsync(subjectId); }
+        catch (ApiException) { _subjectGroups = _groups; }
+    }
+
+    private void SetAllGroups(bool all)
+    {
+        _dirty = true;
+        _targets.Clear();
+        if (all) foreach (var group in SubjectGroups) _targets.Add(group.Id);
+    }
+
+    private void SetOption(QuestionDraft q, int index, string? value)
+    {
+        _dirty = true;
+        var lines = (value ?? "").Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length <= 1) { q.Options[index] = value ?? ""; return; }
+        // Вставили список — каждая строка становится вариантом.
+        q.Options[index] = lines[0];
+        q.Options.InsertRange(index + 1, lines.Skip(1).Take(30 - q.Options.Count));
+    }
+
+    private void OptionKeyDown(QuestionDraft q, int index, KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && q.Options.Count < 30) { q.Options.Insert(index + 1, ""); _dirty = true; }
+    }
+
+    /// <summary>Те же правила, что на сервере, — чтобы ошибка была видна до запроса и рядом с кнопкой.</summary>
+    private List<string> Validate()
+    {
+        var problems = new List<string>();
+        if (string.IsNullOrWhiteSpace(_title)) problems.Add(CommunityText.T("Укажите название.", "Add a title."));
+        if (_trigger != SurveyTriggerType.Immediate && _subject == "none")
+            problems.Add(CommunityText.T("Для условия по сдачам выберите предмет.", "Choose a subject for a submission-based condition."));
+        if (_opens is DateTime opens && _closes is DateTime closes && closes <= opens)
+            problems.Add(CommunityText.T("Опрос должен закрываться позже, чем открывается.", "The survey must close after it opens."));
+        for (var i = 0; i < _questions.Count; i++)
+        {
+            var q = _questions[i];
+            var label = CommunityText.T($"Вопрос {i + 1}", $"Question {i + 1}");
+            if (string.IsNullOrWhiteSpace(q.Text)) problems.Add($"{label}: {CommunityText.T("нет текста.", "no text.")}");
+            if (IsChoice(q.Type))
+            {
+                var options = q.Options.Select(o => o.Trim()).Where(o => o.Length > 0).ToList();
+                if (options.Count < 2 || options.Distinct(StringComparer.OrdinalIgnoreCase).Count() != options.Count || options.Count != q.Options.Count)
+                    problems.Add($"{label}: {CommunityText.T("нужно 2–30 разных непустых вариантов.", "needs 2–30 different, non-empty options.")}");
+            }
+            if (q.Type == SurveyQuestionType.Scale && q.ScaleMax is < 2 or > 10)
+                problems.Add($"{label}: {CommunityText.T("шкала заканчивается на 2–10.", "the scale ends at 2–10.")}");
+            if (q.Type == SurveyQuestionType.Number && q.NumberMin is int min && q.NumberMax is int max && min >= max)
+                problems.Add($"{label}: {CommunityText.T("минимум должен быть меньше максимума.", "the minimum must be below the maximum.")}");
+        }
+        return problems;
+    }
+
+    private void Copy(int index) => _questions.Insert(index + 1, _questions[index].Clone());
+
+    private void Move(int index, int delta)
+    {
+        var item = _questions[index];
+        _questions.RemoveAt(index);
+        _questions.Insert(index + delta, item);
+    }
+
+    private void ToggleGroup(int id, bool on) { if (on) _targets.Add(id); else _targets.Remove(id); }
+
+    private static bool IsChoice(SurveyQuestionType type) =>
+        type is SurveyQuestionType.SingleChoice or SurveyQuestionType.MultipleChoice or SurveyQuestionType.Dropdown;
+
+    private static string TypeName(SurveyQuestionType type) => type switch
+    {
+        SurveyQuestionType.SingleChoice => CommunityText.T("Один вариант", "Single choice"),
+        SurveyQuestionType.MultipleChoice => CommunityText.T("Несколько вариантов", "Multiple choice"),
+        SurveyQuestionType.Dropdown => CommunityText.T("Выпадающий список", "Dropdown"),
+        SurveyQuestionType.ShortText => CommunityText.T("Короткий ответ", "Short answer"),
+        SurveyQuestionType.LongText => CommunityText.T("Развёрнутый ответ", "Paragraph"),
+        SurveyQuestionType.Scale => CommunityText.T("Шкала", "Scale"),
+        _ => CommunityText.T("Число", "Number"),
+    };
+
+    private SaveSurveyRequest Request() => new(_title ?? "", _description, _subject == "none" ? null : int.Parse(_subject!, CultureInfo.InvariantCulture),
+        _targets.ToList(), _anonymous, _allowSnooze, _snoozeHours, _allowSnooze ? _maxSnoozes : null, Utc(_opens), Utc(_closes), _trigger,
+        _trigger == SurveyTriggerType.Immediate ? 0 : _threshold,
+        _questions.Select(q => new SurveyQuestionInput(q.Text, q.Description, q.Type, q.IsRequired, IsChoice(q.Type) && q.AllowOther, null,
+            q.Type == SurveyQuestionType.Scale ? q.ScaleMin : q.Type == SurveyQuestionType.Number ? q.NumberMin : null,
+            q.Type == SurveyQuestionType.Scale ? q.ScaleMax : q.Type == SurveyQuestionType.Number ? q.NumberMax : null,
+            q.ScaleMinLabel, q.ScaleMaxLabel, IsChoice(q.Type) ? q.Options.Select(o => o.Trim()).ToList() : null)).ToList());
+
+    private static DateTime? Utc(DateTime? local) => local?.ToUniversalTime();
+
+    private async Task SaveAsync(bool publish)
+    {
+        _problems = Locked ? [] : Validate();
+        if (_problems.Count > 0) return;
+        _busy = true; _error = null;
+        try
+        {
+            SurveyAdminDto saved;
+            if (Locked) saved = await Api.UpdateDetailsAsync(SurveyId!.Value, new(_title ?? "", _description, Utc(_closes)));
+            else saved = SurveyId is int id ? await Api.SaveAsync(id, Request()) : await Api.CreateAsync(Request());
+            // Сохранено на сервере — переход на страницу нового опроса не должен спрашивать «уйти без сохранения?».
+            _dirty = false;
+            await DropDraftAsync();
+            if (publish)
+            {
+                if (!await Confirm.ConfirmAsync(CommunityText.T("Опубликовать опрос?", "Publish the survey?"), CommunityText.T("После публикации вопросы и условия нельзя будет изменить.", "Questions and conditions cannot be changed after publishing."), CommunityText.T("Опубликовать", "Publish")))
+                {
+                    if (SurveyId is null) Nav.NavigateTo($"/admin/surveys/{saved.Id}");
+                    return;
+                }
+                saved = await Api.PublishAsync(saved.Id);
+            }
+            _dirty = false;
+            Snackbar.Add(publish ? CommunityText.T("Опрос опубликован", "Survey published") : CommunityText.T("Сохранено", "Saved"), Severity.Success);
+            if (SurveyId is null) { Nav.NavigateTo($"/admin/surveys/{saved.Id}"); return; }
+            Fill(saved);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+
+    private async Task CloseSurveyAsync()
+    {
+        if (!await Confirm.ConfirmAsync(CommunityText.T("Завершить опрос?", "Close the survey?"), CommunityText.T("Новые ответы приниматься не будут.", "No new answers will be accepted."), CommunityText.T("Завершить", "Close"))) return;
+        try { Fill(await Api.CloseAsync(SurveyId!.Value)); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DuplicateAsync()
+    {
+        try { var copy = await Api.DuplicateAsync(SurveyId!.Value); _dirty = false; Nav.NavigateTo($"/admin/surveys/{copy.Id}"); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!await Confirm.ConfirmDeleteAsync(_title ?? "")) return;
+        try { await Api.DeleteSurveyAsync(SurveyId!.Value); _dirty = false; Nav.NavigateTo("/admin/surveys"); }
+        catch (ApiException ex) { _error = ex.Message; }
+    }
+}

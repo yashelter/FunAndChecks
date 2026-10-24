@@ -4,9 +4,13 @@ namespace Frontend.Shared.UI;
 
 public static class AttendanceStyles
 {
+    private static bool Ru => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru";
+
     public static string Text(AttendanceStatus status) => status switch
     {
-        AttendanceStatus.Present => "Присутствовал", AttendanceStatus.Absent => "Отсутствовал", _ => "Не отмечен",
+        AttendanceStatus.Present => Ru ? "Присутствовал" : "Present",
+        AttendanceStatus.Absent => Ru ? "Отсутствовал" : "Absent",
+        _ => Ru ? "Не отмечен" : "Not marked",
     };
     public static string Symbol(AttendanceStatus? status) => status switch
     {

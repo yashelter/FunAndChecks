@@ -72,4 +72,10 @@ public class ResultsCacheService : IResultsCacheService
         _generations.AddOrUpdate(subjectId, 1, static (_, current) => current + 1);
         _cache.TryRemove(subjectId, out _);
     }
+
+    public void Clear()
+    {
+        foreach (var subjectId in _cache.Keys.Concat(_generations.Keys).Distinct().ToList())
+            Invalidate(subjectId);
+    }
 }

@@ -1,0 +1,251 @@
+@namespace Frontend.Shared.Profiles
+@using System.Globalization
+@implements IAsyncDisposable
+@inject ProfileApi Api
+@inject IJSRuntime JS
+
+<ProfileDialog Title="@ProfileText.T("Редактор изображения", "Media editor")" Close="CancelAsync" Busy="@_busy" Class="fc-profile-editor">
+    <ChildContent>
+        <label class="fc-profile-file-label">@ProfileText.T("Фото, GIF или видео", "Photo, GIF or video")
+            <InputFile OnChange="UploadAsync" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" disabled="@_busy" />
+        </label>
+        <p class="fc-profile-hint">@ProfileText.T("До 20 МБ. Анимация до 10 секунд. Видео сохраняется без звука.", "Up to 20 MB. Animation up to 10 seconds. Videos are saved without sound.")</p>
+        @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+        @if (_busy) { <MudProgressLinear Indeterminate="true" Class="my-3" /> }
+        <div @ref="_preview" class="fc-profile-crop" style="@CropStyle" tabindex="0" role="group" aria-label="@ProfileText.T("Квадратная область обрезки. Перетащите изображение или используйте стрелки.", "Square crop. Drag the image or use arrow keys.")">
+            @if (_previewUrl is null) { <span>@ProfileText.T("Выберите файл", "Choose a file")</span> }
+            else if (_session?.CanAnimate == true)
+            {
+                <video src="@_previewUrl" muted autoplay loop playsinline aria-label="@ProfileText.T("Предпросмотр", "Preview")"></video>
+                @if (_still && _frameUrl is not null) { <img class="fc-profile-crop-frame" src="@_frameUrl" alt="@ProfileText.T("Выбранный кадр", "Selected frame")" /> }
+            }
+            else { <img src="@_previewUrl" alt="@ProfileText.T("Предпросмотр", "Preview")" draggable="false" /> }
+        </div>
+        @if (_session is not null)
+        {
+            <p class="fc-profile-hint fc-profile-crop-instruction">@ProfileText.T("Перетащите изображение внутри квадрата, чтобы выбрать область.", "Drag the image inside the square to choose your crop.")</p>
+            <label class="fc-profile-label" for="media-zoom">@ProfileText.T("Масштаб", "Zoom") <output>@_zoom.ToString("0.0", CultureInfo.CurrentCulture)×</output></label>
+            <input id="media-zoom" class="fc-profile-range" type="range" min="1" max="4" step="0.05" value="@Invariant(_zoom)" @oninput="ZoomChanged" disabled="@_busy" />
+            @if (_session.CanAnimate)
+            {
+                <div class="fc-profile-mode" role="group" aria-label="@ProfileText.T("Режим сохранения", "Save mode")"><button type="button" class="@(!_still ? "selected" : "")" @onclick="() => SetStillAsync(false)" disabled="@_busy">@ProfileText.T("Анимация", "Animation")</button><button type="button" class="@(_still ? "selected" : "")" @onclick="() => SetStillAsync(true)" disabled="@_busy">@ProfileText.T("Выбранный кадр", "Selected frame")</button></div>
+                <div @ref="_timeline" class="fc-profile-timeline @(_still ? "still" : "")" role="group" aria-label="@ProfileText.T("Временная шкала", "Timeline")">
+                    <div class="fc-profile-timeline-track"><div class="fc-profile-timeline-selection"></div>
+                        @if (_still) { <button type="button" class="fc-profile-timeline-handle frame" data-boundary="frame" role="slider" aria-label="@ProfileText.T("Выбранный кадр", "Selected frame")" aria-valuemin="0" aria-valuemax="@Invariant(_session.DurationSeconds)" aria-valuenow="@Invariant(_frame)" disabled="@_busy"><span aria-hidden="true">│</span></button> }
+                        else
+                        {
+                            <button type="button" class="fc-profile-timeline-handle start" data-boundary="start" role="slider" aria-label="@ProfileText.T("Начало фрагмента", "Clip start")" aria-valuemin="0" aria-valuemax="@Invariant(Math.Max(0, _session.DurationSeconds - MinimumSpan))" aria-valuenow="@Invariant(_start)" disabled="@_busy"><span aria-hidden="true">│</span></button>
+                            <button type="button" class="fc-profile-timeline-handle end" data-boundary="end" role="slider" aria-label="@ProfileText.T("Конец фрагмента", "Clip end")" aria-valuemin="@Invariant(_start + MinimumSpan)" aria-valuemax="@Invariant(Math.Min(_session.DurationSeconds, _start + 10))" aria-valuenow="@Invariant(_end)" disabled="@_busy"><span aria-hidden="true">│</span></button>
+                        }
+                    </div><div class="fc-profile-timeline-times"><output data-time="start">@Time(_still ? _frame : _start)</output><span> @_session.DurationSeconds.ToString("0.0", CultureInfo.CurrentCulture) @ProfileText.T("с", "s") </span><output data-time="end">@(_still ? "" : Time(_end))</output></div>
+                </div>
+                @if (!_still)
+                {
+                    <p class="fc-profile-hint">@ProfileText.T("Перетащите границы фрагмента. Длительность:", "Drag the clip boundaries. Duration:") @((_end - _start).ToString("0.0", CultureInfo.CurrentCulture)) @ProfileText.T("секунд", "seconds")</p>
+                    <details class="fc-profile-exact-time"><summary>@ProfileText.T("Точное время", "Exact times")</summary><div class="fc-profile-two-columns"><div><label class="fc-profile-label" for="media-start">@ProfileText.T("Начало, секунд", "Start, seconds")</label><input id="media-start" class="fc-profile-input" type="number" min="0" max="@Invariant(Math.Max(0, _session.DurationSeconds - MinimumSpan))" step="0.1" value="@Invariant(_start)" @onchange="StartChangedAsync" disabled="@_busy" /></div><div><label class="fc-profile-label" for="media-end">@ProfileText.T("Конец, секунд", "End, seconds")</label><input id="media-end" class="fc-profile-input" type="number" min="@Invariant(_start + MinimumSpan)" max="@Invariant(Math.Min(_session.DurationSeconds, _start + 10))" step="0.1" value="@Invariant(_end)" @onchange="EndChangedAsync" disabled="@_busy" /></div></div></details>
+                }
+                else { <p class="fc-profile-hint">@ProfileText.T("Переместите указатель, чтобы выбрать кадр.", "Move the playhead to select a frame.")</p> }
+            }
+        }
+    </ChildContent>
+    <Actions><MudButton OnClick="CancelAsync" Disabled="@_busy" Variant="Variant.Outlined">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="SaveAsync" Disabled="@(_busy || _session is null)" Variant="Variant.Filled" Color="Color.Primary">@ProfileText.T("Сохранить изображение", "Save image")</MudButton></Actions>
+</ProfileDialog>
+
+@code {
+    [Parameter] public Func<MediaSelection, Task<bool>>? Save { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+    private MediaSessionDto? _session;
+    private string? _previewUrl, _frameUrl, _error;
+    private bool _busy, _still, _consumed, _configurePreview, _disposed;
+    private double _zoom = 1, _x = .5, _y = .5, _start, _end, _frame;
+    private ElementReference _preview, _timeline;
+    private IJSObjectReference? _module;
+    private Task<IJSObjectReference>? _moduleLoad;
+    private readonly List<Task> _loads = [];
+    private DotNetObjectReference<MediaEditor>? _reference;
+    private readonly CancellationTokenSource _life = new();
+    private double MinimumSpan => Math.Min(.1, _session?.DurationSeconds ?? .1);
+    private string CropStyle
+    {
+        get
+        {
+            if (_session is null) return "";
+            var scale = _zoom / Math.Min(_session.Width, _session.Height);
+            var width = _session.Width * scale * 100; var height = _session.Height * scale * 100;
+            return $"--crop-width:{Invariant(width)}%;--crop-height:{Invariant(height)}%;--crop-left:{Invariant(-(width - 100) * _x)}%;--crop-top:{Invariant(-(height - 100) * _y)}%";
+        }
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed) return;
+        try
+        {
+            var module = await GetModuleAsync();
+            if (module is null) return;
+            var session = _session;
+            _reference ??= DotNetObjectReference.Create(this);
+            await module.InvokeVoidAsync("attachCrop", _preview, _reference);
+            if (_disposed || session != _session) return;
+            if (session is not null)
+            {
+                await module.InvokeVoidAsync("configureCrop", _preview, session.Width, session.Height, _zoom, _x, _y, _busy);
+                if (_disposed || session != _session) return;
+                if (session.CanAnimate)
+                {
+                    await module.InvokeVoidAsync("attachTimeline", _timeline, _preview, _reference);
+                    if (_disposed || session != _session) return;
+                    await module.InvokeVoidAsync("configureTimeline", _timeline, session.DurationSeconds, _start, _end, _frame, _still, _busy);
+                    if (_disposed || session != _session) return;
+                }
+            }
+            if (_configurePreview) { _configurePreview = false; await module.InvokeVoidAsync("loopSegment", _preview, _start, _end, _still); }
+        }
+        catch (Exception ex) when (_disposed && ex is JSException or ObjectDisposedException or OperationCanceledException) { }
+    }
+    private async Task<IJSObjectReference?> GetModuleAsync()
+    {
+        if (_disposed) return null;
+        var module = _module ?? await (_moduleLoad ??= JS.InvokeAsync<IJSObjectReference>("import", ProfileMediaModule.Url).AsTask());
+        if (_disposed) return null;
+        _module = module;
+        return module;
+    }
+    private Task TrackLoad(Task load) { _loads.RemoveAll(task => task.IsCompleted); _loads.Add(load); return load; }
+    private Task UploadAsync(InputFileChangeEventArgs args) => TrackLoad(UploadCoreAsync(args));
+    private async Task UploadCoreAsync(InputFileChangeEventArgs args)
+    {
+        if (_disposed) return;
+        var file = args.File;
+        if (file.Size > 20L * 1024 * 1024) { _error = ProfileText.T("Максимальный размер исходника — 20 МБ.", "The source limit is 20 MB."); return; }
+        _busy = true; _error = null;
+        var token = _life.Token;
+        try
+        {
+            await ClearSessionAsync();
+            var module = await GetModuleAsync();
+            if (module is null) return;
+            await using var stream = file.OpenReadStream(20L * 1024 * 1024, token);
+            var session = await Api.UploadAsync(stream, file.Name, file.ContentType, token);
+            if (_disposed) { await Api.CancelSessionAsync(session.Id); return; }
+            _session = session;
+            _zoom = 1; _x = _y = .5; _start = _frame = 0; _end = Math.Min(10, session.DurationSeconds); _still = !session.CanAnimate;
+            string? next = null;
+            await Api.ConsumePreviewAsync(session.Id, async preview =>
+            {
+                using var reference = new DotNetStreamReference(preview, leaveOpen: true);
+                next = await module.InvokeAsync<string>("objectUrl", reference, session.CanAnimate ? "video/mp4" : "image/webp");
+            }, token);
+            if (_disposed || session != _session) { if (next is not null) await module.InvokeVoidAsync("release", next); return; }
+            _previewUrl = next;
+            _configurePreview = true;
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        catch (IOException) { _error = ProfileText.T("Не удалось прочитать файл.", "Could not read the file."); }
+        catch (OperationCanceledException) when (_disposed) { }
+        finally { _busy = false; }
+    }
+    private async Task ZoomChanged(ChangeEventArgs e) { _zoom = Math.Clamp(Number(e, _zoom), 1, 4); if (_module is not null && _session is not null) await _module.InvokeVoidAsync("configureCrop", _preview, _session.Width, _session.Height, _zoom, _x, _y, _busy); }
+    [JSInvokable] public async Task CropChangedAsync(double x, double y, double zoom) { if (_busy || _disposed) return; _x = Math.Clamp(x, 0, 1); _y = Math.Clamp(y, 0, 1); _zoom = Math.Clamp(zoom, 1, 4); await InvokeAsync(StateHasChanged); }
+    [JSInvokable] public async Task TimelineChangedAsync(double start, double end, double frame)
+    {
+        if (_busy || _disposed || _session is null) return;
+        _start = Math.Clamp(start, 0, Math.Max(0, _session.DurationSeconds - MinimumSpan));
+        _end = Math.Clamp(end, _start + MinimumSpan, Math.Min(_session.DurationSeconds, _start + 10));
+        _frame = Math.Clamp(frame, 0, Math.Max(0, _session.DurationSeconds - .01));
+        if (_still) await FetchFrameAsync(); else await ConfigureAsync();
+        if (!_disposed) await InvokeAsync(StateHasChanged);
+    }
+    private async Task StartChangedAsync(ChangeEventArgs e) { if (_session is null) return; _start = Math.Clamp(Number(e, _start), 0, Math.Max(0, _session.DurationSeconds - MinimumSpan)); _end = Math.Clamp(_end, _start + MinimumSpan, Math.Min(_session.DurationSeconds, _start + 10)); await ConfigureAsync(); }
+    private async Task EndChangedAsync(ChangeEventArgs e) { if (_session is null) return; _end = Math.Clamp(Number(e, _end), _start + MinimumSpan, Math.Min(_session.DurationSeconds, _start + 10)); await ConfigureAsync(); }
+    private async Task SetStillAsync(bool still) { _still = still; _configurePreview = true; if (still) { await ConfigureAsync(); await FetchFrameAsync(); } else await ConfigureAsync(); }
+    private Task FetchFrameAsync() => TrackLoad(FetchFrameCoreAsync());
+    private async Task FetchFrameCoreAsync()
+    {
+        var session = _session; var module = _module;
+        if (_disposed || session is null || module is null) return;
+        var token = _life.Token;
+        _busy = true; _error = null;
+        try
+        {
+            string? next = null;
+            await Api.ConsumeFrameAsync(session.Id, _frame, async frame =>
+            {
+                using var reference = new DotNetStreamReference(frame, leaveOpen: true);
+                next = await module.InvokeAsync<string>("objectUrl", reference, "image/webp");
+            }, token);
+            if (_disposed || session != _session) { if (next is not null) await module.InvokeVoidAsync("release", next); return; }
+            var previous = _frameUrl; _frameUrl = next;
+            _configurePreview = true;
+            if (previous is not null) await module.InvokeVoidAsync("release", previous);
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        catch (OperationCanceledException) when (_disposed) { }
+        finally { _busy = false; }
+    }
+    private async Task ConfigureAsync()
+    {
+        var module = _module; var session = _session;
+        if (_disposed || module is null) return;
+        if (session?.CanAnimate == true) await module.InvokeVoidAsync("configureTimeline", _timeline, session.DurationSeconds, _start, _end, _frame, _still, _busy);
+        if (_disposed || session != _session) return;
+        await module.InvokeVoidAsync("loopSegment", _preview, _start, _end, _still);
+    }
+    private async Task SaveAsync()
+    {
+        var session = _session; var module = _module;
+        if (_disposed || session is null || Save is null) return;
+        _busy = true; _error = null;
+        try
+        {
+            if (module is not null)
+            {
+                var crop = await module.InvokeAsync<CropInteractionState>("readCrop", _preview);
+                if (_disposed || session != _session) return;
+                _x = Math.Clamp(crop.X, 0, 1); _y = Math.Clamp(crop.Y, 0, 1); _zoom = Math.Clamp(crop.Zoom, 1, 4);
+                if (session.CanAnimate)
+                {
+                    var time = await module.InvokeAsync<TimelineInteractionState>("readTimeline", _timeline);
+                    if (_disposed || session != _session) return;
+                    _start = Math.Clamp(time.Start, 0, Math.Max(0, session.DurationSeconds - MinimumSpan));
+                    _end = Math.Clamp(time.End, _start + MinimumSpan, Math.Min(session.DurationSeconds, _start + 10));
+                    _frame = Math.Clamp(time.Frame, 0, Math.Max(0, session.DurationSeconds - .01));
+                }
+            }
+            var side = Math.Min(session.Width, session.Height) / _zoom;
+            var width = side / session.Width; var height = side / session.Height;
+            var render = new MediaRenderRequest((1 - width) * _x, (1 - height) * _y, width, height, _start, _end, _frame, _still ? "Still" : "Animated");
+            if (await Save(new(session.Id, render))) { _consumed = true; if (!_disposed) await Close.InvokeAsync(); }
+        }
+        catch (ApiException ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+    private async Task CancelAsync() { if (_busy) return; await ClearSessionAsync(); await Close.InvokeAsync(); }
+    private async Task ClearSessionAsync()
+    {
+        var session = _session; var consumed = _consumed; var module = _module;
+        var preview = _previewUrl; var frame = _frameUrl;
+        _session = null; _consumed = _configurePreview = false; _previewUrl = _frameUrl = null;
+        if (session is not null && !consumed) try { await Api.CancelSessionAsync(session.Id); } catch (ApiException) { }
+        if (module is not null) { if (preview is not null) await module.InvokeVoidAsync("release", preview); if (frame is not null) await module.InvokeVoidAsync("release", frame); }
+    }
+    private static double Number(ChangeEventArgs e, double fallback) => double.TryParse(e.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : fallback;
+    private static string Invariant(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
+    private static string Time(double value) => TimeSpan.FromSeconds(Math.Max(0, value)).ToString(@"mm\:ss\.f", CultureInfo.InvariantCulture);
+    private record CropInteractionState(double X, double Y, double Zoom);
+    private record TimelineInteractionState(double Start, double End, double Frame);
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true; _life.Cancel();
+        try { await Task.WhenAll(_loads); } catch (Exception ex) when (ex is JSException or OperationCanceledException or ObjectDisposedException) { }
+        try { await ClearSessionAsync(); } catch (Exception ex) when (ex is JSException or OperationCanceledException) { }
+        _reference?.Dispose();
+        try
+        {
+            var module = _module ?? (_moduleLoad is null ? null : await _moduleLoad);
+            if (module is not null) await module.DisposeAsync();
+        }
+        catch (JSException) { }
+        finally { _module = null; _life.Dispose(); }
+    }
+}

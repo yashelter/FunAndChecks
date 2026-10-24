@@ -7,4 +7,8 @@
   <data name="PasswordResetBody" xml:space="preserve"><value>&lt;p&gt;Hello!&lt;/p&gt;&lt;p&gt;Your FunAndChecks password reset code:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;The code is valid for about 10 minutes. If you didn't request it, ignore this email.&lt;/p&gt;</value></data>
   <data name="ExistingAccountSubject" xml:space="preserve"><value>FunAndChecks — registration attempt</value></data>
   <data name="ExistingAccountBody" xml:space="preserve"><value>&lt;p&gt;Someone tried to register with this email, but the account already exists. If this wasn't you, ignore this email.&lt;/p&gt;</value></data>
+  <data name="EmailChangeSubject" xml:space="preserve"><value>FunAndChecks — new email confirmation</value></data>
+  <data name="EmailChangeBody" xml:space="preserve"><value>&lt;p&gt;Hello!&lt;/p&gt;&lt;p&gt;Someone asked to use this address for a FunAndChecks account. Your code:&lt;/p&gt;&lt;p style="font-size: 24px; font-weight: bold; letter-spacing: 4px;"&gt;{0}&lt;/p&gt;&lt;p&gt;The code is valid for about 10 minutes. If you didn't request it, ignore this email: the address will not be linked.&lt;/p&gt;</value></data>
+  <data name="EmailChangedSubject" xml:space="preserve"><value>FunAndChecks — your email was changed</value></data>
+  <data name="EmailChangedBody" xml:space="preserve"><value>&lt;p&gt;Hello!&lt;/p&gt;&lt;p&gt;The email of your FunAndChecks account was changed to &lt;b&gt;{0}&lt;/b&gt;. You now sign in with the new address.&lt;/p&gt;&lt;p&gt;If this wasn't you, contact your teacher right away.&lt;/p&gt;</value></data>
 </root>

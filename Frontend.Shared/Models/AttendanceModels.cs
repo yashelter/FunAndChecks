@@ -4,7 +4,7 @@ public record AttendanceSettingsDto(bool Enabled);
 public record CreateAttendanceSessionRequest(string? Name, DateTime StartsAt, List<int> GroupIds);
 public record AttendanceSessionDto(int Id, string Name, DateTime StartsAt);
 public record SetAttendanceRequest(AttendanceStatus Status, Guid Version);
-public record RemainingAttendanceRequest(List<RemainingAttendanceStudent> Students);
+public record RemainingAttendanceRequest(List<RemainingAttendanceStudent> Students, AttendanceStatus Status = AttendanceStatus.Absent);
 public record RemainingAttendanceStudent(Guid StudentId, Guid Version);
 public record AttendanceParticipantDto(Guid StudentId, string FullName, int GroupId, string GroupName,
     AttendanceStatus Status, string? MarkedBy, DateTime? UpdatedAt, Guid Version, bool CanManage);

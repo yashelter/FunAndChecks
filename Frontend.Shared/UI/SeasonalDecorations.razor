@@ -1,0 +1,18 @@
+@implements IDisposable
+@inject SeasonalThemes Seasons
+@inject DashboardAppearanceService Appearance
+
+@* Украшения всех сезонных тем, которые идут сейчас и не выключены пользователем. *@
+@foreach (var theme in Seasons.Enabled)
+{
+    if (theme.Decorations is { } decorations)
+    {
+        <DynamicComponent @key="theme.Id" Type="decorations" />
+    }
+}
+
+@code {
+    protected override void OnInitialized() => Appearance.Changed += Refresh;
+    private void Refresh() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Appearance.Changed -= Refresh;
+}

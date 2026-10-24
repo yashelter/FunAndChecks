@@ -7,7 +7,7 @@ namespace FunAndChecks.Export;
 
 /// <summary>
 /// Строит XLSX сводной таблицы результатов с заливкой ячеек:
-/// фон ФИО — цвет студента, фон ячейки задачи — цвет проверившего админа.
+/// фон фамилии и имени — цвет студента, фон ячейки задачи — цвет проверившего админа.
 /// </summary>
 public static class ResultsXlsxExporter
 {
@@ -17,10 +17,11 @@ public static class ResultsXlsxExporter
         var ws = workbook.Worksheets.Add("Результаты");
 
         // --- Заголовок ---
-        ws.Cell(1, 1).Value = "ФИО";
-        ws.Cell(1, 2).Value = "Группа";
+        ws.Cell(1, 1).Value = "Фамилия";
+        ws.Cell(1, 2).Value = "Имя";
+        ws.Cell(1, 3).Value = "Группа";
 
-        var col = 3;
+        var col = 4;
         foreach (var task in results.TaskHeaders)
             ws.Cell(1, col++).Value = task.TaskName;
         foreach (var grade in results.GradeColumns)
@@ -33,20 +34,22 @@ public static class ResultsXlsxExporter
         headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#EEEEEE");
         headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
 
-        // --- Строки студентов (в файле всегда сортировка по группе, затем по ФИО) ---
+        // --- Строки студентов (в файле всегда сортировка по группе, затем по фамилии и имени) ---
         var row = 2;
         var ordered = results.UserResults
             .OrderBy(s => s.GroupName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(s => s.FullName, StringComparer.CurrentCultureIgnoreCase);
         foreach (var student in ordered)
         {
-            var nameCell = ws.Cell(row, 1);
-            nameCell.Value = student.FullName;
-            ApplyFill(nameCell, student.StudentColor, withContrastFont: true);
+            var (lastName, firstName) = PersonName.Split(student.LastName, student.FirstName, student.FullName);
+            ws.Cell(row, 1).Value = lastName;
+            ws.Cell(row, 2).Value = firstName;
+            ApplyFill(ws.Cell(row, 1), student.StudentColor, withContrastFont: true);
+            ApplyFill(ws.Cell(row, 2), student.StudentColor, withContrastFont: true);
 
-            ws.Cell(row, 2).Value = student.GroupName;
+            ws.Cell(row, 3).Value = student.GroupName;
 
-            col = 3;
+            col = 4;
             foreach (var task in results.TaskHeaders)
             {
                 var cell = ws.Cell(row, col++);

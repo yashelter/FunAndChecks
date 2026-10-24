@@ -14,12 +14,12 @@ public class QueueServiceTests : IDisposable
 {
     private readonly TestDatabase _db = new();
     private readonly IQueueNotifier _notifier = Substitute.For<IQueueNotifier>();
-    private static readonly Guid AdminId = Guid.NewGuid();
+
 
     private QueueService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
         new(ctx,
             _notifier,
-            new AdminAccessService(ctx),
+            ctx.Access(),
             new CreateQueueEventRequestValidator(),
             new UpdateQueueEventRequestValidator(), NullLogger<QueueService>.Instance);
 
@@ -29,6 +29,8 @@ public class QueueServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         ctx.Student(group, "A");
@@ -36,7 +38,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupIds: [group.Id]));
 
         created.AllowSelfJoin.Should().BeFalse();
@@ -51,10 +53,13 @@ public class QueueServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         await ctx.SaveChangesAsync();
-        await new AdminAccessService(ctx).SetGroupRestrictedAsync(admin.Id, group.Id, true);
+        await ctx.Access().SetGroupRestrictedAsync(admin.Id, group.Id, true);
 
         var sut = CreateSut(ctx);
         var act = () => sut.CreateEventAsync(admin.Id,
@@ -70,13 +75,15 @@ public class QueueServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Closed", DateTime.UtcNow.AddDays(1), subject.Id, AllowSelfJoin: false));
 
         var act = () => sut.JoinAsync(created.Id, student.Id);
@@ -88,6 +95,8 @@ public class QueueServiceTests : IDisposable
     {
         await using var ctx = _db.NewContext();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
         ctx.QueueEvents.AddRange(
             new FunAndChecks.Domain.Entities.QueueEvent
@@ -111,13 +120,15 @@ public class QueueServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Open", DateTime.UtcNow.AddDays(1), subject.Id));
 
         await sut.JoinAsync(created.Id, student.Id);
@@ -128,17 +139,44 @@ public class QueueServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Join_UnrelatedDatabaseFailure_IsNotMaskedAsDuplicateConflict()
+    public async Task Join_Twice_ThrowsAlreadyJoinedConflict()
     {
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
         await ctx.SaveChangesAsync();
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
+            new CreateQueueEventRequest("Open", DateTime.UtcNow.AddDays(1), subject.Id));
+        await sut.JoinAsync(created.Id, student.Id);
+
+        var act = () => sut.JoinAsync(created.Id, student.Id);
+
+        var thrown = await act.Should().ThrowAsync<ConflictException>();
+        thrown.Which.Code.Should().Be("queue.already_joined");
+        ctx.ChangeTracker.Entries<FunAndChecks.Domain.Entities.QueueEntry>()
+            .Should().OnlyContain(e => e.State == Microsoft.EntityFrameworkCore.EntityState.Unchanged);
+    }
+
+    [Fact]
+    public async Task Join_UnrelatedDatabaseFailure_IsNotMaskedAsDuplicateConflict()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        var student = ctx.Student(group);
+        await ctx.SaveChangesAsync();
+        var sut = CreateSut(ctx);
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Open", DateTime.UtcNow.AddDays(1), subject.Id));
         ctx.Tasks.Add(new FunAndChecks.Domain.Entities.CourseTask
         {
@@ -158,13 +196,15 @@ public class QueueServiceTests : IDisposable
     {
         await using var ctx = _db.NewContext();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Temp", DateTime.UtcNow.AddDays(1), subject.Id));
 
-        await sut.DeleteEventAsync(AdminId, created.Id);
+        await sut.DeleteEventAsync(queueCreator.Id, created.Id);
 
         var act = () => sut.GetDetailsAsync(created.Id);
         await act.Should().ThrowAsync<NotFoundException>();
@@ -176,11 +216,14 @@ public class QueueServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var admin = ctx.Admin();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         var sut = CreateSut(ctx);
         var created = await sut.CreateEventAsync(admin.Id,
             new CreateQueueEventRequest("Protected", DateTime.UtcNow.AddDays(1), subject.Id));
-        await new AdminAccessService(ctx).SetSubjectRestrictedAsync(admin.Id, subject.Id, true);
+        await ctx.Access().SetSubjectRestrictedAsync(admin.Id, subject.Id, true);
 
         var act = () => sut.DeleteEventAsync(admin.Id, created.Id);
 
@@ -195,6 +238,9 @@ public class QueueServiceTests : IDisposable
         var admin = ctx.Admin();
         var group = ctx.Group();
         var subject = ctx.Subject();
+        var queueCreator = ctx.Admin("Creator");
+        ctx.GrantSubject(queueCreator, subject);
+        ctx.GrantSubject(admin, subject);
         await ctx.SaveChangesAsync();
         ctx.LinkGroupSubject(group, subject);
         var student = ctx.Student(group);
@@ -202,7 +248,7 @@ public class QueueServiceTests : IDisposable
         await ctx.SaveChangesAsync();
 
         var sut = CreateSut(ctx);
-        var created = await sut.CreateEventAsync(AdminId,
+        var created = await sut.CreateEventAsync(queueCreator.Id,
             new CreateQueueEventRequest("Event", DateTime.UtcNow.AddDays(1), subject.Id));
 
         await sut.JoinAsync(created.Id, student.Id);
