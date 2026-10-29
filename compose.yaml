@@ -21,7 +21,7 @@ services:
   # Собственный почтовый сервер (send-only). Письма с подтверждением/сбросом
   # пароля уходят через него — без внешних сервисов и лимитов.
   mail:
-    image: boky/postfix:latest
+    image: boky/postfix:5.1.0
     container_name: funandchecks-mail
     restart: always
     environment:
@@ -154,7 +154,7 @@ services:
       - monitoring_net
 
   prometheus:
-    image: prom/prometheus:v3.15.0
+    image: prom/prometheus:v3.15.1
     restart: always
     user: "65534:65534"
     mem_limit: 768m
@@ -185,7 +185,7 @@ services:
     networks: [monitoring_net]
 
   loki:
-    image: grafana/loki:3.7.8
+    image: grafana/loki:3.7.9
     restart: always
     user: "10001:10001"
     mem_limit: 1g
@@ -203,7 +203,7 @@ services:
     networks: [monitoring_net]
 
   alloy:
-    image: grafana/alloy:v1.20.1
+    image: grafana/alloy:v1.21.2
     restart: always
     # Same numeric uid as .NET app; log volume is mounted read-only.
     user: "1654:1654"

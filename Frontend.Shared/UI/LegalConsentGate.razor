@@ -41,7 +41,7 @@
         }
 
         var options = new DialogOptions { BackdropClick = false, CloseOnEscapeKey = false, CloseButton = false, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<PrivacyConsentDialog>(null, options);
+        var dialog = await DialogService.ShowAsync<PrivacyConsentDialog>((string?)null, options);
         var result = await dialog.Result;
         if (result is { Canceled: false })
         {
