@@ -46,9 +46,13 @@ public sealed class ResultsNavigationState(AuthenticationStateProvider auth, IJS
         state.RestorePending = true;
         try { await js.InvokeVoidAsync("profileResultNavigation.capture", page); } catch (JSException) { }
     }
-    public async Task RestoreAsync(string page, MudDataGrid<StudentResultRowDto>? grid, Guid viewInstance)
+    /// <summary>
+    /// Возвращает фильтры, сортировку и прокрутку таблицы после возврата из профиля. true — состояние применено:
+    /// таблица, которая перерисовывается только при смене данных, должна перерисоваться, чтобы показать новый порядок строк.
+    /// </summary>
+    public async Task<bool> RestoreAsync(string page, MudDataGrid<StudentResultRowDto>? grid, Guid viewInstance)
     {
-        if (grid is null || !_pages.TryGetValue(page, out var state) || !state.RestorePending || state.SourceInstance == viewInstance || grid.RenderedColumns.Count == 0) return;
+        if (grid is null || !_pages.TryGetValue(page, out var state) || !state.RestorePending || state.SourceInstance == viewInstance || grid.RenderedColumns.Count == 0) return false;
         state.RestorePending = false;
         foreach (var filter in state.Filters.Where(f => f.Column < grid.RenderedColumns.Count))
             await grid.AddFilterAsync(new FilterDefinition<StudentResultRowDto> {
@@ -59,6 +63,7 @@ public sealed class ResultsNavigationState(AuthenticationStateProvider auth, IJS
                 sort.Definition.Descending ? SortDirection.Descending : SortDirection.Ascending,
                 sort.Definition.SortFunc, sort.Definition.Comparer);
         try { await js.InvokeVoidAsync("profileResultNavigation.restore", page); } catch (JSException) { }
+        return true;
     }
     public void Dispose() { if (_subscribed) auth.AuthenticationStateChanged -= Changed; }
     private sealed class Snapshot

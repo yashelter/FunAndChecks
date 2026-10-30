@@ -24,6 +24,22 @@ public class ResultsService(
         });
     }
 
+    public async Task<IReadOnlyList<StudentColorUpdateDto>> GetStudentColorsAsync(int subjectId, CancellationToken cancellationToken = default)
+    {
+        if (cache.GetResults(subjectId) is { } cached)
+            return cached.UserResults.Select(row => new StudentColorUpdateDto(row.StudentId, row.StudentColor)).ToList();
+
+        if (!await db.Subjects.AnyAsync(s => s.Id == subjectId, cancellationToken))
+            throw new NotFoundException($"Subject with ID {subjectId} not found.");
+
+        // Те же студенты, что в таблице: активные, из групп, привязанных к предмету.
+        return await db.Students
+            .Where(s => s.IsActive && s.GroupId != null &&
+                        db.GroupSubjects.Any(gs => gs.SubjectId == subjectId && gs.GroupId == s.GroupId))
+            .Select(s => new StudentColorUpdateDto(s.Id, s.Color))
+            .ToListAsync(cancellationToken);
+    }
+
     private async Task<SubjectResultsDto?> BuildSubjectResultsAsync(int subjectId, CancellationToken cancellationToken)
     {
         var subject = await db.Subjects
@@ -104,19 +120,12 @@ public class ResultsService(
                 if (lastSubmission?.Status == SubmissionStatus.Accepted)
                     totalPoints += task.MaxPoints;
 
-                if (lastSubmission != null)
-                {
-                    cells[task.Id] = lastSubmission.Status switch
-                    {
-                        SubmissionStatus.Accepted => new ResultCellDto("+", lastSubmission.AdminColor, lastSubmission.Status),
-                        SubmissionStatus.Rejected => new ResultCellDto(lastSubmission.AdminLetter ?? string.Empty, lastSubmission.AdminColor, lastSubmission.Status),
-                        _ => new ResultCellDto("", null, SubmissionStatus.NotSubmitted)
-                    };
-                }
-                else
-                {
-                    cells[task.Id] = new ResultCellDto("", null, SubmissionStatus.NotSubmitted);
-                }
+                // Пустые ячейки не передаём: на предметах со 100+ задачами это тысячи одинаковых объектов в каждом ответе.
+                // Все потребители читают ячейку через GetValueOrDefault — нет ячейки, значит «не сдано».
+                if (lastSubmission?.Status == SubmissionStatus.Accepted)
+                    cells[task.Id] = new ResultCellDto("+", lastSubmission.AdminColor, lastSubmission.Status);
+                else if (lastSubmission?.Status == SubmissionStatus.Rejected)
+                    cells[task.Id] = new ResultCellDto(lastSubmission.AdminLetter ?? string.Empty, lastSubmission.AdminColor, lastSubmission.Status);
             }
 
             var grades = new Dictionary<int, int>();

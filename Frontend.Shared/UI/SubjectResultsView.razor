@@ -1,37 +1,48 @@
 @namespace Frontend.Shared.UI
 @using Frontend.Shared.Models
+@implements IAsyncDisposable
 @inject IStringLocalizer<AppStrings> Loc
 @inject ResultsNavigationState ProfileReturn
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @if (Results is not null)
 {
     <ResultsColorSubscription SubjectId="Results.SubjectId" OnColorsUpdated="UpdateStudentColors" OnResultUpdated="OnResultUpdated" />
     <div class="fc-results-average fc-muted">@Loc["Results_AveragePoints"]: <strong>@AveragePoints</strong></div>
-    <section class="fc-panel fc-results-panel">
+    <section class="fc-panel fc-results-panel @(_showAcceptedTeacherColors ? "fc-results-show-teacher" : null)">
     <div class="fc-panel-heading">
         <h3>@Results.SubjectName</h3>
         <span class="fc-muted">@Frontend.Shared.Community.CommunityText.Students(Results.UserResults.Count)</span>
         <MudSwitch T="bool" @bind-Value="_showAcceptedTeacherColors" Color="Color.Primary" Label="@Loc["Results_ShowAcceptedTeacherColors"]" Class="fc-results-teacher-colors" />
     </div>
+    @* Строки виртуализированы — в DOM только видимые; шапка закреплена, имя и Σ закреплены при прокрутке вбок.
+       Вторая полоса горизонтальной прокрутки — над шапкой (results-scroll.js).
+       RenderGate: таблица перерисовывается только при смене данных; переключатель цветов меняет лишь класс секции. *@
+    <RenderGate Version="_gridVersion">
+    <div class="fc-results-scroll-host" @ref="_host">
+    <div class="fc-results-hscroll" aria-hidden="true"><div></div></div>
     @* @key: другой набор колонок — новая таблица, иначе новая колонка встала бы в конец, после оценок. *@
     <MudDataGrid @key="ResultsColumns.Key(Results)" @ref="_grid" T="StudentResultRowDto" Items="@_rows" Dense="true" Breakpoint="Breakpoint.None"
-                 Filterable="true" Hover="true" Class="fc-results-grid" RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
+                 Filterable="true" Hover="true" Class="@ResultsColumns.GridClass(Results)"
+                 Virtualize="true" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" FixedHeader="true"
+                 RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
         <Columns>
-            <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-sticky" HeaderClass="fc-results-sticky">
+            <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-name-column" HeaderClass="fc-results-name-column">
                 <CellTemplate>
-                    <ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink>
+                    <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></span>
                 </CellTemplate>
             </TemplateColumn>
-            @* Σ рядом с именем: при большом числе задач последняя колонка уходит за край. *@
-            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score">
+            @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-total-column fc-results-number fc-score" HeaderClass="fc-results-total-column">
                 <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
             </PropertyColumn>
             <PropertyColumn Property="x => x.GroupName" Title="@Loc["Results_ColGroup"]" />
 
             @foreach (var task in Results.TaskHeaders)
             {
-                <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-number" HeaderClass="fc-results-task-header">
+                <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-number fc-results-task-column" HeaderClass="fc-results-task-header">
+                    <HeaderTemplate><span class="fc-results-task-title" title="@task.TaskName">@task.TaskName</span></HeaderTemplate>
                     <CellTemplate>
                         @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
                         @if (context.Item.StudentId == HighlightStudentId)
@@ -60,6 +71,8 @@
             }
         </Columns>
     </MudDataGrid>
+    </div>
+    </RenderGate>
     <div class="fc-results-legend">
         <span><span class="fc-result-cell accepted" aria-hidden="true">+</span> @Loc["Task_StatusAccepted"]</span>
         <span><MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" Color="Color.Warning" /> @Loc["Task_StatusRejected"]</span>
@@ -74,11 +87,20 @@
     [Parameter] public Guid? HighlightStudentId { get; set; }
     [Parameter] public EventCallback<ResultUpdateDto> OnResultUpdated { get; set; }
     private MudDataGrid<StudentResultRowDto>? _grid;
+    private ElementReference _host;
     private SubjectResultsDto? _parameterResults;
     private List<StudentResultRowDto> _rows = [];
     private bool _showAcceptedTeacherColors;
     private readonly Guid _profileViewInstance = Guid.NewGuid();
     private string StateKey => new Uri(Nav.Uri).AbsolutePath;
+    private string? _scrollAttachedKey;
+
+    // Версия таблицы для RenderGate: растёт, когда сменились данные, подсветка или язык.
+    private int _gridVersion;
+    private Guid? _shownHighlight;
+    private string? _shownCulture;
+    private string _accepted = "", _rejected = "", _notSubmitted = "";
+
     protected override async Task OnInitializedAsync() => await ProfileReturn.InitializeAsync();
     protected override void OnParametersSet()
     {
@@ -86,12 +108,48 @@
         {
             _parameterResults = Results;
             _rows = Results?.UserResults ?? [];
+            _gridVersion++;
+        }
+        if (_shownHighlight != HighlightStudentId)
+        {
+            _shownHighlight = HighlightStudentId;
+            _gridVersion++;
+        }
+        var culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
+        if (_shownCulture != culture)
+        {
+            _shownCulture = culture;
+            _accepted = Loc["Task_StatusAccepted"];
+            _rejected = Loc["Task_StatusRejected"];
+            _notSubmitted = Loc["Task_StatusNotSubmitted"];
+            _gridVersion++;
         }
         if (Results is not null)
             ProfileReturn.SelectSubject(StateKey, Results.SubjectId);
     }
-    private void UpdateStudentColors(IReadOnlyList<StudentColorUpdateDto> updates) => _rows = StudentColorRows.Apply(_rows, updates);
-    protected override Task OnAfterRenderAsync(bool firstRender) => ProfileReturn.RestoreAsync(StateKey, _grid, _profileViewInstance);
+    private void UpdateStudentColors(IReadOnlyList<StudentColorUpdateDto> updates)
+    {
+        var rows = StudentColorRows.Apply(_rows, updates);
+        if (ReferenceEquals(rows, _rows)) return;
+        _rows = rows;
+        _gridVersion++;
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Восстановленные фильтры и сортировка меняют порядок строк — показать их может только новый рендер таблицы.
+        if (await ProfileReturn.RestoreAsync(StateKey, _grid, _profileViewInstance))
+        {
+            _gridVersion++;
+            StateHasChanged();
+        }
+        // Полосу сверху привязываем к таблице заново, когда @key пересоздал её с новым набором колонок.
+        var key = Results is null ? null : ResultsColumns.Key(Results);
+        if (key is not null && _scrollAttachedKey != key)
+        {
+            _scrollAttachedKey = key;
+            try { await JS.InvokeVoidAsync("resultsScroll.attach", _host); } catch (JSException) { }
+        }
+    }
     private Task RememberResultsAsync() => ProfileReturn.CaptureAsync(StateKey, _grid, _profileViewInstance);
     private string AveragePoints => Results?.UserResults is { Count: > 0 } rows
         ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
@@ -109,19 +167,20 @@
 
     private string CellStatus(ResultCellDto? cell) => cell?.Status switch
     {
-        SubmissionStatus.Accepted => Loc["Task_StatusAccepted"],
-        SubmissionStatus.Rejected => Loc["Task_StatusRejected"],
-        _ => Loc["Task_StatusNotSubmitted"],
+        SubmissionStatus.Accepted => _accepted,
+        SubmissionStatus.Rejected => _rejected,
+        _ => _notSubmitted,
     };
 
-    private string CellStyle(ResultCellDto? cell)
+    private string? CellStyle(ResultCellDto? cell)
     {
         if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
-            return string.Empty;
+            return null;
+        // Цвет преподавателя у зачтённой — всегда в переменной; показывает его класс fc-results-show-teacher у секции.
         if (cell.Status == SubmissionStatus.Accepted)
-            return _showAcceptedTeacherColors ? $"background-color:{cell.AdminColor};color:#000000;border-color:{cell.AdminColor};text-shadow:0 0 3px rgba(255,255,255,.7);" : string.Empty;
+            return $"--tc:{cell.AdminColor};";
         if (cell.Status != SubmissionStatus.Rejected)
-            return string.Empty;
+            return null;
         return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};border-color:{cell.AdminColor};";
     }
 
@@ -130,5 +189,12 @@
         if (string.IsNullOrEmpty(color))
             return string.Empty;
         return $"background-color:{color};color:{ColorUtils.ContrastText(color)};";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("resultsScroll.detach", _host); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 }

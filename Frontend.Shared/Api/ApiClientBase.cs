@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization.Metadata;
 using Frontend.Shared.Resources;
 using Microsoft.Extensions.Localization;
 
@@ -17,6 +18,15 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
             using var response = await Http.GetAsync(url, ct);
             await response.EnsureSuccessAsync(Loc);
             return await ReadRequiredAsync<T>(response, ct);
+        }, ct);
+
+    /// <summary>То же, но с разбором сгенерированным кодом — для больших ответов (см. <see cref="ResultsJsonContext"/>).</summary>
+    protected Task<T> GetAsync<T>(string url, JsonTypeInfo<T> typeInfo, CancellationToken ct = default) =>
+        ExecuteAsync(async () =>
+        {
+            using var response = await Http.GetAsync(url, ct);
+            await response.EnsureSuccessAsync(Loc);
+            return RequireBody(await response.Content.ReadFromJsonAsync(typeInfo, ct));
         }, ct);
 
     protected Task<TRes> PostAsync<TRes>(string url, object body, CancellationToken ct = default) =>
@@ -61,13 +71,13 @@ public abstract class ApiClientBase(HttpClient http, IStringLocalizer<AppStrings
         }, ct);
 
     /// <summary>Успешный ответ обязан содержать JSON-тело — иначе это контрактная ошибка сервера.</summary>
-    private async Task<T> ReadRequiredAsync<T>(HttpResponseMessage response, CancellationToken ct)
-    {
-        var result = await response.Content.ReadFromJsonAsync<T>(ct);
-        return result ?? throw new ApiException(
+    private async Task<T> ReadRequiredAsync<T>(HttpResponseMessage response, CancellationToken ct) =>
+        RequireBody(await response.Content.ReadFromJsonAsync<T>(ct));
+
+    private T RequireBody<T>(T? result) =>
+        result ?? throw new ApiException(
             HttpStatusCode.InternalServerError,
             string.Format(Loc["Common_UnknownError"].Value, Loc["Common_EmptyResponseError"].Value));
-    }
 
     private async Task<T> ExecuteAsync<T>(Func<Task<T>> action, CancellationToken ct) =>
         await GuardAsync(action, Loc, ct);

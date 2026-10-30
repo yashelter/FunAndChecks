@@ -886,4 +886,11 @@
   <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>Self-joining is turned off for this queue: ask the teacher.</value></data>
   <data name="Halloween_SpiderLabel" xml:space="preserve"><value>Poke the spider</value></data>
   <data name="Halloween_LanternLabel" xml:space="preserve"><value>Release the bats</value></data>
+  <data name="Winter_AriaLabel" xml:space="preserve"><value>Winter decorations</value></data>
+  <data name="Winter_GarlandLabel" xml:space="preserve"><value>Switch the garland</value></data>
+  <data name="Winter_SnowmanLabel" xml:space="preserve"><value>Start a snowstorm</value></data>
+  <data name="Winter_GarlandMode_chase" xml:space="preserve"><value>Running lights</value></data>
+  <data name="Winter_GarlandMode_twinkle" xml:space="preserve"><value>Twinkle</value></data>
+  <data name="Winter_GarlandMode_rainbow" xml:space="preserve"><value>Rainbow</value></data>
+  <data name="Winter_GarlandMode_steady" xml:space="preserve"><value>Steady</value></data>
 </root>

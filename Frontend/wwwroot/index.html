@@ -14,9 +14,9 @@
         const preference = (() => { try { return localStorage.getItem('fc-theme'); } catch { return null; } })();
         document.documentElement.dataset.theme = preference === 'light' ? 'light' : 'dark';
         const uiStyles = [
-            'css/app.css', 'css/dashboard.css', 'Frontend.styles.css?v=queue-picker-1', '_content/Frontend.Shared/dashboard-content.css?v=12',
+            'css/app.css', 'css/dashboard.css', 'Frontend.styles.css?v=queue-picker-1', '_content/Frontend.Shared/dashboard-content.css?v=14',
             '_content/Frontend.Shared/profiles.css?v=account-2', '_content/Frontend.Shared/profile-navigation.css', '_content/Frontend.Shared/community.css?v=10',
-            '_content/Frontend.Admin/admin-dashboard.css?v=ux-5', '_content/Frontend.Admin/management-dashboard.css?v=ux-4'
+            '_content/Frontend.Admin/admin-dashboard.css?v=ux-7', '_content/Frontend.Admin/management-dashboard.css?v=ux-4'
         ];
         for (const href of uiStyles) {
             const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = '/' + href;
@@ -111,6 +111,7 @@
     <script src="js/dashboard-appearance.js"></script>
     <script src="js/snackbar-swipe.js"></script>
     <script src="_content/Frontend.Shared/profile-navigation.js"></script>
+    <script src="_content/Frontend.Shared/results-scroll.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js" autostart="false"></script>
     <script>Blazor.start({ applicationCulture: window.culturePreference.get() });</script>

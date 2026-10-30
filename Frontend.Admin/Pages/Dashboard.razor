@@ -1,6 +1,7 @@
 @page "/admin"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
+@using Frontend.Admin.UI
 
 <PageTitle>@Loc["Dashboard_PageTitle"]</PageTitle>
 
@@ -37,65 +38,9 @@ else if (_results is not null)
         <div class="fc-stat"><span>@Loc["Dashboard_Rework"]</span><strong class="fc-semantic-warning">@_reworkCount</strong><MudIcon Icon="@Icons.Material.Outlined.History" /></div>
         <div class="fc-stat"><span>@Loc["Results_AveragePoints"]</span><strong>@AveragePoints</strong><MudIcon Icon="@Icons.Material.Outlined.Functions" /></div>
     </div>
-    <section class="fc-panel fc-results-panel">
+    <section class="fc-panel fc-results-panel @(_showAcceptedTeacherColors ? "fc-results-show-teacher" : null)">
         <div class="fc-core-panel-heading"><MudText Typo="Typo.h6">@_results.SubjectName</MudText><MudText Typo="Typo.caption" Class="fc-muted">@CommunityText.Students(_results.UserResults.Count)</MudText></div>
-        <div class="fc-table-wrap fc-results-grid">
-            <MudDataGrid @key="ColumnsKey" @ref="_grid" T="StudentResultRowDto" Items="@_results.UserResults"
-                         Filterable="true" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None">
-                <Columns>
-                    <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" StickyLeft="true" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
-                        <CellTemplate><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></CellTemplate>
-                    </TemplateColumn>
-                    @* Σ рядом с именем: при большом числе задач последняя колонка уходит за край. *@
-                    <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" CellClass="fc-core-score" />
-                    <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
-                    @foreach (var set in _variants?.Sets ?? [])
-                    {
-                        <TemplateColumn Title="@Loc["Variants_ColumnHeader", set.Name]" SortBy="@(x => VariantNumber(x, set.Id) ?? int.MaxValue)" Filterable="false" CellClass="fc-results-variant">
-                            <CellTemplate>
-                                @if (_variantsByStudent.GetValueOrDefault(context.Item.StudentId)?.GetValueOrDefault(set.Id) is { } variant)
-                                {
-                                    <span title="@(variant.Title ?? (variant.SelfClaimed ? Loc["Variants_SelfClaimed"] : Loc["Variants_ByTeacher"]))">@variant.Number</span>
-                                }
-                            </CellTemplate>
-                        </TemplateColumn>
-                    }
-                    @foreach (var task in _results.TaskHeaders)
-                    {
-                        <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-task-column" HeaderClass="fc-results-task-header">
-                            <CellTemplate>
-                                @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
-                                @* Любая ячейка открывает студента с этой задачей: принять или вернуть можно прямо отсюда. *@
-                                <button type="button" class="fc-result-cell fc-result-history-button @CellClass(cell)" style="@CellStyle(cell)"
-                                        title="@Loc["Dashboard_CellAction"]" aria-label="@CellLabel(context.Item, task)"
-                                        @onclick="@(() => OpenStudentAsync(context.Item, task))">@CellText(cell)</button>
-                            </CellTemplate>
-                        </TemplateColumn>
-                    }
-                    @foreach (var column in _results.GradeColumns)
-                    {
-                        <TemplateColumn Title="@column.Name" Sortable="false">
-                            <CellTemplate>
-                                @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
-                                {
-                                    <span class="fc-core-score">@points <span class="fc-muted">/ @column.MaxPoints</span></span>
-                                }
-                            </CellTemplate>
-                        </TemplateColumn>
-                    }
-                    @if (_attendance is not null)
-                    {
-                        <TemplateColumn Title="@Loc["Nav_Attendance"]" Sortable="false">
-                            <CellTemplate>
-                                @{ var counts = _attendance.GetValueOrDefault(context.Item.StudentId); }
-                                <MudLink Href="@("/admin/attendance?subjectId=" + _results.SubjectId + "&studentId=" + context.Item.StudentId)">@Loc["Dashboard_AttendanceCounts", counts.Present, counts.Absent]</MudLink>
-                                @if (counts.Unmarked > 0) { <MudText Typo="Typo.caption" Class="fc-results-attendance-unmarked">@Loc["Dashboard_AttendanceUnmarked", counts.Unmarked]</MudText> }
-                            </CellTemplate>
-                        </TemplateColumn>
-                    }
-                </Columns>
-            </MudDataGrid>
-        </div>
+        <AdminResultsGrid Results="_results" Variants="_variants" Attendance="_attendance" OnCellClick="OpenStudentAsync" />
         <div class="fc-results-legend">
             <span><i class="fc-result-cell fc-result-accepted">+</i>@Loc["Task_StatusAccepted"]</span>
             <span><i class="fc-result-cell fc-result-unsubmitted">—</i>@Loc["Task_StatusNotSubmitted"]</span>

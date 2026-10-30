@@ -1,0 +1,12 @@
+@* Снежинка вместо значка FunAndChecks — подключается темой WinterTheme. Медленно вращается, при наведении крутится быстрее. *@
+<span class="fc-brand-mark fc-winter-logo">
+    <svg class="fc-winter-flake" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+            @for (var i = 0; i < 6; i++)
+            {
+                <g transform="rotate(@(i * 60) 12 12)"><path d="M12 12 V2.5 M12 6 L9.6 3.8 M12 6 L14.4 3.8 M12 9 L10.2 7.4 M12 9 L13.8 7.4" /></g>
+            }
+        </g>
+        <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+    </svg>
+</span>

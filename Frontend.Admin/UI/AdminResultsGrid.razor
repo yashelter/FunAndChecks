@@ -1,0 +1,66 @@
+@* Таблица результатов преподавателя. Отдельный компонент, чтобы перерисовываться только при смене данных:
+   на больших предметах (100+ студентов × 100+ задач) любой лишний рендер страницы замораживал интерфейс.
+   Строки виртуализированы — в DOM только видимые; шапка закреплена, имя и Σ закреплены при прокрутке вбок. *@
+<div class="fc-results-scroll-host" @ref="_host">
+    @* Вторая полоса горизонтальной прокрутки — над шапкой, закреплена у верха окна (results-scroll.js). *@
+    <div class="fc-results-hscroll" aria-hidden="true"><div></div></div>
+    <MudDataGrid @key="ColumnsKey" @ref="_grid" T="StudentResultRowDto" Items="@Results.UserResults"
+                 Filterable="true" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None"
+                 Virtualize="true" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" FixedHeader="true"
+                 Class="@ResultsColumns.GridClass(Results)">
+        <Columns>
+            <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
+                <CellTemplate><span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></span></CellTemplate>
+            </TemplateColumn>
+            @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
+            <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" HeaderClass="fc-results-total-column" CellClass="fc-results-total-column fc-core-score" />
+            <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
+            @foreach (var set in Variants?.Sets ?? [])
+            {
+                <TemplateColumn Title="@Loc["Variants_ColumnHeader", set.Name]" SortBy="@(x => VariantNumber(x, set.Id) ?? int.MaxValue)" Filterable="false" CellClass="fc-results-variant">
+                    <CellTemplate>
+                        @if (_variantsByStudent.GetValueOrDefault(context.Item.StudentId)?.GetValueOrDefault(set.Id) is { } variant)
+                        {
+                            <span title="@(variant.Title ?? (variant.SelfClaimed ? _selfClaimed : _byTeacher))">@variant.Number</span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+            @foreach (var task in Results.TaskHeaders)
+            {
+                <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-task-column" HeaderClass="fc-results-task-header">
+                    <HeaderTemplate><span class="fc-results-task-title" title="@task.TaskName">@task.TaskName</span></HeaderTemplate>
+                    <CellTemplate>
+                        @{ var cell = context.Item.Results.GetValueOrDefault(task.TaskId); }
+                        @* Любая ячейка открывает студента с этой задачей: принять или вернуть можно прямо отсюда. *@
+                        <button type="button" class="fc-result-cell fc-result-history-button @CellClass(cell)" style="@CellStyle(cell)"
+                                title="@_cellAction" aria-label="@CellLabel(context.Item, task, cell)"
+                                @onclick="@(() => OnCellClick.InvokeAsync(new ResultCellClick(context.Item, task)))">@CellText(cell)</button>
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+            @foreach (var column in Results.GradeColumns)
+            {
+                <TemplateColumn Title="@column.Name" Sortable="false">
+                    <CellTemplate>
+                        @if (context.Item.Grades.TryGetValue(column.ComponentId, out var points))
+                        {
+                            <span class="fc-core-score">@points <span class="fc-muted">/ @column.MaxPoints</span></span>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+            @if (Attendance is not null)
+            {
+                <TemplateColumn Title="@Loc["Nav_Attendance"]" Sortable="false">
+                    <CellTemplate>
+                        @* Одна строка: высота строк одинакова, иначе виртуализация «прыгает». *@
+                        @{ var counts = Attendance.GetValueOrDefault(context.Item.StudentId); }
+                        <MudLink Href="@("/admin/attendance?subjectId=" + Results.SubjectId + "&studentId=" + context.Item.StudentId)">@Loc["Dashboard_AttendanceCounts", counts.Present, counts.Absent]</MudLink>
+                        @if (counts.Unmarked > 0) { <span class="fc-results-attendance-unmarked fc-muted">@Loc["Dashboard_AttendanceUnmarked", counts.Unmarked]</span> }
+                    </CellTemplate>
+                </TemplateColumn>
+            }
+        </Columns>
+    </MudDataGrid>
+</div>

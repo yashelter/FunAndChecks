@@ -14,10 +14,8 @@
 .fc-results-stats,.fc-queue-stats{margin-bottom:22px}
 .fc-results-stats .fc-stat,.fc-queue-stats .fc-stat{position:relative}
 .fc-results-stats .fc-stat>.mud-icon-root{position:absolute;right:18px;top:18px;color:var(--mud-palette-text-disabled);width:19px;height:19px}
-.fc-results-panel{min-width:0;overflow:hidden}
+.fc-results-panel{min-width:0;overflow:clip}
 .fc-results-grid .mud-table-root{white-space:nowrap}
-.fc-results-grid .fc-results-name-column{position:sticky;left:0;min-width:210px;max-width:260px;background:var(--mud-palette-surface);border-right:1px solid var(--mud-palette-lines-default);z-index:1;white-space:normal}
-.fc-results-grid thead .fc-results-name-column{z-index:3;background:var(--mud-palette-background)}
 .fc-results-grid .fc-results-task-column{text-align:center}
 .fc-result-cell.fc-result-accepted{background:rgba(var(--mud-palette-success-rgb),.12);color:var(--mud-palette-success);border-color:transparent}
 .fc-result-cell.fc-result-rework{background:rgba(var(--mud-palette-warning-rgb),.12);color:var(--mud-palette-warning);border-color:transparent}
@@ -99,7 +97,7 @@
 @media(max-width:680px){
 .fc-core-panel-heading{padding:16px}
 .fc-results-filters>.mud-input-control{max-width:none}
-.fc-results-grid .fc-results-name-column{min-width:145px;max-width:170px;font-size:12px}
+.fc-results-filters{flex-wrap:wrap}.fc-results-filters>.fc-results-teacher-colors{flex:1 1 100%;min-width:0}
 .fc-admin-queue-events{grid-template-columns:1fr;gap:14px}
 .fc-admin-queue-event{padding:18px}
 .fc-reviewers{padding:17px}

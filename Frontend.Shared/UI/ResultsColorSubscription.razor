@@ -136,15 +136,16 @@
     private async Task RefreshColorsAsync(HubConnection hub, int subjectId)
     {
         var revision = _colorRevision;
-        var current = await ResultsApi.GetSubjectResultsAsync(subjectId, _lifetime.Token);
+        // Только цвета, а не вся таблица: на больших предметах повторная загрузка таблицы заметно подвешивала страницу.
+        var current = await ResultsApi.GetStudentColorsAsync(subjectId, _lifetime.Token);
         await InvokeAsync(async () =>
         {
             if (IsCurrent(hub, subjectId))
             {
                 // A snapshot must not overwrite a newer hub update received while the request was in flight.
-                var colors = current.UserResults
+                var colors = current
                     .Where(row => !_latestChanges.TryGetValue(row.StudentId, out var changed) || changed <= revision)
-                    .Select(row => new StudentColorUpdateDto(row.StudentId, row.StudentColor)).ToArray();
+                    .ToArray();
                 await OnColorsUpdated.InvokeAsync(colors);
             }
         });

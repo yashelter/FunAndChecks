@@ -1,0 +1,22 @@
+@namespace Frontend.Shared.UI
+
+@* Перерисовывает содержимое, только когда сменилась версия. Для тяжёлых таблиц (результаты на 100+ студентов × 100+ задач):
+   страница вокруг перерисовывается часто — переключатели, статистика, события SignalR, — а таблице это не нужно. *@
+@ChildContent
+
+@code {
+    /// <summary>Версия содержимого: пока она та же, содержимое не перерисовывается.</summary>
+    [Parameter, EditorRequired] public object? Version { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private object? _rendered;
+    private bool _first = true;
+
+    protected override bool ShouldRender() => _first || !Equals(_rendered, Version);
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        _first = false;
+        _rendered = Version;
+    }
+}

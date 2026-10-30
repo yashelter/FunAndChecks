@@ -45,6 +45,7 @@ public class SeasonalThemesTests
 
         var themes = provider.GetServices<ISeasonalTheme>().ToList();
         themes.Should().ContainSingle(t => t is HalloweenTheme);
+        themes.Should().ContainSingle(t => t is WinterTheme);
         themes.Select(t => t.Id).Should().OnlyHaveUniqueItems();
         provider.CreateScope().ServiceProvider.GetRequiredService<SeasonalThemes>().All.Should().HaveCount(themes.Count);
     }
@@ -57,6 +58,30 @@ public class SeasonalThemesTests
         Themes(appearance, new DateOnly(2026, 10, 24)).IsOn(HalloweenTheme.Key).Should().BeTrue();
         Themes(appearance, new DateOnly(2026, 11, 3)).IsOn(HalloweenTheme.Key).Should().BeFalse();
         Themes(appearance, new DateOnly(2026, 11, 3)).InSeason.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(11, 30, false)]
+    [InlineData(12, 1, true)]
+    [InlineData(12, 31, true)]
+    [InlineData(1, 30, true)]
+    [InlineData(1, 31, false)]
+    public async Task Winter_RunsFromDecemberToTheEndOfJanuary(int month, int day, bool expected)
+    {
+        var appearance = await AppearanceAsync([]);
+        var themes = new SeasonalThemes([new HalloweenTheme(), new WinterTheme()], appearance, new FixedClock(new DateOnly(2027, month, day)));
+
+        themes.IsOn(WinterTheme.Key).Should().Be(expected);
+    }
+
+    [Fact]
+    public void SeasonWindows_DoNotOverlap()
+    {
+        // Две темы в один день спорили бы за значок в шапке и накладывали украшения друг на друга.
+        using var provider = new ServiceCollection().AddSeasonalThemes().BuildServiceProvider();
+        var all = provider.GetServices<ISeasonalTheme>().ToList();
+        for (var day = new DateOnly(2028, 1, 1); day.Year == 2028; day = day.AddDays(1))
+            all.Count(t => t.Window.Contains(day)).Should().BeLessThanOrEqualTo(1, $"{day:dd.MM} belongs to one theme at most");
     }
 
     [Fact]

@@ -1,0 +1,183 @@
+@implements IDisposable
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Рисуется через SeasonalDecorations, только пока тема WinterTheme активна.
+   Всё в оверлее поверх страницы; клики проходят насквозь, кроме лампочек гирлянды и снеговика. *@
+<div class="fc-winter-animations" role="img" aria-label="@Loc["Winter_AriaLabel"]">
+    <svg class="fc-winter-defs" aria-hidden="true" focusable="false" width="0" height="0">
+        <defs>
+            <symbol id="fc-wt-flake-symbol" viewBox="0 0 24 24">
+                <g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                    <path d="M12 1.5 V22.5 M2.9 6.75 L21.1 17.25 M2.9 17.25 L21.1 6.75" />
+                    <path d="M12 5 L9.8 3 M12 5 L14.2 3 M12 19 L9.8 21 M12 19 L14.2 21 M5.9 8.5 L5.3 5.6 M5.9 8.5 L3.1 9.4 M18.1 15.5 L18.7 18.4 M18.1 15.5 L20.9 14.6 M5.9 15.5 L3.1 14.6 M5.9 15.5 L5.3 18.4 M18.1 8.5 L20.9 9.4 M18.1 8.5 L18.7 5.6" />
+                </g>
+            </symbol>
+            <radialGradient id="fc-wt-frost-glow" cx="0" cy="0" r="1">
+                <stop offset="0%" stop-color="currentColor" stop-opacity=".28" />
+                <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+            </radialGradient>
+            <symbol id="fc-wt-frost-symbol" viewBox="0 0 150 150">
+                <rect width="150" height="150" fill="url(#fc-wt-frost-glow)" />
+                <path d="M0 0 L126.8 17.5 M25.4 3.5 L62.1 -19.6 M37.6 -4.2 L43 -15.4 M37.6 -4.2 L50 -3.3 M49.9 -11.9 L52.6 -21.5 M49.9 -11.9 L59.7 -10.5 M25.4 3.5 L54.9 35.3 M35.2 14.1 L49.4 15.9 M35.2 14.1 L37.5 28.2 M45.1 24.7 L55.3 27.1 M45.1 24.7 L45.1 35.2 M50.7 7 L73.3 -8.2 M58.2 1.9 L60.3 -5.4 M58.2 1.9 L65.8 2.2 M65.8 -3.1 L67.3 -9.5 M65.8 -3.1 L72.3 -3.3 M50.7 7 L71.4 24.7 M57.6 12.9 L67.5 13.3 M57.6 12.9 L60.4 22.4 M64.5 18.8 L72.2 18.4 M64.5 18.8 L66.6 26.2 M76.1 10.5 L95.3 1.2 M82.5 7.4 L85.2 1.5 M82.5 7.4 L88.9 8.3 M88.9 4.3 L91.8 -0.5 M88.9 4.3 L94.4 5.1 M76.1 10.5 L89.9 26.8 M80.7 15.9 L87.2 17.4 M80.7 15.9 L80.8 22.6 M85.3 21.3 L90.4 22.5 M85.3 21.3 L86 26.5 M101.4 14 L112 6.4 M105 11.4 L106.2 6.8 M105 11.4 L109.8 11.5 M108.5 8.9 L109.2 5.9 M108.5 8.9 L111.6 9.1 M101.4 14 L111.2 22.6 M104.7 16.8 L108.6 17.2 M104.7 16.8 L105.4 20.6 M108 19.7 L111.5 19.9 M108 19.7 L109 23.1 M0 0 L88.3 55 M17.7 11 L50.3 7.4 M28.5 9.8 L35.6 3.1 M28.5 9.8 L36.9 14.7 M39.4 8.6 L46.2 3 M39.4 8.6 L46.9 13.3 M17.7 11 L31 41 M22.1 21 L31.5 27.3 M22.1 21 L19.9 32.1 M26.5 31 L33.4 34.5 M26.5 31 L25.4 38.6 M35.3 22 L60.6 20.9 M43.7 21.6 L49.6 16.7 M43.7 21.6 L49.5 26.6 M52.2 21.2 L56.5 16.8 M52.2 21.2 L57.5 24.5 M35.3 22 L41.9 46.5 M37.5 30.2 L43.4 35.3 M37.5 30.2 L34 37.2 M39.7 38.3 L44.9 43.2 M39.7 38.3 L37.2 45 M53 33 L72.2 31.6 M59.4 32.5 L64 29.2 M59.4 32.5 L64.4 35.3 M65.8 32.1 L69.1 28.4 M65.8 32.1 L69.6 35.2 M53 33 L59.6 51.1 M55.2 39.1 L59.5 42 M55.2 39.1 L53.2 44 M57.4 45.1 L61.9 47.8 M57.4 45.1 L56 50.2 M70.6 44 L80.5 43 M73.9 43.7 L76.4 41.5 M73.9 43.7 L76.6 45.7 M77.2 43.3 L79.3 41.6 M77.2 43.3 L79.6 44.7 M70.6 44 L73.3 53.6 M71.5 47.2 L74.1 48.8 M71.5 47.2 L70.3 50 M72.4 50.4 L74.6 51.9 M72.4 50.4 L71.5 52.9 M0 0 L74.7 91.3 M14.9 18.3 L49.5 24.7 M26.5 20.4 L37.6 15.7 M26.5 20.4 L33.7 30 M38 22.5 L45.7 19 M38 22.5 L43.7 28.8 M14.9 18.3 L12.2 53.3 M14 30 L20.7 39.4 M14 30 L5.5 37.8 M13.1 41.6 L19.1 49.6 M13.1 41.6 L6.5 49.1 M29.9 36.5 L59.6 40.6 M39.8 37.9 L48.8 32.5 M39.8 37.9 L47.4 45.2 M49.7 39.3 L55.6 35.4 M49.7 39.3 L54.5 44.4 M29.9 36.5 L33.6 66.3 M31.1 46.4 L39 53.1 M31.1 46.4 L25.3 54.9 M32.4 56.4 L38.7 61.7 M32.4 56.4 L28 63.5 M44.8 54.8 L66.2 60.2 M52 56.6 L57.7 54.3 M52 56.6 L56 61.3 M59.1 58.4 L64.6 55.7 M59.1 58.4 L62.8 63.3 M44.8 54.8 L44.8 76.8 M44.8 62.1 L48.7 67.1 M44.8 62.1 L40.7 66.9 M44.8 69.5 L47.8 73.8 M44.8 69.5 L41.6 73.7 M59.8 73.1 L70.2 75 M63.2 73.7 L66 72.5 M63.2 73.7 L65.3 75.9 M66.7 74.3 L69.1 72.9 M66.7 74.3 L68.5 76.5 M59.8 73.1 L59.1 83.6 M59.5 76.6 L61.1 79.5 M59.5 76.6 L57.4 79 M59.3 80.1 L60.6 82.3 M59.3 80.1 L57.5 82 M0 0 L24.8 92.7 M5 18.5 L27 36.5 M12.3 24.5 L22.7 25.8 M12.3 24.5 L14.9 34.7 M19.7 30.5 L26.2 31.1 M19.7 30.5 L21.2 36.9 M5 18.5 L-4.6 45.3 M1.8 27.5 L5 37.4 M1.8 27.5 L-7.3 32.7 M-1.4 36.4 L0.5 42.4 M-1.4 36.4 L-6.8 39.6 M9.9 37.1 L30 54 M16.6 42.7 L25 42.4 M16.6 42.7 L17.8 51 M23.3 48.4 L29.2 48.5 M23.3 48.4 L24.2 54.2 M9.9 37.1 L0.2 61.5 M6.7 45.2 L9.4 53.7 M6.7 45.2 L-1.5 49 M3.4 53.4 L5.5 59.6 M3.4 53.4 L-2.2 56.9 M14.9 55.6 L28.5 66.8 M19.4 59.4 L25.1 59.6 M19.4 59.4 L20.9 64.9 M24 63.1 L27.8 63.4 M24 63.1 L24.8 66.8 M14.9 55.6 L8.8 72.2 M12.8 61.2 L14.6 65.7 M12.8 61.2 L8.8 63.9 M10.8 66.7 L12.5 71.4 M10.8 66.7 L6.7 69.4 M19.8 74.2 L28.4 79.6 M22.7 76 L25.8 75.9 M22.7 76 L23.7 79 M25.6 77.8 L28.3 77.5 M25.6 77.8 L26.3 80.5 M19.8 74.2 L16 83.7 M18.5 77.4 L19.3 80.7 M18.5 77.4 L15.6 79.1 M17.3 80.5 L17.9 82.8 M17.3 80.5 L15.2 81.8" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" />
+                <path class="fc-wt-sparkle" d="M92 22 L100 22 M94 18.5 L98 25.5 M98 18.5 L94 25.5 M36.5 92 L43.5 92 M38.2 89 L41.8 95 M41.8 89 L38.2 95 M109 70 L115 70 M110.5 67.4 L113.5 72.6 M113.5 67.4 L110.5 72.6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+            </symbol>
+            <radialGradient id="fc-wt-snow-fill" cx="38%" cy="32%" r="70%">
+                <stop offset="0%" stop-color="#ffffff" /><stop offset="70%" stop-color="#eef4fc" /><stop offset="100%" stop-color="#c9d8ec" />
+            </radialGradient>
+        </defs>
+    </svg>
+
+    @* Иней в верхних углах: статичен, виден на любом экране и при «меньше движения». *@
+    <svg class="fc-wt-frost fc-wt-frost-left" aria-hidden="true" focusable="false"><use href="#fc-wt-frost-symbol" /></svg>
+    <svg class="fc-wt-frost fc-wt-frost-right" aria-hidden="true" focusable="false"><use href="#fc-wt-frost-symbol" /></svg>
+
+    @* Снегопад: внешний слой падает, внутренний покачивается; отрицательные задержки — снег идёт сразу. *@
+    <div class="fc-wt-snow" aria-hidden="true">
+        @foreach (var flake in Flakes)
+        {
+            <div class="fc-wt-flake" style="@FlakeStyle(flake)"><div class="fc-wt-flake-sway">@FlakeShape(flake)</div></div>
+        }
+    </div>
+
+    @* Метель от снеговика: отдельная пачка снежинок, летит быстрее и наискосок, через несколько секунд убирается. *@
+    @if (_blizzardKey is not null)
+    {
+        <div class="fc-wt-blizzard" @key="_blizzardKey" aria-hidden="true">
+            @foreach (var flake in Gusts)
+            {
+                <div class="fc-wt-flake fc-wt-gust" style="@FlakeStyle(flake)"><div class="fc-wt-flake-sway">@FlakeShape(flake)</div></div>
+            }
+        </div>
+    }
+
+    @* Гирлянда: провод провисает четырьмя дугами, лампочки висят на нём. Кликабельны только лампочки —
+       кнопки шапки под проводом остаются доступны. Клик переключает режим мигания. *@
+    <button type="button" class="fc-wt-garland fc-wt-garland-@GarlandMode" aria-label="@GarlandTitle" title="@GarlandTitle" @onclick="NextGarlandMode">
+        <svg class="fc-wt-wire" viewBox="0 0 1000 30" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path d="M0 2 Q125 22 250 2 Q375 22 500 2 Q625 22 750 2 Q875 22 1000 2" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+        </svg>
+        <span class="fc-wt-bulbs" aria-hidden="true">
+            @foreach (var bulb in Bulbs)
+            {
+                <span class="fc-wt-bulb" style="--x:@Css(bulb.X)%;--y:@Css(bulb.Y)px;--i:@bulb.Index;--tw:@Css(bulb.Twinkle)s"></span>
+            }
+        </span>
+    </button>
+
+    @* Сугробы в нижних углах; полосы во всю ширину нет, чтобы не закрывать низ страницы. *@
+    <svg class="fc-wt-drift fc-wt-drift-left" viewBox="0 0 260 44" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path d="M0 44 L0 14 Q34 2 78 12 Q124 22 168 20 Q214 18 260 40 L260 44 Z" fill="var(--fc-winter-drift)" />
+        <path d="M0 14 Q34 2 78 12 Q124 22 168 20 Q214 18 260 40" fill="none" stroke="var(--fc-winter-drift-edge)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+    </svg>
+    <svg class="fc-wt-drift fc-wt-drift-right" viewBox="0 0 260 44" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <path d="M0 44 L0 14 Q34 2 78 12 Q124 22 168 20 Q214 18 260 40 L260 44 Z" fill="var(--fc-winter-drift)" />
+        <path d="M0 14 Q34 2 78 12 Q124 22 168 20 Q214 18 260 40" fill="none" stroke="var(--fc-winter-drift-edge)" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+    </svg>
+
+    @* Снеговик в правом нижнем углу: изредка покачивается, шарф развевается; по клику — метель. *@
+    <button type="button" class="fc-wt-snowman" aria-label="@Loc["Winter_SnowmanLabel"]" title="@Loc["Winter_SnowmanLabel"]" @onclick="StartBlizzard">
+        <svg class="@(_blizzardKey is null ? null : "fc-wt-snowman-shake")" @key="@(_blizzardKey ?? "idle")" viewBox="0 0 64 72" aria-hidden="true" focusable="false">
+            <g stroke="var(--fc-winter-snowman-edge)" stroke-width="1.2" fill="url(#fc-wt-snow-fill)">
+                <circle cx="32" cy="55" r="16" />
+                <circle cx="32" cy="33" r="12" />
+                <circle cx="32" cy="16" r="9" />
+            </g>
+            <path d="M21 11 L43 11 L40 2.5 Q32 0.5 24 2.5 Z" fill="#5d6f86" />
+            <path d="M19.5 11 L44.5 11" stroke="#46566b" stroke-width="2.4" stroke-linecap="round" />
+            <circle cx="28.5" cy="15" r="1.4" fill="#1d2430" />
+            <circle cx="35.5" cy="15" r="1.4" fill="#1d2430" />
+            <path d="M32 17.5 L41 19.4 L32 20.3 Z" fill="#f08a24" />
+            <circle cx="32" cy="30" r="1.3" fill="#1d2430" />
+            <circle cx="32" cy="35" r="1.3" fill="#1d2430" />
+            <circle cx="32" cy="50" r="1.4" fill="#1d2430" />
+            <path d="M22.5 24 Q32 27.5 41.5 24 L41.5 27.5 Q32 31 22.5 27.5 Z" fill="#d6334a" />
+            <path class="fc-wt-scarf-tail" d="M37 26.5 L41 26 L43 37 L39 37.5 Z" fill="#c22a40" />
+            <path d="M21 31 L11 25 M14 26.8 L12.5 23 M44 31 L53 24.5 M50 26.6 L51.5 22.6" stroke="#6b4a2e" stroke-width="1.6" stroke-linecap="round" fill="none" />
+        </svg>
+    </button>
+</div>
+
+@code {
+    /// <summary>Режимы гирлянды по кругу: класс <c>fc-wt-garland-{режим}</c> и строка <c>Winter_GarlandMode_{режим}</c>.</summary>
+    private static readonly string[] GarlandModes = ["chase", "twinkle", "rainbow", "steady"];
+
+    private readonly record struct Flake(double X, double Size, double Fall, double Delay, double Opacity, double Sway, double Drift);
+    private readonly record struct Bulb(int Index, double X, double Y, double Twinkle);
+
+    /// <summary>Обычный снегопад. Случайность с постоянным зерном: картинка одна и та же, а в разметке нет «магических» таблиц.</summary>
+    private static readonly Flake[] Flakes = MakeFlakes(28, seed: 2026, gust: false);
+
+    /// <summary>Метель: густая пачка быстрых снежинок по диагонали, разово; поверх — лёгкая пелена (CSS).</summary>
+    private static readonly Flake[] Gusts = MakeFlakes(64, seed: 1231, gust: true);
+
+    /// <summary>
+    /// 24 лампочки: по 6 на каждую из 4 дуг провода. Дуга — квадратичная кривая с вершиной 22 из 30 по высоте:
+    /// y = 2 + 40·t·(1 − t), x растёт линейно, поэтому лампочка точно висит на проводе.
+    /// </summary>
+    private static readonly Bulb[] Bulbs = MakeBulbs();
+
+    /// <summary>Сколько держится метель и как часто её можно запускать.</summary>
+    private const int BlizzardMs = 6000;
+    private static readonly TimeSpan BlizzardCooldown = TimeSpan.FromSeconds(4);
+
+    private Timer? _blizzardTimer;
+    private string? _blizzardKey;
+    private DateTime _lastBlizzard = DateTime.MinValue;
+    private int _garlandMode;
+
+    private string GarlandMode => GarlandModes[_garlandMode];
+    private string GarlandTitle => $"{Loc["Winter_GarlandLabel"]}: {Loc["Winter_GarlandMode_" + GarlandMode]}";
+
+    /// <summary>Числа в inline-стилях — с точкой при любой культуре интерфейса.</summary>
+    private static string Css(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string FlakeStyle(Flake f) =>
+        $"--x:{Css(f.X)}%;--size:{Css(f.Size)}px;--fall:{Css(f.Fall)}s;--delay:{Css(f.Delay)}s;--o:{Css(f.Opacity)};--sway:{Css(f.Sway)}px;--drift:{Css(f.Drift)}vw";
+
+    /// <summary>Мелкие снежинки — точки, крупные — шестилучевые.</summary>
+    private static RenderFragment FlakeShape(Flake f) => f.Size >= 9
+        ? @<svg focusable="false"><use href="#fc-wt-flake-symbol" /></svg>
+        : @<span class="fc-wt-dot"></span>;
+
+    private static Flake[] MakeFlakes(int count, int seed, bool gust)
+    {
+        var random = new Random(seed);
+        double Between(double min, double max) => min + random.NextDouble() * (max - min);
+        return Enumerable.Range(0, count).Select(i => gust
+            ? new Flake(Between(10, 130), Between(4, 11), Between(1.8, 3.2), Between(0, 2.4), Between(.6, .95), Between(4, 10), -Between(25, 45))
+            : new Flake((i + Between(.1, .9)) * 100.0 / count, Between(4, 12), Between(9, 18), -Between(0, 18), Between(.5, .85), Between(8, 22), 0))
+            .ToArray();
+    }
+
+    private static Bulb[] MakeBulbs()
+    {
+        var random = new Random(24);
+        return Enumerable.Range(0, 24).Select(i =>
+        {
+            var swag = i / 6;
+            var t = (i % 6 + 0.5) / 6;
+            return new Bulb(i, (swag + t) * 25, 2 + 40 * t * (1 - t), random.NextDouble() * 2.4);
+        }).ToArray();
+    }
+
+    /// <summary>Пасхалка: клик по лампочке переключает режим гирлянды.</summary>
+    private void NextGarlandMode() => _garlandMode = (_garlandMode + 1) % GarlandModes.Length;
+
+    /// <summary>Пасхалка: снеговик устраивает метель на несколько секунд (не чаще раза в 4 секунды).</summary>
+    private void StartBlizzard()
+    {
+        if (DateTime.UtcNow - _lastBlizzard < BlizzardCooldown) return;
+        _lastBlizzard = DateTime.UtcNow;
+        _blizzardKey = Guid.NewGuid().ToString();
+        _blizzardTimer ??= new Timer(_ => InvokeAsync(EndBlizzard), null, Timeout.Infinite, Timeout.Infinite);
+        _blizzardTimer.Change(BlizzardMs, Timeout.Infinite);
+    }
+
+    private void EndBlizzard()
+    {
+        _blizzardKey = null;
+        StateHasChanged();
+    }
+
+    public void Dispose() => _blizzardTimer?.Dispose();
+}

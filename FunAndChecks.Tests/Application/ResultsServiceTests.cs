@@ -1,6 +1,7 @@
 using FluentAssertions;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Results;
+using FunAndChecks.Application.Students;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using FunAndChecks.Infrastructure.Caching;
@@ -144,6 +145,68 @@ public class ResultsServiceTests : IDisposable
 
         // Колонки-оценки идут отдельным списком, в максимум по задачам не входят.
         result.MaxPointsPossible.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetSubjectResults_SendsOnlySubmittedCells_TotalUnchanged()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin(letter: "K", color: "#abcdef");
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        var student = ctx.Student(group);
+        var accepted = ctx.Task(subject, maxPoints: 10, name: "A");
+        var rejected = ctx.Task(subject, maxPoints: 10, name: "B");
+        var untouched = ctx.Task(subject, maxPoints: 10, name: "C");
+        await ctx.SaveChangesAsync();
+        ctx.Submissions.AddRange(
+            new Submission { StudentId = student.Id, TaskId = accepted.Id, AdminId = admin.Id, Status = SubmissionStatus.Accepted, SubmittedAt = DateTime.UtcNow },
+            new Submission { StudentId = student.Id, TaskId = rejected.Id, AdminId = admin.Id, Status = SubmissionStatus.Rejected, SubmittedAt = DateTime.UtcNow });
+        await ctx.SaveChangesAsync();
+
+        var row = (await new ResultsService(ctx, _cache).GetSubjectResultsAsync(subject.Id)).UserResults.Single();
+
+        // Не сданная задача — без ячейки: на 100+ задачах пустые ячейки раздували каждый ответ.
+        row.Results.Keys.Should().BeEquivalentTo([accepted.Id, rejected.Id]);
+        row.Results[accepted.Id].Should().Be(new ResultCellDto("+", "#abcdef", SubmissionStatus.Accepted));
+        row.Results[rejected.Id].Should().Be(new ResultCellDto("K", "#abcdef", SubmissionStatus.Rejected));
+        row.Results.ContainsKey(untouched.Id).Should().BeFalse();
+        row.TotalPoints.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetStudentColors_MatchesTableStudents_FromDatabaseAndFromCache()
+    {
+        await using var ctx = _db.NewContext();
+        var group = ctx.Group();
+        var otherGroup = ctx.Group("M8O-999");
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        var painted = ctx.Student(group, "Painted");
+        painted.Color = "#ff0000";
+        var plain = ctx.Student(group, "Plain");
+        ctx.Student(otherGroup, "Outsider");
+        await ctx.SaveChangesAsync();
+        var sut = new ResultsService(ctx, _cache);
+        StudentColorUpdateDto[] expected = [new(painted.Id, "#ff0000"), new(plain.Id, null)];
+
+        // Без кэша — лёгкий запрос по базе.
+        (await sut.GetStudentColorsAsync(subject.Id)).Should().BeEquivalentTo(expected);
+
+        // С построенной таблицей — из кэша, те же студенты.
+        await sut.GetSubjectResultsAsync(subject.Id);
+        (await sut.GetStudentColorsAsync(subject.Id)).Should().BeEquivalentTo(expected);
+    }
+
+    [Fact]
+    public async Task GetStudentColors_UnknownSubject_Throws()
+    {
+        await using var ctx = _db.NewContext();
+        var act = () => new ResultsService(ctx, _cache).GetStudentColorsAsync(404);
+        await act.Should().ThrowAsync<NotFoundException>();
     }
 
     public void Dispose() => _db.Dispose();

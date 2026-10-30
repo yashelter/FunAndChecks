@@ -3,6 +3,7 @@ using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Frontend.Shared.UI;
+using Frontend.Admin.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
@@ -25,34 +26,17 @@ public partial class Dashboard
     private List<SubjectDto> _subjects = [];
     private SubjectDto? _selectedSubject;
     private SubjectResultsDto? _results;
-    private MudDataGrid<StudentResultRowDto>? _grid;
-    private readonly Guid _profileViewInstance = Guid.NewGuid();
     private bool _loading;
     private bool _showAcceptedTeacherColors;
     private Dictionary<Guid, (int Present, int Absent, int Unmarked)>? _attendance;
     private VariantBoardDto? _variants;
-    private Dictionary<Guid, Dictionary<int, AssignedVariantDto>> _variantsByStudent = [];
     private string AveragePoints => _results?.UserResults is { Count: > 0 } rows
         ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
         : "—";
 
     private int _acceptedCount, _reworkCount;
 
-    /// <summary>
-    /// MudDataGrid регистрирует колонки в порядке создания: колонка, появившаяся при живом обновлении
-    /// (новая задача, оценка или набор вариантов), встала бы в конец, после посещаемости. Другой набор колонок — новая таблица.
-    /// </summary>
-    private string ColumnsKey => _results is null ? "" :
-        ResultsColumns.Key(_results) + "|" + string.Join(',', _variants?.Sets.Select(s => s.Id) ?? []);
-
-    private int? VariantNumber(StudentResultRowDto row, int setId) =>
-        _variantsByStudent.GetValueOrDefault(row.StudentId)?.GetValueOrDefault(setId)?.Number;
-
-    private void SetVariants(VariantBoardDto? board)
-    {
-        _variants = board is { Sets.Count: > 0 } ? board : null;
-        _variantsByStudent = _variants?.Students.ToDictionary(r => r.StudentId, r => r.Variants) ?? [];
-    }
+    private void SetVariants(VariantBoardDto? board) => _variants = board is { Sets.Count: > 0 } ? board : null;
 
     /// <summary>Варианты — дополнительная колонка: без них таблица всё равно показывается.</summary>
     private async Task RefreshVariantsAsync(int subjectId)
@@ -65,26 +49,30 @@ public partial class Dashboard
         catch (ApiException) { }
     }
 
-    private string CellLabel(StudentResultRowDto row, TaskHeaderDto task)
+    /// <summary>Посещаемость — дополнительная колонка: если журнал не загрузился, таблица показывается без неё.</summary>
+    private async Task<Dictionary<Guid, (int Present, int Absent, int Unmarked)>?> LoadAttendanceAsync(int subjectId)
     {
-        var status = row.Results.GetValueOrDefault(task.TaskId)?.Status switch
+        try
         {
-            SubmissionStatus.Accepted => "Task_StatusAccepted",
-            SubmissionStatus.Rejected => "Task_StatusRejected",
-            _ => "Task_StatusNotSubmitted",
-        };
-        return $"{row.FullName}, {task.TaskName}: {Loc[status]}. {Loc["Dashboard_CellAction"]}";
+            var journal = await Attendance.GetJournalAsync(subjectId);
+            if (!journal.Enabled && journal.Sessions.Count == 0)
+                return null;
+            return journal.Students.GroupBy(s => s.StudentId).ToDictionary(g => g.Key,
+                g => (g.Sum(s => s.Present), g.Sum(s => s.Absent), g.Sum(s => s.Unmarked)));
+        }
+        catch (ApiException) { return null; }
     }
 
     /// <summary>
     /// Клик по ячейке открывает студента сразу на этой задаче (с историей): зачесть или вернуть
     /// можно здесь же, без перехода в «Оценивание» и повторного выбора предмета.
     /// </summary>
-    private async Task OpenStudentAsync(StudentResultRowDto row, TaskHeaderDto task)
+    private async Task OpenStudentAsync(ResultCellClick click)
     {
         if (_results is null)
             return;
 
+        var (row, task) = click;
         var parameters = new DialogParameters<Frontend.Admin.Dialogs.StudentInteractionDialog>
         {
             { x => x.StudentId, row.StudentId },
@@ -174,21 +162,19 @@ public partial class Dashboard
 
         try
         {
-            // Таблица и журнал независимы — запрашиваем параллельно.
+            // Таблица, варианты и журнал независимы — запрашиваем параллельно.
             var resultsTask = Results.GetSubjectResultsAsync(subject.Id);
-            var journalTask = Attendance.GetJournalAsync(subject.Id);
+            var attendanceTask = LoadAttendanceAsync(subject.Id);
             var variantsTask = RefreshVariantsAsync(subject.Id);
             var results = await resultsTask;
+            // Колонки вариантов и посещаемости дожидаемся до показа: пришедшая позже колонка перерисовала бы
+            // большую таблицу ещё раз. Без них таблица всё равно показывается — обе загрузки ошибок не бросают.
+            await variantsTask;
+            var attendance = await attendanceTask;
             // Пока грузили, могли выбрать другой предмет — его загрузка и покажет свою таблицу.
             if (_selectedSubject?.Id != subject.Id) return;
-            // Таблица видна, даже если журнал посещаемости не загрузится.
             SetResults(results);
-            await variantsTask;
-            var journal = await journalTask;
-            if (_selectedSubject?.Id != subject.Id) return;
-            if (journal.Enabled || journal.Sessions.Count > 0)
-                _attendance = journal.Students.GroupBy(s => s.StudentId).ToDictionary(g => g.Key,
-                    g => (g.Sum(s => s.Present), g.Sum(s => s.Absent), g.Sum(s => s.Unmarked)));
+            _attendance = attendance;
         }
         catch (ApiException ex) when (_selectedSubject?.Id == subject.Id)
         {
@@ -219,42 +205,10 @@ public partial class Dashboard
         }
     }
 
-    private Task RememberResultsAsync() => ProfileReturn.CaptureAsync("/admin", _grid, _profileViewInstance);
-    protected override Task OnAfterRenderAsync(bool firstRender) => ProfileReturn.RestoreAsync("/admin", _grid, _profileViewInstance);
-
     private void UpdateStudentColors(IReadOnlyList<StudentColorUpdateDto> updates)
     {
-        if (_results is not null)
-            SetResults(_results with { UserResults = StudentColorRows.Apply(_results.UserResults, updates) });
+        // Apply возвращает тот же список, если цвета не изменились: тогда и таблица не перерисовывается.
+        if (_results is not null && StudentColorRows.Apply(_results.UserResults, updates) is var rows && !ReferenceEquals(rows, _results.UserResults))
+            SetResults(_results with { UserResults = rows });
     }
-
-    private static string FioStyle(string? color)
-    {
-        if (string.IsNullOrEmpty(color))
-            return string.Empty;
-        return $"background-color:{color};color:{Frontend.Shared.UI.ColorUtils.ContrastText(color)};" +
-               "padding:2px 8px;border-radius:6px;display:inline-block;";
-    }
-
-    private static string CellText(ResultCellDto? cell) =>
-        cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
-
-    private string CellStyle(ResultCellDto? cell)
-    {
-        if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
-            return string.Empty;
-
-        if (cell.Status == SubmissionStatus.Accepted)
-            return _showAcceptedTeacherColors ? $"background-color:{cell.AdminColor};color:#000000;border-color:{cell.AdminColor};text-shadow:0 0 3px rgba(255,255,255,.7);" : string.Empty;
-
-        // The letter and its teacher's color carry information independently from the theme accent.
-        return $"background-color:{cell.AdminColor};color:{Frontend.Shared.UI.ColorUtils.ContrastText(cell.AdminColor)};";
-    }
-
-    private static string CellClass(ResultCellDto? cell) => cell?.Status switch
-    {
-        SubmissionStatus.Accepted => "fc-result-accepted",
-        SubmissionStatus.Rejected => "fc-result-rework",
-        _ => "fc-result-unsubmitted",
-    };
 }

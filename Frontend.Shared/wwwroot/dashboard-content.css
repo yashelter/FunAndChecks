@@ -12,16 +12,12 @@
 .fc-results-grid .mud-table-container { overflow:auto; }
 .fc-results-grid .mud-table-root { border-collapse:separate; border-spacing:0; }
 .fc-results-grid .mud-table-head .mud-table-cell { background:var(--mud-palette-background); color:var(--mud-palette-text-secondary); font-size:12px; white-space:nowrap; }
-.fc-results-grid .mud-table-cell { border-color:var(--mud-palette-lines-default); padding:14px 16px; min-width:92px; }
-.fc-results-grid .fc-results-sticky { position:sticky; left:0; min-width:210px; max-width:260px; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); z-index:1; }
-.fc-results-grid thead .fc-results-sticky { z-index:3; }
+.fc-results-grid .mud-table-cell { border-color:var(--mud-palette-lines-default); padding:0 10px; min-width:0; }
 .fc-results-grid .fc-results-number { text-align:center; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .fc-results-grid .fc-results-task-header { text-align:center; }
-.fc-results-grid .fc-results-task-header .column-header { position:relative; justify-content:center; padding-inline:32px; min-height:32px; }
-.fc-results-grid .fc-results-task-header .column-options { position:absolute; inset-inline-end:0; }
-.fc-results-attendance-unmarked { display:block; margin-top:4px; }
+.fc-results-attendance-unmarked { margin-left:6px; font-size:12px; }
 .fc-results-teacher-colors { margin:0; }
-.fc-result-cell { display:inline-flex; align-items:center; justify-content:center; width:32px; min-height:30px; border:1px solid var(--mud-palette-lines-default); border-radius:7px; font-weight:750; font-size:14px; }
+.fc-result-cell { display:inline-flex; align-items:center; justify-content:center; width:32px; height:28px; border:1px solid var(--mud-palette-lines-default); border-radius:7px; font-weight:750; font-size:14px; }
 .fc-result-cell.accepted { background:rgba(var(--mud-palette-success-rgb),.12); color:var(--mud-palette-success); border-color:rgba(var(--mud-palette-success-rgb),.28); }
 .fc-result-cell.empty { color:var(--mud-palette-text-disabled); background:var(--mud-palette-background); }
 .fc-results-legend { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; border-top:1px solid var(--mud-palette-lines-default); padding:14px 22px; font-size:12px; color:var(--mud-palette-text-secondary); }
@@ -138,21 +134,51 @@
     .fc-auth-form .mud-input-slot input { font-size:16px; }
     .fc-queue-event { padding:16px; }
     .fc-queue-event .fc-toolbar > .mud-button-root { flex:1; }
-    .fc-results-grid .fc-results-sticky { min-width:145px; max-width:160px; padding:12px 10px; }
-    .fc-results-grid .mud-table-cell { padding:12px 10px; }
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell { padding-inline:8px; }
+    .fc-results-grid .fc-results-name-column { font-size:12px; }
     .fc-results-legend { padding:14px 16px; }
     .fc-student-attendance .attendance-history-row { padding:16px; align-items:flex-start; }
     .fc-task-card .mud-expand-panel-header { padding:14px 16px; }
 }
 .fc-results-average { margin:0 0 14px; font-size:12px; }
 .fc-results-average strong { color:var(--fc-text); font-variant-numeric:tabular-nums; }
-/* Колонки задач — по ширине названия задачи: таблица не растягивается на всю ширину,
-   а у ячеек задач нет запаса под меню фильтра (фильтр по ним отключён). */
+/* Таблица результатов рассчитана на большие предметы (100+ студентов × 100+ задач):
+   - строки одной высоты — они виртуализированы, в DOM только видимые (--fc-results-row = ResultsColumns.RowHeight);
+   - своя область прокрутки на высоту окна с закреплённой шапкой; имя и Σ закреплены при прокрутке вбок;
+   - колонки задач узкие, при большом числе задач названия в шапке вертикальные. */
+/* Высота области: таблица с полосой сверху, легендой и подвалом помещается в окно, поэтому и в самом низу страницы
+   шапка с задачами видна. Колесо у края таблицы не прокручивает страницу. */
+.fc-results-grid { --fc-results-row:37px; --fc-results-name:220px; --fc-results-height:max(360px, calc(100dvh - 210px)); }
+/* max-height, а не height: у маленьких предметов под таблицей не остаётся пустого места. */
+.fc-results-grid .mud-table-container { max-height:var(--fc-results-height); overscroll-behavior:contain; }
 .fc-results-grid .mud-table-root { width:auto; min-width:0; }
-.fc-results-grid .mud-table-cell.fc-results-task-header,
-.fc-results-grid .mud-table-cell.fc-results-task-column,
-.fc-results-grid td.mud-table-cell.fc-results-number { min-width:0; width:1%; padding-inline:10px; }
+/* Отступы MudBlazor (.mud-table-dense …) и настройки плотности (:root[data-density] …) специфичнее — перебиваем их,
+   иначе высота строки разойдётся с ItemSize. */
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell { padding-inline:10px; }
+.fc-results-grid .mud-table-root .mud-table-body .mud-table-row > .mud-table-cell { height:var(--fc-results-row); padding-block:0; white-space:nowrap; }
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header,
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-column,
+.fc-results-grid .mud-table-root .mud-table-row > td.mud-table-cell.fc-results-number { min-width:0; width:1%; padding-inline:6px; text-align:center; }
 .fc-results-grid .fc-results-task-header .column-header { padding-inline:0; justify-content:center; }
+.fc-results-task-title { white-space:nowrap; }
+.fc-results-many-tasks .mud-table-head .mud-table-cell { vertical-align:bottom; }
+.fc-results-many-tasks .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header { padding-block:8px; }
+.fc-results-many-tasks .fc-results-task-title { display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); max-height:140px; overflow:hidden; text-overflow:ellipsis; line-height:1.25; }
+.fc-results-grid .fc-results-name-column { position:sticky; left:0; z-index:1; width:var(--fc-results-name); min-width:var(--fc-results-name); max-width:var(--fc-results-name); background:var(--mud-palette-surface); }
+.fc-results-grid .fc-results-total-column { position:sticky; left:var(--fc-results-name); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
+.fc-results-grid thead .mud-table-cell.fc-results-name-column,
+.fc-results-grid thead .mud-table-cell.fc-results-total-column { z-index:3; background:var(--mud-palette-background); }
+.fc-results-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-results-name .fc-student-name, .fc-results-name .fc-result-name { display:inline; }
+/* На телефоне имя уже, чтобы рядом с ним и Σ было видно хотя бы несколько задач (после основного правила — иначе оно перебьёт). */
+@media (max-width:600px) { .fc-results-grid { --fc-results-name:140px; } }
+/* Цвета преподавателей у зачтённых: цвет уже в ячейке (--tc), переключатель лишь ставит класс на панель — без перерисовки таблицы. */
+.fc-results-show-teacher .fc-result-cell[style*="--tc"] { background-color:var(--tc); color:#000; border-color:var(--tc); text-shadow:0 0 3px rgba(255,255,255,.7); }
+/* Полоса горизонтальной прокрутки над шапкой: закреплена у верха окна (results-scroll.js). */
+.fc-results-scroll-host { position:relative; min-width:0; }
+.fc-results-hscroll { position:sticky; top:0; z-index:5; height:16px; overflow-x:auto; overflow-y:hidden; background:var(--mud-palette-background); border-bottom:1px solid var(--mud-palette-lines-default); scrollbar-color:var(--mud-palette-text-disabled) transparent; }
+.fc-results-hscroll[hidden] { display:none; }
+.fc-results-hscroll > div { height:1px; }
 
 /* Halloween — тыквенная кнопка записи в очередь и тыква вместо значка.
    Показываются, пока сезонная тема HalloweenTheme активна и не выключена пользователем. */
@@ -573,6 +599,285 @@
     --fc-halloween-bat-color: #2a1d33;
     --fc-halloween-bat-glow: rgba(255, 255, 255, .6);
     --fc-halloween-fog: rgba(120, 108, 160, .13);
+}
+
+/* ==========================================================================
+   Winter Animations — снегопад, гирлянда, иней, сугробы и снеговик; снежинка вместо значка.
+   Рисуется компонентом WinterAnimations, пока сезонная тема WinterTheme активна.
+   Декор держится краёв экрана; кликабельны только лампочки гирлянды и снеговик.
+   ========================================================================== */
+
+/* Оверлей поверх страницы, но ниже диалогов MudBlazor; клики проходят насквозь. */
+.fc-winter-animations {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+}
+.fc-winter-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* --- Снежинка вместо значка: медленно вращается, при наведении крутится быстрее --- */
+.fc-winter-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--fc-winter-logo-top), var(--fc-winter-logo-bottom));
+    box-shadow: inset 0 -1px 3px rgba(10, 40, 90, .35), 0 0 0 1px var(--fc-winter-logo-edge);
+}
+.fc-winter-flake { width: 22px; height: 22px; display: block; animation: fc-wt-logo-spin 24s linear infinite; }
+.fc-brand:hover .fc-winter-logo { box-shadow: inset 0 -1px 3px rgba(10, 40, 90, .35), 0 0 14px var(--fc-winter-glow); }
+.fc-brand:hover .fc-winter-flake { animation-duration: 1.6s; }
+
+@keyframes fc-wt-logo-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Иней в верхних углах: статичен --- */
+.fc-wt-frost {
+    position: fixed;
+    top: 0;
+    width: 150px;
+    height: 150px;
+    color: var(--fc-winter-frost);
+    pointer-events: none;
+}
+.fc-wt-frost-left { left: 0; }
+.fc-wt-frost-right { right: 0; transform: scaleX(-1); }
+.fc-wt-sparkle { stroke: var(--fc-winter-sparkle); }
+/* В кабинете с боковой панелью левый иней и гирлянда начинаются у края контента, а не поверх меню. */
+@media (min-width: 960px) {
+    .fc-shell:not(.fc-shell-public) .fc-wt-frost-left,
+    .fc-shell:not(.fc-shell-public) .fc-wt-drift-left { left: 234px; }
+    .fc-shell:not(.fc-shell-public) .fc-wt-garland { left: 234px; }
+}
+
+/* --- Снегопад: внешний слой падает, внутренний покачивается --- */
+.fc-wt-snow, .fc-wt-blizzard { position: absolute; inset: 0; color: var(--fc-winter-snow); }
+.fc-wt-flake {
+    position: absolute;
+    left: var(--x);
+    top: 0;
+    width: var(--size);
+    height: var(--size);
+    opacity: var(--o);
+    will-change: transform;
+    animation: fc-wt-fall var(--fall) linear var(--delay) infinite;
+}
+.fc-wt-flake-sway {
+    width: 100%;
+    height: 100%;
+    animation: fc-wt-sway calc(var(--fall) / 3) ease-in-out var(--delay) infinite alternate;
+}
+.fc-wt-flake svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 2px var(--fc-winter-snow-glow)); }
+.fc-wt-dot {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 4px var(--fc-winter-snow-glow);
+}
+/* Метель: разово, быстрее и наискосок; белёсая пелена держится, пока она идёт (6 с). */
+.fc-wt-gust { opacity: 0; animation: fc-wt-gust var(--fall) linear var(--delay) 1 forwards; }
+.fc-wt-blizzard::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(200deg, var(--fc-winter-veil), transparent 75%);
+    opacity: 0;
+    animation: fc-wt-veil 6s ease-in-out forwards;
+}
+
+@keyframes fc-wt-fall {
+    from { transform: translate3d(0, -6vh, 0); }
+    to   { transform: translate3d(0, 104vh, 0); }
+}
+@keyframes fc-wt-sway {
+    from { transform: translateX(calc(var(--sway) * -1)) rotate(-25deg); }
+    to   { transform: translateX(var(--sway)) rotate(25deg); }
+}
+@keyframes fc-wt-veil {
+    0%, 100% { opacity: 0; }
+    20%, 70% { opacity: 1; }
+}
+@keyframes fc-wt-gust {
+    0%   { transform: translate3d(0, -6vh, 0); opacity: 0; }
+    10%  { opacity: var(--o); }
+    85%  { opacity: var(--o); }
+    100% { transform: translate3d(var(--drift), 104vh, 0); opacity: 0; }
+}
+
+/* --- Гирлянда вдоль верхнего края: сама кнопка клики не ловит, ловят только лампочки --- */
+.fc-wt-garland {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fc-winter-wire);
+    pointer-events: none;
+    z-index: 1011;
+    -webkit-tap-highlight-color: transparent;
+}
+.fc-wt-garland:focus-visible { outline: 2px solid var(--fc-winter-glow); outline-offset: -2px; }
+.fc-wt-wire { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+.fc-wt-bulbs { position: absolute; inset: 0; }
+.fc-wt-bulb {
+    --bulb: #ff4d5e;
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: 8px;
+    height: 11px;
+    margin-left: -4px;
+    border-radius: 50% 50% 48% 48% / 40% 40% 60% 60%;
+    background: radial-gradient(circle at 40% 35%, #fff 0 12%, var(--bulb) 45%);
+    box-shadow: 0 0 6px 1px var(--bulb), 0 0 14px var(--bulb);
+    cursor: pointer;
+    pointer-events: auto;
+}
+/* Цоколь лампочки на проводе. */
+.fc-wt-bulb::before {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: 2px;
+    width: 4px;
+    height: 4px;
+    border-radius: 1px;
+    background: var(--fc-winter-wire);
+}
+.fc-wt-bulb:nth-child(4n+2) { --bulb: #ffd34d; }
+.fc-wt-bulb:nth-child(4n+3) { --bulb: #4ddb7a; }
+.fc-wt-bulb:nth-child(4n+4) { --bulb: #4da6ff; }
+
+/* Режимы: бегущий огонь, мерцание, радуга, ровный свет (класс fc-wt-garland-{режим}). */
+.fc-wt-garland-chase .fc-wt-bulb { animation: fc-wt-bulb-pulse 1.8s ease-in-out infinite; animation-delay: calc(var(--i) * .075s); }
+.fc-wt-garland-twinkle .fc-wt-bulb { animation: fc-wt-bulb-pulse 1.3s ease-in-out infinite alternate; animation-delay: calc(var(--tw) * -1); }
+.fc-wt-garland-rainbow .fc-wt-bulb { animation: fc-wt-bulb-rainbow 4s linear infinite; animation-delay: calc(var(--i) * -.16s); }
+
+@keyframes fc-wt-bulb-pulse {
+    0%, 100% { opacity: .35; box-shadow: 0 0 2px var(--bulb); }
+    50%      { opacity: 1; box-shadow: 0 0 6px 1px var(--bulb), 0 0 16px var(--bulb); }
+}
+@keyframes fc-wt-bulb-rainbow {
+    from { filter: hue-rotate(0deg); }
+    to   { filter: hue-rotate(360deg); }
+}
+
+/* --- Сугробы в нижних углах --- */
+.fc-wt-drift {
+    position: fixed;
+    bottom: 0;
+    width: 260px;
+    height: 44px;
+    pointer-events: none;
+    filter: drop-shadow(0 -2px 6px var(--fc-winter-snow-glow));
+}
+.fc-wt-drift-left { left: 0; }
+.fc-wt-drift-right { right: 0; transform: scaleX(-1); }
+
+/* --- Снеговик в правом нижнем углу: изредка покачивается, по клику — метель --- */
+.fc-wt-snowman {
+    position: fixed;
+    right: 22px;
+    bottom: 10px;
+    width: 54px;
+    height: 61px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 1012;
+    -webkit-tap-highlight-color: transparent;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .25));
+}
+.fc-wt-snowman:focus-visible { outline: 2px solid var(--fc-winter-glow); outline-offset: 3px; border-radius: 12px; }
+.fc-wt-snowman svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+    transform-origin: 50% 100%;
+    animation: fc-wt-snowman-sway 7s ease-in-out infinite;
+}
+.fc-wt-snowman svg.fc-wt-snowman-shake { animation: fc-wt-snowman-shake .6s ease-in-out 1; }
+.fc-wt-scarf-tail { transform-box: fill-box; transform-origin: 50% 0; animation: fc-wt-scarf 1.4s ease-in-out infinite alternate; }
+
+@keyframes fc-wt-snowman-sway {
+    0%, 78%, 100% { transform: rotate(0deg); }
+    84%           { transform: rotate(-4deg); }
+    90%           { transform: rotate(3deg); }
+    95%           { transform: rotate(-1.5deg); }
+}
+@keyframes fc-wt-snowman-shake {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    20%      { transform: rotate(-8deg) scale(1.05); }
+    45%      { transform: rotate(7deg) scale(1.05); }
+    70%      { transform: rotate(-4deg); }
+}
+@keyframes fc-wt-scarf {
+    from { transform: rotate(-6deg); }
+    to   { transform: rotate(10deg); }
+}
+
+/* --- Телефон: всё меньше, снежинок вдвое меньше, лампочки не перехватывают нажатия --- */
+@media (max-width: 760px) {
+    .fc-wt-frost { width: 90px; height: 90px; }
+    .fc-wt-drift { width: 150px; height: 28px; }
+    .fc-wt-snowman { width: 40px; height: 45px; right: 14px; bottom: 6px; }
+    .fc-wt-bulb { pointer-events: none; }
+    .fc-wt-bulb:nth-child(even) { display: none; }
+}
+@media (max-width: 600px) {
+    .fc-wt-snow .fc-wt-flake:nth-child(n+15), .fc-wt-blizzard .fc-wt-flake:nth-child(n+33) { display: none; }
+}
+
+/* «Меньше движения»: снег скрыт; гирлянда горит ровно, иней, сугробы и снеговик остаются неподвижными. */
+@media (prefers-reduced-motion: reduce) {
+    .fc-wt-snow, .fc-wt-blizzard { display: none !important; }
+    .fc-wt-bulb, .fc-wt-snowman svg, .fc-wt-scarf-tail, .fc-winter-flake { animation: none !important; }
+}
+
+/* Цвета под тёмную и светлую тему. */
+:root, :root[data-theme=dark] {
+    --fc-winter-snow: #f4f8ff;
+    --fc-winter-veil: rgba(220, 235, 255, .16);
+    --fc-winter-snow-glow: rgba(200, 225, 255, .55);
+    --fc-winter-frost: rgba(205, 228, 255, .55);
+    --fc-winter-sparkle: rgba(255, 255, 255, .85);
+    --fc-winter-wire: #2d3a2f;
+    --fc-winter-drift: rgba(236, 243, 252, .92);
+    --fc-winter-drift-edge: rgba(255, 255, 255, .95);
+    --fc-winter-snowman-edge: rgba(150, 175, 210, .9);
+    --fc-winter-glow: rgba(140, 200, 255, .7);
+    --fc-winter-logo-top: #6fb6ff;
+    --fc-winter-logo-bottom: #2f6fd6;
+    --fc-winter-logo-edge: rgba(170, 215, 255, .7);
+}
+:root[data-theme=light] {
+    --fc-winter-snow: #9fb8d8;
+    --fc-winter-veil: rgba(110, 145, 200, .14);
+    --fc-winter-snow-glow: rgba(70, 100, 150, .35);
+    --fc-winter-frost: rgba(90, 135, 190, .45);
+    --fc-winter-sparkle: rgba(60, 120, 200, .8);
+    --fc-winter-wire: #3b4a3d;
+    --fc-winter-drift: rgba(255, 255, 255, .96);
+    --fc-winter-drift-edge: rgba(150, 180, 220, .9);
+    --fc-winter-snowman-edge: rgba(120, 150, 195, .95);
+    --fc-winter-glow: rgba(60, 140, 230, .6);
+    --fc-winter-logo-top: #79bdff;
+    --fc-winter-logo-bottom: #2f6fd6;
+    --fc-winter-logo-edge: rgba(90, 150, 230, .7);
 }
 
 /* Уведомления смахиваются в сторону (js/snackbar-swipe.js): горизонтальный жест не прокручивает страницу. */

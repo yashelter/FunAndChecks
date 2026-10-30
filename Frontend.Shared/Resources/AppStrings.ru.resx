@@ -888,4 +888,11 @@
   <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>В эту очередь нельзя встать самому: самозапись выключена, обратитесь к преподавателю.</value></data>
   <data name="Halloween_SpiderLabel" xml:space="preserve"><value>Ткнуть паука</value></data>
   <data name="Halloween_LanternLabel" xml:space="preserve"><value>Выпустить летучих мышей</value></data>
+  <data name="Winter_AriaLabel" xml:space="preserve"><value>Зимние украшения</value></data>
+  <data name="Winter_GarlandLabel" xml:space="preserve"><value>Переключить гирлянду</value></data>
+  <data name="Winter_SnowmanLabel" xml:space="preserve"><value>Устроить метель</value></data>
+  <data name="Winter_GarlandMode_chase" xml:space="preserve"><value>Бегущий огонь</value></data>
+  <data name="Winter_GarlandMode_twinkle" xml:space="preserve"><value>Мерцание</value></data>
+  <data name="Winter_GarlandMode_rainbow" xml:space="preserve"><value>Радуга</value></data>
+  <data name="Winter_GarlandMode_steady" xml:space="preserve"><value>Ровный свет</value></data>
 </root>
