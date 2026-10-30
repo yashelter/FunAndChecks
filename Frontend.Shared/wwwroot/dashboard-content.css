@@ -154,9 +154,8 @@
 .fc-results-grid td.mud-table-cell.fc-results-number { min-width:0; width:1%; padding-inline:10px; }
 .fc-results-grid .fc-results-task-header .column-header { padding-inline:0; justify-content:center; }
 
-/* Halloween event — тыквенная кнопка записи в очередь.
-   Показывается только при включённом флаге FeatureFlags:HalloweenEvent
-   и выбранном пользователем сезонном режиме. */
+/* Halloween — тыквенная кнопка записи в очередь и тыква вместо значка.
+   Показываются, пока сезонная тема HalloweenTheme активна и не выключена пользователем. */
 :root {
     --fc-halloween-pumpkin-top:#ff7a00; --fc-halloween-pumpkin-mid:#cc5d00;
     --fc-halloween-pumpkin-bottom:#ff9d3a; --fc-halloween-pumpkin-edge:rgba(255,170,0,.65);
@@ -237,30 +236,41 @@
 }
 
 /* ==========================================================================
-   Halloween Animations — ghosts & spider
-   Shown when Flags.HalloweenEvent && Appearance.IsHalloweenMode
+   Halloween Animations — паутина, призраки, паук на нити, летучие мыши, туман и тыква-фонарь.
+   Рисуется компонентом HalloweenAnimations, пока сезонная тема HalloweenTheme активна.
+   Декор держится краёв экрана; кликабельны только паук и фонарь.
    ========================================================================== */
 
-/* Container: fixed viewport overlay, non-interactive */
+/* Оверлей поверх страницы, но ниже диалогов MudBlazor; клики проходят насквозь. */
 .fc-halloween-animations {
     position: fixed;
     inset: 0;
     pointer-events: none;
-    z-index: 1000; /* above content, below modals/dialogs */
+    z-index: 1000;
     overflow: hidden;
 }
 
-/* Скрытые определения символов ( ghost / spider ) — переиспользуются через <use>. */
+/* Скрытые определения символов (ghost / web) — переиспользуются через <use>. */
 .fc-halloween-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-    .fc-halloween-animations {
-        display: none !important;
-    }
+/* --- Паутина в верхних углах: статична --- */
+.fc-hw-web {
+    position: fixed;
+    top: 0;
+    width: 140px;
+    height: 140px;
+    color: var(--fc-halloween-web-color);
+    pointer-events: none;
+}
+.fc-hw-web-left { left: 0; }
+.fc-hw-web-right { right: 0; transform: scaleX(-1); }
+.fc-hw-dew { fill: var(--fc-halloween-dew-color); }
+/* В кабинете с боковой панелью левая паутина висит у края контента, а не поверх меню. */
+@media (min-width: 960px) {
+    .fc-shell:not(.fc-shell-public) .fc-hw-web-left { left: 234px; }
 }
 
-/* --- Ghosts: пять «теневых» призраков, каждый со своей траекторией через весь экран --- */
+/* --- Призраки: пять траекторий через весь экран --- */
 .fc-halloween-ghost {
     position: fixed;
     left: 0;
@@ -271,8 +281,6 @@
     pointer-events: none;
     will-change: transform, opacity;
     filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .35));
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
 }
 
 /* Ghost 1 — верхняя волна, слева направо */
@@ -286,184 +294,285 @@
 /* Ghost 5 — диагональ из правого нижнего угла в левый верхний */
 .fc-halloween-ghost-5 { z-index: 1005; animation: ghost-path-5 29s ease-in-out infinite; }
 
-/* Мобильные — призраки мельче и прозрачнее, чтобы не спорить с контентом */
-@media (max-width: 760px) {
-    .fc-halloween-ghost { width: 56px; height: 56px; }
-}
-@media (max-width: 480px) {
-    .fc-halloween-ghost { width: 44px; height: 44px; }
-}
-
-/* Траектория 1: слева направо через верхнюю треть экрана */
 @keyframes ghost-path-1 {
     0%   { transform: translate3d(-100px, 6vh, 0) rotate(-8deg) scale(.9); opacity: 0; }
-    8%   { opacity: .18; }
+    8%   { opacity: .26; }
     25%  { transform: translate3d(20vw, 18vh, 0) rotate(6deg) scale(1.05); }
     50%  { transform: translate3d(48vw, 8vh, 0) rotate(-4deg) scale(1); }
     75%  { transform: translate3d(78vw, 22vh, 0) rotate(7deg) scale(1.03); }
-    92%  { opacity: .18; }
+    92%  { opacity: .26; }
     100% { transform: translate3d(calc(100vw + 20px), 12vh, 0) rotate(-6deg) scale(.9); opacity: 0; }
 }
-
-/* Траектория 2: справа налево через середину экрана */
 @keyframes ghost-path-2 {
     0%   { transform: translate3d(calc(100vw + 20px), 58vh, 0) rotate(7deg) scale(.95); opacity: 0; }
-    8%   { opacity: .16; }
+    8%   { opacity: .24; }
     30%  { transform: translate3d(72vw, 44vh, 0) rotate(-6deg) scale(1.05); }
     55%  { transform: translate3d(45vw, 62vh, 0) rotate(5deg) scale(1); }
     80%  { transform: translate3d(18vw, 48vh, 0) rotate(-7deg) scale(1.02); }
-    92%  { opacity: .16; }
+    92%  { opacity: .24; }
     100% { transform: translate3d(-100px, 54vh, 0) rotate(6deg) scale(.95); opacity: 0; }
 }
-
-/* Траектория 3: слева направо через нижнюю треть экрана */
 @keyframes ghost-path-3 {
     0%   { transform: translate3d(-100px, 82vh, 0) rotate(-5deg) scale(.9); opacity: 0; }
-    10%  { opacity: .15; }
+    10%  { opacity: .22; }
     35%  { transform: translate3d(25vw, 68vh, 0) rotate(6deg) scale(1.04); }
     60%  { transform: translate3d(55vw, 88vh, 0) rotate(-5deg) scale(1); }
     85%  { transform: translate3d(85vw, 70vh, 0) rotate(6deg) scale(1.02); }
-    94%  { opacity: .15; }
+    94%  { opacity: .22; }
     100% { transform: translate3d(calc(100vw + 20px), 80vh, 0) rotate(-6deg) scale(.9); opacity: 0; }
 }
-
-/* Траектория 4: диагональ сверху-слева вниз-вправо */
 @keyframes ghost-path-4 {
     0%   { transform: translate3d(-100px, -60px, 0) rotate(-10deg) scale(.9); opacity: 0; }
-    8%   { opacity: .17; }
+    8%   { opacity: .24; }
     30%  { transform: translate3d(25vw, 22vh, 0) rotate(7deg) scale(1.05); }
     55%  { transform: translate3d(52vw, 45vh, 0) rotate(-6deg) scale(1); }
     80%  { transform: translate3d(80vw, 68vh, 0) rotate(8deg) scale(1.03); }
-    92%  { opacity: .17; }
+    92%  { opacity: .24; }
     100% { transform: translate3d(calc(100vw + 20px), calc(100vh + 40px), 0) rotate(-8deg) scale(.9); opacity: 0; }
 }
-
-/* Траектория 5: диагональ снизу-справа вверх-влево */
 @keyframes ghost-path-5 {
     0%   { transform: translate3d(calc(100vw + 20px), calc(100vh + 40px), 0) rotate(9deg) scale(.9); opacity: 0; }
-    8%   { opacity: .16; }
+    8%   { opacity: .24; }
     30%  { transform: translate3d(74vw, 70vh, 0) rotate(-7deg) scale(1.04); }
     55%  { transform: translate3d(46vw, 42vh, 0) rotate(6deg) scale(1); }
     80%  { transform: translate3d(16vw, 16vh, 0) rotate(-8deg) scale(1.02); }
-    92%  { opacity: .16; }
+    92%  { opacity: .24; }
     100% { transform: translate3d(-100px, -60px, 0) rotate(7deg) scale(.9); opacity: 0; }
 }
 
-/* Ghost SVG color adapts to theme via currentColor */
 .fc-ghost-svg {
     width: 100%;
     height: 100%;
-    color: var(--fc-halloween-ghost-color, #f5f0e8);
+    color: var(--fc-halloween-ghost-color);
 }
 
-/* --- Spider (top) — descends, pauses, ascends --- */
-.fc-halloween-spider {
+/* --- Паук: точка крепления у края, отдельная нить и паук на её конце ---
+   Растёт только нить (height); паук не вращается, вся конструкция качается маятником.
+   Цикл спуска 14 с короче интервала таймера (20 с), который перезапускает элемент через @key. */
+.fc-hw-spider-drop {
     position: fixed;
-    top: -80px;
+    top: -48px;
     left: var(--spider-x, 50%);
-    transform: translateX(-50%);
-    width: 56px;
-    height: 56px;
-    opacity: 0;
-    pointer-events: none;
-    will-change: transform, opacity;
-    z-index: 1010; /* поверх призраков */
-    /* Single infinite animation: wait off-screen → descend → pause → ascend → wait */
-    animation: spider-up-down 25s ease-in-out infinite;
-    /* --spider-x set via inline style for random horizontal position */
+    width: 0;
+    height: 0;
+    z-index: 1010;
+    transform-origin: 0 0;
+    animation: fc-hw-spider-sway 3.2s ease-in-out infinite;
+}
+.fc-hw-thread {
+    position: absolute;
+    top: 0;
+    left: -.5px;
+    width: 1px;
+    height: 0;
+    background: var(--fc-halloween-spider-thread);
+    animation: fc-hw-spider-drop 14s ease-in-out forwards;
+}
+.fc-hw-spider {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    width: 48px;
+    height: 48px;
+    margin: -14px 0 0 -24px; /* нить крепится к спинке паука */
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fc-halloween-spider-color);
+    cursor: pointer;
+    pointer-events: auto;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .3));
+    -webkit-tap-highlight-color: transparent;
+}
+.fc-hw-spider svg { width: 100%; height: 100%; display: block; }
+.fc-hw-spider:focus-visible { outline: 2px solid var(--fc-halloween-pumpkin-light); outline-offset: 2px; border-radius: 50%; }
+.fc-hw-legs { transform-box: fill-box; animation: fc-hw-legs .45s ease-in-out infinite alternate; }
+.fc-hw-legs-left { transform-origin: 100% 50%; }
+.fc-hw-legs-right { transform-origin: 0 50%; animation-delay: -.22s; }
+/* Пасхалка: ткнули — паук убегает вверх вместе с нитью. */
+.fc-hw-spider-flee { animation: fc-hw-spider-flee .7s cubic-bezier(.5, 0, .9, .4) forwards; }
+
+@keyframes fc-hw-spider-drop {
+    0%   { height: 0; }
+    28%  { height: calc(30vh + 48px); }
+    62%  { height: calc(30vh + 48px); }
+    90%  { height: 0; }
+    100% { height: 0; }
+}
+@keyframes fc-hw-spider-sway {
+    0%, 100% { transform: rotate(-4deg); }
+    50%      { transform: rotate(4deg); }
+}
+@keyframes fc-hw-legs {
+    from { transform: rotate(-5deg); }
+    to   { transform: rotate(5deg); }
+}
+@keyframes fc-hw-spider-flee {
+    to { transform: translateY(-110vh); }
 }
 
-/* Web thread drawn via pseudo-element on the spider container */
-.fc-halloween-spider::before {
+/* --- Летучие мыши: стая через верхнюю половину экрана или из тыквы-фонаря --- */
+.fc-hw-bats { position: fixed; inset: 0; z-index: 1012; color: var(--fc-halloween-bat-color); }
+.fc-hw-bats-rtl { transform: scaleX(-1); }
+.fc-hw-bat {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 56px;
+    height: 28px;
+    opacity: 0;
+    will-change: transform, opacity;
+    filter: drop-shadow(0 0 4px var(--fc-halloween-bat-glow));
+    animation: fc-hw-bat-fly 7s cubic-bezier(.4, 0, .6, 1) var(--bat-delay, 0s) forwards;
+}
+.fc-hw-bats-burst .fc-hw-bat { animation: fc-hw-bat-burst 3.6s cubic-bezier(.2, .6, .4, 1) calc(var(--bat-delay, 0s) / 3) forwards; }
+.fc-hw-bat svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.fc-hw-wing { transform-box: fill-box; animation: fc-hw-wings .3s ease-in-out infinite; }
+.fc-hw-wing-left { transform-origin: 100% 40%; }
+.fc-hw-wing-right { transform-origin: 0 40%; }
+
+@keyframes fc-hw-bat-fly {
+    0%   { transform: translate3d(-80px, var(--bat-y), 0) scale(var(--bat-scale, 1)); opacity: 0; }
+    8%   { opacity: .9; }
+    35%  { transform: translate3d(32vw, calc(var(--bat-y) - 8vh), 0) scale(var(--bat-scale, 1)); }
+    65%  { transform: translate3d(64vw, calc(var(--bat-y) + 5vh), 0) scale(var(--bat-scale, 1)); }
+    92%  { opacity: .9; }
+    100% { transform: translate3d(calc(100vw + 80px), calc(var(--bat-y) - 12vh), 0) scale(var(--bat-scale, 1)); opacity: 0; }
+}
+@keyframes fc-hw-bat-burst {
+    0%   { transform: translate3d(calc(100vw - 64px), calc(100vh - 64px), 0) scale(.3); opacity: 0; }
+    10%  { opacity: .95; }
+    85%  { opacity: .9; }
+    100% { transform: translate3d(var(--bat-x), -60px, 0) scale(var(--bat-scale, 1)); opacity: 0; }
+}
+/* Крылья складываются, но не в линию — силуэт мыши читается в любой момент взмаха. */
+@keyframes fc-hw-wings {
+    0%, 100% { transform: scaleY(1) rotate(0deg); }
+    50%      { transform: scaleY(.35) rotate(0deg); }
+}
+
+/* --- Туман у нижнего края: поверх контента, но прозрачный и сходит на нет кверху (маска),
+   поэтому текст у края читается. За контентом его закрыл бы фон body. --- */
+.fc-hw-fog {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 15vh;
+    z-index: 999;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 100%);
+    mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, .55) 45%, transparent 100%);
+}
+.fc-hw-fog::before, .fc-hw-fog::after {
     content: "";
     position: absolute;
-    top: -100vh; /* extends from top of viewport */
-    left: 50%;
-    width: 2px;
-    height: 100vh; /* full viewport height */
-    background: linear-gradient(180deg,
-        transparent 0%,
-        var(--fc-halloween-spider-thread, rgba(45, 26, 14, 0.3)) 10%,
-        var(--fc-halloween-spider-thread, rgba(45, 26, 14, 0.4)) 90%,
-        transparent 100%);
-    transform: translateX(-50%);
-    pointer-events: none;
-    z-index: -1; /* behind spider */
+    left: 0;
+    bottom: -20%;
+    width: 200%;
+    height: 140%;
+    background:
+        radial-gradient(ellipse 22% 55% at 12% 70%, var(--fc-halloween-fog) 0%, transparent 70%),
+        radial-gradient(ellipse 18% 45% at 38% 80%, var(--fc-halloween-fog) 0%, transparent 70%),
+        radial-gradient(ellipse 24% 60% at 62% 72%, var(--fc-halloween-fog) 0%, transparent 70%),
+        radial-gradient(ellipse 20% 50% at 88% 78%, var(--fc-halloween-fog) 0%, transparent 70%);
+    background-size: 50% 100%;
+    background-repeat: repeat-x;
+    animation: fc-hw-fog-drift 52s linear infinite;
+}
+.fc-hw-fog::after { opacity: .7; bottom: -35%; animation-duration: 74s; animation-direction: reverse; }
+
+@keyframes fc-hw-fog-drift {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
 }
 
-/* Desktop spider size */
-@media (min-width: 761px) {
-    .fc-halloween-spider { width: 56px; height: 56px; }
+/* --- Тыква-фонарь в правом нижнем углу: мерцает, по клику выпускает стаю --- */
+.fc-hw-lantern {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 1011;
+    animation: fc-hw-lantern-glow 2.8s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .15s;
 }
+.fc-hw-lantern:hover { transform: scale(1.08) rotate(-4deg); }
+.fc-hw-lantern:active { transform: scale(.95); }
+.fc-hw-lantern:focus-visible { outline: 2px solid var(--fc-halloween-pumpkin-light); outline-offset: 3px; border-radius: 50%; }
+.fc-hw-lantern svg { width: 100%; height: 100%; display: block; }
+.fc-hw-lantern-face { animation: fc-hw-lantern-flicker 1.7s steps(1, end) infinite; }
+
+@keyframes fc-hw-lantern-glow {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 150, 40, .45)); }
+    50%      { filter: drop-shadow(0 0 14px rgba(255, 170, 60, .75)); }
+}
+@keyframes fc-hw-lantern-flicker {
+    0%, 100% { opacity: 1; }
+    18%      { opacity: .72; }
+    22%      { opacity: .95; }
+    61%      { opacity: .8; }
+    64%      { opacity: 1; }
+}
+
+/* Значок-тыква в боковой панели «загорается» при наведении. */
+.fc-brand:hover .fc-halloween-logo { box-shadow: inset 0 -1px 3px rgba(90, 30, 0, .35), 0 0 14px rgba(255, 150, 40, .6); }
+
+/* --- Телефон: декор меньше, призраков три, паук спускается ниже шапки, но не далеко --- */
 @media (max-width: 760px) {
-    .fc-halloween-spider { width: 44px; height: 44px; }
-}
-
-/* Spider keyframes:
-   Цикл 25с. Видимая фаза — первые 20% (0-5с): спуск сверху → пауза → подъём.
-   Остальные 80% — ожидание за верхним краем экрана.
-   Важно: видимая фаза должна укладываться в интервал таймера (20с), иначе
-   элемент пересоздаётся (@key) раньше, чем паук доедет до экрана. */
-@keyframes spider-up-down {
-    0% {
-        top: -80px;
-        opacity: 0;
-        transform: translateX(-50%) rotate(0deg);
-    }
-    3% {
-        top: 10vh;
-        opacity: 0.9;
-        transform: translateX(-50%) rotate(90deg);
-    }
-    7% {
-        top: 35vh;
-        opacity: 0.95;
-        transform: translateX(-50%) rotate(200deg);
-    }
-    12% {
-        top: 35vh;
-        opacity: 0.95;
-        transform: translateX(-50%) rotate(320deg);
-    }
-    16% {
-        top: 10vh;
-        opacity: 0.9;
-        transform: translateX(-50%) rotate(440deg);
-    }
-    19% {
-        top: -80px;
-        opacity: 0;
-        transform: translateX(-50%) rotate(540deg);
-    }
-    100% {
-        top: -80px;
-        opacity: 0;
-        transform: translateX(-50%) rotate(540deg);
+    .fc-hw-web { width: 84px; height: 84px; }
+    .fc-halloween-ghost { width: 52px; height: 52px; }
+    /* На телефоне паук висит над кнопками — нажатия проходят сквозь него; пасхалка остаётся у фонаря. */
+    .fc-hw-spider { width: 40px; height: 40px; margin: -12px 0 0 -20px; pointer-events: none; }
+    .fc-hw-lantern { width: 38px; height: 38px; right: 12px; bottom: 12px; }
+    .fc-hw-fog { height: 10vh; }
+    .fc-hw-bat { width: 42px; height: 21px; }
+    @keyframes fc-hw-spider-drop {
+        0%   { height: 0; }
+        28%  { height: calc(22vh + 48px); }
+        62%  { height: calc(22vh + 48px); }
+        90%  { height: 0; }
+        100% { height: 0; }
     }
 }
-
-/* Spider SVG color adapts to theme via currentColor */
-.fc-spider-svg {
-    width: 100%;
-    height: 100%;
-    color: var(--fc-halloween-spider-color, #2d1a0e);
+@media (max-width: 600px) {
+    .fc-halloween-ghost-4, .fc-halloween-ghost-5 { display: none; }
 }
 
-/* Theme-specific ghost/spider colors using existing Halloween palette */
-:root {
+/* «Меньше движения»: убираем всё, что движется; паутина, фонарь и туман остаются неподвижными. */
+@media (prefers-reduced-motion: reduce) {
+    .fc-halloween-ghost, .fc-hw-spider-drop, .fc-hw-bats { display: none !important; }
+    .fc-hw-fog::before, .fc-hw-fog::after, .fc-hw-lantern, .fc-hw-lantern-face { animation: none !important; }
+}
+
+/* Цвета под тёмную и светлую тему. */
+:root, :root[data-theme=dark] {
     --fc-halloween-ghost-color: #f5f0e8;
-    --fc-halloween-spider-color: #2d1a0e;
-    --fc-halloween-spider-thread: rgba(45, 26, 14, 0.35);
+    --fc-halloween-spider-color: #241509;
+    --fc-halloween-spider-thread: rgba(225, 218, 240, .55);
+    --fc-halloween-web-color: rgba(225, 218, 240, .34);
+    --fc-halloween-dew-color: rgba(255, 214, 140, .7);
+    --fc-halloween-bat-color: #5b3f6e;
+    --fc-halloween-bat-glow: rgba(255, 170, 90, .45);
+    --fc-halloween-fog: rgba(190, 182, 225, .16);
 }
 :root[data-theme=light] {
-    --fc-halloween-ghost-color: #fff8f0;
+    --fc-halloween-ghost-color: #d6cfe6;
     --fc-halloween-spider-color: #1a0d05;
-    --fc-halloween-spider-thread: rgba(26, 13, 5, 0.3);
-}
-:root[data-theme=dark] {
-    --fc-halloween-ghost-color: #f5f0e8;
-    --fc-halloween-spider-color: #2d1a0e;
-    --fc-halloween-spider-thread: rgba(45, 26, 14, 0.4);
+    --fc-halloween-spider-thread: rgba(40, 30, 60, .45);
+    --fc-halloween-web-color: rgba(50, 40, 75, .26);
+    --fc-halloween-dew-color: rgba(230, 140, 40, .6);
+    --fc-halloween-bat-color: #2a1d33;
+    --fc-halloween-bat-glow: rgba(255, 255, 255, .6);
+    --fc-halloween-fog: rgba(120, 108, 160, .13);
 }
 
 /* Уведомления смахиваются в сторону (js/snackbar-swipe.js): горизонтальный жест не прокручивает страницу. */

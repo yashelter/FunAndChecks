@@ -884,4 +884,6 @@
   <data name="QueueDetails_SelfJoin" xml:space="preserve"><value>Students can join</value></data>
   <data name="QueueDetails_SelfJoinHint" xml:space="preserve"><value>Students join and rejoin the queue themselves</value></data>
   <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>Self-joining is turned off for this queue: ask the teacher.</value></data>
+  <data name="Halloween_SpiderLabel" xml:space="preserve"><value>Poke the spider</value></data>
+  <data name="Halloween_LanternLabel" xml:space="preserve"><value>Release the bats</value></data>
 </root>

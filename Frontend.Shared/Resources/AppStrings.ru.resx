@@ -886,4 +886,6 @@
   <data name="QueueDetails_SelfJoin" xml:space="preserve"><value>Самозапись студентов</value></data>
   <data name="QueueDetails_SelfJoinHint" xml:space="preserve"><value>Студенты сами встают в очередь и встают повторно</value></data>
   <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>В эту очередь нельзя встать самому: самозапись выключена, обратитесь к преподавателю.</value></data>
+  <data name="Halloween_SpiderLabel" xml:space="preserve"><value>Ткнуть паука</value></data>
+  <data name="Halloween_LanternLabel" xml:space="preserve"><value>Выпустить летучих мышей</value></data>
 </root>

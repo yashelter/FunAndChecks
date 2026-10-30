@@ -1,9 +1,11 @@
 @implements IDisposable
 @inject IStringLocalizer<AppStrings> Loc
 
-@* Рисуется через SeasonalDecorations, только пока тема HalloweenTheme активна. *@
+@* Рисуется через SeasonalDecorations, только пока тема HalloweenTheme активна.
+   Туман — отдельным слоем у нижнего края, всё остальное — в оверлее поверх страницы; клики проходят насквозь
+   (кроме паука и тыквы-фонаря). *@
+<div class="fc-hw-fog" aria-hidden="true"></div>
 <div class="fc-halloween-animations" role="img" aria-label="@Loc["Halloween_AriaLabel"]">
-    @* Один раз определённые символы — потом переиспользуются через <use>. *@
     <svg class="fc-halloween-defs" aria-hidden="true" focusable="false" width="0" height="0">
         <defs>
             <symbol id="fc-halloween-ghost-symbol" viewBox="0 0 64 64">
@@ -16,30 +18,19 @@
                 <ellipse cx="14" cy="36" rx="4" ry="2.5" fill="#ff8fa3" opacity="0.55" />
                 <ellipse cx="50" cy="36" rx="4" ry="2.5" fill="#ff8fa3" opacity="0.55" />
             </symbol>
-            <symbol id="fc-halloween-spider-symbol" viewBox="0 0 64 64">
-                <ellipse cx="32" cy="42" rx="14" ry="16" fill="currentColor" opacity="0.95" />
-                <ellipse cx="32" cy="26" rx="10" ry="9" fill="currentColor" opacity="0.95" />
-                <ellipse cx="26" cy="23" rx="4.5" ry="5" fill="#fff" />
-                <ellipse cx="26" cy="22" rx="2" ry="2.5" fill="#1a0d05" />
-                <ellipse cx="24" cy="21" rx="1" ry="1" fill="#fff" opacity="0.9" />
-                <ellipse cx="38" cy="23" rx="4.5" ry="5" fill="#fff" />
-                <ellipse cx="38" cy="22" rx="2" ry="2.5" fill="#1a0d05" />
-                <ellipse cx="36" cy="21" rx="1" ry="1" fill="#fff" opacity="0.9" />
-                <g stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.9">
-                    <path d="M18 22 Q8 18 4 22 Q0 26 4 30" />
-                    <path d="M16 30 Q6 28 2 34 Q-1 40 3 44" />
-                    <path d="M16 38 Q6 40 2 48 Q-1 54 4 58" />
-                    <path d="M18 46 Q10 52 8 58 Q6 62 12 62" />
-                    <path d="M46 22 Q56 18 60 22 Q64 26 60 30" />
-                    <path d="M48 30 Q58 28 62 34 Q65 40 61 44" />
-                    <path d="M48 38 Q58 40 62 48 Q65 54 60 58" />
-                    <path d="M46 46 Q54 52 56 58 Q58 62 52 62" />
-                </g>
+            <symbol id="fc-halloween-web-symbol" viewBox="0 0 140 140">
+                <path d="M0 0 L140 0 M0 0 L134.6 38.6 M0 0 L118.7 74.2 M0 0 L93.7 104 M0 0 L61.4 125.8 M0 0 L24.3 137.9 M0 0 L0 140 M26 0 Q20.6 2.9 25 7.2 Q19 8.5 22 13.8 Q15.9 13.4 17.4 19.3 Q11.6 17.2 11.4 23.4 Q6.4 19.8 4.5 25.6 Q1.8 20.7 0 26 M52 0 Q41.2 5.8 50 14.3 Q38 16.9 44.1 27.6 Q31.9 26.7 34.8 38.6 Q23.3 34.5 22.8 46.7 Q12.9 39.6 9 51.2 Q3.6 41.4 0 52 M80 0 Q63.4 8.9 76.9 22.1 Q58.5 26 67.8 42.4 Q49 41.1 53.5 59.5 Q35.8 53.1 35.1 71.9 Q19.8 60.9 13.9 78.8 Q5.6 63.8 0 80 M110 0 Q87.1 12.2 105.7 30.3 Q80.4 35.8 93.3 58.3 Q67.4 56.6 73.6 81.7 Q49.2 73 48.2 98.9 Q27.2 83.7 19.1 108.3 Q7.7 87.7 0 110" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" />
+                <circle cx="39.8" cy="33.4" r="1.6" class="fc-hw-dew" />
+                <circle cx="74.2" cy="30" r="1.6" class="fc-hw-dew" />
+                <circle cx="58.3" cy="93.3" r="1.6" class="fc-hw-dew" />
             </symbol>
         </defs>
     </svg>
 
-    @* Пять «теневых» призраков, каждый со своей траекторией через весь экран. *@
+    @* Паутина в верхних углах: статична, видна на любом экране и при «меньше движения». *@
+    <svg class="fc-hw-web fc-hw-web-left" aria-hidden="true" focusable="false"><use href="#fc-halloween-web-symbol" /></svg>
+    <svg class="fc-hw-web fc-hw-web-right" aria-hidden="true" focusable="false"><use href="#fc-halloween-web-symbol" /></svg>
+
     @foreach (var ghost in Ghosts)
     {
         <div class="fc-halloween-ghost @ghost" aria-hidden="true">
@@ -47,11 +38,68 @@
         </div>
     }
 
-    @* Паук: выходит из-за верхнего края, спускается, задерживается и поднимается обратно.
-       Смена @key пересоздаёт элемент и перезапускает CSS-анимацию. *@
-    <div class="fc-halloween-spider" aria-hidden="true" @key="_spiderKey" style="--spider-x:@_spiderX">
-        <svg class="fc-spider-svg" preserveAspectRatio="xMidYMid meet"><use href="#fc-halloween-spider-symbol" /></svg>
+    @* Паук спускается на отдельной нити: растёт только нить, паук висит на её конце и не вращается,
+       вся конструкция чуть качается маятником. Смена @key перезапускает спуск. По клику — убегает вверх. *@
+    <div class="fc-hw-spider-drop @(_spiderFleeing ? "fc-hw-spider-flee" : "")" @key="_spiderKey" style="--spider-x:@_spiderX">
+        <div class="fc-hw-thread">
+            <button type="button" class="fc-hw-spider" aria-label="@Loc["Halloween_SpiderLabel"]" title="@Loc["Halloween_SpiderLabel"]" @onclick="FleeSpider">
+                <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                    <g class="fc-hw-legs fc-hw-legs-left" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+                        <path d="M25 24 Q13 13 6 21" /><path d="M24 29 Q10 23 3 31" /><path d="M24 34 Q10 36 4 46" /><path d="M26 39 Q15 46 10 56" />
+                    </g>
+                    <g class="fc-hw-legs fc-hw-legs-right" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+                        <path d="M39 24 Q51 13 58 21" /><path d="M40 29 Q54 23 61 31" /><path d="M40 34 Q54 36 60 46" /><path d="M38 39 Q49 46 54 56" />
+                    </g>
+                    <ellipse cx="32" cy="41" rx="12.5" ry="13.5" fill="currentColor" />
+                    <path d="M32 33 L36 39 L32 45 L28 39 Z" fill="#ff8a1f" opacity="0.85" />
+                    <ellipse cx="32" cy="24" rx="9" ry="8" fill="currentColor" />
+                    <circle cx="28" cy="22.5" r="3.4" fill="#fff" /><circle cx="28.4" cy="23.2" r="1.6" fill="#1a0d05" />
+                    <circle cx="36" cy="22.5" r="3.4" fill="#fff" /><circle cx="35.6" cy="23.2" r="1.6" fill="#1a0d05" />
+                    <path d="M29.5 29 Q30.5 31 31.5 29 M32.5 29 Q33.5 31 34.5 29" fill="none" stroke="#fff" stroke-width="0.9" stroke-linecap="round" />
+                </svg>
+            </button>
+        </div>
     </div>
+
+    @* Стая летучих мышей: сама раз в несколько минут или из тыквы-фонаря по клику. *@
+    @if (_batsKey is not null)
+    {
+        <div class="fc-hw-bats @(_batsBurst ? "fc-hw-bats-burst" : _batsReverse ? "fc-hw-bats-rtl" : "")" @key="_batsKey" aria-hidden="true">
+            @foreach (var bat in Bats)
+            {
+                <div class="fc-hw-bat" style="--bat-y:@(bat.Y)vh;--bat-x:@(bat.X)vw;--bat-delay:@Css(bat.Delay)s;--bat-scale:@Css(bat.Scale)">
+                    <svg viewBox="0 0 64 32" focusable="false">
+                        <path class="fc-hw-wing fc-hw-wing-left" d="M30 14 C24 6 14 4 2 8 C8 10 10 14 9 18 C13 15 17 16 19 20 C22 16 26 17 30 20 Z" fill="currentColor" />
+                        <path class="fc-hw-wing fc-hw-wing-right" d="M34 14 C40 6 50 4 62 8 C56 10 54 14 55 18 C51 15 47 16 45 20 C42 16 38 17 34 20 Z" fill="currentColor" />
+                        <ellipse cx="32" cy="17" rx="4.2" ry="7" fill="currentColor" />
+                        <path d="M28.6 11 L29.4 5.5 L31 9.5 L33 9.5 L34.6 5.5 L35.4 11 Z" fill="currentColor" />
+                        <circle cx="30.6" cy="11.6" r="0.9" fill="#ffb347" /><circle cx="33.4" cy="11.6" r="0.9" fill="#ffb347" />
+                    </svg>
+                </div>
+            }
+        </div>
+    }
+
+    @* Тыква-фонарь: мерцает в углу; по клику из неё вылетает стая. *@
+    <button type="button" class="fc-hw-lantern" aria-label="@Loc["Halloween_LanternLabel"]" title="@Loc["Halloween_LanternLabel"]" @onclick="ReleaseBats">
+        <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <path d="M31 14 C30 9 31 5 35 3" fill="none" stroke="#5a3d1e" stroke-width="3.2" stroke-linecap="round" />
+            <path d="M34 9 C39 4 45 6 46 10 C41 9 37 10 34 13 Z" fill="#4f8a2b" />
+            <ellipse cx="20" cy="38" rx="14" ry="17" fill="url(#fc-hw-pumpkin-fill)" />
+            <ellipse cx="44" cy="38" rx="14" ry="17" fill="url(#fc-hw-pumpkin-fill)" />
+            <ellipse cx="32" cy="38" rx="15" ry="19" fill="url(#fc-hw-pumpkin-fill)" />
+            <path d="M24 22 Q20 38 24 55 M40 22 Q44 38 40 55" fill="none" stroke="#b8470a" stroke-width="1.3" opacity="0.7" />
+            <g class="fc-hw-lantern-face" fill="#ffd56b">
+                <path d="M19 33 L25 26 L28 34 Z" /><path d="M45 33 L39 26 L36 34 Z" /><path d="M30.5 37 L32 34 L33.5 37 Z" />
+                <path d="M18 42 Q32 52 46 42 L43 43 L41 47 L38 44 L35 48 L32 44 L29 48 L26 44 L23 47 L21 43 Z" />
+            </g>
+            <defs>
+                <radialGradient id="fc-hw-pumpkin-fill" cx="45%" cy="40%" r="65%">
+                    <stop offset="0%" stop-color="#ffab45" /><stop offset="65%" stop-color="#ea6a12" /><stop offset="100%" stop-color="#b44c0a" />
+                </radialGradient>
+            </defs>
+        </svg>
+    </button>
 </div>
 
 @code {
@@ -62,36 +110,67 @@
         "fc-halloween-ghost-4", "fc-halloween-ghost-5"
     ];
 
-    private Timer? _spiderTimer;
+    /// <summary>Мыши стаи: высота полёта, точка вылета для «из фонаря», задержка и размер.</summary>
+    private static readonly (int Y, int X, double Delay, double Scale)[] Bats =
+    [
+        (14, 18, 0, 1), (20, 34, 0.35, 0.8), (10, 52, 0.6, 0.9), (26, 26, 0.9, 0.7), (17, 68, 1.2, 0.85), (8, 80, 1.5, 0.65),
+    ];
+
+    /// <summary>Интервал перезапуска паука; видимая фаза анимации обязана быть короче.</summary>
+    private const int SpiderIntervalMs = 20000;
+
+    private Timer? _spiderTimer, _batsTimer;
     private string _spiderKey = Guid.NewGuid().ToString();
     private string _spiderX = "50%";
+    private bool _spiderFleeing;
+    private string? _batsKey;
+    private bool _batsBurst, _batsReverse;
+    private DateTime _lastBurst = DateTime.MinValue;
 
-    protected override void OnInitialized() => StartSpiderTimer();
-
-    private void StartSpiderTimer()
+    protected override void OnInitialized()
     {
-        StopSpiderTimer();
-        var random = new Random();
-        var initialDelay = random.Next(3000, 10000);
-        _spiderX = $"{random.Next(15, 85)}%";
-        _spiderTimer = new Timer(_ => TriggerSpider(), null, initialDelay, 20000);
+        _spiderX = RandomX();
+        _spiderTimer = new Timer(_ => InvokeAsync(RestartSpider), null, Random.Shared.Next(3000, 8000), SpiderIntervalMs);
+        _batsTimer = new Timer(_ => InvokeAsync(() => LaunchBats(burst: false)), null, Random.Shared.Next(10000, 25000), Timeout.Infinite);
     }
 
-    private void StopSpiderTimer()
+    /// <summary>Числа в inline-стилях — с точкой при любой культуре интерфейса.</summary>
+    private static string Css(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string RandomX() => $"{Random.Shared.Next(12, 88)}%";
+
+    private void RestartSpider()
+    {
+        _spiderKey = Guid.NewGuid().ToString();
+        _spiderX = RandomX();
+        _spiderFleeing = false;
+        StateHasChanged();
+    }
+
+    /// <summary>Пасхалка: паук, которого ткнули, быстро убегает вверх по нити до следующего спуска.</summary>
+    private void FleeSpider() => _spiderFleeing = true;
+
+    /// <summary>Пасхалка: из тыквы-фонаря вылетает стая (не чаще раза в 3 секунды).</summary>
+    private void ReleaseBats()
+    {
+        if (DateTime.UtcNow - _lastBurst < TimeSpan.FromSeconds(3)) return;
+        _lastBurst = DateTime.UtcNow;
+        LaunchBats(burst: true);
+    }
+
+    private void LaunchBats(bool burst)
+    {
+        _batsKey = Guid.NewGuid().ToString();
+        _batsBurst = burst;
+        _batsReverse = Random.Shared.Next(2) == 0;
+        if (!burst)
+            _batsTimer?.Change(Random.Shared.Next(90000, 180000), Timeout.Infinite);
+        StateHasChanged();
+    }
+
+    public void Dispose()
     {
         _spiderTimer?.Dispose();
-        _spiderTimer = null;
+        _batsTimer?.Dispose();
     }
-
-    private void TriggerSpider()
-    {
-        InvokeAsync(() =>
-        {
-            _spiderKey = Guid.NewGuid().ToString();
-            _spiderX = $"{new Random().Next(15, 85)}%";
-            StateHasChanged();
-        });
-    }
-
-    public void Dispose() => StopSpiderTimer();
 }
