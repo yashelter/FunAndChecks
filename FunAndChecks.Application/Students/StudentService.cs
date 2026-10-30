@@ -20,7 +20,8 @@ public class StudentService(
     IValidator<UpdateStudentAccountRequest> updateAccountValidator,
     IResultsNotifier resultsNotifier,
     IQueueNotifier queueNotifier,
-    ILogger<StudentService> logger)
+    ILogger<StudentService> logger,
+    IQueueAutoFillService? queueAutoFill = null)
     : IStudentService
 {
     /// <summary>Защитный предел глобального поиска (фактически все похожие).</summary>
@@ -260,7 +261,7 @@ public class StudentService(
 
         var currentStudent = await db.Students
             .Where(s => s.Id == studentId)
-            .Select(s => new { s.GroupId })
+            .Select(s => new { s.GroupId, s.IsActive })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException("Student profile not found.");
         var initialGroupId = currentStudent.GroupId;
@@ -290,6 +291,10 @@ public class StudentService(
 
         foreach (var subjectId in affectedSubjects)
             cache.Invalidate(subjectId);
+
+        // Перевод в группу или активация преподавателем — студент встаёт в авто-очереди новой группы.
+        if (queueAutoFill is not null && (initialGroupId != request.GroupId || !currentStudent.IsActive))
+            await queueAutoFill.EnrollAsync(studentId, cancellationToken);
     }
 
     public Task SetPreferredCultureAsync(Guid userId, string culture, CancellationToken cancellationToken = default)

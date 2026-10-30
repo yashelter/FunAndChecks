@@ -93,6 +93,10 @@
             <MudTabPanel Text="@Loc["Dialog_TabAchievements"]" Icon="@Icons.Material.Outlined.EmojiEvents">
                 <Frontend.Shared.Profiles.StudentAchievementsPanel UserId="StudentId" CanGrant="!ReadOnly" />
             </MudTabPanel>
+            @* Последней: индекс 2 вкладки цвета используется футером. *@
+            <MudTabPanel Text="@Loc["Dialog_TabVariants"]" Icon="@Icons.Material.Outlined.Tag">
+                <Frontend.Admin.UI.StudentVariantsPanel SubjectId="SubjectId" StudentId="StudentId" ReadOnly="ReadOnly" OnChanged="@(() => _hasChanges = true)" />
+            </MudTabPanel>
         </MudTabs>
     </DialogContent>
     <DialogActions>

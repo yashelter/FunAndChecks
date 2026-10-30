@@ -624,7 +624,7 @@
   <data name="Management_TaskSetCreated" xml:space="preserve"><value>Создано задач: {0}, пропущено существующих: {1}</value></data>
   <data name="Management_InvalidDate" xml:space="preserve"><value>Введите дату и время в формате {0}.</value></data>
   <data name="StudentQueues_MyPlace" xml:space="preserve"><value>Ваше место: {0} из {1}</value></data>
-  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Порядок: больше баллов — раньше, при равенстве — кто раньше записался.</value></data>
+  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Порядок: больше баллов — раньше, при равенстве — кто раньше записался. Вставшие повторно — после всех, кто в первом круге.</value></data>
   <data name="StudentQueues_Leave" xml:space="preserve"><value>Выйти из очереди</value></data>
   <data name="StudentQueues_Left" xml:space="preserve"><value>Вы вышли из очереди</value></data>
   <data name="StudentStatus_Title" xml:space="preserve"><value>Где вы сейчас</value></data>
@@ -700,7 +700,7 @@
   <data name="Login_SharedComputerHint" xml:space="preserve"><value>Вход пропадёт, когда вкладка закроется; в новой вкладке нужно будет войти снова.</value></data>
   <data name="Dialog_GradeNotSaved" xml:space="preserve"><value>Оценка не сохранилась. Исправьте её или очистите поле и повторите.</value></data>
   <data name="StudentQueues_LeaveTitle" xml:space="preserve"><value>Выйти из очереди?</value></data>
-  <data name="StudentQueues_LeaveText" xml:space="preserve"><value>Место будет потеряно: при повторной записи вы встанете по баллам и новому времени записи.</value></data>
+  <data name="StudentQueues_LeaveText" xml:space="preserve"><value>Место будет потеряно: при повторной записи вы встанете по баллам и новому времени записи. Если это повторный круг, прошлый результат останется.</value></data>
   <data name="Dialog_TabAchievements" xml:space="preserve"><value>Достижения</value></data>
   <data name="TaskGroup_None" xml:space="preserve"><value>Без группы</value></data>
   <data name="TaskGroup_Progress" xml:space="preserve"><value>принято {0}/{1} · {2}/{3} б.</value></data>
@@ -796,4 +796,94 @@
   <data name="Error_InvalidCurrentPassword" xml:space="preserve"><value>Текущий пароль указан неверно.</value></data>
   <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Не принимаю, выйти</value></data>
   <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Далее</value></data>
+  <data name="Nav_Variants" xml:space="preserve"><value>Варианты</value></data>
+  <data name="Variants_Eyebrow" xml:space="preserve"><value>Обучение</value></data>
+  <data name="Variants_Subtitle" xml:space="preserve"><value>Пулы вариантов предмета: студенты разбирают их — кто первый, того и вариант; вы можете выдать любой вариант сами.</value></data>
+  <data name="Variants_NewSet" xml:space="preserve"><value>Новый набор</value></data>
+  <data name="Variants_EditSet" xml:space="preserve"><value>Изменить набор</value></data>
+  <data name="Variants_DeleteSet" xml:space="preserve"><value>Удалить набор</value></data>
+  <data name="Variants_DeleteSetConfirm" xml:space="preserve"><value>Удалить набор «{0}» со всеми вариантами и выдачами?</value></data>
+  <data name="Variants_Empty" xml:space="preserve"><value>В предмете пока нет наборов вариантов</value></data>
+  <data name="Variants_EmptyHint" xml:space="preserve"><value>Создайте набор: например «ЛР 1–4» с вариантами 1–30.</value></data>
+  <data name="Variants_SetName" xml:space="preserve"><value>Название набора</value></data>
+  <data name="Variants_Uniqueness" xml:space="preserve"><value>Повторы</value></data>
+  <data name="Variants_UniqAllowRepeats" xml:space="preserve"><value>Повторы разрешены</value></data>
+  <data name="Variants_UniqSubject" xml:space="preserve"><value>Уникален в предмете</value></data>
+  <data name="Variants_UniqGroup" xml:space="preserve"><value>Уникален в группе</value></data>
+  <data name="Variants_UniqAllowRepeatsHint" xml:space="preserve"><value>Один вариант могут взять сколько угодно студентов.</value></data>
+  <data name="Variants_UniqSubjectHint" xml:space="preserve"><value>Вариант достаётся одному студенту во всём предмете.</value></data>
+  <data name="Variants_UniqGroupHint" xml:space="preserve"><value>Вариант достаётся одному студенту в каждой группе.</value></data>
+  <data name="Variants_ClaimsOpen" xml:space="preserve"><value>Студенты выбирают варианты сами</value></data>
+  <data name="Variants_DeadlineDate" xml:space="preserve"><value>Выбор до (дата)</value></data>
+  <data name="Variants_DeadlineTime" xml:space="preserve"><value>Время, по Москве</value></data>
+  <data name="Variants_DeadlineHint" xml:space="preserve"><value>Оставьте дату пустой, чтобы закрыть выбор вручную. После срока варианты назначает только преподаватель.</value></data>
+  <data name="Variants_RangeFrom" xml:space="preserve"><value>Номера с</value></data>
+  <data name="Variants_RangeTo" xml:space="preserve"><value>по</value></data>
+  <data name="Variants_RangeHint" xml:space="preserve"><value>Заполняет пул сразу, не больше {0} вариантов. Оставьте пустым, чтобы добавить позже.</value></data>
+  <data name="Variants_StatusOpen" xml:space="preserve"><value>Выбор открыт</value></data>
+  <data name="Variants_StatusOpenUntil" xml:space="preserve"><value>Выбор открыт до {0} (МСК)</value></data>
+  <data name="Variants_StatusClosed" xml:space="preserve"><value>Выбор закрыт</value></data>
+  <data name="Variants_StatusExpired" xml:space="preserve"><value>Срок {0} прошёл</value></data>
+  <data name="Variants_Open" xml:space="preserve"><value>Открыть выбор</value></data>
+  <data name="Variants_Close" xml:space="preserve"><value>Закрыть выбор</value></data>
+  <data name="Variants_TabPool" xml:space="preserve"><value>Варианты ({0})</value></data>
+  <data name="Variants_TabStudents" xml:space="preserve"><value>Студенты ({0}/{1})</value></data>
+  <data name="Variants_ColNumber" xml:space="preserve"><value>№</value></data>
+  <data name="Variants_ColTitle" xml:space="preserve"><value>Название</value></data>
+  <data name="Variants_ColDescription" xml:space="preserve"><value>Описание</value></data>
+  <data name="Variants_ColAssigned" xml:space="preserve"><value>Выдан</value></data>
+  <data name="Variants_AddRange" xml:space="preserve"><value>Добавить номера</value></data>
+  <data name="Variants_AddOne" xml:space="preserve"><value>Добавить вариант</value></data>
+  <data name="Variants_Number" xml:space="preserve"><value>Номер</value></data>
+  <data name="Variants_EditVariant" xml:space="preserve"><value>Вариант {0}</value></data>
+  <data name="Variants_NewVariant" xml:space="preserve"><value>Новый вариант</value></data>
+  <data name="Variants_DeleteVariantConfirm" xml:space="preserve"><value>вариант {0}</value></data>
+  <data name="Variants_RangeAdded" xml:space="preserve"><value>Добавлено вариантов: {0}</value></data>
+  <data name="Variants_PoolEmpty" xml:space="preserve"><value>Пул пуст: добавьте номера вариантов.</value></data>
+  <data name="Variants_ColStudent" xml:space="preserve"><value>Студент</value></data>
+  <data name="Variants_ColVariant" xml:space="preserve"><value>Вариант</value></data>
+  <data name="Variants_AllGroups" xml:space="preserve"><value>Все группы</value></data>
+  <data name="Variants_Search" xml:space="preserve"><value>Поиск по фамилии</value></data>
+  <data name="Variants_OnlyWithout" xml:space="preserve"><value>Без варианта</value></data>
+  <data name="Variants_NotAssigned" xml:space="preserve"><value>— не выдан —</value></data>
+  <data name="Variants_TakenMark" xml:space="preserve"><value>{0} · занят</value></data>
+  <data name="Variants_SelfClaimed" xml:space="preserve"><value>выбрал сам</value></data>
+  <data name="Variants_ByTeacher" xml:space="preserve"><value>выдал преподаватель</value></data>
+  <data name="Variants_Assigned" xml:space="preserve"><value>Выдан вариант {0}</value></data>
+  <data name="Variants_Unassigned" xml:space="preserve"><value>Вариант снят</value></data>
+  <data name="Variants_NoStudents" xml:space="preserve"><value>Нет студентов связанных групп</value></data>
+  <data name="Variants_ColumnHeader" xml:space="preserve"><value>Вар.: {0}</value></data>
+  <data name="Variants_StudentPanelEmpty" xml:space="preserve"><value>В предмете нет наборов вариантов.</value></data>
+  <data name="Variants_StudentPanelHint" xml:space="preserve"><value>Преподаватель может выдать любой вариант: правила повторов и срок на него не действуют.</value></data>
+  <data name="Dialog_TabVariants" xml:space="preserve"><value>Варианты</value></data>
+  <data name="MyVariants_Subtitle" xml:space="preserve"><value>Выберите вариант: кто первый — того и вариант. Выбор окончательный — поменять его может только преподаватель.</value></data>
+  <data name="MyVariants_Empty" xml:space="preserve"><value>В этом предмете нет наборов вариантов</value></data>
+  <data name="MyVariants_EmptyHint" xml:space="preserve"><value>Когда преподаватель откроет выбор вариантов, он появится здесь.</value></data>
+  <data name="MyVariants_Yours" xml:space="preserve"><value>Ваш вариант</value></data>
+  <data name="MyVariants_ChosenByYou" xml:space="preserve"><value>Вы выбрали сами</value></data>
+  <data name="MyVariants_AssignedByTeacher" xml:space="preserve"><value>Выдал преподаватель</value></data>
+  <data name="MyVariants_Take" xml:space="preserve"><value>Взять</value></data>
+  <data name="MyVariants_TakeTitle" xml:space="preserve"><value>Взять вариант {0}?</value></data>
+  <data name="MyVariants_TakeText" xml:space="preserve"><value>Выбор окончательный: поменять вариант потом сможет только преподаватель.</value></data>
+  <data name="MyVariants_Taken" xml:space="preserve"><value>Занят</value></data>
+  <data name="MyVariants_Claimed" xml:space="preserve"><value>Вариант {0} закреплён за вами</value></data>
+  <data name="MyVariants_ClosedNoVariant" xml:space="preserve"><value>Выбор закрыт. Вариант назначит преподаватель.</value></data>
+  <data name="MyVariants_AllTaken" xml:space="preserve"><value>Все варианты заняты. Обратитесь к преподавателю.</value></data>
+  <data name="MyVariants_Refresh" xml:space="preserve"><value>Обновить</value></data>
+  <data name="Error_VariantClaimsClosed" xml:space="preserve"><value>Выбор закрыт: назначить вариант теперь может только преподаватель.</value></data>
+  <data name="Error_VariantAlreadyChosen" xml:space="preserve"><value>У вас уже есть вариант в этом наборе.</value></data>
+  <data name="Error_VariantTaken" xml:space="preserve"><value>Этот вариант только что заняли. Выберите другой.</value></data>
+  <data name="Error_VariantInUse" xml:space="preserve"><value>Вариант выдан студентам: сначала снимите его.</value></data>
+  <data name="Error_VariantNumberTaken" xml:space="preserve"><value>Вариант {0} уже есть в этом наборе.</value></data>
+  <data name="Error_VariantNotFound" xml:space="preserve"><value>Вариант не найден. Обновите страницу.</value></data>
+  <data name="Error_VariantSetNotFound" xml:space="preserve"><value>Набор вариантов не найден. Обновите страницу.</value></data>
+  <data name="Queue_RejoinBadge" xml:space="preserve"><value>повторно</value></data>
+  <data name="Queue_RoundHint" xml:space="preserve"><value>{0}-й круг, встал повторно в {1}</value></data>
+  <data name="Queue_PastRound" xml:space="preserve"><value>{0}-й круг</value></data>
+  <data name="StudentQueues_Rejoin" xml:space="preserve"><value>Встать повторно</value></data>
+  <data name="StudentQueues_RejoinTitle" xml:space="preserve"><value>Встать в очередь повторно?</value></data>
+  <data name="StudentQueues_RejoinText" xml:space="preserve"><value>Вы встанете в конец — после всех, кто ещё не сдавал. Прошлый результат останется в очереди.</value></data>
+  <data name="QueueDetails_SelfJoin" xml:space="preserve"><value>Самозапись студентов</value></data>
+  <data name="QueueDetails_SelfJoinHint" xml:space="preserve"><value>Студенты сами встают в очередь и встают повторно</value></data>
+  <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>В эту очередь нельзя встать самому: самозапись выключена, обратитесь к преподавателю.</value></data>
 </root>

@@ -472,3 +472,57 @@
 /* Ссылка на репозиторий в подвале кабинетов. */
 .fc-footer-github { display:inline-flex; align-items:center; gap:6px; color:inherit; text-decoration:none; }
 .fc-footer-github:hover, .fc-footer-github:focus-visible { color:var(--mud-palette-primary); text-decoration:underline; }
+
+/* Варианты: наборы у преподавателя (/admin/variants) и выбор у студента (/student/variants). */
+.fc-variant-set { margin-bottom:18px; }
+.fc-variant-set-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:18px 22px 6px; }
+.fc-variant-set-title { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.fc-variant-set-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.fc-variant-set-chips .mud-chip { margin:0; }
+.fc-variant-set-actions { display:flex; align-items:center; gap:4px; }
+.fc-variant-tabs .mud-tabs-panels { padding:12px 22px 20px; }
+.fc-variant-students td, .fc-variant-pool td { vertical-align:middle; }
+.fc-variant-assign { min-width:180px; max-width:280px; }
+.fc-variant-assign .mud-input-control { margin:0; }
+.fc-variant-pool-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
+.fc-variant-pool-toolbar .mud-input-control { width:110px; flex:0 0 auto; margin:0; }
+.fc-variant-number { font-weight:650; font-variant-numeric:tabular-nums; width:1%; white-space:nowrap; }
+.fc-variant-description { max-width:360px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fc-muted); }
+.fc-variant-description-full { white-space:pre-line; }
+.fc-variant-row-actions { width:1%; white-space:nowrap; text-align:right; }
+.fc-variant-deadline, .fc-variant-range { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.fc-variants-empty { gap:8px; }
+.fc-student-variants { display:flex; flex-direction:column; gap:10px; }
+.fc-results-variant { text-align:center; font-weight:650; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fc-variant-mine { display:flex; align-items:center; gap:18px; }
+.fc-variant-mine-number { display:inline-flex; align-items:center; justify-content:center; min-width:64px; height:64px; padding:0 12px; border-radius:14px;
+    font-size:30px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--fc-accent, var(--mud-palette-primary));
+    border:1px solid var(--fc-accent, var(--mud-palette-primary)); background:color-mix(in srgb, var(--fc-accent, var(--mud-palette-primary)) 10%, transparent); }
+.fc-variant-mine .fc-eyebrow { margin-bottom:4px; }
+.fc-variant-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:10px; }
+.fc-variant-option { display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 8px; border-radius:10px; cursor:pointer; font:inherit;
+    color:inherit; background:var(--fc-surface-2, var(--mud-palette-surface)); border:1px solid var(--fc-line, var(--mud-palette-lines-default)); transition:border-color .15s, background .15s; }
+.fc-variant-option:hover:not(:disabled), .fc-variant-option:focus-visible { border-color:var(--fc-accent, var(--mud-palette-primary)); background:color-mix(in srgb, var(--fc-accent, var(--mud-palette-primary)) 8%, transparent); outline:none; }
+.fc-variant-option-number { font-size:22px; font-weight:700; font-variant-numeric:tabular-nums; }
+.fc-variant-option-title { font-size:12px; text-align:center; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.fc-variant-option-state { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--fc-accent, var(--mud-palette-primary)); }
+.fc-variant-option.fc-variant-taken { cursor:not-allowed; opacity:.5; }
+.fc-variant-option.fc-variant-taken .fc-variant-option-state { color:var(--fc-muted); }
+@media (max-width: 600px) {
+    .fc-variant-set-header { padding:14px 16px 4px; }
+    .fc-variant-tabs .mud-tabs-panels { padding:10px 12px 14px; }
+    .fc-variant-assign { min-width:140px; }
+    .fc-variant-description { max-width:140px; }
+    .fc-variant-grid { grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:8px; }
+}
+
+/* Очередь: повторные круги. Бейдж «повторно» у нового круга, прошлые круги — приглушённая история. */
+.fc-queue-person-status { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.fc-queue-person-status .mud-chip, .fc-queue-status .mud-chip { margin:0; }
+.fc-queue-status { white-space:nowrap; }
+.fc-queue-status .fc-queue-rejoin { margin-left:6px; }
+.fc-queue-rejoin { font-weight:600; }
+.fc-queue-round { display:block; margin-top:2px; }
+.fc-queue-past-round { opacity:.62; }
+.fc-queue-past-round:hover { opacity:.85; }
+.fc-queue-selfjoin { margin-top:6px; }

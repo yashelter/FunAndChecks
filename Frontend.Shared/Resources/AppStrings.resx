@@ -624,7 +624,7 @@
   <data name="Management_TaskSetCreated" xml:space="preserve"><value>Tasks created: {0}, existing skipped: {1}</value></data>
   <data name="Management_InvalidDate" xml:space="preserve"><value>Enter the date and time as {0}.</value></data>
   <data name="StudentQueues_MyPlace" xml:space="preserve"><value>You are #{0} of {1} waiting</value></data>
-  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Order: more points first, then who joined earlier.</value></data>
+  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Order: more points first, then who joined earlier. Students who rejoined wait after everyone on their first round.</value></data>
   <data name="StudentQueues_Leave" xml:space="preserve"><value>Leave the queue</value></data>
   <data name="StudentQueues_Left" xml:space="preserve"><value>You left the queue</value></data>
   <data name="StudentStatus_Title" xml:space="preserve"><value>Where you are</value></data>
@@ -700,7 +700,7 @@
   <data name="Login_SharedComputerHint" xml:space="preserve"><value>You will be signed out when this tab is closed; a new tab asks to sign in again.</value></data>
   <data name="Dialog_GradeNotSaved" xml:space="preserve"><value>The grade was not saved. Fix it or clear the field, then try again.</value></data>
   <data name="StudentQueues_LeaveTitle" xml:space="preserve"><value>Leave the queue?</value></data>
-  <data name="StudentQueues_LeaveText" xml:space="preserve"><value>Your place will be lost: if you join again, you will be placed by your points and the new join time.</value></data>
+  <data name="StudentQueues_LeaveText" xml:space="preserve"><value>Your place will be lost: if you join again, you will be placed by your points and the new join time. If this is a repeat round, your previous result stays.</value></data>
   <data name="Dialog_TabAchievements" xml:space="preserve"><value>Achievements</value></data>
   <data name="TaskGroup_None" xml:space="preserve"><value>No group</value></data>
   <data name="TaskGroup_Progress" xml:space="preserve"><value>{0}/{1} accepted · {2}/{3} pts</value></data>
@@ -794,4 +794,94 @@
   <data name="Error_InvalidCurrentPassword" xml:space="preserve"><value>The current password is incorrect.</value></data>
   <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Decline and sign out</value></data>
   <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Next</value></data>
+  <data name="Nav_Variants" xml:space="preserve"><value>Variants</value></data>
+  <data name="Variants_Eyebrow" xml:space="preserve"><value>Teaching</value></data>
+  <data name="Variants_Subtitle" xml:space="preserve"><value>Variant pools for the subject: students claim them first come, first served; you can assign any variant yourself.</value></data>
+  <data name="Variants_NewSet" xml:space="preserve"><value>New set</value></data>
+  <data name="Variants_EditSet" xml:space="preserve"><value>Edit set</value></data>
+  <data name="Variants_DeleteSet" xml:space="preserve"><value>Delete set</value></data>
+  <data name="Variants_DeleteSetConfirm" xml:space="preserve"><value>Delete the set «{0}» with all its variants and assignments?</value></data>
+  <data name="Variants_Empty" xml:space="preserve"><value>No variant sets in this subject yet</value></data>
+  <data name="Variants_EmptyHint" xml:space="preserve"><value>Create a set: for example «Labs 1–4» with variants 1–30.</value></data>
+  <data name="Variants_SetName" xml:space="preserve"><value>Set name</value></data>
+  <data name="Variants_Uniqueness" xml:space="preserve"><value>Repeats</value></data>
+  <data name="Variants_UniqAllowRepeats" xml:space="preserve"><value>Repeats allowed</value></data>
+  <data name="Variants_UniqSubject" xml:space="preserve"><value>Unique within the subject</value></data>
+  <data name="Variants_UniqGroup" xml:space="preserve"><value>Unique within a group</value></data>
+  <data name="Variants_UniqAllowRepeatsHint" xml:space="preserve"><value>Any number of students can take the same variant.</value></data>
+  <data name="Variants_UniqSubjectHint" xml:space="preserve"><value>A variant goes to one student of the whole subject.</value></data>
+  <data name="Variants_UniqGroupHint" xml:space="preserve"><value>A variant goes to one student in each group.</value></data>
+  <data name="Variants_ClaimsOpen" xml:space="preserve"><value>Students choose variants themselves</value></data>
+  <data name="Variants_DeadlineDate" xml:space="preserve"><value>Choose until (date)</value></data>
+  <data name="Variants_DeadlineTime" xml:space="preserve"><value>Time, Moscow</value></data>
+  <data name="Variants_DeadlineHint" xml:space="preserve"><value>Leave the date empty to close choosing manually. After the deadline only teachers assign variants.</value></data>
+  <data name="Variants_RangeFrom" xml:space="preserve"><value>Numbers from</value></data>
+  <data name="Variants_RangeTo" xml:space="preserve"><value>to</value></data>
+  <data name="Variants_RangeHint" xml:space="preserve"><value>Fills the pool at once, up to {0} variants. Leave empty to add variants later.</value></data>
+  <data name="Variants_StatusOpen" xml:space="preserve"><value>Choosing is open</value></data>
+  <data name="Variants_StatusOpenUntil" xml:space="preserve"><value>Choosing is open until {0} (Moscow)</value></data>
+  <data name="Variants_StatusClosed" xml:space="preserve"><value>Choosing is closed</value></data>
+  <data name="Variants_StatusExpired" xml:space="preserve"><value>Deadline {0} has passed</value></data>
+  <data name="Variants_Open" xml:space="preserve"><value>Open choosing</value></data>
+  <data name="Variants_Close" xml:space="preserve"><value>Close choosing</value></data>
+  <data name="Variants_TabPool" xml:space="preserve"><value>Variants ({0})</value></data>
+  <data name="Variants_TabStudents" xml:space="preserve"><value>Students ({0}/{1})</value></data>
+  <data name="Variants_ColNumber" xml:space="preserve"><value>No.</value></data>
+  <data name="Variants_ColTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="Variants_ColDescription" xml:space="preserve"><value>Description</value></data>
+  <data name="Variants_ColAssigned" xml:space="preserve"><value>Assigned</value></data>
+  <data name="Variants_AddRange" xml:space="preserve"><value>Add numbers</value></data>
+  <data name="Variants_AddOne" xml:space="preserve"><value>Add variant</value></data>
+  <data name="Variants_Number" xml:space="preserve"><value>Number</value></data>
+  <data name="Variants_EditVariant" xml:space="preserve"><value>Edit variant {0}</value></data>
+  <data name="Variants_NewVariant" xml:space="preserve"><value>New variant</value></data>
+  <data name="Variants_DeleteVariantConfirm" xml:space="preserve"><value>variant {0}</value></data>
+  <data name="Variants_RangeAdded" xml:space="preserve"><value>Variants added: {0}</value></data>
+  <data name="Variants_PoolEmpty" xml:space="preserve"><value>The pool is empty: add variant numbers.</value></data>
+  <data name="Variants_ColStudent" xml:space="preserve"><value>Student</value></data>
+  <data name="Variants_ColVariant" xml:space="preserve"><value>Variant</value></data>
+  <data name="Variants_AllGroups" xml:space="preserve"><value>All groups</value></data>
+  <data name="Variants_Search" xml:space="preserve"><value>Search by name</value></data>
+  <data name="Variants_OnlyWithout" xml:space="preserve"><value>Without a variant</value></data>
+  <data name="Variants_NotAssigned" xml:space="preserve"><value>— not assigned —</value></data>
+  <data name="Variants_TakenMark" xml:space="preserve"><value>{0} · taken</value></data>
+  <data name="Variants_SelfClaimed" xml:space="preserve"><value>chosen by the student</value></data>
+  <data name="Variants_ByTeacher" xml:space="preserve"><value>assigned by a teacher</value></data>
+  <data name="Variants_Assigned" xml:space="preserve"><value>Variant {0} assigned</value></data>
+  <data name="Variants_Unassigned" xml:space="preserve"><value>Variant removed</value></data>
+  <data name="Variants_NoStudents" xml:space="preserve"><value>No students of linked groups</value></data>
+  <data name="Variants_ColumnHeader" xml:space="preserve"><value>Var.: {0}</value></data>
+  <data name="Variants_StudentPanelEmpty" xml:space="preserve"><value>The subject has no variant sets.</value></data>
+  <data name="Variants_StudentPanelHint" xml:space="preserve"><value>A teacher can assign any variant: repeat rules and the deadline do not apply.</value></data>
+  <data name="Dialog_TabVariants" xml:space="preserve"><value>Variants</value></data>
+  <data name="MyVariants_Subtitle" xml:space="preserve"><value>Pick a variant: whoever is first gets it. The choice is final — only a teacher can change it.</value></data>
+  <data name="MyVariants_Empty" xml:space="preserve"><value>No variant sets in this subject</value></data>
+  <data name="MyVariants_EmptyHint" xml:space="preserve"><value>When a teacher opens variant choosing, it will appear here.</value></data>
+  <data name="MyVariants_Yours" xml:space="preserve"><value>Your variant</value></data>
+  <data name="MyVariants_ChosenByYou" xml:space="preserve"><value>You chose it yourself</value></data>
+  <data name="MyVariants_AssignedByTeacher" xml:space="preserve"><value>Assigned by a teacher</value></data>
+  <data name="MyVariants_Take" xml:space="preserve"><value>Take</value></data>
+  <data name="MyVariants_TakeTitle" xml:space="preserve"><value>Take variant {0}?</value></data>
+  <data name="MyVariants_TakeText" xml:space="preserve"><value>The choice is final: only a teacher can change the variant later.</value></data>
+  <data name="MyVariants_Taken" xml:space="preserve"><value>Taken</value></data>
+  <data name="MyVariants_Claimed" xml:space="preserve"><value>Variant {0} is yours</value></data>
+  <data name="MyVariants_ClosedNoVariant" xml:space="preserve"><value>Choosing is closed. A teacher will assign your variant.</value></data>
+  <data name="MyVariants_AllTaken" xml:space="preserve"><value>All variants are taken. Ask your teacher.</value></data>
+  <data name="MyVariants_Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Error_VariantClaimsClosed" xml:space="preserve"><value>Choosing is closed: now only a teacher can assign a variant.</value></data>
+  <data name="Error_VariantAlreadyChosen" xml:space="preserve"><value>You already have a variant in this set.</value></data>
+  <data name="Error_VariantTaken" xml:space="preserve"><value>Someone has just taken this variant. Choose another one.</value></data>
+  <data name="Error_VariantInUse" xml:space="preserve"><value>The variant is assigned to students: remove it from them first.</value></data>
+  <data name="Error_VariantNumberTaken" xml:space="preserve"><value>Variant {0} already exists in this set.</value></data>
+  <data name="Error_VariantNotFound" xml:space="preserve"><value>The variant was not found. Refresh the page.</value></data>
+  <data name="Error_VariantSetNotFound" xml:space="preserve"><value>The variant set was not found. Refresh the page.</value></data>
+  <data name="Queue_RejoinBadge" xml:space="preserve"><value>again</value></data>
+  <data name="Queue_RoundHint" xml:space="preserve"><value>Round {0}, rejoined at {1}</value></data>
+  <data name="Queue_PastRound" xml:space="preserve"><value>round {0}</value></data>
+  <data name="StudentQueues_Rejoin" xml:space="preserve"><value>Join again</value></data>
+  <data name="StudentQueues_RejoinTitle" xml:space="preserve"><value>Join the queue again?</value></data>
+  <data name="StudentQueues_RejoinText" xml:space="preserve"><value>You will be placed at the end, after everyone who has not been checked yet. Your previous result stays in the queue.</value></data>
+  <data name="QueueDetails_SelfJoin" xml:space="preserve"><value>Students can join</value></data>
+  <data name="QueueDetails_SelfJoinHint" xml:space="preserve"><value>Students join and rejoin the queue themselves</value></data>
+  <data name="Error_QueueSelfJoinDisabled" xml:space="preserve"><value>Self-joining is turned off for this queue: ask the teacher.</value></data>
 </root>

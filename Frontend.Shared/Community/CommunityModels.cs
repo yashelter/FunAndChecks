@@ -2,7 +2,7 @@ namespace Frontend.Shared.Community;
 
 // Контракты форума, опросов и уведомлений. Значения перечислений совпадают с бэкендом.
 
-public enum NotificationType { AchievementGranted = 0, ForumReply = 1, ForumMention = 2, ForumAnnouncement = 3, SurveyAvailable = 4 }
+public enum NotificationType { AchievementGranted = 0, ForumReply = 1, ForumMention = 2, ForumAnnouncement = 3, SurveyAvailable = 4, VariantAssigned = 5 }
 
 public record NotificationDto(long Id, NotificationType Type, string Subject, string? ActorName, string? Link, DateTime CreatedAtUtc, bool IsRead);
 public record NotificationPageDto(List<NotificationDto> Items, int TotalCount, int UnreadCount, int Page, int PageSize);

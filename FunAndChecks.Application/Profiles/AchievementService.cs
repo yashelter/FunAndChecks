@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Common;
 using FluentValidation;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -144,7 +145,7 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
                 await db.SaveChangesAsync(token);
             }, ct);
         }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex)) { throw DuplicateAward(); }
+        catch (DbUpdateException ex) when (DatabaseErrors.IsUniqueViolation(ex)) { throw DuplicateAward(); }
         var awardedDefinition = await RequireDefinitionAsync(id, ct);
         var image = await ProfileService.MediaMetadata(db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id))
             .SingleOrDefaultAsync(ct);
@@ -218,13 +219,4 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
 
     private static ConflictException DuplicateAward() => new("This user already has the achievement.", "achievement.already_awarded");
 
-    private static bool IsUniqueViolation(Exception exception)
-    {
-        for (Exception? current = exception; current is not null; current = current.InnerException)
-        {
-            if (current.GetType().GetProperty("SqlState")?.GetValue(current) as string == "23505") return true;
-            if (current.GetType().GetProperty("SqliteExtendedErrorCode")?.GetValue(current) is int code && code is 2067 or 1555) return true;
-        }
-        return false;
-    }
 }

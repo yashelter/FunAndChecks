@@ -20,16 +20,17 @@ public static class ResultsXlsxExporter
         ws.Cell(1, 1).Value = "Фамилия";
         ws.Cell(1, 2).Value = "Имя";
         ws.Cell(1, 3).Value = "Группа";
+        // Σ сразу после группы: при большом числе задач последняя колонка уходит за край экрана.
+        const int totalCol = 4;
+        ws.Cell(1, totalCol).Value = "Σ";
 
-        var col = 4;
+        var col = totalCol + 1;
         foreach (var task in results.TaskHeaders)
             ws.Cell(1, col++).Value = task.TaskName;
         foreach (var grade in results.GradeColumns)
             ws.Cell(1, col++).Value = grade.Name;
-        var totalCol = col;
-        ws.Cell(1, totalCol).Value = "Σ";
 
-        var headerRange = ws.Range(1, 1, 1, totalCol);
+        var headerRange = ws.Range(1, 1, 1, Math.Max(totalCol, col - 1));
         headerRange.Style.Font.Bold = true;
         headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#EEEEEE");
         headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
@@ -48,8 +49,10 @@ public static class ResultsXlsxExporter
             ApplyFill(ws.Cell(row, 2), student.StudentColor, withContrastFont: true);
 
             ws.Cell(row, 3).Value = student.GroupName;
+            ws.Cell(row, totalCol).Value = student.TotalPoints;
+            ws.Cell(row, totalCol).Style.Font.Bold = true;
 
-            col = 4;
+            col = totalCol + 1;
             foreach (var task in results.TaskHeaders)
             {
                 var cell = ws.Cell(row, col++);
@@ -70,13 +73,11 @@ public static class ResultsXlsxExporter
                     : string.Empty;
                 cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             }
-
-            ws.Cell(row, totalCol).Value = student.TotalPoints;
-            ws.Cell(row, totalCol).Style.Font.Bold = true;
             row++;
         }
 
         ws.SheetView.FreezeRows(1);
+        ws.SheetView.FreezeColumns(totalCol);
         ws.Columns().AdjustToContents();
 
         using var stream = new MemoryStream();

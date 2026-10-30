@@ -17,6 +17,8 @@ else if (_details is not null)
             <div class="fc-core-back"><MudLink Href="/admin/queues"><MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />@Loc["AdminNav_Queues"]</MudLink></div>
             <MudText Typo="Typo.h4">@_details.EventName</MudText>
             <MudText Typo="Typo.body2" Class="fc-muted">@_details.SubjectName · @_details.EventDateTime.ToLocalTime().ToString("g")</MudText>
+            <MudSwitch T="bool" Value="_details.AllowSelfJoin" ValueChanged="SetSelfJoinAsync" Color="Color.Primary" Class="fc-queue-selfjoin"
+                       Label="@Loc["QueueDetails_SelfJoin"]" title="@Loc["QueueDetails_SelfJoinHint"]" />
         </div>
         <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="@(_hub?.State == HubConnectionState.Connected ? Color.Success : Color.Warning)"
                  Icon="@(_hub?.State == HubConnectionState.Connected ? Icons.Material.Filled.Circle : Icons.Material.Outlined.SyncProblem)">
@@ -76,14 +78,16 @@ else if (_details is not null)
         <section class="fc-panel fc-queue-participants">
             @foreach (var p in Visible)
             {
-                <article class="fc-queue-person @QueueClass(p.Status)">
+                var past = IsPastRound(p);
+                <article class="fc-queue-person @QueueClass(p.Status) @(past ? "fc-queue-past-round" : "")" @key="p.EntryId">
                     <div class="fc-queue-person-identity">
                         <UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" />
-                        <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")</MudText>
+                        <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")@(past ? $" · {Loc["Queue_PastRound", p.Round]}" : "")</MudText>
                         @if (!p.CanManage) { <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText> }
                     </div>
                     <div class="fc-queue-person-score"><strong>@p.TotalPoints</strong><span>@Loc["Common_PointsAbbr"]</span></div>
-                    <div class="fc-queue-person-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip></div>
+                    <div class="fc-queue-person-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip>
+                        @if (p.IsRejoin && !past) { <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Class="fc-queue-rejoin" title="@Loc["Queue_RoundHint", p.Round, p.JoinedAt.ToLocalTime().ToString("t")]">@Loc["Queue_RejoinBadge"]</MudChip> }</div>
                     <div class="fc-queue-person-action"><MudButton Variant="@(IsReadOnly(p) ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" Disabled="@(!p.CanManage)"
                         OnClick="@(() => OpenStudentAsync(p))" StartIcon="@(IsReadOnly(p) ? Icons.Material.Outlined.Visibility : Icons.Material.Outlined.Assignment)">@Loc[IsReadOnly(p) ? "QueueDetails_View" : "QueueDetails_Review"]</MudButton></div>
                 </article>

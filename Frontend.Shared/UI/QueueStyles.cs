@@ -34,6 +34,22 @@ public static class QueueStyles
         _ => loc["Queue_StatusUnknown"],
     };
 
+    /// <summary>
+    /// Первые ключи порядка очереди: статус, затем внутри ожидающих повторные круги — после всех первых кругов,
+    /// между собой по времени повторного вступления (сколько бы кругов ни было). Дальше вызывающий добавляет
+    /// свои ключи для первого круга (баллы, группа, время записи). Тот же порядок на сервере — QueueOrder.
+    /// </summary>
+    public static IOrderedEnumerable<QueueParticipantDto> ByStatusThenRejoin(IEnumerable<QueueParticipantDto> participants) => participants
+        .OrderBy(p => StatusOrder(p.Status))
+        .ThenBy(p => WaitsAsRejoin(p))
+        .ThenBy(p => WaitsAsRejoin(p) ? p.JoinedAt : DateTime.MinValue);
+
+    private static bool WaitsAsRejoin(QueueParticipantDto p) => p.Status == QueueEntryStatus.Waiting && p.IsRejoin;
+
+    /// <summary>Строка прошлого круга: у этого студента есть круг новее. Только история — работать с ней нельзя.</summary>
+    public static bool IsPastRound(QueueParticipantDto participant, IEnumerable<QueueParticipantDto> all) =>
+        all.Any(p => p.StudentId == participant.StudentId && p.Round > participant.Round);
+
     /// <summary>Порядок статусов: сдают → в очереди → пропущенные → завершившие.</summary>
     public static int StatusOrder(QueueEntryStatus status) => status switch
     {

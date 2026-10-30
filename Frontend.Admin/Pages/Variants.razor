@@ -1,0 +1,153 @@
+@page "/admin/variants"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin)]
+
+<PageTitle>@Loc["Nav_Variants"]</PageTitle>
+
+<div class="fc-variants-page">
+    <div class="fc-page-heading">
+        <div>
+            <span class="fc-eyebrow">@Loc["Variants_Eyebrow"]</span>
+            <MudText Typo="Typo.h4">@Loc["Nav_Variants"]</MudText>
+            <p class="fc-muted">@Loc["Variants_Subtitle"]</p>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="CreateSetAsync"
+                   Disabled="@(_subjectId is null || _busy)">@Loc["Variants_NewSet"]</MudButton>
+    </div>
+
+    <section class="fc-panel fc-subject-filter">
+        <div class="fc-panel-body fc-toolbar">
+            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")"
+                       Label="@Loc["Common_Subject"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+                @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
+            </MudSelect>
+            @if (_board is { Sets.Count: > 0 })
+            {
+                <MudSelect T="int?" @bind-Value="_groupFilter" ToStringFunc="@(id => Groups.FirstOrDefault(g => g.Id == id).Name ?? Loc["Variants_AllGroups"])"
+                           Label="@Loc["Results_ColGroup"]" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="int?" Value="@((int?)null)">@Loc["Variants_AllGroups"]</MudSelectItem>
+                    @foreach (var group in Groups) { <MudSelectItem T="int?" Value="@group.Id">@group.Name</MudSelectItem> }
+                </MudSelect>
+                <MudTextField @bind-Value="_search" Immediate="true" DebounceInterval="200" Label="@Loc["Variants_Search"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Clearable="true" />
+                <MudSwitch T="bool" @bind-Value="_onlyWithout" Color="Color.Primary" Label="@Loc["Variants_OnlyWithout"]" />
+            }
+        </div>
+    </section>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_board is null)
+    {
+        @if (_subjects.Count == 0) { <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Common_SelectSubject"]</MudText></div> }
+    }
+    else if (_board.Sets.Count == 0)
+    {
+        <div class="fc-core-empty fc-variants-empty">
+            <MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Large" />
+            <MudText Typo="Typo.h6">@Loc["Variants_Empty"]</MudText>
+            <MudText Class="fc-muted">@Loc["Variants_EmptyHint"]</MudText>
+        </div>
+    }
+    else
+    {
+        @foreach (var set in _board.Sets)
+        {
+            var holders = Holders(set);
+            var rows = FilteredRows(set).ToList();
+            <section class="fc-panel fc-variant-set" @key="set.Id">
+                <div class="fc-variant-set-header">
+                    <div class="fc-variant-set-title">
+                        <MudText Typo="Typo.h6">@set.Name</MudText>
+                        <div class="fc-variant-set-chips">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" title="@VariantText.UniquenessHint(Loc, set.Uniqueness)">@VariantText.Uniqueness(Loc, set.Uniqueness)</MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(set.IsOpen ? Color.Success : Color.Default)">@VariantText.Status(Loc, set.IsOpen, set.ClaimsOpen, set.ClaimDeadline)</MudChip>
+                        </div>
+                    </div>
+                    <div class="fc-variant-set-actions">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Disabled="_busy" OnClick="@(() => ToggleOpenAsync(set))"
+                                   StartIcon="@(set.IsOpen ? Icons.Material.Filled.LockClock : Icons.Material.Filled.LockOpen)">@(set.IsOpen ? Loc["Variants_Close"] : Loc["Variants_Open"])</MudButton>
+                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Disabled="_busy" aria-label="@Loc["Variants_EditSet"]" title="@Loc["Variants_EditSet"]" OnClick="@(() => EditSetAsync(set))" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Color="Color.Error" Disabled="_busy" aria-label="@Loc["Variants_DeleteSet"]" title="@Loc["Variants_DeleteSet"]" OnClick="@(() => DeleteSetAsync(set))" />
+                    </div>
+                </div>
+                <MudTabs Elevation="0" Rounded="true" MinimumTabWidth="0px" Class="fc-variant-tabs">
+                    <MudTabPanel Text="@Loc["Variants_TabStudents", _board.Students.Count(r => r.Variants.ContainsKey(set.Id)), _board.Students.Count]">
+                        @if (set.Variants.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mb-2">@Loc["Variants_PoolEmpty"]</MudAlert>
+                        }
+                        @if (_board.Students.Count == 0)
+                        {
+                            <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Variants_NoStudents"]</MudText></div>
+                        }
+                        else
+                        {
+                            <MudSimpleTable Dense="true" Hover="true" Elevation="0" Class="fc-variant-students">
+                                <thead><tr><th>@Loc["Variants_ColStudent"]</th><th>@Loc["Results_ColGroup"]</th><th>@Loc["Variants_ColVariant"]</th></tr></thead>
+                                <tbody>
+                                    @foreach (var row in rows)
+                                    {
+                                        var current = row.Variants.GetValueOrDefault(set.Id);
+                                        <tr @key="row.StudentId">
+                                            <td><UserChip UserId="row.StudentId" Name="@row.FullName" /></td>
+                                            <td>@row.GroupName</td>
+                                            <td class="fc-variant-assign">
+                                                <MudSelect T="int?" Value="@current?.VariantId" ValueChanged="@(v => AssignAsync(set, row, v))" Disabled="@(_busy || set.Variants.Count == 0)"
+                                                           ToStringFunc="@(id => VariantLabel(set, id))" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                                                           HelperText="@(current is null ? null : current.SelfClaimed ? Loc["Variants_SelfClaimed"].Value : Loc["Variants_ByTeacher"].Value)">
+                                                    <MudSelectItem T="int?" Value="@((int?)null)">@Loc["Variants_NotAssigned"]</MudSelectItem>
+                                                    @foreach (var variant in set.Variants)
+                                                    {
+                                                        var label = VariantText.Label(variant.Number, variant.Title);
+                                                        <MudSelectItem T="int?" Value="@variant.Id">@(TakenFor(set, holders, row, variant.Id) ? Loc["Variants_TakenMark", label] : label)</MudSelectItem>
+                                                    }
+                                                </MudSelect>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                    </MudTabPanel>
+                    <MudTabPanel Text="@Loc["Variants_TabPool", set.Variants.Count]">
+                        <div class="fc-variant-pool-toolbar">
+                            <MudNumericField T="int?" Value="RangeFrom(set)" ValueChanged="@(v => _rangeFrom[set.Id] = v)" Label="@Loc["Variants_RangeFrom"]" Min="1" Max="9999" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudNumericField T="int?" Value="_rangeTo.GetValueOrDefault(set.Id)" ValueChanged="@(v => _rangeTo[set.Id] = v)" Label="@Loc["Variants_RangeTo"]" Min="1" Max="9999" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PlaylistAdd" Disabled="@(_busy || !RangeValid(set))" OnClick="@(() => AddRangeAsync(set))">@Loc["Variants_AddRange"]</MudButton>
+                            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add" Disabled="_busy" OnClick="@(() => AddVariantAsync(set))">@Loc["Variants_AddOne"]</MudButton>
+                        </div>
+                        @if (set.Variants.Count == 0)
+                        {
+                            <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Variants_PoolEmpty"]</MudText></div>
+                        }
+                        else
+                        {
+                            <MudSimpleTable Dense="true" Hover="true" Elevation="0" Class="fc-variant-pool">
+                                <thead><tr><th>@Loc["Variants_ColNumber"]</th><th>@Loc["Variants_ColTitle"]</th><th>@Loc["Variants_ColDescription"]</th><th>@Loc["Variants_ColAssigned"]</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach (var variant in set.Variants)
+                                    {
+                                        <tr @key="variant.Id">
+                                            <td class="fc-variant-number">@variant.Number</td>
+                                            <td>@variant.Title</td>
+                                            <td class="fc-variant-description" title="@variant.Description">@variant.Description</td>
+                                            <td>@(variant.AssignedCount > 0 ? variant.AssignedCount : "—")</td>
+                                            <td class="fc-variant-row-actions">
+                                                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Disabled="_busy" aria-label="@Loc["Variants_EditVariant", variant.Number]" OnClick="@(() => EditVariantAsync(variant))" />
+                                                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" Disabled="@(_busy || variant.AssignedCount > 0)" title="@(variant.AssignedCount > 0 ? Loc["Error_VariantInUse"].Value : null)"
+                                                               aria-label="@Loc["Common_Delete"]" OnClick="@(() => DeleteVariantAsync(variant))" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                    </MudTabPanel>
+                </MudTabs>
+            </section>
+        }
+    }
+</div>

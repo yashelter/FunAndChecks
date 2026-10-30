@@ -14,7 +14,7 @@
         <span class="fc-muted">@Frontend.Shared.Community.CommunityText.Students(Results.UserResults.Count)</span>
         <MudSwitch T="bool" @bind-Value="_showAcceptedTeacherColors" Color="Color.Primary" Label="@Loc["Results_ShowAcceptedTeacherColors"]" Class="fc-results-teacher-colors" />
     </div>
-    @* @key: другой набор колонок — новая таблица, иначе новая колонка встала бы в конец, после Σ. *@
+    @* @key: другой набор колонок — новая таблица, иначе новая колонка встала бы в конец, после оценок. *@
     <MudDataGrid @key="ResultsColumns.Key(Results)" @ref="_grid" T="StudentResultRowDto" Items="@_rows" Dense="true" Breakpoint="Breakpoint.None"
                  Filterable="true" Hover="true" Class="fc-results-grid" RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
         <Columns>
@@ -23,6 +23,10 @@
                     <ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink>
                 </CellTemplate>
             </TemplateColumn>
+            @* Σ рядом с именем: при большом числе задач последняя колонка уходит за край. *@
+            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score">
+                <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
+            </PropertyColumn>
             <PropertyColumn Property="x => x.GroupName" Title="@Loc["Results_ColGroup"]" />
 
             @foreach (var task in Results.TaskHeaders)
@@ -54,10 +58,6 @@
                     </CellTemplate>
                 </TemplateColumn>
             }
-
-            <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-number fc-score">
-                <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
-            </PropertyColumn>
         </Columns>
     </MudDataGrid>
     <div class="fc-results-legend">

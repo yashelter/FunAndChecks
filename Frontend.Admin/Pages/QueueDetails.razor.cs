@@ -78,9 +78,9 @@ public partial class QueueDetails : IAsyncDisposable
     {
         var items = InVisibleGroups;
 
-        // Статус — всегда первичный ключ сортировки (сдают → в очереди → пропущенные → завершившие),
-        // выбранное поле — вторичное, время записи — последний ключ при равенстве.
-        var ordered = items.OrderBy(p => QueueStyles.StatusOrder(p.Status));
+        // Статус — всегда первичный ключ (сдают → в очереди → пропущенные → завершившие); повторно вставшие
+        // ждут после всех первых кругов при любой сортировке. Выбранное поле — дальше, время записи — при равенстве.
+        var ordered = QueueStyles.ByStatusThenRejoin(items);
         ordered = _sort switch
         {
             ParticipantSort.Group => ordered.ThenBy(p => p.GroupName).ThenBy(p => p.LastName),
@@ -88,14 +88,31 @@ public partial class QueueDetails : IAsyncDisposable
             _ => ordered.ThenByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt),
         };
 
-        return ordered.ToList();
+        return ordered.ThenBy(p => p.Round).ToList();
     }
 
-    /// <summary>Следующий ожидающий в видимых группах: больше баллов — раньше, при равенстве — кто раньше записался.</summary>
-    private QueueParticipantDto? NextWaiting() => InVisibleGroups
-        .Where(p => p.Status == QueueEntryStatus.Waiting && p.CanManage)
-        .OrderByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt)
+    /// <summary>
+    /// Следующий ожидающий в видимых группах: первый круг — больше баллов раньше, при равенстве — кто раньше записался;
+    /// повторно вставшие — только после всех первых кругов.
+    /// </summary>
+    private QueueParticipantDto? NextWaiting() => QueueStyles.ByStatusThenRejoin(InVisibleGroups
+            .Where(p => p.Status == QueueEntryStatus.Waiting && p.CanManage))
+        .ThenByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt)
         .FirstOrDefault();
+
+    private bool IsPastRound(QueueParticipantDto participant) => QueueStyles.IsPastRound(participant, _participants);
+
+    /// <summary>Самозапись меняется прямо из очереди: студенты сразу видят или теряют кнопку «Встать».</summary>
+    private async Task SetSelfJoinAsync(bool allow)
+    {
+        if (_details is null) return;
+        try
+        {
+            await Queues.UpdateAsync(EventId, new UpdateQueueEventRequest(_details.EventName, _details.EventDateTime, allow));
+            _details = _details with { AllowSelfJoin = allow };
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
 
     private async Task LoadAsync()
     {
@@ -183,6 +200,7 @@ public partial class QueueDetails : IAsyncDisposable
         var eventId = EventId;
 
         _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(OnQueueChangedAsync));
+        _hub.On<int>("QueueChanged", _ => InvokeAsync(OnQueueChangedAsync));
         _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(update)));
         _hub.Reconnecting += _ => InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
         _hub.Closed += _ => InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
@@ -361,7 +379,8 @@ public partial class QueueDetails : IAsyncDisposable
         StateHasChanged();
     }
 
-    private bool IsReadOnly(QueueParticipantDto participant) => _currentAdminId is null;
+    // Прошлый круг — история: открыть можно, но без взятия на проверку и смены статуса.
+    private bool IsReadOnly(QueueParticipantDto participant) => _currentAdminId is null || IsPastRound(participant);
 
     private bool IsOtherTeacherChecking(QueueParticipantDto participant) =>
         participant.Status == QueueEntryStatus.Checking &&

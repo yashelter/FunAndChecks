@@ -24,7 +24,12 @@ public class QueueEntryConfiguration : IEntityTypeConfiguration<QueueEntry>
             .HasForeignKey(e => e.CurrentAdminId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        // Студент не может стоять в одной очереди дважды.
-        builder.HasIndex(e => new { e.QueueEventId, e.StudentId }).IsUnique();
+        // Прошлых кругов сколько угодно, но активная запись (Checking = 0, Waiting = 1) — одна:
+        // фильтрованный уникальный индекс работает и в PostgreSQL, и в SQLite.
+        builder.HasIndex(e => new { e.QueueEventId, e.StudentId })
+            .IsUnique()
+            .HasFilter("\"Status\" IN (0, 1)")
+            .HasDatabaseName("IX_QueueEntries_QueueEventId_StudentId_Active");
+        builder.HasIndex(e => new { e.QueueEventId, e.StudentId, e.Round });
     }
 }

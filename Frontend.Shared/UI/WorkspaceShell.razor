@@ -96,6 +96,7 @@
             if (path.Contains("/profile")) return Text("Личный кабинет", "Profile");
             if (path.Contains("/forum")) return Text("Форум", "Forum");
             if (path.Contains("/surveys")) return Text("Опросы", "Surveys");
+            if (path.Contains("/variants")) return Text("Варианты", "Variants");
             return path.Contains("/queues") ? Loc["AdminNav_Queues"] : path.Contains("/attendance") ? Text("Посещаемость", "Attendance") :
                 path.Contains("/management") ? Loc["AdminNav_Management"] : path.Contains("/grading") ? Loc["AdminNav_Grading"] :
                 path.Contains("/admins") ? Loc["AdminNav_Admins"] : path.Contains("/maintenance") ? Loc["AdminNav_Maintenance"] :

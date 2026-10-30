@@ -1,0 +1,44 @@
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudDialog>
+    <TitleContent><MudText Typo="Typo.h6">@(Number is { } number ? Loc["Variants_EditVariant", number] : Loc["Variants_NewVariant"])</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            @if (Number is null)
+            {
+                <MudNumericField T="int?" @bind-Value="_number" Label="@Loc["Variants_Number"]" Min="1" Max="9999" Variant="Variant.Outlined" Margin="Margin.Dense" AutoFocus="true" />
+            }
+            <MudTextField @bind-Value="_title" Label="@Loc["Variants_ColTitle"]" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" AutoFocus="@(Number is not null)" />
+            <MudTextField @bind-Value="_description" Label="@Loc["Variants_ColDescription"]" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="2000" Lines="5" AutoGrow="true" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">@Loc["Common_Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_number is null or < 1 or > 9999)" OnClick="Save">@Loc["Common_Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    /// <summary>Номер правимого варианта; null — новый вариант (номер вводится).</summary>
+    [Parameter] public int? Number { get; set; }
+    [Parameter] public int? SuggestedNumber { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Description { get; set; }
+
+    private int? _number;
+    private string? _title, _description;
+
+    protected override void OnInitialized()
+    {
+        _number = Number ?? SuggestedNumber;
+        _title = Title;
+        _description = Description;
+    }
+
+    private void Save()
+    {
+        if (_number is not { } number) return;
+        MudDialog.Close(DialogResult.Ok(new AddVariantRequest(number, _title, _description)));
+    }
+}

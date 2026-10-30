@@ -85,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<AdminsApi>();
         services.AddScoped<BackupApi>();
         services.AddScoped<AttendanceApi>();
+        services.AddScoped<VariantsApi>();
         services.AddScoped<NotificationApi>();
         services.AddScoped<ForumApi>();
         services.AddScoped<SurveyApi>();

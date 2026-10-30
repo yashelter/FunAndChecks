@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Queues;
 using FluentValidation;
 using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Exceptions;
@@ -21,7 +22,8 @@ public class AuthService(
     IResultsCacheService resultsCacheService,
     IValidator<RegisterStudentRequest> registerValidator,
     IValidator<ResetPasswordRequest> resetPasswordValidator,
-    ILogger<AuthService> logger)
+    ILogger<AuthService> logger,
+    IQueueAutoFillService? queueAutoFill = null)
     : IAuthService
 {
     public async Task<Guid> RegisterStudentAsync(RegisterStudentRequest request, CancellationToken cancellationToken = default)
@@ -134,6 +136,10 @@ public class AuthService(
                 {
                     logger.LogError(ex, "Failed to invalidate cache");
                 }
+
+                // Подтвердился после создания авто-очереди своей группы — встаёт в неё сам.
+                if (queueAutoFill is not null)
+                    await queueAutoFill.EnrollAsync(student.Id, cancellationToken);
             }
         }
     }

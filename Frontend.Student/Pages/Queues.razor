@@ -53,7 +53,11 @@ else if (_details is not null)
                 <strong>@(MyPosition is int place ? Loc["StudentQueues_MyPlace", place, Waiting.Count] : QueueStyles.StatusText(mine.Status, mine.CheckingByAdminName, Loc))</strong>
                 <small class="fc-muted">@Loc["StudentQueues_OrderHint"]</small>
             </div>
-            @* В очередь, заполненную преподавателем, нельзя записаться снова — поэтому и выйти из неё нельзя. *@
+            @* Без самозаписи встать обратно нельзя — поэтому и выйти самому тоже. *@
+            @if (_details.AllowSelfJoin && mine.Status is QueueEntryStatus.Skipped or QueueEntryStatus.Finished)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Replay" OnClick="RejoinAsync">@Loc["StudentQueues_Rejoin"]</MudButton>
+            }
             @if (_details.AllowSelfJoin && mine.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Skipped)
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Logout" OnClick="LeaveAsync">@Loc["StudentQueues_Leave"]</MudButton>
@@ -68,12 +72,15 @@ else if (_details is not null)
                     @foreach (var p in Ordered)
                     {
                         var place = Waiting.IndexOf(p);
-                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.StudentId" class="@(p.StudentId == _myId ? "fc-queue-me-row" : "")">
+                        var past = QueueStyles.IsPastRound(p, _participants);
+                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.EntryId" class="@(p.StudentId == _myId && !past ? "fc-queue-me-row" : "") @(past ? "fc-queue-past-round" : "")">
                             <td class="fc-queue-place">@(place >= 0 ? place + 1 : "")</td>
                             <td><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-result-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /></td>
                             <td class="fc-queue-group">@p.GroupName</td>
                             <td class="fc-queue-points">@p.TotalPoints</td>
-                            <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip></td>
+                            <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip>
+                                @if (p.IsRejoin && !past) { <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Class="fc-queue-rejoin" title="@Loc["Queue_RoundHint", p.Round, p.JoinedAt.ToLocalTime().ToString("t")]">@Loc["Queue_RejoinBadge"]</MudChip> }
+                                @if (past) { <small class="fc-muted fc-queue-round">@Loc["Queue_PastRound", p.Round]</small> }</td>
                         </tr>
                     }
                 </tbody>

@@ -94,6 +94,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AdminGroupAccess> AdminGroupAccesses => Set<AdminGroupAccess>();
     public DbSet<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<VariantSet> VariantSets => Set<VariantSet>();
+    public DbSet<Variant> Variants => Set<Variant>();
+    public DbSet<VariantAssignment> VariantAssignments => Set<VariantAssignment>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<ProfileMediaAsset> ProfileMediaAssets => Set<ProfileMediaAsset>();

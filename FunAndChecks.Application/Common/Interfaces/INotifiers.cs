@@ -15,6 +15,9 @@ public interface IQueueNotifier
     Task QueueEntryUpdatedAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken = default);
 
     Task StudentColorUpdatedAsync(int eventId, StudentColorUpdateDto update, CancellationToken cancellationToken = default);
+
+    /// <summary>Изменилось само событие (например, флаг самозаписи): клиенты перечитывают очередь.</summary>
+    Task QueueChangedAsync(int eventId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

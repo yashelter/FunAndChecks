@@ -25,6 +25,9 @@ public interface IApplicationDbContext
     DbSet<AdminGroupAccess> AdminGroupAccesses { get; }
     DbSet<AttendanceSession> AttendanceSessions { get; }
     DbSet<AttendanceRecord> AttendanceRecords { get; }
+    DbSet<VariantSet> VariantSets { get; }
+    DbSet<Variant> Variants { get; }
+    DbSet<VariantAssignment> VariantAssignments { get; }
     DbSet<UserProfile> UserProfiles { get; }
     DbSet<ProfileMediaAsset> ProfileMediaAssets { get; }
     DbSet<AchievementDefinition> AchievementDefinitions { get; }

@@ -27,12 +27,15 @@ public class ExportNameColumnsTests
         sheet.Cell(1, 1).GetString().Should().Be("Фамилия");
         sheet.Cell(1, 2).GetString().Should().Be("Имя");
         sheet.Cell(1, 3).GetString().Should().Be("Группа");
-        sheet.Cell(1, 4).GetString().Should().Be("1.1");
+        sheet.Cell(1, 4).GetString().Should().Be("Σ");
+        sheet.Cell(1, 5).GetString().Should().Be("1.1");
         sheet.Cell(2, 1).GetString().Should().Be("Иванова");
         sheet.Cell(2, 2).GetString().Should().Be("Анна Мария");
         sheet.Cell(2, 2).Style.Fill.BackgroundColor.Should().Be(XLColor.FromHtml("#123456"));
         sheet.Cell(2, 3).GetString().Should().Be("M8O-101");
-        sheet.Cell(2, 4).GetString().Should().Be("+");
+        sheet.Cell(2, 4).GetValue<int>().Should().Be(2);
+        sheet.Cell(2, 5).GetString().Should().Be("+");
+        sheet.SheetView.SplitColumn.Should().Be(4);
     }
 
     [Fact]

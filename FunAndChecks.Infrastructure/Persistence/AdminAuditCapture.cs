@@ -25,9 +25,12 @@ internal static class AdminAuditCapture
             [typeof(StudentGrade)] = ("grade", ["Id", "GradeComponentId", "StudentId", "Points", "Comment", "AdminId", "UpdatedAt"]),
             [typeof(Submission)] = ("submission", ["Id", "TaskId", "StudentId", "Status", "Comment", "AdminId", "SubmittedAt", "QueueEventId"]),
             [typeof(QueueEvent)] = ("queue", ["Id", "SubjectId", "Name", "EventDateTime", "AllowSelfJoin"]),
-            [typeof(QueueEntry)] = ("queue_entry", ["Id", "QueueEventId", "StudentId", "Status", "CurrentAdminId", "JoinedAt"]),
+            [typeof(QueueEntry)] = ("queue_entry", ["Id", "QueueEventId", "StudentId", "Status", "CurrentAdminId", "JoinedAt", "Round"]),
             [typeof(AttendanceSession)] = ("attendance_session", ["Id", "SubjectId", "Name", "StartsAt", "CreatedAt", "CreatedByAdminId"]),
             [typeof(AttendanceRecord)] = ("attendance_record", ["SessionId", "StudentId", "GroupId", "GroupName", "Status", "MarkedByAdminId", "UpdatedAt"]),
+            [typeof(VariantSet)] = ("variant_set", ["Id", "SubjectId", "Name", "Uniqueness", "ClaimsOpen", "ClaimDeadline"]),
+            [typeof(Variant)] = ("variant", ["Id", "VariantSetId", "Number", "Title", "Description"]),
+            [typeof(VariantAssignment)] = ("variant_assignment", ["VariantSetId", "StudentId", "VariantId", "AssignedByAdminId", "SelfClaimed", "AssignedAt"]),
             [typeof(Student)] = ("student", ["Id", "FirstName", "LastName", "Color", "GroupId", "IsActive"]),
             [typeof(Admin)] = ("admin", ["Id", "FirstName", "LastName", "Color", "Letter"]),
             [typeof(AdminSubjectAccess)] = ("subject_permission", ["AdminId", "SubjectId", "IsRestricted", "IsHidden"]),
@@ -56,8 +59,14 @@ internal static class AdminAuditCapture
             (string ObjectType, string[] Fields) spec;
             if (!Allowed.TryGetValue(entry.Metadata.ClrType, out spec))
             {
-                if (entry.Metadata.Name != "AttendanceSessionGroups") continue;
-                spec = ("attendance_session_group", entry.Metadata.FindPrimaryKey()!.Properties.Select(p => p.Name).ToArray());
+                var joinType = entry.Metadata.Name switch
+                {
+                    "AttendanceSessionGroups" => "attendance_session_group",
+                    "QueueEventAutoFillGroups" => "queue_autofill_group",
+                    _ => null,
+                };
+                if (joinType is null) continue;
+                spec = (joinType, entry.Metadata.FindPrimaryKey()!.Properties.Select(p => p.Name).ToArray());
             }
             var passwordChanged = entry.Entity is ApplicationUser && entry.State == EntityState.Modified && HasChanged(entry, "PasswordHash");
             if (entry.State == EntityState.Modified && !passwordChanged && !spec.Fields.Any(field => HasChanged(entry, field))) continue;

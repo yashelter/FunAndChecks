@@ -55,8 +55,8 @@
 
 | Сущность | Поля | Связи |
 |----------|------|-------|
-| `QueueEvent` | `Id`, `Name`, `EventDateTime`, `AllowSelfJoin`, `SubjectId` | Событие сдачи по предмету; `AllowSelfJoin=false` — состав фиксирует админ (авто-очередь по группе) |
-| `QueueEntry` | `Id`, `JoinedAt`, `Status`, `QueueEventId`, `StudentId`, `CurrentAdminId?` | Запись студента в очередь; кто сейчас проверяет |
+| `QueueEvent` | `Id`, `Name`, `EventDateTime`, `AllowSelfJoin`, `SubjectId`, `AutoFillGroups` | Событие сдачи по предмету; `AllowSelfJoin` — студенты встают сами (меняется в любой момент); `AutoFillGroups` (таблица `QueueEventAutoFillGroups`) — группы автозаписи |
+| `QueueEntry` | `Id`, `JoinedAt`, `Status`, `Round`, `QueueEventId`, `StudentId`, `CurrentAdminId?` | Один круг студента в очереди; кто сейчас проверяет. Прошлые круги остаются, **активная запись (Checking/Waiting) одна** — фильтрованный уникальный индекс `(QueueEventId, StudentId) WHERE Status IN (0, 1)` |
 
 ## Видимость для админов
 

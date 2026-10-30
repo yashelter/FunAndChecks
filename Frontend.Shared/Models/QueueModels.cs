@@ -4,8 +4,8 @@ public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool Al
     string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
 
 /// <summary>
-/// Создание события. Если задан <see cref="AutoFillGroupId"/>, в очередь добавляются все студенты
-/// группы и самозапись отключается.
+/// Создание события. Если заданы <c>AutoFillGroupIds</c>, в очередь добавляются студенты этих групп
+/// (в том числе подтвердившиеся позже). Самозапись задаётся <c>AllowSelfJoin</c> и меняется потом.
 /// </summary>
 public record CreateQueueEventRequest(
     string Name,
@@ -14,7 +14,8 @@ public record CreateQueueEventRequest(
     bool AllowSelfJoin = true,
     List<int>? AutoFillGroupIds = null);
 
-public record UpdateQueueEventRequest(string Name, DateTime EventDateTime);
+/// <summary>Правка события; <c>AllowSelfJoin</c> = null — флаг самозаписи не меняется.</summary>
+public record UpdateQueueEventRequest(string Name, DateTime EventDateTime, bool? AllowSelfJoin = null);
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
@@ -29,9 +30,13 @@ public record QueueParticipantDto(
     DateTime JoinedAt,
     string? StudentColor,
     bool CanManage = false,
-    Guid? CheckingByAdminId = null)
+    Guid? CheckingByAdminId = null,
+    int EntryId = 0,
+    int Round = 1)
 {
     public string FullName => $"{FirstName} {LastName}";
+    /// <summary>Повторный круг: студент встал снова после «сдал» или «пропущен».</summary>
+    public bool IsRejoin => Round > 1;
 }
 
 public record QueueDetailsDto(

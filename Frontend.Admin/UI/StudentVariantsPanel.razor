@@ -1,0 +1,99 @@
+@inject VariantsApi Api
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Варианты студента в карточке: преподаватель выдаёт или меняет вариант без ограничений набора. *@
+@if (_sets is null)
+{
+    <div class="fc-core-empty"><MudProgressCircular Indeterminate="true" /></div>
+}
+else if (_sets.Count == 0)
+{
+    <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Variants_StudentPanelEmpty"]</MudText></div>
+}
+else
+{
+    <div class="fc-student-variants">
+        @if (!ReadOnly) { <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Variants_StudentPanelHint"]</MudText> }
+        @foreach (var set in _sets)
+        {
+            <article class="fc-grade-card fc-student-variant-card" @key="set.Id">
+                <div class="fc-grade-card-info">
+                    <MudText Typo="Typo.subtitle2">@set.Name</MudText>
+                    <MudText Typo="Typo.caption" Class="fc-muted">@VariantText.Uniqueness(Loc, set.Uniqueness) · @VariantText.Status(Loc, set.IsOpen, set.IsOpen, set.ClaimDeadline)</MudText>
+                    @if (set.Mine is { } mine)
+                    {
+                        <MudText Typo="Typo.caption">@(set.SelfClaimed ? Loc["Variants_SelfClaimed"] : Loc["Variants_ByTeacher"])</MudText>
+                        @if (!string.IsNullOrWhiteSpace(mine.Description)) { <MudText Typo="Typo.caption" Class="fc-muted fc-variant-description-full">@mine.Description</MudText> }
+                    }
+                </div>
+                <div class="fc-grade-input">
+                    <MudSelect T="int?" Value="@set.Mine?.Id" ValueChanged="@(v => AssignAsync(set, v))" Disabled="@(ReadOnly || _busy || set.Variants.Count == 0)"
+                               ToStringFunc="@(id => Label(set, id))" Label="@Loc["Variants_ColVariant"]" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        <MudSelectItem T="int?" Value="@((int?)null)">@Loc["Variants_NotAssigned"]</MudSelectItem>
+                        @foreach (var variant in set.Variants)
+                        {
+                            var label = VariantText.Label(variant.Number, variant.Title);
+                            <MudSelectItem T="int?" Value="@variant.Id">@(variant.Taken ? Loc["Variants_TakenMark", label] : label)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </div>
+            </article>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int SubjectId { get; set; }
+    [Parameter] public Guid StudentId { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    /// <summary>Вызывается после выдачи или снятия: карточка сообщит таблице, что её нужно перечитать.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<StudentVariantSetDto>? _sets;
+    private bool _busy;
+
+    // Студент и предмет в карточке не меняются: грузим один раз, а не на каждую перерисовку диалога.
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try { _sets = await Api.GetForStudentAsync(SubjectId, StudentId); }
+        catch (ApiException ex)
+        {
+            _sets ??= [];
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task AssignAsync(StudentVariantSetDto set, int? variantId)
+    {
+        if (set.Mine?.Id == variantId) return;
+        _busy = true;
+        try
+        {
+            if (variantId is { } id)
+            {
+                await Api.AssignAsync(set.Id, StudentId, id);
+                Snackbar.Add(Loc["Variants_Assigned", set.Variants.First(v => v.Id == id).Number], Severity.Success);
+            }
+            else
+            {
+                await Api.UnassignAsync(set.Id, StudentId);
+                Snackbar.Add(Loc["Variants_Unassigned"], Severity.Success);
+            }
+            await OnChanged.InvokeAsync();
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally
+        {
+            await LoadAsync();
+            _busy = false;
+        }
+    }
+
+    private string Label(StudentVariantSetDto set, int? variantId) =>
+        variantId is { } id && set.Variants.FirstOrDefault(v => v.Id == id) is { } variant
+            ? VariantText.Label(variant.Number, variant.Title)
+            : Loc["Variants_NotAssigned"];
+}

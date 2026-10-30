@@ -1,0 +1,77 @@
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudDialog Class="fc-variant-set-dialog">
+    <TitleContent><MudText Typo="Typo.h6">@(Initial is null ? Loc["Variants_NewSet"] : Loc["Variants_EditSet"])</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_name" Immediate="true" Label="@Loc["Variants_SetName"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          MaxLength="200" AutoFocus="true" Required="true" />
+            <MudSelect T="VariantUniqueness" @bind-Value="_uniqueness" Label="@Loc["Variants_Uniqueness"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       HelperText="@VariantText.UniquenessHint(Loc, _uniqueness)">
+                @foreach (var value in Enum.GetValues<VariantUniqueness>())
+                {
+                    <MudSelectItem T="VariantUniqueness" Value="@value">@VariantText.Uniqueness(Loc, value)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSwitch T="bool" @bind-Value="_claimsOpen" Color="Color.Primary" Label="@Loc["Variants_ClaimsOpen"]" />
+            <div class="fc-variant-deadline">
+                <MudDatePicker @bind-Date="_date" DateFormat="dd.MM.yyyy" Label="@Loc["Variants_DeadlineDate"]" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" />
+                <MudTimePicker @bind-Time="_time" Label="@Loc["Variants_DeadlineTime"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@(_date is null)" />
+            </div>
+            <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Variants_DeadlineHint"]</MudText>
+            @if (Initial is null)
+            {
+                <div class="fc-variant-range">
+                    <MudNumericField T="int?" @bind-Value="_from" Label="@Loc["Variants_RangeFrom"]" Min="1" Max="9999" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudNumericField T="int?" @bind-Value="_to" Label="@Loc["Variants_RangeTo"]" Min="1" Max="9999" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </div>
+                <MudText Typo="Typo.caption" Class="fc-muted">@Loc["Variants_RangeHint", MaxRange]</MudText>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">@Loc["Common_Cancel"]</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(!CanSave)" OnClick="Save">@Loc["Common_Save"]</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private const int MaxRange = 500;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    /// <summary>Набор для правки; null — создание (тогда доступен диапазон номеров).</summary>
+    [Parameter] public VariantSetDto? Initial { get; set; }
+
+    private string _name = "";
+    private VariantUniqueness _uniqueness = VariantUniqueness.UniqueInSubject;
+    private bool _claimsOpen = true;
+    private DateTime? _date;
+    private TimeSpan? _time = new(23, 59, 0);
+    private int? _from = 1, _to;
+
+    private bool RangeValid => _to is null || _from is { } from && _to >= from && _to - from < MaxRange;
+    private bool CanSave => !string.IsNullOrWhiteSpace(_name) && (Initial is not null || RangeValid);
+
+    protected override void OnInitialized()
+    {
+        if (Initial is null) return;
+        _name = Initial.Name;
+        _uniqueness = Initial.Uniqueness;
+        _claimsOpen = Initial.ClaimsOpen;
+        if (Initial.ClaimDeadline is { } deadline)
+        {
+            var moscow = AttendanceStyles.Moscow(deadline);
+            _date = moscow.Date;
+            _time = moscow.TimeOfDay;
+        }
+    }
+
+    private void Save()
+    {
+        if (!CanSave) return;
+        DateTime? deadline = _date is { } date ? AttendanceStyles.ToUtc(date, _time ?? new TimeSpan(23, 59, 0)) : null;
+        var withRange = Initial is null && _to is not null;
+        MudDialog.Close(DialogResult.Ok(new SaveVariantSetRequest(_name.Trim(), _uniqueness, _claimsOpen, deadline,
+            withRange ? _from : null, withRange ? _to : null)));
+    }
+}

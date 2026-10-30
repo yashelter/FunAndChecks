@@ -70,7 +70,7 @@ public sealed class AdminAuditMiddleware(RequestDelegate next)
         return action.ControllerName switch
         {
             "Subjects" or "Tasks" or "TaskGroups" or "Groups" or "Grades" or "Submissions" or "Students" or "Admins" or
-            "Queues" or "Attendance" or "Achievements" or "Backup" or "Profiles" => true,
+            "Queues" or "Attendance" or "Variants" or "Achievements" or "Backup" or "Profiles" => true,
             "Me" => action.ActionName is "SetSubjectHidden" or "SetGroupHidden",
             _ => false,
         };

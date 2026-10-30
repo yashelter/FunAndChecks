@@ -52,7 +52,10 @@ else
                 <RowTemplate>
                     <MudTd DataLabel="@Loc["Management_ColName"]"><strong>@context.Name</strong></MudTd>
                     <MudTd DataLabel="@Loc["Management_ColDate"]">@context.EventDateTime.ToLocalTime().ToString("g")</MudTd>
-                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">@(context.AllowSelfJoin ? Loc["Common_Yes"] : Loc["Common_No"])</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">
+                        <MudSwitch T="bool" Value="context.AllowSelfJoin" ValueChanged="@(v => SetQueueSelfJoinAsync(context, v))" Color="Color.Primary"
+                                   aria-label="@Loc["Management_ColSelfJoin"]" />
+                    </MudTd>
                     <MudTd>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@Loc["Common_Delete"]"
                                        OnClick="@(() => DeleteQueueAsync(context))" />
@@ -61,7 +64,7 @@ else
                 <RowEditingTemplate>
                     <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" /></MudTd>
                     <MudTd DataLabel="@Loc["Management_ColDate"]"><MudTextField @bind-Value="context.LocalDateTimeText" HelperText="@Loc["Management_DateHelper"]" /></MudTd>
-                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">@(context.AllowSelfJoin ? Loc["Common_Yes"] : Loc["Common_No"])</MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColSelfJoin"]"><MudSwitch T="bool" @bind-Value="context.AllowSelfJoin" Color="Color.Primary" aria-label="@Loc["Management_ColSelfJoin"]" /></MudTd>
                     <MudTd></MudTd>
                 </RowEditingTemplate>
             </MudTable>

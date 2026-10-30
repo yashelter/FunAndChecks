@@ -15,5 +15,7 @@ public class QueueEventConfiguration : IEntityTypeConfiguration<QueueEvent>
             .WithMany()
             .HasForeignKey(e => e.SubjectId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(e => e.AutoFillGroups).WithMany().UsingEntity("QueueEventAutoFillGroups");
     }
 }

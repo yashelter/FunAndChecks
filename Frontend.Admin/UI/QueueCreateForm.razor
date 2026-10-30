@@ -19,7 +19,7 @@
     <MudItem xs="6" sm="3"><MudDatePicker @bind-Date="_date" Label="@Loc["Management_DateLabel"]" Variant="Variant.Outlined" Disabled="_busy" /></MudItem>
     <MudItem xs="6" sm="3"><MudTimePicker @bind-Time="_time" Label="@Loc["Management_TimeLabel"]" Variant="Variant.Outlined" Disabled="_busy" /></MudItem>
     <MudItem xs="12" sm="6">
-        <MudSelect T="int" SelectedValues="_autoFillGroupIds" SelectedValuesChanged="@(v => _autoFillGroupIds = v.ToList())"
+        <MudSelect T="int" SelectedValues="_autoFillGroupIds" SelectedValuesChanged="OnAutoFillChanged"
                    MultiSelection="true" ToStringFunc="@(id => Groups.FirstOrDefault(g => g.Id == id).Name ?? "")"
                    Label="@Loc["Management_AutoFillLabel"]" Variant="Variant.Outlined" Disabled="_busy"
                    Placeholder="@Loc["Management_SelectGroups"]"
@@ -28,8 +28,8 @@
         </MudSelect>
     </MudItem>
     <MudItem xs="12">
-        <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary"
-                   Disabled="@(_busy || _autoFillGroupIds.Any())">@Loc["Management_AllowSelfJoin"]</MudSwitch>
+        @* Самозапись не зависит от автозаполнения: при выборе групп по умолчанию выключается, но её можно включить. *@
+        <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary" Disabled="_busy">@Loc["Management_AllowSelfJoin"]</MudSwitch>
     </MudItem>
 </MudGrid>
 <div class="fc-queue-create-actions">
@@ -57,6 +57,13 @@
     private TimeSpan? _time = new(10, 0, 0);
     private IReadOnlyCollection<int> _autoFillGroupIds = new HashSet<int>();
     private bool _allowSelfJoin = true;
+
+    private void OnAutoFillChanged(IEnumerable<int> ids)
+    {
+        var wasEmpty = _autoFillGroupIds.Count == 0;
+        _autoFillGroupIds = ids.ToList();
+        if (wasEmpty && _autoFillGroupIds.Count > 0) _allowSelfJoin = false;
+    }
     private bool _busy, _initialized;
 
     protected override void OnParametersSet()

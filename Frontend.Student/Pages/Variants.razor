@@ -1,0 +1,75 @@
+@page "/student/variants"
+@layout StudentLayout
+@attribute [Authorize(Roles = Roles.Student)]
+
+<PageTitle>@Loc["Nav_Variants"]</PageTitle>
+<div class="fc-variants-page fc-student-variants-page">
+    <div class="fc-page-heading"><div><MudText Typo="Typo.h4">@Loc["Nav_Variants"]</MudText><p class="fc-muted">@Loc["MyVariants_Subtitle"]</p></div></div>
+    <section class="fc-panel fc-subject-filter">
+        <div class="fc-panel-body fc-toolbar">
+            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="@(id => _subjects.FirstOrDefault(s => s.Id == id)?.Name ?? "")" Label="@Loc["Common_Subject"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+                @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
+            </MudSelect>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadAsync" Disabled="@(_loading || _subjectId is null)">@Loc["MyVariants_Refresh"]</MudButton>
+        </div>
+    </section>
+    @if (_loading) { <MudProgressLinear Indeterminate="true" Color="Color.Primary" /> }
+    else if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
+    else if (_sets.Count == 0)
+    {
+        <div class="fc-core-empty fc-variants-empty"><MudIcon Icon="@Icons.Material.Filled.Tag" Size="Size.Large" /><MudText Typo="Typo.h6">@Loc["MyVariants_Empty"]</MudText><MudText Class="fc-muted">@Loc["MyVariants_EmptyHint"]</MudText></div>
+    }
+    else
+    {
+        @foreach (var set in _sets)
+        {
+            <section class="fc-panel fc-variant-set" @key="set.Id">
+                <div class="fc-variant-set-header">
+                    <div class="fc-variant-set-title">
+                        <MudText Typo="Typo.h6">@set.Name</MudText>
+                        <div class="fc-variant-set-chips">
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" title="@VariantText.UniquenessHint(Loc, set.Uniqueness)">@VariantText.Uniqueness(Loc, set.Uniqueness)</MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="@(set.IsOpen ? Color.Success : Color.Default)">@VariantText.Status(Loc, set.IsOpen, set.IsOpen, set.ClaimDeadline)</MudChip>
+                        </div>
+                    </div>
+                </div>
+                <div class="fc-panel-body">
+                    @if (set.Mine is { } mine)
+                    {
+                        <div class="fc-variant-mine">
+                            <span class="fc-variant-mine-number">@mine.Number</span>
+                            <div>
+                                <span class="fc-eyebrow">@Loc["MyVariants_Yours"]</span>
+                                @if (!string.IsNullOrWhiteSpace(mine.Title)) { <MudText Typo="Typo.subtitle1">@mine.Title</MudText> }
+                                @if (!string.IsNullOrWhiteSpace(mine.Description)) { <MudText Typo="Typo.body2" Class="fc-variant-description-full">@mine.Description</MudText> }
+                                <MudText Typo="Typo.caption" Class="fc-muted">@(set.SelfClaimed ? Loc["MyVariants_ChosenByYou"] : Loc["MyVariants_AssignedByTeacher"])</MudText>
+                            </div>
+                        </div>
+                    }
+                    else if (!set.IsOpen)
+                    {
+                        <MudAlert Severity="Severity.Info" Dense="true">@Loc["MyVariants_ClosedNoVariant"]</MudAlert>
+                    }
+                    else if (set.Variants.All(v => v.Taken))
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true">@Loc["MyVariants_AllTaken"]</MudAlert>
+                    }
+                    else
+                    {
+                        <div class="fc-variant-grid">
+                            @foreach (var variant in set.Variants)
+                            {
+                                <button type="button" class="fc-variant-option @(variant.Taken ? "fc-variant-taken" : "")" disabled="@(variant.Taken || _busy)" @key="variant.Id"
+                                        title="@(variant.Taken ? Loc["MyVariants_Taken"].Value : variant.Description)" @onclick="@(() => ClaimAsync(set, variant))">
+                                    <span class="fc-variant-option-number">@variant.Number</span>
+                                    @if (!string.IsNullOrWhiteSpace(variant.Title)) { <span class="fc-variant-option-title">@variant.Title</span> }
+                                    <span class="fc-variant-option-state">@(variant.Taken ? Loc["MyVariants_Taken"] : Loc["MyVariants_Take"])</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>

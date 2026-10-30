@@ -26,16 +26,20 @@ public partial class Queues : IAsyncDisposable
     [Parameter] public int? EventId { get; set; }
     private Guid? _myId;
 
-    private QueueParticipantDto? MyEntry => _participants.FirstOrDefault(p => p.StudentId == _myId);
+    /// <summary>Своя запись — последний круг; прошлые круги остаются в списке историей.</summary>
+    private QueueParticipantDto? MyEntry => _participants.Where(p => p.StudentId == _myId).MaxBy(p => p.Round);
 
-    /// <summary>Ожидающие в порядке вызова: больше баллов — раньше, при равенстве — кто раньше записался.</summary>
-    private List<QueueParticipantDto> Waiting => _participants.Where(p => p.Status == QueueEntryStatus.Waiting)
-        .OrderByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt).ToList();
+    /// <summary>
+    /// Ожидающие в порядке вызова: первый круг — больше баллов раньше, при равенстве — кто раньше записался;
+    /// повторно вставшие — после всех, по времени повторного вступления.
+    /// </summary>
+    private List<QueueParticipantDto> Waiting => QueueStyles.ByStatusThenRejoin(_participants.Where(p => p.Status == QueueEntryStatus.Waiting))
+        .ThenByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt).ToList();
 
     private int? MyPosition => Waiting.FindIndex(p => p.StudentId == _myId) is var index and >= 0 ? index + 1 : null;
 
-    private IEnumerable<QueueParticipantDto> Ordered => _participants.OrderBy(x => QueueStyles.StatusOrder(x.Status))
-        .ThenByDescending(x => x.TotalPoints).ThenBy(x => x.JoinedAt);
+    private IEnumerable<QueueParticipantDto> Ordered => QueueStyles.ByStatusThenRejoin(_participants)
+        .ThenByDescending(x => x.TotalPoints).ThenBy(x => x.JoinedAt).ThenBy(x => x.Round);
 
     private List<QueueEventDto> _myEvents = [];
     private List<QueueEventDto> _availableEvents = [];
@@ -121,6 +125,24 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
+    /// <summary>Сдавший или пропущенный встаёт снова — новым кругом в конец ожидающих.</summary>
+    private async Task RejoinAsync()
+    {
+        if (_viewedEventId is not int eventId) return;
+        if (!await Confirm.ConfirmAsync(Loc["StudentQueues_RejoinTitle"], Loc["StudentQueues_RejoinText"], Loc["StudentQueues_Rejoin"])) return;
+        try
+        {
+            await QueuesApi.JoinAsync(eventId);
+            Snackbar.Add(Loc["StudentQueues_Joined"], Severity.Success);
+            await LoadDetailsAsync(eventId);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+            await LoadDetailsAsync(eventId);
+        }
+    }
+
     private async Task ViewQueueAsync(int eventId)
     {
         if (_disposed)
@@ -155,8 +177,6 @@ public partial class Queues : IAsyncDisposable
                 .Select(participant => _latestColorChanges.TryGetValue(participant.StudentId, out var change) && change.Revision > colorRevision
                     ? participant with { StudentColor = change.Color }
                     : participant)
-                .OrderBy(p => p.Status)
-                .ThenByDescending(p => p.TotalPoints)
                 .ToList();
             _details = details with { Participants = _participants };
             StateHasChanged();
@@ -184,6 +204,7 @@ public partial class Queues : IAsyncDisposable
 
             // На любое обновление очереди перечитываем её состав.
             _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
+            _hub.On<int>("QueueChanged", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
             _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(eventId, update)));
 
             var hub = _hub;

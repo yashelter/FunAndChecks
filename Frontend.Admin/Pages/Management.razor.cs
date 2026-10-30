@@ -205,10 +205,16 @@ public partial class Management
             _ = ReloadQueuesAsync();
             return;
         }
+        var row = (QueueRow)element;
         _ = RunAsync(
-        () => QueuesApi.UpdateAsync(((QueueRow)element).Id, new UpdateQueueEventRequest(((QueueRow)element).Name, ((QueueRow)element).EventDateTime)),
+        () => QueuesApi.UpdateAsync(row.Id, new UpdateQueueEventRequest(row.Name, row.EventDateTime, row.AllowSelfJoin)),
         Loc["Management_QueueUpdated"], () => Task.CompletedTask, ReloadQueuesAsync);
     }
+
+    /// <summary>Самозапись переключается прямо в строке, без режима правки — для любой очереди, в том числе авто.</summary>
+    private Task SetQueueSelfJoinAsync(QueueRow row, bool allow) => RunAsync(
+        () => QueuesApi.UpdateAsync(row.Id, new UpdateQueueEventRequest(row.Name, row.EventDateTime, allow)),
+        Loc["Management_QueueUpdated"], () => { row.AllowSelfJoin = allow; return Task.CompletedTask; }, ReloadQueuesAsync);
 
     private async Task DeleteQueueAsync(QueueRow row)
     {

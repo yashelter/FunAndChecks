@@ -1,5 +1,6 @@
 using FluentValidation;
 using FunAndChecks.Application.Attendance;
+using FunAndChecks.Application.Variants;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Auth;
 using FunAndChecks.Application.Grades;
@@ -30,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<ISubjectService, SubjectService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IQueueService, QueueService>();
+        services.AddScoped<IQueueAutoFillService, QueueAutoFillService>();
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IResultsService, ResultsService>();
         services.AddScoped<IStudentService, StudentService>();
@@ -38,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IAdminAccessService, AdminAccessService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
+        services.AddScoped<IVariantService, VariantService>();
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<INotificationService, NotificationService>();

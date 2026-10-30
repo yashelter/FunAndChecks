@@ -79,8 +79,11 @@ public class QueueService(
             .AsNoTracking()
             .Where(p => p.QueueEventId == eventId)
             .OrderBy(p => p.JoinedAt)
+            .ThenBy(p => p.Round)
             .Select(p => new
             {
+                p.Id,
+                p.Round,
                 p.StudentId,
                 p.Student.FirstName,
                 p.Student.LastName,
@@ -133,7 +136,9 @@ public class QueueService(
                 e.JoinedAt,
                 e.Color,
                 e.CanManage,
-                e.CheckingByAdminId))
+                e.CheckingByAdminId,
+                e.Id,
+                e.Round))
             .ToList();
 
         return new QueueDetailsDto(
@@ -157,26 +162,23 @@ public class QueueService(
 
         var autoFillGroupIds = request.AutoFillGroupIds?.Distinct().ToList() ?? [];
 
-        // Авто-заполнение по группам фиксирует состав: самостоятельная запись отключается.
-        var allowSelfJoin = autoFillGroupIds.Count > 0 ? false : request.AllowSelfJoin;
-
+        // Самозапись не зависит от автозаполнения: преподаватель решает сам и может поменять позже.
         var queueEvent = new QueueEvent
         {
             Name = request.Name,
             EventDateTime = request.EventDateTime,
             SubjectId = request.SubjectId,
-            AllowSelfJoin = allowSelfJoin,
+            AllowSelfJoin = request.AllowSelfJoin,
         };
         db.QueueEvents.Add(queueEvent);
 
         if (autoFillGroupIds.Count > 0)
         {
-            var existingGroups = await db.Groups
+            var groups = await db.Groups
                 .Where(g => autoFillGroupIds.Contains(g.Id))
-                .Select(g => g.Id)
                 .ToListAsync(cancellationToken);
 
-            var missing = autoFillGroupIds.Except(existingGroups).ToList();
+            var missing = autoFillGroupIds.Except(groups.Select(g => g.Id)).ToList();
             if (missing.Count > 0)
                 throw new NotFoundException($"Group(s) not found: {string.Join(", ", missing)}.");
 
@@ -192,6 +194,9 @@ public class QueueService(
                     $"Group(s) are not linked to subject {request.SubjectId}: {string.Join(", ", unrelated)}.",
                     "queue.autofill_group_not_enrolled",
                     new Dictionary<string, object?> { ["subjectId"] = request.SubjectId, ["groupIds"] = string.Join(",", unrelated) });
+
+            // Группы запоминаем: подтвердившиеся позже студенты попадут в очередь сами (QueueAutoFillService).
+            queueEvent.AutoFillGroups = groups;
 
             // Только подтверждённые студенты выбранных групп.
             var studentIds = await db.Students
@@ -228,7 +233,12 @@ public class QueueService(
 
         queueEvent.Name = request.Name;
         queueEvent.EventDateTime = request.EventDateTime;
+        if (request.AllowSelfJoin is { } allowSelfJoin)
+            queueEvent.AllowSelfJoin = allowSelfJoin;
         await db.SaveChangesAsync(cancellationToken);
+
+        try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
+        catch (Exception ex) { logger.LogWarning(ex, "Queue event {EventId} updated, but notification failed.", eventId); }
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
@@ -256,7 +266,7 @@ public class QueueService(
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
 
         if (!queueEvent.AllowSelfJoin)
-            throw new ForbiddenException("Self-enrollment is disabled for this queue.");
+            throw new ForbiddenException("Self-enrollment is disabled for this queue.", "queue.self_join_disabled");
 
         var isGroupAllowed = await db.QueueEvents
             .Where(qe => qe.Id == eventId)
@@ -264,29 +274,34 @@ public class QueueService(
         if (!isGroupAllowed)
             throw new ForbiddenException("Your group does not have access to the subject of this event.");
 
-        // Двойной клик — частый случай: отвечаем 409 до INSERT, чтобы EF не писал ERROR в лог.
-        // catch ниже остаётся на случай настоящей гонки двух запросов.
-        if (await db.QueueEntries.AnyAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken))
-            throw new ConflictException("Student is already in the queue.", "queue.already_joined");
-
-        db.QueueEntries.Add(new QueueEntry
-        {
-            QueueEventId = eventId,
-            StudentId = studentId,
-            JoinedAt = DateTime.UtcNow,
-            Status = QueueEntryStatus.Waiting,
-        });
-
         try
         {
-            await db.SaveChangesAsync(cancellationToken);
+            // Сдавший или пропущенный встаёт снова новым кругом в конец ожидающих; прошлые круги остаются.
+            // Активная запись одна: двойной клик отвечает 409 до INSERT, настоящую гонку ловит
+            // фильтрованный уникальный индекс (catch ниже).
+            await db.ExecuteSerializableAsync(async ct =>
+            {
+                var latest = await LatestEntryQuery(eventId, studentId).AsNoTracking().FirstOrDefaultAsync(ct);
+                if (latest?.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Checking)
+                    throw AlreadyJoined();
+                db.QueueEntries.Add(new QueueEntry
+                {
+                    QueueEventId = eventId,
+                    StudentId = studentId,
+                    JoinedAt = DateTime.UtcNow,
+                    Status = QueueEntryStatus.Waiting,
+                    Round = (latest?.Round ?? 0) + 1,
+                });
+                await db.SaveChangesAsync(ct);
+            }, cancellationToken);
         }
         catch (DbUpdateException)
         {
             var duplicate = await db.QueueEntries.AsNoTracking()
-                .AnyAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken);
+                .AnyAsync(e => e.QueueEventId == eventId && e.StudentId == studentId
+                               && (e.Status == QueueEntryStatus.Waiting || e.Status == QueueEntryStatus.Checking), cancellationToken);
             if (duplicate)
-                throw new ConflictException("Student is already in the queue.", "queue.already_joined");
+                throw AlreadyJoined();
             throw;
         }
 
@@ -296,10 +311,10 @@ public class QueueService(
 
     public async Task LeaveAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default)
     {
-        var entry = await db.QueueEntries.Include(e => e.QueueEvent)
-                        .FirstOrDefaultAsync(e => e.QueueEventId == eventId && e.StudentId == studentId, cancellationToken)
+        // Выходят из последнего круга; прошлые круги (и их результат) остаются.
+        var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(cancellationToken)
                     ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
-        // В очередь, заполненную преподавателем, записаться снова нельзя — значит, и уйти из неё самому тоже.
+        // Без самозаписи встать обратно нельзя — значит, и уйти самому тоже.
         if (!entry.QueueEvent.AllowSelfJoin || entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished)
             throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
         db.QueueEntries.Remove(entry);
@@ -320,9 +335,8 @@ public class QueueService(
         foreach (var queueEvent in events)
         {
             var details = await GetDetailsAsync(queueEvent.Id, null, cancellationToken);
-            var waiting = details.Participants.Where(p => p.Status == QueueEntryStatus.Waiting)
-                .OrderByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt).ToList();
-            var me = details.Participants.FirstOrDefault(p => p.StudentId == studentId);
+            var waiting = QueueOrder.Waiting(details.Participants);
+            var me = details.Participants.Where(p => p.StudentId == studentId).MaxBy(p => p.Round);
             var position = waiting.FindIndex(p => p.StudentId == studentId);
             result.Add(new QueueEventDto(details.EventId, details.EventName, details.EventDateTime, details.AllowSelfJoin,
                 details.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
@@ -334,11 +348,12 @@ public class QueueService(
         int eventId, Guid studentId, Guid adminId, QueueEntryStatus status,
         CancellationToken cancellationToken = default)
     {
-        var entry = await db.QueueEntries
+        // Преподаватель работает с последним кругом студента; прошлые круги — история.
+        var entry = await LatestEntryQuery(eventId, studentId)
             .AsNoTracking()
             .Include(qu => qu.QueueEvent)
             .Include(qu => qu.Student)
-            .FirstOrDefaultAsync(qu => qu.QueueEventId == eventId && qu.StudentId == studentId, cancellationToken)
+            .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException("Student not found in this queue.");
 
         var admin = await db.Admins.FindAsync([adminId], cancellationToken)
@@ -372,6 +387,13 @@ public class QueueService(
             new QueueEntryUpdateDto(eventId, studentId, status,
                 status == QueueEntryStatus.Checking ? admin.FullName : null), cancellationToken);
     }
+
+    private IQueryable<QueueEntry> LatestEntryQuery(int eventId, Guid studentId) => db.QueueEntries
+        .Where(e => e.QueueEventId == eventId && e.StudentId == studentId)
+        .OrderByDescending(e => e.Round)
+        .ThenByDescending(e => e.Id);
+
+    private static ConflictException AlreadyJoined() => new("Student is already in the queue.", "queue.already_joined");
 
     private async Task NotifyBestEffortAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken)
     {

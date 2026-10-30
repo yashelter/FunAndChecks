@@ -46,7 +46,20 @@ else if (_results is not null)
                     <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" StickyLeft="true" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
                         <CellTemplate><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></CellTemplate>
                     </TemplateColumn>
+                    @* Σ рядом с именем: при большом числе задач последняя колонка уходит за край. *@
+                    <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" CellClass="fc-core-score" />
                     <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />
+                    @foreach (var set in _variants?.Sets ?? [])
+                    {
+                        <TemplateColumn Title="@Loc["Variants_ColumnHeader", set.Name]" SortBy="@(x => VariantNumber(x, set.Id) ?? int.MaxValue)" Filterable="false" CellClass="fc-results-variant">
+                            <CellTemplate>
+                                @if (_variantsByStudent.GetValueOrDefault(context.Item.StudentId)?.GetValueOrDefault(set.Id) is { } variant)
+                                {
+                                    <span title="@(variant.Title ?? (variant.SelfClaimed ? Loc["Variants_SelfClaimed"] : Loc["Variants_ByTeacher"]))">@variant.Number</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    }
                     @foreach (var task in _results.TaskHeaders)
                     {
                         <TemplateColumn Title="@task.TaskName" Sortable="false" Filterable="false" CellClass="fc-results-task-column" HeaderClass="fc-results-task-header">
@@ -70,7 +83,6 @@ else if (_results is not null)
                             </CellTemplate>
                         </TemplateColumn>
                     }
-                    <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" CellClass="fc-core-score" />
                     @if (_attendance is not null)
                     {
                         <TemplateColumn Title="@Loc["Nav_Attendance"]" Sortable="false">

@@ -21,6 +21,11 @@ public class QueueNotifier(IHubContext<QueueHub> hubContext) : IQueueNotifier
         hubContext.Clients
             .Group(QueueHub.GroupName(eventId))
             .SendAsync("StudentColorUpdated", update, cancellationToken);
+
+    public Task QueueChangedAsync(int eventId, CancellationToken cancellationToken = default) =>
+        hubContext.Clients
+            .Group(QueueHub.GroupName(eventId))
+            .SendAsync("QueueChanged", eventId, cancellationToken);
 }
 
 public class ResultsNotifier(IHubContext<ResultsHub> hubContext) : IResultsNotifier

@@ -7,6 +7,7 @@ using FunAndChecks.Tests.Common;
 using NSubstitute;
 using Xunit;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Tests.Application;
 
@@ -24,7 +25,7 @@ public class QueueServiceTests : IDisposable
             new UpdateQueueEventRequestValidator(), NullLogger<QueueService>.Instance);
 
     [Fact]
-    public async Task CreateEvent_WithAutoFillGroup_AddsAllStudents_AndDisablesSelfJoin()
+    public async Task CreateEvent_WithAutoFillGroup_AddsAllStudents_StoresGroups_AndKeepsSelfJoinFromRequest()
     {
         await using var ctx = _db.NewContext();
         var group = ctx.Group();
@@ -39,11 +40,16 @@ public class QueueServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
         var created = await sut.CreateEventAsync(queueCreator.Id,
-            new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AutoFillGroupIds: [group.Id]));
+            new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), subject.Id, AllowSelfJoin: false, AutoFillGroupIds: [group.Id]));
+        var open = await sut.CreateEventAsync(queueCreator.Id,
+            new CreateQueueEventRequest("Open", DateTime.UtcNow.AddDays(1), subject.Id, AllowSelfJoin: true, AutoFillGroupIds: [group.Id]));
 
         created.AllowSelfJoin.Should().BeFalse();
+        open.AllowSelfJoin.Should().BeTrue();
         var details = await sut.GetDetailsAsync(created.Id);
         details.Participants.Should().HaveCount(2);
+        (await ctx.QueueEvents.Where(e => e.Id == created.Id).SelectMany(e => e.AutoFillGroups).Select(g => g.Id).ToListAsync())
+            .Should().Equal(group.Id);
     }
 
     [Fact]

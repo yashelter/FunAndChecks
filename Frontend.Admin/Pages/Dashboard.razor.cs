@@ -14,6 +14,7 @@ public partial class Dashboard
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private ResultsApi Results { get; set; } = null!;
     [Inject] private AttendanceApi Attendance { get; set; } = null!;
+    [Inject] private VariantsApi Variants { get; set; } = null!;
     [Inject] private FileDownloader Downloader { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
@@ -29,6 +30,8 @@ public partial class Dashboard
     private bool _loading;
     private bool _showAcceptedTeacherColors;
     private Dictionary<Guid, (int Present, int Absent, int Unmarked)>? _attendance;
+    private VariantBoardDto? _variants;
+    private Dictionary<Guid, Dictionary<int, AssignedVariantDto>> _variantsByStudent = [];
     private string AveragePoints => _results?.UserResults is { Count: > 0 } rows
         ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
         : "—";
@@ -37,9 +40,30 @@ public partial class Dashboard
 
     /// <summary>
     /// MudDataGrid регистрирует колонки в порядке создания: колонка, появившаяся при живом обновлении
-    /// (новая задача или оценка), встала бы в конец, после Σ. Другой набор колонок — новая таблица.
+    /// (новая задача, оценка или набор вариантов), встала бы в конец, после посещаемости. Другой набор колонок — новая таблица.
     /// </summary>
-    private string ColumnsKey => _results is null ? "" : ResultsColumns.Key(_results);
+    private string ColumnsKey => _results is null ? "" :
+        ResultsColumns.Key(_results) + "|" + string.Join(',', _variants?.Sets.Select(s => s.Id) ?? []);
+
+    private int? VariantNumber(StudentResultRowDto row, int setId) =>
+        _variantsByStudent.GetValueOrDefault(row.StudentId)?.GetValueOrDefault(setId)?.Number;
+
+    private void SetVariants(VariantBoardDto? board)
+    {
+        _variants = board is { Sets.Count: > 0 } ? board : null;
+        _variantsByStudent = _variants?.Students.ToDictionary(r => r.StudentId, r => r.Variants) ?? [];
+    }
+
+    /// <summary>Варианты — дополнительная колонка: без них таблица всё равно показывается.</summary>
+    private async Task RefreshVariantsAsync(int subjectId)
+    {
+        try
+        {
+            var board = await Variants.GetBoardAsync(subjectId);
+            if (_selectedSubject?.Id == subjectId) SetVariants(board);
+        }
+        catch (ApiException) { }
+    }
 
     private string CellLabel(StudentResultRowDto row, TaskHeaderDto task)
     {
@@ -73,7 +97,7 @@ public partial class Dashboard
         var dialog = await Dialogs.ShowAsync<Frontend.Admin.Dialogs.StudentInteractionDialog>(row.FullName, parameters,
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
         if (await dialog.Result is { Canceled: false })
-            await RefreshResultsAsync();
+            await Task.WhenAll(RefreshResultsAsync(), RefreshVariantsAsync(parameters.Get(x => x.SubjectId)));
     }
 
     private CancellationTokenSource? _liveRefresh;
@@ -146,17 +170,20 @@ public partial class Dashboard
         _loading = true;
         SetResults(null);
         _attendance = null;
+        SetVariants(null);
 
         try
         {
             // Таблица и журнал независимы — запрашиваем параллельно.
             var resultsTask = Results.GetSubjectResultsAsync(subject.Id);
             var journalTask = Attendance.GetJournalAsync(subject.Id);
+            var variantsTask = RefreshVariantsAsync(subject.Id);
             var results = await resultsTask;
             // Пока грузили, могли выбрать другой предмет — его загрузка и покажет свою таблицу.
             if (_selectedSubject?.Id != subject.Id) return;
             // Таблица видна, даже если журнал посещаемости не загрузится.
             SetResults(results);
+            await variantsTask;
             var journal = await journalTask;
             if (_selectedSubject?.Id != subject.Id) return;
             if (journal.Enabled || journal.Sessions.Count > 0)

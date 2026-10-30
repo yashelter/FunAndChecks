@@ -7,4 +7,5 @@ public enum NotificationType
     ForumMention = 2,
     ForumAnnouncement = 3,
     SurveyAvailable = 4,
+    VariantAssigned = 5,
 }

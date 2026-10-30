@@ -62,6 +62,7 @@ public static class CommunityText
         NotificationType.ForumMention => T($"Вас упомянули в теме «{n.Subject}»", $"You were mentioned in “{n.Subject}”"),
         NotificationType.ForumAnnouncement => T($"Новое объявление: «{n.Subject}»", $"New announcement: “{n.Subject}”"),
         NotificationType.SurveyAvailable => T($"Доступен опрос «{n.Subject}»", $"A new survey is available: “{n.Subject}”"),
+        NotificationType.VariantAssigned => T($"Преподаватель выдал вам вариант — {n.Subject}", $"A teacher assigned you a variant — {n.Subject}"),
         _ => n.Subject,
     };
 

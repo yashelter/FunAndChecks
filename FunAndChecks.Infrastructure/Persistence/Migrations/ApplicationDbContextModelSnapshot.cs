@@ -17,7 +17,7 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -791,6 +791,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<int>("QueueEventId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Round")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
@@ -804,7 +807,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasIndex("StudentId");
 
                     b.HasIndex("QueueEventId", "StudentId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("IX_QueueEntries_QueueEventId_StudentId_Active")
+                        .HasFilter("\"Status\" IN (0, 1)");
+
+                    b.HasIndex("QueueEventId", "StudentId", "Round");
 
                     b.ToTable("QueueEntries");
                 });
@@ -1293,6 +1300,102 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("UserProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Variant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("VariantSetId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VariantSetId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("Variants");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.VariantAssignment", b =>
+                {
+                    b.Property<int>("VariantSetId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AssignedByAdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("SelfClaimed")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("VariantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("VariantSetId", "StudentId");
+
+                    b.HasIndex("AssignedByAdminId");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("VariantId");
+
+                    b.ToTable("VariantAssignments");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.VariantSet", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClaimDeadline")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ClaimsOpen")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("SubjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Uniqueness")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubjectId");
+
+                    b.ToTable("VariantSets");
+                });
+
             modelBuilder.Entity("FunAndChecks.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1526,6 +1629,21 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("QueueEventAutoFillGroups", b =>
+                {
+                    b.Property<int>("AutoFillGroupsId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QueueEventId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("AutoFillGroupsId", "QueueEventId");
+
+                    b.HasIndex("QueueEventId");
+
+                    b.ToTable("QueueEventAutoFillGroups");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.Admin", b =>
@@ -2158,6 +2276,62 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.Variant", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.VariantSet", "VariantSet")
+                        .WithMany("Variants")
+                        .HasForeignKey("VariantSetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("VariantSet");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.VariantAssignment", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "AssignedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("AssignedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Student", "Student")
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.Variant", "Variant")
+                        .WithMany()
+                        .HasForeignKey("VariantId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.VariantSet", "VariantSet")
+                        .WithMany("Assignments")
+                        .HasForeignKey("VariantSetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedByAdmin");
+
+                    b.Navigation("Student");
+
+                    b.Navigation("Variant");
+
+                    b.Navigation("VariantSet");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.VariantSet", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Subject", "Subject")
+                        .WithMany()
+                        .HasForeignKey("SubjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subject");
+                });
+
             modelBuilder.Entity("FunAndChecks.Infrastructure.Identity.RefreshToken", b =>
                 {
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", "User")
@@ -2216,6 +2390,21 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("QueueEventAutoFillGroups", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Group", null)
+                        .WithMany()
+                        .HasForeignKey("AutoFillGroupsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Domain.Entities.QueueEvent", null)
+                        .WithMany()
+                        .HasForeignKey("QueueEventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -2315,6 +2504,13 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("FunAndChecks.Domain.Entities.TaskGroup", b =>
                 {
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.VariantSet", b =>
+                {
+                    b.Navigation("Assignments");
+
+                    b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.Student", b =>
