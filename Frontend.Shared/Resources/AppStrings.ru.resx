@@ -333,6 +333,7 @@
   <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Запись закрыта</value></data>
   <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Закрыть запись</value></data>
   <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Открыть запись</value></data>
+  <data name="QueueDetails_ResumeRegistration" xml:space="preserve"><value>Возобновить</value></data>
   <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Переключить самозапись студентов</value></data>
   <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Запись открыта</value></data>
   <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Запись закрыта</value></data>

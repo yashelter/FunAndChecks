@@ -333,6 +333,7 @@
   <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Registration is closed</value></data>
   <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Close registration</value></data>
   <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Open registration</value></data>
+  <data name="QueueDetails_ResumeRegistration" xml:space="preserve"><value>Resume</value></data>
   <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Toggle student self-registration</value></data>
   <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Registration opened</value></data>
   <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Registration closed</value></data>
