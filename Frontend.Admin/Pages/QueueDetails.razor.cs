@@ -40,6 +40,7 @@ public partial class QueueDetails : IAsyncDisposable
     private bool _disposed;
     private long _colorRevision;
     private readonly Dictionary<Guid, (long Revision, string? Color)> _latestColorChanges = [];
+    private IDisposable? _settingsChangedHandler;
 
     private ParticipantSort _sort = ParticipantSort.Points;
     // Группы, которые этот преподаватель смотрит в этой очереди; пусто — все. Хранится в браузере.
@@ -102,7 +103,9 @@ public partial class QueueDetails : IAsyncDisposable
 
     private bool IsPastRound(QueueParticipantDto participant) => QueueStyles.IsPastRound(participant, _participants);
 
-    /// <summary>Самозапись меняется прямо из очереди: студенты сразу видят или теряют кнопку «Встать».</summary>
+    /// <summary>
+    /// Самозапись меняется прямо из очереди: студенты сразу видят или теряют кнопку «Встать».
+    /// </summary>
     private async Task SetSelfJoinAsync(bool allow)
     {
         if (_details is null) return;
@@ -202,6 +205,11 @@ public partial class QueueDetails : IAsyncDisposable
         _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(OnQueueChangedAsync));
         _hub.On<int>("QueueChanged", _ => InvokeAsync(OnQueueChangedAsync));
         _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(update)));
+
+        // Handler for queue settings changes (AllowSelfJoin toggle)
+        _settingsChangedHandler = _hub.On<QueueSettingsUpdateDto>("QueueSettingsChanged", dto =>
+            InvokeAsync(() => OnQueueSettingsChangedAsync(dto)));
+
         _hub.Reconnecting += _ => InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
         _hub.Closed += _ => InvokeAsync(() => { if (!_disposed) StateHasChanged(); });
 
@@ -235,6 +243,31 @@ public partial class QueueDetails : IAsyncDisposable
         {
             if (!_disposed)
                 Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
+        }
+    }
+
+    private async Task OnQueueSettingsChangedAsync(QueueSettingsUpdateDto dto)
+    {
+        if (_details is not null && dto.EventId == EventId)
+        {
+            var oldValue = _details.AllowSelfJoin;
+            _details = _details with { AllowSelfJoin = dto.AllowSelfJoin };
+            StateHasChanged();
+
+            // Only show toast if value actually changed AND not initiated by us
+            // (the clicker gets success toast in SetSelfJoinAsync)
+            if (oldValue != dto.AllowSelfJoin && !string.IsNullOrEmpty(dto.AdminName))
+            {
+                var message = string.Format(Loc["QueueDetails_SettingsChangedBy"], dto.AdminName) + " — " +
+                    (dto.AllowSelfJoin ? Loc["QueueDetails_RegistrationNowOpen"] : Loc["QueueDetails_RegistrationNowClosed"]);
+
+                Snackbar.Add(message, Severity.Info, config =>
+                {
+                    config.ShowCloseIcon = true;
+                    config.VisibleStateDuration = 8000;
+                    config.SnackbarVariant = Variant.Filled;
+                });
+            }
         }
     }
 
@@ -354,15 +387,6 @@ public partial class QueueDetails : IAsyncDisposable
         catch (Exception ex) when (ex is JSException or JsonException) { _groups = new(StringComparer.Ordinal); }
     }
 
-    private static Color StatusColor(QueueEntryStatus status) => status switch
-    {
-        QueueEntryStatus.Checking => Color.Info,
-        QueueEntryStatus.Skipped => Color.Error,
-        QueueEntryStatus.Waiting => Color.Warning,
-        QueueEntryStatus.Finished => Color.Success,
-        _ => Color.Default,
-    };
-
     private void UpdateStudentColor(StudentColorUpdateDto update)
     {
         if (_disposed)
@@ -394,9 +418,20 @@ public partial class QueueDetails : IAsyncDisposable
         _ => "fc-queue-waiting",
     };
 
+    private static Color StatusColor(QueueEntryStatus status) => status switch
+    {
+        QueueEntryStatus.Checking => Color.Info,
+        QueueEntryStatus.Skipped => Color.Error,
+        QueueEntryStatus.Waiting => Color.Warning,
+        QueueEntryStatus.Finished => Color.Success,
+        _ => Color.Default,
+    };
+
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        _settingsChangedHandler?.Dispose();
+
         if (_hub is not null)
         {
             try

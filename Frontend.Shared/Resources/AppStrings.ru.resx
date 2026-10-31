@@ -329,6 +329,18 @@
   <data name="QueueDetails_LoadError" xml:space="preserve"><value>Не удалось загрузить данные очереди.</value></data>
   <data name="QueueDetails_LoadErrorPrefix" xml:space="preserve"><value>Ошибка загрузки очереди: {0}</value></data>
   <data name="QueueDetails_WorkTitle" xml:space="preserve"><value>Работа со студентом</value></data>
+  <data name="QueueDetails_RegistrationOpen" xml:space="preserve"><value>Запись открыта</value></data>
+  <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Запись закрыта</value></data>
+  <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Закрыть запись</value></data>
+  <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Открыть запись</value></data>
+  <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Переключить самозапись студентов</value></data>
+  <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Запись открыта</value></data>
+  <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Запись закрыта</value></data>
+  <data name="QueueDetails_SettingsChangedBy" xml:space="preserve"><value>Настройки очереди изменены: {0}</value></data>
+  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Запись <b>открыта</b> u2014 студенты могут встать в очередь.</value></data>
+  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Запись <b>закрыта</b> u2014 студенты больше не могут встать в очередь.</value></data>
+  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Запись в <b>{0}</b> <b>открыта</b> u2014 вы можете встать в очередь.</value></data>
+  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Запись в <b>{0}</b> <b>закрыта</b> u2014 вы больше не можете встать в очередь.</value></data>
 
   <!-- ==================== Student Grading (extra) ==================== -->
   <data name="Grading_SearchLabel" xml:space="preserve"><value>Поиск студента по фамилии</value></data>

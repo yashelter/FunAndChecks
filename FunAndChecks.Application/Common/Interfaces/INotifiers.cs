@@ -18,6 +18,9 @@ public interface IQueueNotifier
 
     /// <summary>Изменилось само событие (например, флаг самозаписи): клиенты перечитывают очередь.</summary>
     Task QueueChangedAsync(int eventId, CancellationToken cancellationToken = default);
+
+    /// <summary>Уведомление об изменении настроек очереди (AllowSelfJoin).</summary>
+    Task QueueSettingsChangedAsync(QueueSettingsUpdateDto update, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

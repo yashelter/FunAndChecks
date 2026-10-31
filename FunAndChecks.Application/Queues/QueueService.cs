@@ -231,14 +231,20 @@ public class QueueService(
 
         await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
 
+        // Load admin name BEFORE save (already tracked in context)
+        var admin = await db.Admins.FindAsync([adminId], cancellationToken);
+        var adminName = admin?.FullName;
+
         queueEvent.Name = request.Name;
         queueEvent.EventDateTime = request.EventDateTime;
         if (request.AllowSelfJoin is { } allowSelfJoin)
             queueEvent.AllowSelfJoin = allowSelfJoin;
         await db.SaveChangesAsync(cancellationToken);
 
-        try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
-        catch (Exception ex) { logger.LogWarning(ex, "Queue event {EventId} updated, but notification failed.", eventId); }
+        // Notify all subscribers
+        await queueNotifier.QueueSettingsChangedAsync(
+            new QueueSettingsUpdateDto(queueEvent.Id, queueEvent.AllowSelfJoin, adminName),
+            cancellationToken);
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }

@@ -48,6 +48,7 @@ public partial class Queues : IAsyncDisposable
     private bool _loading = true;
     private bool _showPast;
 
+    // Hub for detail view
     private HubConnection? _hub;
     private readonly SemaphoreSlim _hubLock = new(1, 1);
     private int? _viewedEventId;
@@ -55,10 +56,17 @@ public partial class Queues : IAsyncDisposable
     private long _colorRevision;
     private readonly Dictionary<Guid, (long Revision, string? Color)> _latestColorChanges = [];
 
+    // Hub for list page (persistent)
+    private HubConnection? _listHub;
+    private readonly List<IDisposable> _listHubHandlers = [];
+    private readonly SemaphoreSlim _listHubLock = new(1, 1);
+
     protected override async Task OnInitializedAsync()
     {
         var user = (await Authentication.GetAuthenticationStateAsync()).User;
         if (Guid.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)) _myId = id;
+        await LoadAllAsync();
+        await InitializeListHubAsync();
     }
 
     private int? _shownEvent = -1;
@@ -86,6 +94,10 @@ public partial class Queues : IAsyncDisposable
     {
         _showPast = value;
         await LoadAllAsync();
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            await SubscribeToAllQueueGroupsAsync();
+        }
     }
 
     private async Task LoadAllAsync()
@@ -247,6 +259,125 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
+    // ========== NEW: Persistent hub for list page ==========
+
+    private async Task InitializeListHubAsync()
+    {
+        await _listHubLock.WaitAsync();
+        try
+        {
+            await DisposeListHubAsync();
+
+            _listHub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
+                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
+                .WithAutomaticReconnect()
+                .Build();
+
+            _listHubHandlers.Add(_listHub.On<QueueSettingsUpdateDto>("QueueSettingsChanged", dto =>
+                InvokeAsync(() => OnQueueSettingsChangedAsync(dto))));
+
+            _listHub.Reconnected += async _ =>
+            {
+                try
+                {
+                    await SubscribeToAllQueueGroupsAsync();
+                    await InvokeAsync(LoadAllAsync);
+                }
+                catch (Exception ex)
+                {
+                    Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
+                }
+            };
+
+            await _listHub.StartAsync();
+            await SubscribeToAllQueueGroupsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
+        }
+        finally
+        {
+            _listHubLock.Release();
+        }
+    }
+
+    private async Task SubscribeToAllQueueGroupsAsync()
+    {
+        if (_listHub?.State != HubConnectionState.Connected) return;
+
+        var allQueueIds = _myEvents.Select(e => e.Id)
+            .Concat(_availableEvents.Select(e => e.Id))
+            .Distinct()
+            .ToList();
+
+        foreach (var eventId in allQueueIds)
+        {
+            try
+            {
+                await _listHub.InvokeAsync("SubscribeToQueue", eventId);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to subscribe to queue {eventId}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OnQueueSettingsChangedAsync(QueueSettingsUpdateDto dto)
+    {
+        bool updated = false;
+        string? queueName = null;
+
+        var myQueue = _myEvents.FirstOrDefault(q => q.Id == dto.EventId);
+        if (myQueue is not null)
+        {
+            var index = _myEvents.IndexOf(myQueue);
+            _myEvents[index] = myQueue with { AllowSelfJoin = dto.AllowSelfJoin };
+            queueName = myQueue.Name;
+            updated = true;
+        }
+
+        var availQueue = _availableEvents.FirstOrDefault(q => q.Id == dto.EventId);
+        if (availQueue is not null)
+        {
+            var index = _availableEvents.IndexOf(availQueue);
+            _availableEvents[index] = availQueue with { AllowSelfJoin = dto.AllowSelfJoin };
+            queueName ??= availQueue.Name;
+            updated = true;
+        }
+
+        if (updated)
+        {
+            StateHasChanged();
+
+            var message = dto.AllowSelfJoin
+                ? string.Format(Loc["StudentQueues_RegistrationNowOpen"], queueName)
+                : string.Format(Loc["StudentQueues_RegistrationNowClosed"], queueName);
+
+            Snackbar.Add(message, Severity.Warning, config =>
+            {
+                config.ShowCloseIcon = true;
+                config.VisibleStateDuration = 10000;
+                config.SnackbarVariant = Variant.Filled;
+            });
+        }
+    }
+
+    private async Task DisposeListHubAsync()
+    {
+        if (_listHub is not null)
+        {
+            foreach (var handler in _listHubHandlers)
+                handler.Dispose();
+            _listHubHandlers.Clear();
+
+            await _listHub.DisposeAsync();
+            _listHub = null;
+        }
+    }
+
     private void BackToList() => Nav.NavigateTo("/student/queues");
 
     private void Open(int eventId) => Nav.NavigateTo($"/student/queues/{eventId}");
@@ -313,7 +444,7 @@ public partial class Queues : IAsyncDisposable
     {
         _disposed = true;
         _viewedEventId = null;
-        // Под замком, чтобы не пересечься с идущей (пере)инициализацией хаба.
+
         await _hubLock.WaitAsync();
         try
         {
@@ -323,6 +454,10 @@ public partial class Queues : IAsyncDisposable
         {
             _hubLock.Release();
         }
+
+        await _listHubLock.WaitAsync();
+        try { await DisposeListHubAsync(); }
+        finally { _listHubLock.Release(); _listHubLock.Dispose(); }
     }
 
     private async Task DisposeHubAsync()
