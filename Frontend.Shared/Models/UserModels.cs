@@ -19,6 +19,14 @@ public record AdminDto(Guid Id, string FirstName, string LastName, string? Color
     public string FullName => $"{FirstName} {LastName}";
 }
 
+/// <summary>Статистика проверяющего: все отмеченные попытки и разные студенты, завершённые им в очереди.</summary>
+public record ReviewerStatsDto(Guid AdminId, string FullName, string? Color, string? Letter, int Accepted, int Rejected, int StudentsFinished)
+{
+    public int Attempts => Accepted + Rejected;
+    /// <summary>Доля принятых, %; без попыток — null.</summary>
+    public double? AcceptedShare => Attempts == 0 ? null : 100.0 * Accepted / Attempts;
+}
+
 public record MeDto(
     Guid Id,
     string FirstName,

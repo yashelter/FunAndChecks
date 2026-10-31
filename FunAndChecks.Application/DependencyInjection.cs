@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Statistics;
 using FluentValidation;
 using FunAndChecks.Application.Attendance;
 using FunAndChecks.Application.Variants;
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IQueueService, QueueService>();
         services.AddScoped<IQueueAutoFillService, QueueAutoFillService>();
+        services.AddScoped<IReviewerStatisticsService, ReviewerStatisticsService>();
         services.AddScoped<ISubmissionService, SubmissionService>();
         services.AddScoped<IResultsService, ResultsService>();
         services.AddScoped<IStudentService, StudentService>();

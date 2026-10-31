@@ -80,8 +80,14 @@ public partial class Management
         ("groups", "Management_TabGroups", Icons.Material.Filled.Groups),
         ("tasks", "Management_TabTasks", Icons.Material.Filled.Code),
         ("grades", "Management_TabGradeComponents", Icons.Material.Filled.Grading),
-        ("visibility", "Management_VisibilityTab", Icons.Material.Filled.Visibility)
+        ("variants", "Nav_Variants", Icons.Material.Filled.Tag),
+        ("visibility", "Management_VisibilityTab", Icons.Material.Filled.Visibility),
+        ("statistics", "Management_TabStatistics", Icons.Material.Filled.Insights)
     ];
+
+    /// <summary>Разделы, доступные текущему админу: статистика проверяющих — только суперадмину.</summary>
+    private IEnumerable<(string Id, string Label, string Icon)> VisibleSections =>
+        ManagementSections.Where(section => section.Id != "statistics" || _isSuperAdmin);
 
     // Видимость/архив: скрытые самим админом и запрещённые супер-админом.
     private HashSet<int> _hiddenSubjects = [];

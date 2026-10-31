@@ -785,6 +785,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CurrentAdminId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("FinishedByAdminId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -803,6 +806,8 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CurrentAdminId");
+
+                    b.HasIndex("FinishedByAdminId");
 
                     b.HasIndex("StudentId");
 
@@ -2061,6 +2066,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CurrentAdminId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", "FinishedByAdmin")
+                        .WithMany()
+                        .HasForeignKey("FinishedByAdminId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FunAndChecks.Domain.Entities.QueueEvent", "QueueEvent")
                         .WithMany("Participants")
                         .HasForeignKey("QueueEventId")
@@ -2074,6 +2084,8 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("CurrentAdmin");
+
+                    b.Navigation("FinishedByAdmin");
 
                     b.Navigation("QueueEvent");
 

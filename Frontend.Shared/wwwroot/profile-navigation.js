@@ -1,3 +1,13 @@
+// Позиция прокрутки страницы вокруг диалога: после закрытия MudBlazor возвращает фокус на кнопку, с которой его открыли,
+// и если её строка за это время переехала (студент в очереди ушёл к завершённым), браузер прокрутил бы к ней.
+window.pageScroll = {
+    get: () => window.scrollY,
+    restore(y) {
+        window.scrollTo({ top: y, behavior: 'instant' });
+        requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' }));
+    }
+};
+
 window.profileResultNavigation = (() => {
     const positions = new Map();
     const selectors = '.fc-results-panel .mud-table-container, .fc-results-panel .fc-table-wrap';

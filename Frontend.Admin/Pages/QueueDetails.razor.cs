@@ -291,6 +291,9 @@ public partial class QueueDetails : IAsyncDisposable
             { x => x.OnColorApplied, EventCallback.Factory.Create<StudentColorUpdateDto>(this, UpdateStudentColor) },
         };
 
+        // Позицию запоминаем до диалога: после завершения строка студента уезжает вниз к завершённым, а фокус
+        // возвращается на её кнопку — без этого страница прокручивалась к концу очереди, а нужно её начало.
+        var scrollY = await PageScrollAsync();
         _dialogOpen = true;
         DialogResult? result;
         try
@@ -308,12 +311,33 @@ public partial class QueueDetails : IAsyncDisposable
 
         // Возврат к списку — всегда полное перечитывание: так надёжнее, чем собирать картину из событий.
         await LoadAsync();
+        // Прокрутку возвращаем после рендера уже нового порядка строк (OnAfterRenderAsync).
+        _scrollToRestore = scrollY;
+        StateHasChanged();
         if (result is { Canceled: false, Data: StudentDialogResults.Next } && !_disposed)
         {
             var next = NextWaiting();
             if (next is null) Snackbar.Add(Loc["QueueDetails_NoNext"], Severity.Info);
             else await OpenStudentAsync(next);
         }
+    }
+
+    private double? _scrollToRestore;
+
+    private async Task<double?> PageScrollAsync()
+    {
+        try { return await JS.InvokeAsync<double>("pageScroll.get"); }
+        catch (JSException) { return null; }
+    }
+
+    /// <summary>После перечитывания списка (уже в новом порядке) возвращаем прокрутку, бывшую до диалога.</summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dialogOpen || _scrollToRestore is not double y)
+            return;
+        _scrollToRestore = null;
+        try { await JS.InvokeVoidAsync("pageScroll.restore", y); }
+        catch (JSException) { }
     }
 
     /// <summary>Счётчик статуса: при выбранных группах — «в выбранных / всего».</summary>

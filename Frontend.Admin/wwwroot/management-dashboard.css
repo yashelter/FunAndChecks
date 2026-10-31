@@ -11,6 +11,11 @@
 .fc-management-form { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-bottom: 20px; margin-bottom: 10px; border-bottom: 1px solid var(--mud-palette-lines-default); }
 .fc-management-form > .mud-input-control { flex: 1 1 180px; min-width: 0; }
 .fc-management-section .mud-card { border: 1px solid var(--mud-palette-lines-default); box-shadow: none; background: transparent; }
+.fc-variants-head { margin-bottom: 18px; }
+.fc-variants-head-row { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.fc-variants-head-row p { margin-top: 4px; font-size: 13px; }
+.fc-variants-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.fc-variants-filters > .mud-input-control { flex: 1 1 200px; min-width: 0; max-width: 320px; }
 .fc-management-table { box-shadow: none !important; background: transparent !important; }
 .fc-management-table .mud-table-cell { padding: 17px 14px; font-size: 13px; overflow-wrap: anywhere; }
 .fc-management-table .mud-table-head .mud-table-cell { color: var(--mud-palette-text-secondary); font-weight: 600; font-size: 11px; letter-spacing: .035em; }
@@ -149,6 +154,7 @@
     .fc-management-nav { display: none; }
     .fc-management-mobile { display: block; margin-bottom: 18px; }
     .fc-management-section { padding: 16px; }
+    .fc-variants-filters > .mud-input-control { max-width: none; flex-basis: 100%; }
     .fc-admin-management .fc-admin-row { flex-wrap: wrap; }
     .fc-admin-actions { width: 100%; justify-content: flex-end; }
 }
@@ -241,3 +247,15 @@
     .fc-task-modes button:nth-child(n+3) { border-top: 1px solid var(--mud-palette-lines-default); }
     .fc-task-bulk-bar > * { width: 100%; }
 }
+
+/* Статистика проверяющих (раздел «Статистика», только суперадмин). */
+.fc-reviewer-stats-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 16px; }
+.fc-reviewer-stats-head p { margin: 4px 0 0; }
+.fc-reviewer-stats-head > .mud-input-control { flex: 0 1 320px; margin: 0; }
+/* Имя не переносим по буквам (общее правило таблиц «Управления» — overflow-wrap:anywhere): узкая таблица прокручивается. */
+.fc-reviewer-stats .mud-table-cell { overflow-wrap: normal; }
+.fc-reviewer-stats-name { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+.fc-reviewer-stats .fc-result-history-teacher { flex-shrink: 0; }
+.fc-reviewer-stats .fc-reviewer-stats-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fc-reviewer-stats th.fc-reviewer-stats-number .mud-table-sort-label { justify-content: flex-end; }
+.fc-reviewer-stats-note { margin: 14px 0 0; font-size: 12px; }

@@ -24,6 +24,12 @@ public class QueueEntryConfiguration : IEntityTypeConfiguration<QueueEntry>
             .HasForeignKey(e => e.CurrentAdminId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Кто завершил круг — для статистики проверяющих; при удалении админа тоже обнуляется.
+        builder.HasOne(e => e.FinishedByAdmin)
+            .WithMany()
+            .HasForeignKey(e => e.FinishedByAdminId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Прошлых кругов сколько угодно, но активная запись (Checking = 0, Waiting = 1) — одна:
         // фильтрованный уникальный индекс работает и в PostgreSQL, и в SQLite.
         builder.HasIndex(e => new { e.QueueEventId, e.StudentId })

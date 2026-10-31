@@ -797,7 +797,6 @@
   <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Не принимаю, выйти</value></data>
   <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Далее</value></data>
   <data name="Nav_Variants" xml:space="preserve"><value>Варианты</value></data>
-  <data name="Variants_Eyebrow" xml:space="preserve"><value>Обучение</value></data>
   <data name="Variants_Subtitle" xml:space="preserve"><value>Пулы вариантов предмета: студенты разбирают их — кто первый, того и вариант; вы можете выдать любой вариант сами.</value></data>
   <data name="Variants_NewSet" xml:space="preserve"><value>Новый набор</value></data>
   <data name="Variants_EditSet" xml:space="preserve"><value>Изменить набор</value></data>
@@ -895,4 +894,17 @@
   <data name="Winter_GarlandMode_twinkle" xml:space="preserve"><value>Мерцание</value></data>
   <data name="Winter_GarlandMode_rainbow" xml:space="preserve"><value>Радуга</value></data>
   <data name="Winter_GarlandMode_steady" xml:space="preserve"><value>Ровный свет</value></data>
+  <data name="Management_TabStatistics" xml:space="preserve"><value>Статистика</value></data>
+  <data name="Stats_Title" xml:space="preserve"><value>Статистика проверяющих</value></data>
+  <data name="Stats_Subtitle" xml:space="preserve"><value>Сколько попыток отметил каждый проверяющий и скольких студентов завершил в очереди.</value></data>
+  <data name="Stats_AllSubjects" xml:space="preserve"><value>Все предметы</value></data>
+  <data name="Stats_Reviewer" xml:space="preserve"><value>Проверяющий</value></data>
+  <data name="Stats_Accepted" xml:space="preserve"><value>Принято</value></data>
+  <data name="Stats_Rejected" xml:space="preserve"><value>Не принято</value></data>
+  <data name="Stats_Attempts" xml:space="preserve"><value>Всего попыток</value></data>
+  <data name="Stats_AcceptedShare" xml:space="preserve"><value>Доля принятых, %</value></data>
+  <data name="Stats_StudentsFinished" xml:space="preserve"><value>Завершил в очереди</value></data>
+  <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Разные студенты, которых проверяющий вёл последним и завершил в очереди</value></data>
+  <data name="Stats_Note" xml:space="preserve"><value>Попытки считаются за всё время, включая повторные; отменённые отметки не считаются. Завершённые в очереди считаются с обновления, в котором появился этот раздел.</value></data>
+  <data name="Stats_Empty" xml:space="preserve"><value>Проверяющих пока нет</value></data>
 </root>
