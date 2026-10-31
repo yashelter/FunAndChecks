@@ -220,5 +220,45 @@ public class QueueOwnershipTests : IDisposable
         await _notifier.Received(1).QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task Finishing_CreditsTheLastOwner_NotTheTeacherWhoPressedTheButton()
+    {
+        var data = await SeedAsync();
+        await using (var context = _db.NewContext())
+            await CreateSut(context).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.FirstAdminId, QueueEntryStatus.Checking);
+        await using (var context = _db.NewContext())
+            await CreateSut(context).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.SecondAdminId, QueueEntryStatus.Finished);
+
+        await using var verify = _db.NewContext();
+        (await verify.QueueEntries.SingleAsync(e => e.StudentId == data.FirstStudentId)).FinishedByAdminId.Should().Be(data.FirstAdminId);
+    }
+
+    [Fact]
+    public async Task FinishingWithoutTakingForReview_CreditsTheTeacherWhoPressedTheButton()
+    {
+        var data = await SeedAsync();
+        await using (var context = _db.NewContext())
+            await CreateSut(context).UpdateParticipantStatusAsync(data.EventId, data.SecondStudentId, data.SecondAdminId, QueueEntryStatus.Finished);
+
+        await using var verify = _db.NewContext();
+        (await verify.QueueEntries.SingleAsync(e => e.StudentId == data.SecondStudentId)).FinishedByAdminId.Should().Be(data.SecondAdminId);
+    }
+
+    [Theory]
+    [InlineData(QueueEntryStatus.Waiting)]
+    [InlineData(QueueEntryStatus.Skipped)]
+    [InlineData(QueueEntryStatus.Checking)]
+    public async Task MovingAFinishedStudentElsewhere_ClearsTheCredit(QueueEntryStatus status)
+    {
+        var data = await SeedAsync();
+        await using (var context = _db.NewContext())
+            await CreateSut(context).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.FirstAdminId, QueueEntryStatus.Finished);
+        await using (var context = _db.NewContext())
+            await CreateSut(context).UpdateParticipantStatusAsync(data.EventId, data.FirstStudentId, data.FirstAdminId, status);
+
+        await using var verify = _db.NewContext();
+        (await verify.QueueEntries.SingleAsync(e => e.StudentId == data.FirstStudentId)).FinishedByAdminId.Should().BeNull();
+    }
+
     public void Dispose() => _db.Dispose();
 }

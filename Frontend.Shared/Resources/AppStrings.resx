@@ -808,7 +808,6 @@
   <data name="Login_PrivacyConsentDecline" xml:space="preserve"><value>Decline and sign out</value></data>
   <data name="Dialog_FinishAndNextShort" xml:space="preserve"><value>Next</value></data>
   <data name="Nav_Variants" xml:space="preserve"><value>Variants</value></data>
-  <data name="Variants_Eyebrow" xml:space="preserve"><value>Teaching</value></data>
   <data name="Variants_Subtitle" xml:space="preserve"><value>Variant pools for the subject: students claim them first come, first served; you can assign any variant yourself.</value></data>
   <data name="Variants_NewSet" xml:space="preserve"><value>New set</value></data>
   <data name="Variants_EditSet" xml:space="preserve"><value>Edit set</value></data>
@@ -906,4 +905,17 @@
   <data name="Winter_GarlandMode_twinkle" xml:space="preserve"><value>Twinkle</value></data>
   <data name="Winter_GarlandMode_rainbow" xml:space="preserve"><value>Rainbow</value></data>
   <data name="Winter_GarlandMode_steady" xml:space="preserve"><value>Steady</value></data>
+  <data name="Management_TabStatistics" xml:space="preserve"><value>Statistics</value></data>
+  <data name="Stats_Title" xml:space="preserve"><value>Reviewer statistics</value></data>
+  <data name="Stats_Subtitle" xml:space="preserve"><value>How many attempts each reviewer marked and how many students they finished in queues.</value></data>
+  <data name="Stats_AllSubjects" xml:space="preserve"><value>All subjects</value></data>
+  <data name="Stats_Reviewer" xml:space="preserve"><value>Reviewer</value></data>
+  <data name="Stats_Accepted" xml:space="preserve"><value>Accepted</value></data>
+  <data name="Stats_Rejected" xml:space="preserve"><value>Not accepted</value></data>
+  <data name="Stats_Attempts" xml:space="preserve"><value>Attempts</value></data>
+  <data name="Stats_AcceptedShare" xml:space="preserve"><value>Accepted, %</value></data>
+  <data name="Stats_StudentsFinished" xml:space="preserve"><value>Finished in queue</value></data>
+  <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Different students this reviewer led last and finished in a queue</value></data>
+  <data name="Stats_Note" xml:space="preserve"><value>Attempts are counted for all time, including repeated ones; undone marks are not counted. Students finished in a queue are counted since the update that added this section.</value></data>
+  <data name="Stats_Empty" xml:space="preserve"><value>No reviewers yet</value></data>
 </root>

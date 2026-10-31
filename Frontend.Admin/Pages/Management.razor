@@ -14,7 +14,7 @@
 else
 {
     <div class="fc-management-mobile"><MudSelect T="string" @bind-Value="_section" Label="@Loc["Management_Title"]" Variant="Variant.Outlined">
-        @foreach (var section in ManagementSections)
+        @foreach (var section in VisibleSections)
         {
             var sectionId = section.Id;
             <MudSelectItem T="string" Value="@sectionId">@Loc[section.Label]</MudSelectItem>
@@ -22,7 +22,7 @@ else
     </MudSelect></div>
     <div class="fc-management-layout">
         <nav class="fc-panel fc-management-nav" aria-label="@Loc["Management_Title"]">
-            @foreach (var section in ManagementSections)
+            @foreach (var section in VisibleSections)
             {
                 var sectionId = section.Id;
                 var sectionIcon = section.Icon;
@@ -329,6 +329,16 @@ else
                 </MudTable>
             }
         </section>
+        }
+
+        @if (_section == "variants")
+        {
+            <VariantsBoard />
+        }
+
+        @if (_section == "statistics" && _isSuperAdmin)
+        {
+            <ReviewerStatsBoard />
         }
 
         @if (_section == "visibility")

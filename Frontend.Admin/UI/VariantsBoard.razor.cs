@@ -8,9 +8,9 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
 
-namespace Frontend.Admin.Pages;
+namespace Frontend.Admin.UI;
 
-public partial class Variants
+public partial class VariantsBoard
 {
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private VariantsApi Api { get; set; } = null!;

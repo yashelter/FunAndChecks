@@ -1,0 +1,50 @@
+@* Статистика проверяющих — раздел «Управления», только для суперадминов. *@
+<section class="fc-panel fc-management-section fc-reviewer-stats">
+    <div class="fc-reviewer-stats-head">
+        <div>
+            <MudText Typo="Typo.h6">@Loc["Stats_Title"]</MudText>
+            <p class="fc-muted">@Loc["Stats_Subtitle"]</p>
+        </div>
+        <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="SubjectName"
+                   Label="@Loc["Common_Subject"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+            <MudSelectItem T="int?" Value="@((int?)null)">@Loc["Stats_AllSubjects"]</MudSelectItem>
+            @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
+        </MudSelect>
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Stats_Empty"]</MudText></div>
+    }
+    else
+    {
+        <MudTable T="ReviewerStatsDto" Items="_rows" Class="fc-management-table" Breakpoint="Breakpoint.Sm" Dense="true" Hover="true" Elevation="0">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.FullName)">@Loc["Stats_Reviewer"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.Accepted)">@Loc["Stats_Accepted"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.Rejected)">@Loc["Stats_Rejected"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.Attempts)" InitialDirection="SortDirection.Descending">@Loc["Stats_Attempts"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.AcceptedShare ?? -1)">@Loc["Stats_AcceptedShare"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number" title="@Loc["Stats_StudentsFinishedHint"]"><MudTableSortLabel T="ReviewerStatsDto" SortBy="@(r => r.StudentsFinished)">@Loc["Stats_StudentsFinished"]</MudTableSortLabel></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="@Loc["Stats_Reviewer"]">
+                    <span class="fc-reviewer-stats-name">
+                        <span class="fc-result-history-teacher" style="@LetterStyle(context.Color)">@context.Letter</span>
+                        <ProfileLink UserId="context.AdminId">@context.FullName</ProfileLink>
+                    </span>
+                </MudTd>
+                <MudTd DataLabel="@Loc["Stats_Accepted"]" Class="fc-reviewer-stats-number fc-semantic-success">@context.Accepted</MudTd>
+                <MudTd DataLabel="@Loc["Stats_Rejected"]" Class="fc-reviewer-stats-number fc-semantic-warning">@context.Rejected</MudTd>
+                <MudTd DataLabel="@Loc["Stats_Attempts"]" Class="fc-reviewer-stats-number"><strong>@context.Attempts</strong></MudTd>
+                <MudTd DataLabel="@Loc["Stats_AcceptedShare"]" Class="fc-reviewer-stats-number">@Share(context)</MudTd>
+                <MudTd DataLabel="@Loc["Stats_StudentsFinished"]" Class="fc-reviewer-stats-number">@context.StudentsFinished</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    <p class="fc-muted fc-reviewer-stats-note">@Loc["Stats_Note"]</p>
+</section>

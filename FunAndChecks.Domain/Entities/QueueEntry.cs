@@ -24,4 +24,11 @@ public class QueueEntry
     /// <summary>Админ, который сейчас проверяет этого студента (если проверяет).</summary>
     public Guid? CurrentAdminId { get; set; }
     public Admin? CurrentAdmin { get; set; }
+
+    /// <summary>
+    /// Кто завершил этот круг: последний, кто вёл студента («Сдаёт»), а если на проверку не брали — нажавший «Завершить».
+    /// Нужен для статистики проверяющих; обнуляется, если студента вернули в ожидание или пропустили.
+    /// </summary>
+    public Guid? FinishedByAdminId { get; set; }
+    public Admin? FinishedByAdmin { get; set; }
 }

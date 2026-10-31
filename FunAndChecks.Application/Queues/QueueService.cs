@@ -383,6 +383,9 @@ public class QueueService(
             var existingTracked = db.QueueEntries.Local.FirstOrDefault(qu => qu.Id == current.Id);
             if (existingTracked is not null) db.QueueEntries.Entry(existingTracked).State = EntityState.Detached;
             db.QueueEntries.Attach(current);
+            // Для статистики: круг засчитывается последнему, кто вёл студента, а без взятия на проверку — нажавшему.
+            // Читаем владельца до того, как CurrentAdminId перезапишется ниже.
+            current.FinishedByAdminId = status == QueueEntryStatus.Finished ? current.CurrentAdminId ?? admin.Id : null;
             current.Status = status;
             current.CurrentAdminId = status == QueueEntryStatus.Checking ? admin.Id : null;
             await db.SaveChangesAsync(ct);

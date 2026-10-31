@@ -25,7 +25,7 @@ internal static class AdminAuditCapture
             [typeof(StudentGrade)] = ("grade", ["Id", "GradeComponentId", "StudentId", "Points", "Comment", "AdminId", "UpdatedAt"]),
             [typeof(Submission)] = ("submission", ["Id", "TaskId", "StudentId", "Status", "Comment", "AdminId", "SubmittedAt", "QueueEventId"]),
             [typeof(QueueEvent)] = ("queue", ["Id", "SubjectId", "Name", "EventDateTime", "AllowSelfJoin"]),
-            [typeof(QueueEntry)] = ("queue_entry", ["Id", "QueueEventId", "StudentId", "Status", "CurrentAdminId", "JoinedAt", "Round"]),
+            [typeof(QueueEntry)] = ("queue_entry", ["Id", "QueueEventId", "StudentId", "Status", "CurrentAdminId", "FinishedByAdminId", "JoinedAt", "Round"]),
             [typeof(AttendanceSession)] = ("attendance_session", ["Id", "SubjectId", "Name", "StartsAt", "CreatedAt", "CreatedByAdminId"]),
             [typeof(AttendanceRecord)] = ("attendance_record", ["SessionId", "StudentId", "GroupId", "GroupName", "Status", "MarkedByAdminId", "UpdatedAt"]),
             [typeof(VariantSet)] = ("variant_set", ["Id", "SubjectId", "Name", "Uniqueness", "ClaimsOpen", "ClaimDeadline"]),
