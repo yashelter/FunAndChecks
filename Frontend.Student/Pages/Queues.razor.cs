@@ -352,7 +352,6 @@ public partial class Queues : IAsyncDisposable
             handler.Dispose();
             _listHubHandlers.Remove(handler);
         }
-        
         if (_listHub?.State == HubConnectionState.Connected)
         {
             try { await _listHub.InvokeAsync("UnsubscribeFromQueue", eventId); }
