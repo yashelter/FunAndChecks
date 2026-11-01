@@ -22,7 +22,7 @@ else if (_profile is not null)
 {
     <section class="fc-panel fc-profile-hero">
         <ProfileMedia Media="_profile.Avatar" Alt="@_profile.FullName" Fallback="@ProfileText.Initials(_profile.FullName)" Class="fc-profile-avatar" />
-        <div class="fc-profile-identity"><h1>@_profile.FullName</h1><div class="fc-profile-tags"><span>@(_profile.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : ProfileText.T("Студент", "Student"))</span>@if (_profile.GroupName is not null) { <span>@_profile.GroupName</span> }</div></div>
+        <div class="fc-profile-identity"><div class="fc-profile-identity-name"><h1>@_profile.FullName</h1><PinnedAchievementBadges AwardItems="_profile.Awards" BasePath="@BasePath" /></div><div class="fc-profile-tags"><span>@(_profile.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : ProfileText.T("Студент", "Student"))</span>@if (_profile.GroupName is not null) { <span>@_profile.GroupName</span> }</div></div>
         @if (_mine)
         {
             <div class="fc-profile-hero-actions">

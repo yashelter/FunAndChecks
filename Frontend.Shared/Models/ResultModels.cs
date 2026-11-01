@@ -1,5 +1,7 @@
 namespace Frontend.Shared.Models;
 
+using Frontend.Shared.Profiles;
+
 public record TaskHeaderDto(int TaskId, string TaskName, int MaxPoints);
 
 public record GradeColumnDto(int ComponentId, string Name, int MaxPoints);
@@ -13,7 +15,10 @@ public record StudentResultRowDto(
     int TotalPoints,
     Dictionary<int, ResultCellDto> Results,
     Dictionary<int, int> Grades,
-    string? StudentColor);
+    string? StudentColor,
+    string LastName = "",
+    string FirstName = "",
+    List<PinnedAchievementBadgeDto>? PinnedAchievements = null);
 
 public record SubjectResultsDto(
     int SubjectId,

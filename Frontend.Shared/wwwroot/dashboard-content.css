@@ -168,8 +168,20 @@
 .fc-results-grid .fc-results-total-column { position:sticky; left:var(--fc-results-name); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
 .fc-results-grid thead .mud-table-cell.fc-results-name-column,
 .fc-results-grid thead .mud-table-cell.fc-results-total-column { z-index:3; background:var(--mud-palette-background); }
-.fc-results-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-results-name { display:flex; align-items:center; gap:4px; width:100%; min-width:0; overflow:hidden; white-space:nowrap; }
+.fc-results-name .fc-result-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.fc-results-name .fc-pinned-achievement-badges { margin-left:auto; flex-shrink:0; }
+.fc-queue-name-cell { display:flex; align-items:center; gap:4px; min-width:220px; max-width:100%; overflow:hidden; }
+.fc-queue-name-cell .fc-user-chip { min-width:0; overflow:hidden; }
+.fc-queue-name-cell .fc-student-name, .fc-queue-name-cell .fc-result-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-queue-name-cell .fc-pinned-achievement-badges { margin-left:auto; flex-shrink:0; }
 .fc-results-name .fc-student-name, .fc-results-name .fc-result-name { display:inline; }
+.fc-pinned-achievement-badges { display:inline-flex; align-items:center; gap:3px; margin-left:8px; vertical-align:middle; width:max-content; max-width:none; overflow:visible; flex-wrap:nowrap; }
+.fc-pinned-achievement-badge { width:24px; height:24px; padding:2px; border:1px solid var(--mud-palette-lines-default); border-radius:50%; background:var(--mud-palette-surface); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.fc-pinned-achievement-badge:hover { border-color:var(--mud-palette-primary); transform:translateY(-1px); }
+.fc-pinned-achievement-badge:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:2px; }
+.fc-pinned-achievement-image.fc-profile-media { width:18px; height:18px; min-width:18px; font-size:10px; border-radius:50%; }
+.fc-pinned-achievement-image.fc-profile-media img, .fc-pinned-achievement-image.fc-profile-media video { width:100%; height:100%; object-fit:cover; border-radius:50%; }
 /* На телефоне имя уже, чтобы рядом с ним и Σ было видно хотя бы несколько задач (после основного правила — иначе оно перебьёт). */
 @media (max-width:600px) { .fc-results-grid { --fc-results-name:140px; } }
 /* Цвета преподавателей у зачтённых: цвет уже в ячейке (--tc), переключатель лишь ставит класс на панель — без перерисовки таблицы. */

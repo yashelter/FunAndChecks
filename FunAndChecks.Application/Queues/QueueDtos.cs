@@ -1,4 +1,5 @@
 using FunAndChecks.Domain.Enums;
+using FunAndChecks.Application.Profiles;
 
 namespace FunAndChecks.Application.Queues;
 
@@ -38,7 +39,8 @@ public record QueueParticipantDto(
     bool CanManage,
     Guid? CheckingByAdminId = null,
     int EntryId = 0,
-    int Round = 1);
+    int Round = 1,
+    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null);
 
 public record QueueDetailsDto(
     int EventId,
