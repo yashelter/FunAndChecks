@@ -204,7 +204,9 @@ public class QueueRoundsTests : IDisposable
 
         updated.AllowSelfJoin.Should().BeTrue();
         unchanged.AllowSelfJoin.Should().BeTrue();
-        await _notifier.Received(2).QueueChangedAsync(c.QueueId, Arg.Any<CancellationToken>());
+        await _notifier.Received(2).QueueSettingsChangedAsync(
+            Arg.Is<QueueSettingsUpdateDto>(d => d.EventId == c.QueueId && d.AllowSelfJoin == true),
+            Arg.Any<CancellationToken>());
         await sut.JoinAsync(c.QueueId, c.Student.Id);
     }
 
