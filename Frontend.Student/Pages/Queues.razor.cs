@@ -48,18 +48,13 @@ public partial class Queues : IAsyncDisposable
     private bool _loading = true;
     private bool _showPast;
 
-    // Hub for detail view
-    private HubConnection? _hub;
-    private readonly SemaphoreSlim _hubLock = new(1, 1);
+    private HubConnection? _listHub;
+    private readonly List<IDisposable> _listHubHandlers = [];
+    private readonly SemaphoreSlim _listHubLock = new(1, 1);
     private int? _viewedEventId;
     private bool _disposed;
     private long _colorRevision;
     private readonly Dictionary<Guid, (long Revision, string? Color)> _latestColorChanges = [];
-
-    // Hub for list page (persistent)
-    private HubConnection? _listHub;
-    private readonly List<IDisposable> _listHubHandlers = [];
-    private readonly SemaphoreSlim _listHubLock = new(1, 1);
 
     protected override async Task OnInitializedAsync()
     {
@@ -162,10 +157,17 @@ public partial class Queues : IAsyncDisposable
         if (_viewedEventId != eventId)
             _latestColorChanges.Clear();
         _viewedEventId = eventId;
+
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            var handler = _listHub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
+            _listHubHandlers.Add(handler);
+            await _listHub.InvokeAsync("SubscribeToQueue", eventId);
+        }
+
         try
         {
             await LoadDetailsAsync(eventId);
-            await InitializeSignalRAsync(eventId);
         }
         catch (ApiException ex)
         {
@@ -199,67 +201,6 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
-    private async Task InitializeSignalRAsync(int eventId)
-    {
-        await _hubLock.WaitAsync();
-        try
-        {
-            if (_disposed || _viewedEventId != eventId)
-                return;
-            await DisposeHubAsync();
-
-            _hub = new HubConnectionBuilder()
-                .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
-                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
-                .WithAutomaticReconnect()
-                .Build();
-
-            // На любое обновление очереди перечитываем её состав.
-            _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-            _hub.On<int>("QueueChanged", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-            _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(eventId, update)));
-
-            var hub = _hub;
-
-            // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
-            // иначе очередь «зависает» и перестаёт обновляться.
-            _hub.Reconnected += async _ =>
-            {
-                try
-                {
-                    if (_disposed || _viewedEventId != eventId || !ReferenceEquals(_hub, hub))
-                        return;
-                    await hub.InvokeAsync("SubscribeToQueue", eventId);
-                    await InvokeAsync(() => LoadDetailsAsync(eventId));
-                }
-                catch (Exception ex)
-                {
-                    if (!_disposed && _viewedEventId == eventId)
-                        Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
-                }
-            };
-
-            try
-            {
-                await hub.StartAsync();
-                if (_disposed || _viewedEventId != eventId)
-                    return;
-                await hub.InvokeAsync("SubscribeToQueue", eventId);
-                await LoadDetailsAsync(eventId);
-            }
-            catch (Exception ex)
-            {
-                if (!_disposed && _viewedEventId == eventId)
-                    Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
-            }
-        }
-        finally
-        {
-            _hubLock.Release();
-        }
-    }
-
-    // ========== NEW: Persistent hub for list page ==========
 
     private async Task InitializeListHubAsync()
     {
@@ -282,6 +223,7 @@ public partial class Queues : IAsyncDisposable
                 try
                 {
                     await SubscribeToAllQueueGroupsAsync();
+                    await Task.Delay(Random.Shared.Next(500, 3000));
                     await InvokeAsync(LoadAllAsync);
                 }
                 catch (Exception ex)
@@ -401,11 +343,25 @@ public partial class Queues : IAsyncDisposable
 
     private async Task CloseDetailsAsync()
     {
+        if (_viewedEventId is not int eventId) return;
+        
+        var handlersToRemove = _listHubHandlers.Where(h => 
+            h.GetType().Name.Contains("QueueEntryUpdated")).ToList();
+        foreach (var handler in handlersToRemove)
+        {
+            handler.Dispose();
+            _listHubHandlers.Remove(handler);
+        }
+        
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            try { await _listHub.InvokeAsync("UnsubscribeFromQueue", eventId); }
+            catch { }
+        }
+
         _viewedEventId = null;
         _details = null;
-        await _hubLock.WaitAsync();
-        try { await DisposeHubAsync(); }
-        finally { _hubLock.Release(); }
+        _latestColorChanges.Clear();
     }
 
     private void UpdateStudentColor(int eventId, StudentColorUpdateDto update)
@@ -445,27 +401,9 @@ public partial class Queues : IAsyncDisposable
         _disposed = true;
         _viewedEventId = null;
 
-        await _hubLock.WaitAsync();
-        try
-        {
-            await DisposeHubAsync();
-        }
-        finally
-        {
-            _hubLock.Release();
-        }
-
+        var cutoff = DateTime.UtcNow.AddDays(-1);
         await _listHubLock.WaitAsync();
         try { await DisposeListHubAsync(); }
         finally { _listHubLock.Release(); _listHubLock.Dispose(); }
-    }
-
-    private async Task DisposeHubAsync()
-    {
-        if (_hub is not null)
-        {
-            await _hub.DisposeAsync();
-            _hub = null;
-        }
     }
 }
