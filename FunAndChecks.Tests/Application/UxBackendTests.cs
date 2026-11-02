@@ -150,7 +150,7 @@ public class UxBackendTests : IDisposable
     }
 
     [Fact]
-    public async Task Leave_IsRefusedWhenSelfJoinIsDisabled_BecauseRejoiningIsImpossible()
+    public async Task Leave_IsAllowedWhenSelfJoinIsDisabled()
     {
         await using var ctx = _db.NewContext();
         var c = await SeedAsync(ctx);
@@ -159,10 +159,8 @@ public class UxBackendTests : IDisposable
             new CreateQueueEventRequest("Defense", DateTime.UtcNow.AddDays(1), c.Subject.Id, AllowSelfJoin: false, AutoFillGroupIds: [c.Group.Id]));
         queue.AllowSelfJoin.Should().BeFalse();
 
-        var leave = () => sut.LeaveAsync(queue.Id, c.Student.Id);
-
-        (await leave.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("queue.leave_unavailable");
-        ctx.QueueEntries.Should().ContainSingle(e => e.StudentId == c.Student.Id);
+        await sut.LeaveAsync(queue.Id, c.Student.Id);
+        ctx.QueueEntries.Should().BeEmpty();
     }
 
     [Fact]

@@ -91,7 +91,7 @@ public class QueueRoundsTests : IDisposable
     }
 
     [Fact]
-    public async Task Rejoin_WhenSelfJoinDisabled_IsForbidden()
+    public async Task Rejoin_WhenSelfJoinDisabled_IsAllowedForExistingStudent()
     {
         await using var ctx = _db.NewContext();
         var c = await SeedAsync(ctx);
@@ -100,9 +100,10 @@ public class QueueRoundsTests : IDisposable
         await sut.UpdateParticipantStatusAsync(c.QueueId, c.Student.Id, c.Admin.Id, QueueEntryStatus.Finished);
         await sut.UpdateEventAsync(c.Admin.Id, c.QueueId, new UpdateQueueEventRequest("Labs", DateTime.UtcNow.AddDays(1), false));
 
-        var rejoin = () => sut.JoinAsync(c.QueueId, c.Student.Id);
+        await sut.JoinAsync(c.QueueId, c.Student.Id);
 
-        (await rejoin.Should().ThrowAsync<ForbiddenException>()).Which.Code.Should().Be("queue.self_join_disabled");
+        (await RowsAsync(ctx, c.Student.Id)).Select(r => (r.Round, r.Status)).Should().Equal(
+            (1, QueueEntryStatus.Finished), (2, QueueEntryStatus.Waiting));
     }
 
     [Fact]
