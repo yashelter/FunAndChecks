@@ -37,11 +37,13 @@ public static class QueueStyles
     /// <summary>
     /// Первые ключи порядка очереди: статус, затем внутри ожидающих повторные круги — после всех первых кругов,
     /// между собой по времени повторного вступления (сколько бы кругов ни было). Дальше вызывающий добавляет
-    /// свои ключи для первого круга (баллы, группа, время записи). Тот же порядок на сервере — QueueOrder.
+    /// свои ключи для первого круга (баллы, группа, время записи). Опоздавшие на первом круге — после пришедших
+    /// вовремя, но перед повторными кругами. Тот же порядок на сервере — QueueOrder.
     /// </summary>
     public static IOrderedEnumerable<QueueParticipantDto> ByStatusThenRejoin(IEnumerable<QueueParticipantDto> participants) => participants
         .OrderBy(p => StatusOrder(p.Status))
         .ThenBy(p => WaitsAsRejoin(p))
+        .ThenBy(p => p.Status == QueueEntryStatus.Waiting && p.IsLate)
         .ThenBy(p => WaitsAsRejoin(p) ? p.JoinedAt : DateTime.MinValue);
 
     private static bool WaitsAsRejoin(QueueParticipantDto p) => p.Status == QueueEntryStatus.Waiting && p.IsRejoin;

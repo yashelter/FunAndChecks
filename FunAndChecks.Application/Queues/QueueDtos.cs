@@ -19,15 +19,22 @@ public record CreateQueueEventRequest(
     DateTime EventDateTime,
     int SubjectId,
     bool AllowSelfJoin = true,
-    List<int>? AutoFillGroupIds = null);
+    List<int>? AutoFillGroupIds = null,
+    int? LateAfterMinutes = null);
 
 /// <summary>Правка события; <c>AllowSelfJoin</c> = null — флаг самозаписи не меняется.</summary>
 public record UpdateQueueEventRequest(string Name, DateTime EventDateTime, bool? AllowSelfJoin = null);
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
+/// <summary>Порог опоздания в минутах после начала события; null — опоздания не отмечаются.</summary>
+public record SetQueueLateRuleRequest(int? LateAfterMinutes);
+
+/// <summary>Снять (true) или вернуть (false) опоздание записи в очереди.</summary>
+public record SetLateExcusedRequest(bool Excused);
+
 /// <summary>Событие для подписчиков SignalR об изменении настроек очереди (AllowSelfJoin).</summary>
-public record QueueSettingsUpdateDto(int EventId, bool AllowSelfJoin, string? AdminName);
+public record QueueSettingsUpdateDto(int EventId, bool AllowSelfJoin, string? AdminName, Guid? AdminId = null);
 
 public record QueueParticipantDto(
     Guid StudentId,
@@ -43,7 +50,9 @@ public record QueueParticipantDto(
     Guid? CheckingByAdminId = null,
     int EntryId = 0,
     int Round = 1,
-    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null);
+    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    int? LateMinutes = null,
+    bool LateExcused = false);
 
 public record QueueDetailsDto(
     int EventId,
@@ -52,7 +61,8 @@ public record QueueDetailsDto(
     int SubjectId,
     DateTime EventDateTime,
     bool AllowSelfJoin,
-    List<QueueParticipantDto> Participants);
+    List<QueueParticipantDto> Participants,
+    int? LateAfterMinutes = null);
 
 /// <summary>Событие для подписчиков SignalR об изменении записи в очереди.</summary>
 public record QueueEntryUpdateDto(int EventId, Guid StudentId, QueueEntryStatus NewStatus, string? AdminName);

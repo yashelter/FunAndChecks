@@ -33,4 +33,10 @@ public class QueuesApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
 
     public Task UpdateStatusAsync(int eventId, Guid studentId, UpdateQueueStatusRequest request, CancellationToken ct = default) =>
         PutAsync($"api/queues/{eventId}/students/{studentId}/status", request, ct);
+
+    public Task SetLateRuleAsync(int eventId, int? lateAfterMinutes, CancellationToken ct = default) =>
+        PutAsync($"api/queues/{eventId}/late-rule", new SetQueueLateRuleRequest(lateAfterMinutes), ct);
+
+    public Task SetLateExcusedAsync(int eventId, int entryId, bool excused, CancellationToken ct = default) =>
+        PutAsync($"api/queues/{eventId}/entries/{entryId}/late-excused", new SetLateExcusedRequest(excused), ct);
 }

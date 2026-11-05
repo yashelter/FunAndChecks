@@ -791,6 +791,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("LateExcused")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("QueueEventId")
                         .HasColumnType("integer");
 
@@ -836,6 +839,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("EventDateTime")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("LateAfterMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()

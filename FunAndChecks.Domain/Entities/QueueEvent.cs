@@ -10,10 +10,17 @@ public class QueueEvent
     public DateTime EventDateTime { get; set; }
 
     /// <summary>
-    /// Могут ли студенты записываться сами (и вставать повторно). Преподаватель меняет флаг в любой момент,
+    /// Могут ли студенты записываться сами. Закрытая запись не пускает только новых: у кого уже есть круг,
+    /// встаёт повторно и при закрытой. Преподаватель меняет флаг в любой момент,
     /// независимо от того, заполнялась ли очередь автоматически.
     /// </summary>
     public bool AllowSelfJoin { get; set; } = true;
+
+    /// <summary>
+    /// Через сколько минут после начала (<see cref="EventDateTime"/>) записавшийся считается опоздавшим;
+    /// null — опоздания не отмечаются. Опоздавшие на первом круге ждут после пришедших вовремя.
+    /// </summary>
+    public int? LateAfterMinutes { get; set; }
 
     public int SubjectId { get; set; }
     public Subject Subject { get; set; } = null!;

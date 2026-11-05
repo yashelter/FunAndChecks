@@ -52,12 +52,14 @@ else if (_details is not null)
             <div>
                 <strong>@(MyPosition is int place ? Loc["StudentQueues_MyPlace", place, Waiting.Count] : QueueStyles.StatusText(mine.Status, mine.CheckingByAdminName, Loc))</strong>
                 <small class="fc-muted">@Loc["StudentQueues_OrderHint"]</small>
+                @if (mine.Status == QueueEntryStatus.Waiting && mine.IsLate) { <small class="fc-semantic-warning">@Loc["StudentQueues_LateHint", mine.LateMinutes!]</small> }
             </div>
             @if (mine.Status is QueueEntryStatus.Skipped or QueueEntryStatus.Finished)
             {
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Replay" OnClick="RejoinAsync">@Loc["StudentQueues_Rejoin"]</MudButton>
             }
-            @if (mine.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Skipped)
+            @* Из первого круга при закрытой записи не выйти: встать обратно было бы нельзя. *@
+            @if (mine.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Skipped && (_details.AllowSelfJoin || mine.Round > 1))
             {
                 <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Logout" OnClick="LeaveAsync">@Loc["StudentQueues_Leave"]</MudButton>
             }
@@ -79,7 +81,8 @@ else if (_details is not null)
                             <td class="fc-queue-points">@p.TotalPoints</td>
                             <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip>
                                 @if (p.IsRejoin && !past) { <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" Class="fc-queue-rejoin" title="@Loc["Queue_RoundHint", p.Round, p.JoinedAt.ToLocalTime().ToString("t")]">@Loc["Queue_RejoinBadge"]</MudChip> }
-                                @if (past) { <small class="fc-muted fc-queue-round">@Loc["Queue_PastRound", p.Round]</small> }</td>
+                                @if (past) { <small class="fc-muted fc-queue-round">@Loc["Queue_PastRound", p.Round]</small> }
+                                @if (!past && p.Status == QueueEntryStatus.Waiting && p.IsLate) { <small class="fc-semantic-warning fc-queue-round">@Loc["Queue_LateBadge", p.LateMinutes!]</small> }</td>
                         </tr>
                     }
                 </tbody>

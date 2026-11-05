@@ -46,6 +46,10 @@
 .fc-queue-waiting{background:var(--mud-palette-surface)}
 .fc-queue-person-identity{min-width:0}
 .fc-queue-person-identity .mud-typography-caption{display:block;margin-top:5px}
+/* Опоздание у участника: отметка и «Снять»; порог в шапке очереди. */
+.fc-queue-late{display:flex;align-items:center;flex-wrap:wrap;gap:2px 6px;margin-top:4px}
+.fc-queue-late .mud-chip{margin:0}
+.fc-queue-late-rule{max-width:260px;margin-top:8px}
 .fc-queue-person-score{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .fc-queue-person-score strong{display:block;font-size:20px;font-weight:650}
 .fc-queue-person-score span{font-size:10px;color:var(--mud-palette-text-secondary)}

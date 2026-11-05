@@ -71,7 +71,7 @@ test('the results panel does not clip sticky elements into its own scroll box', 
 
 test('changed stylesheets and the new script are referenced with fresh versions', () => {
     assert.ok(Number(index.match(/dashboard-content\.css\?v=(\d+)/)[1]) >= 14);
-    assert.match(index, /admin-dashboard\.css\?v=ux-7/);
+    assert.ok(Number(index.match(/admin-dashboard\.css\?v=ux-(\d+)/)[1]) >= 7);
     assert.match(index, /_content\/Frontend\.Shared\/results-scroll\.js/);
 });
 

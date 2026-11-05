@@ -194,7 +194,7 @@ public class QueueRoundsTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateEvent_TogglesSelfJoin_AndAsksClientsToReload()
+    public async Task UpdateEvent_AlwaysAsksClientsToReload_ButAnnouncesSelfJoinOnlyWhenItChanges()
     {
         await using var ctx = _db.NewContext();
         var c = await SeedAsync(ctx, allowSelfJoin: false);
@@ -205,10 +205,52 @@ public class QueueRoundsTests : IDisposable
 
         updated.AllowSelfJoin.Should().BeTrue();
         unchanged.AllowSelfJoin.Should().BeTrue();
-        await _notifier.Received(2).QueueSettingsChangedAsync(
-            Arg.Is<QueueSettingsUpdateDto>(d => d.EventId == c.QueueId && d.AllowSelfJoin == true),
+        // Название и время меняются оба раза — клиенты перечитывают очередь; самозапись сменилась только в первый.
+        await _notifier.Received(2).QueueChangedAsync(c.QueueId, Arg.Any<CancellationToken>());
+        await _notifier.Received(1).QueueSettingsChangedAsync(
+            Arg.Is<QueueSettingsUpdateDto>(d => d.EventId == c.QueueId && d.AllowSelfJoin && d.AdminId == c.Admin.Id),
             Arg.Any<CancellationToken>());
         await sut.JoinAsync(c.QueueId, c.Student.Id);
+    }
+
+    [Fact]
+    public async Task UpdateEvent_KeepsTheChange_WhenNotificationFails()
+    {
+        await using var ctx = _db.NewContext();
+        var c = await SeedAsync(ctx);
+        _notifier.QueueChangedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("hub down")));
+
+        var updated = await Queues(ctx).UpdateEventAsync(c.Admin.Id, c.QueueId, new UpdateQueueEventRequest("Renamed", DateTime.UtcNow.AddDays(1), false));
+
+        updated.Name.Should().Be("Renamed");
+        (await ctx.QueueEvents.AsNoTracking().SingleAsync(e => e.Id == c.QueueId)).AllowSelfJoin.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ClosedQueue_RejoinRound_CanBeLeftAndJoinedAgain()
+    {
+        await using var ctx = _db.NewContext();
+        var c = await SeedAsync(ctx);
+        var sut = Queues(ctx);
+        await sut.JoinAsync(c.QueueId, c.Student.Id);
+        await sut.UpdateParticipantStatusAsync(c.QueueId, c.Student.Id, c.Admin.Id, QueueEntryStatus.Finished);
+        await sut.UpdateEventAsync(c.Admin.Id, c.QueueId, new UpdateQueueEventRequest("Labs", DateTime.UtcNow.AddDays(1), false));
+        await sut.JoinAsync(c.QueueId, c.Student.Id);
+
+        await sut.LeaveAsync(c.QueueId, c.Student.Id);
+        await sut.JoinAsync(c.QueueId, c.Student.Id);
+
+        (await RowsAsync(ctx, c.Student.Id)).Select(r => (r.Round, r.Status)).Should().Equal(
+            (1, QueueEntryStatus.Finished), (2, QueueEntryStatus.Waiting));
+    }
+
+    [Fact]
+    public async Task Join_UnknownQueue_IsNotFound()
+    {
+        await using var ctx = _db.NewContext();
+        var c = await SeedAsync(ctx);
+
+        await Queues(ctx).Invoking(s => s.JoinAsync(c.QueueId + 1000, c.Student.Id)).Should().ThrowAsync<NotFoundException>();
     }
 
     public void Dispose() => _db.Dispose();

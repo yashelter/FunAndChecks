@@ -23,6 +23,8 @@ public class QueueService(
     /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
     private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
 
+    private static readonly SetQueueLateRuleRequestValidator LateRuleValidator = new();
+
     private async Task<IQueryable<QueueEvent>> VisibleEventsAsync(Guid? adminId, CancellationToken cancellationToken)
     {
         if (!adminId.HasValue || await accessService.IsSuperAdminAsync(adminId.Value, cancellationToken))
@@ -70,6 +72,7 @@ public class QueueService(
                 SubjectName = qe.Subject.Name,
                 qe.EventDateTime,
                 qe.AllowSelfJoin,
+                qe.LateAfterMinutes,
             })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
@@ -94,6 +97,7 @@ public class QueueService(
                 AdminName = p.Status == QueueEntryStatus.Checking && p.CurrentAdmin != null ? p.CurrentAdmin.FullName : null,
                 CheckingByAdminId = p.Status == QueueEntryStatus.Checking ? p.CurrentAdminId : null,
                 p.JoinedAt,
+                p.LateExcused,
                 p.Student.Color,
                 CanManage = adminId.HasValue && !db.AdminGroupAccesses.Any(a =>
                     a.AdminId == adminId && a.GroupId == p.Student.GroupId && a.IsRestricted),
@@ -144,7 +148,9 @@ public class QueueService(
                 e.CheckingByAdminId,
                 e.Id,
                 e.Round,
-                pinnedAchievements.GetValueOrDefault(e.StudentId)))
+                pinnedAchievements.GetValueOrDefault(e.StudentId),
+                QueueLateness.LateMinutes(queueEvent.EventDateTime, queueEvent.LateAfterMinutes, e.Round, e.JoinedAt),
+                e.LateExcused))
             .ToList();
 
         return new QueueDetailsDto(
@@ -154,7 +160,8 @@ public class QueueService(
             queueEvent.SubjectId,
             queueEvent.EventDateTime,
             queueEvent.AllowSelfJoin,
-            participants);
+            participants,
+            queueEvent.LateAfterMinutes);
     }
 
     public async Task<QueueEventDto> CreateEventAsync(Guid adminId, CreateQueueEventRequest request, CancellationToken cancellationToken = default)
@@ -175,6 +182,7 @@ public class QueueService(
             EventDateTime = request.EventDateTime,
             SubjectId = request.SubjectId,
             AllowSelfJoin = request.AllowSelfJoin,
+            LateAfterMinutes = request.LateAfterMinutes,
         };
         db.QueueEvents.Add(queueEvent);
 
@@ -219,6 +227,8 @@ public class QueueService(
                     StudentId = studentId,
                     JoinedAt = now,
                     Status = QueueEntryStatus.Waiting,
+                    // Записала автозапись, а не сам студент: опоздавшим он не считается.
+                    LateExcused = true,
                 });
             }
         }
@@ -241,6 +251,7 @@ public class QueueService(
 
         QueueEvent queueEvent = null!;
         string? adminName = null;
+        var selfJoinChanged = false;
         await db.ExecuteSerializableAsync(async ct =>
         {
             queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
@@ -251,15 +262,22 @@ public class QueueService(
 
             queueEvent.Name = request.Name;
             queueEvent.EventDateTime = request.EventDateTime;
-            if (request.AllowSelfJoin is { } allowSelfJoin)
-                queueEvent.AllowSelfJoin = allowSelfJoin;
+            selfJoinChanged = request.AllowSelfJoin is { } allowSelfJoin && allowSelfJoin != queueEvent.AllowSelfJoin;
+            if (selfJoinChanged)
+                queueEvent.AllowSelfJoin = request.AllowSelfJoin!.Value;
             await db.SaveChangesAsync(ct);
         }, cancellationToken);
 
-        // Notify all subscribers
-        await queueNotifier.QueueSettingsChangedAsync(
-            new QueueSettingsUpdateDto(queueEvent.Id, queueEvent.AllowSelfJoin, adminName),
-            cancellationToken);
+        // QueueChanged — перечитать очередь (название, время); QueueSettingsChanged — уведомление о самозаписи,
+        // только если она действительно поменялась. Уведомления не должны ронять уже сохранённую правку.
+        try
+        {
+            await queueNotifier.QueueChangedAsync(eventId, cancellationToken);
+            if (selfJoinChanged)
+                await queueNotifier.QueueSettingsChangedAsync(
+                    new QueueSettingsUpdateDto(queueEvent.Id, queueEvent.AllowSelfJoin, adminName, adminId), cancellationToken);
+        }
+        catch (Exception ex) { logger.LogWarning(ex, "Queue event {EventId} updated, but notification failed.", eventId); }
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
@@ -282,6 +300,9 @@ public class QueueService(
 
         if (student.GroupId == null)
             throw new ForbiddenException("You are not assigned to any group.");
+
+        if (!await db.QueueEvents.AnyAsync(qe => qe.Id == eventId, cancellationToken))
+            throw new NotFoundException($"Queue event with ID {eventId} not found.");
 
         var isGroupAllowed = await db.QueueEvents
             .Where(qe => qe.Id == eventId)
@@ -335,7 +356,10 @@ public class QueueService(
         // Выходят из последнего круга; прошлые круги (и их результат) остаются.
         var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(cancellationToken)
                     ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
-        if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished)
+        // Без самозаписи встать можно только тому, у кого уже есть круг (JoinAsync), а выход удаляет строку:
+        // ушедший с первого круга не вернулся бы. Поэтому из первого круга при закрытой записи выйти нельзя.
+        if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished
+            || (entry.Round == 1 && !entry.QueueEvent.AllowSelfJoin))
             throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
         db.QueueEntries.Remove(entry);
         await db.SaveChangesAsync(cancellationToken);
@@ -362,6 +386,37 @@ public class QueueService(
                 details.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
         }
         return result;
+    }
+
+    public async Task SetLateRuleAsync(Guid adminId, int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken = default)
+    {
+        await LateRuleValidator.ValidateAndThrowAsync(request, cancellationToken);
+        var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
+                         ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
+
+        queueEvent.LateAfterMinutes = request.LateAfterMinutes;
+        await db.SaveChangesAsync(cancellationToken);
+
+        try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
+        catch (Exception ex) { logger.LogWarning(ex, "Late rule of queue {EventId} changed, but notification failed.", eventId); }
+    }
+
+    public async Task SetLateExcusedAsync(Guid adminId, int eventId, int entryId, bool excused, CancellationToken cancellationToken = default)
+    {
+        var entry = await db.QueueEntries
+            .Include(e => e.QueueEvent)
+            .Include(e => e.Student)
+            .FirstOrDefaultAsync(e => e.Id == entryId && e.QueueEventId == eventId, cancellationToken)
+            ?? throw new NotFoundException("Queue entry not found.", "queue.entry_not_found");
+        await accessService.EnsureSubjectAllowedAsync(adminId, entry.QueueEvent.SubjectId, cancellationToken);
+        if (entry.Student.GroupId is int groupId)
+            await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+
+        entry.LateExcused = excused;
+        await db.SaveChangesAsync(cancellationToken);
+
+        await NotifyBestEffortAsync(new QueueEntryUpdateDto(eventId, entry.StudentId, entry.Status, null), cancellationToken);
     }
 
     public async Task UpdateParticipantStatusAsync(

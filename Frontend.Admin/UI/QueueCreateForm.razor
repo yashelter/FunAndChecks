@@ -31,6 +31,10 @@
         @* Самозапись не зависит от автозаполнения: при выборе групп по умолчанию выключается, но её можно включить. *@
         <MudSwitch T="bool" @bind-Value="_allowSelfJoin" Color="Color.Primary" Disabled="_busy">@Loc["Management_AllowSelfJoin"]</MudSwitch>
     </MudItem>
+    <MudItem xs="12" sm="6">
+        <MudNumericField T="int?" @bind-Value="_lateAfterMinutes" Min="0" Max="240" Clearable="true" Variant="Variant.Outlined" Disabled="_busy"
+                         Label="@Loc["QueueDetails_LateRule"]" HelperText="@Loc["QueueDetails_LateRuleHint"]" />
+    </MudItem>
 </MudGrid>
 <div class="fc-queue-create-actions">
     @if (Cancel.HasDelegate) { <MudButton OnClick="Cancel" Disabled="_busy">@Loc["Common_Cancel"]</MudButton> }
@@ -57,6 +61,7 @@
     private TimeSpan? _time = new(10, 0, 0);
     private IReadOnlyCollection<int> _autoFillGroupIds = new HashSet<int>();
     private bool _allowSelfJoin = true;
+    private int? _lateAfterMinutes;
 
     private void OnAutoFillChanged(IEnumerable<int> ids)
     {
@@ -103,7 +108,7 @@
         _busy = true;
         try
         {
-            var created = await QueuesApi.CreateAsync(new CreateQueueEventRequest(name, when, subjectId, _allowSelfJoin, autoFill));
+            var created = await QueuesApi.CreateAsync(new CreateQueueEventRequest(name, when, subjectId, _allowSelfJoin, autoFill, _lateAfterMinutes));
             Snackbar.Add(Loc["Management_QueueCreated"], Severity.Success);
             await Created.InvokeAsync(created);
         }

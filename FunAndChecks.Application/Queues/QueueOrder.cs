@@ -12,6 +12,7 @@ public static class QueueOrder
     public static List<QueueParticipantDto> Waiting(IEnumerable<QueueParticipantDto> participants) => participants
         .Where(p => p.Status == QueueEntryStatus.Waiting)
         .OrderBy(p => p.Round > 1)
+        .ThenBy(QueueLateness.IsLate)
         .ThenByDescending(p => p.Round > 1 ? 0 : p.TotalPoints)
         .ThenBy(p => p.JoinedAt)
         .ToList();

@@ -19,6 +19,9 @@ else if (_details is not null)
             <MudText Typo="Typo.body2" Class="fc-muted">@_details.SubjectName · @_details.EventDateTime.ToLocalTime().ToString("g")</MudText>
             <MudSwitch T="bool" Value="_details.AllowSelfJoin" ValueChanged="SetSelfJoinAsync" Color="Color.Primary" Class="fc-queue-selfjoin"
                        Label="@Loc["QueueDetails_SelfJoin"]" title="@Loc["QueueDetails_SelfJoinHint"]" />
+            <MudNumericField T="int?" Value="_details.LateAfterMinutes" ValueChanged="SetLateRuleAsync" Min="0" Max="@QueueLateMax"
+                             Label="@Loc["QueueDetails_LateRule"]" HelperText="@Loc["QueueDetails_LateRuleHint"]" Clearable="true"
+                             DebounceInterval="700" Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-queue-late-rule" />
         </div>
         <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="@(_hub?.State == HubConnectionState.Connected ? Color.Success : Color.Warning)"
                  Icon="@(_hub?.State == HubConnectionState.Connected ? Icons.Material.Filled.Circle : Icons.Material.Outlined.SyncProblem)">
@@ -84,6 +87,18 @@ else if (_details is not null)
                         <div class="fc-queue-name-cell"><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="p.PinnedAchievements" /></div>
                         <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")@(past ? $" · {Loc["Queue_PastRound", p.Round]}" : "")</MudText>
                         @if (!p.CanManage) { <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText> }
+                        @if (p.LateMinutes is int late && !past)
+                        {
+                            <div class="fc-queue-late">
+                                <MudChip T="string" Size="Size.Small" Variant="@(p.LateExcused ? Variant.Outlined : Variant.Text)" Color="@(p.LateExcused ? Color.Default : Color.Warning)"
+                                         Icon="@Icons.Material.Outlined.Schedule">@(p.LateExcused ? Loc["QueueDetails_LateExcusedBadge", late] : Loc["Queue_LateBadge", late])</MudChip>
+                                @if (p.CanManage)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => SetLateExcusedAsync(p, !p.LateExcused))"
+                                               title="@Loc[p.LateExcused ? "QueueDetails_LateRestoreHint" : "QueueDetails_LateExcuseHint"]">@Loc[p.LateExcused ? "QueueDetails_LateRestore" : "QueueDetails_LateExcuse"]</MudButton>
+                                }
+                            </div>
+                        }
                     </div>
                     <div class="fc-queue-person-score"><strong>@p.TotalPoints</strong><span>@Loc["Common_PointsAbbr"]</span></div>
                     <div class="fc-queue-person-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Text">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip>

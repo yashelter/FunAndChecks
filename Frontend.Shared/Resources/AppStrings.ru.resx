@@ -329,19 +329,11 @@
   <data name="QueueDetails_LoadError" xml:space="preserve"><value>Не удалось загрузить данные очереди.</value></data>
   <data name="QueueDetails_LoadErrorPrefix" xml:space="preserve"><value>Ошибка загрузки очереди: {0}</value></data>
   <data name="QueueDetails_WorkTitle" xml:space="preserve"><value>Работа со студентом</value></data>
-  <data name="QueueDetails_RegistrationOpen" xml:space="preserve"><value>Запись открыта</value></data>
-  <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Запись закрыта</value></data>
-  <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Закрыть запись</value></data>
-  <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Открыть запись</value></data>
-  <data name="QueueDetails_ResumeRegistration" xml:space="preserve"><value>Возобновить</value></data>
-  <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Переключить самозапись студентов</value></data>
-  <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Запись открыта</value></data>
-  <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Запись закрыта</value></data>
   <data name="QueueDetails_SettingsChangedBy" xml:space="preserve"><value>Настройки очереди изменены: {0}</value></data>
-  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Запись <b>открыта</b> u2014 студенты могут встать в очередь.</value></data>
-  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Запись <b>закрыта</b> u2014 студенты больше не могут встать в очередь.</value></data>
-  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Запись в <b>{0}</b> <b>открыта</b> u2014 вы можете встать в очередь.</value></data>
-  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Запись в <b>{0}</b> <b>закрыта</b> u2014 вы больше не можете встать в очередь.</value></data>
+  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Запись открыта — студенты могут встать в очередь.</value></data>
+  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Запись закрыта — студенты больше не могут встать в очередь.</value></data>
+  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Запись в {0} открыта — вы можете встать в очередь.</value></data>
+  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Запись в {0} закрыта — вы больше не можете встать в очередь.</value></data>
 
   <!-- ==================== Student Grading (extra) ==================== -->
   <data name="Grading_SearchLabel" xml:space="preserve"><value>Поиск студента по фамилии</value></data>
@@ -637,7 +629,7 @@
   <data name="Management_TaskSetCreated" xml:space="preserve"><value>Создано задач: {0}, пропущено существующих: {1}</value></data>
   <data name="Management_InvalidDate" xml:space="preserve"><value>Введите дату и время в формате {0}.</value></data>
   <data name="StudentQueues_MyPlace" xml:space="preserve"><value>Ваше место: {0} из {1}</value></data>
-  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Порядок: больше баллов — раньше, при равенстве — кто раньше записался. Вставшие повторно — после всех, кто в первом круге.</value></data>
+  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Порядок: больше баллов — раньше, при равенстве — кто раньше записался. Если преподаватель задал порог опоздания, опоздавшие ждут после пришедших вовремя. Вставшие повторно — после всех, кто в первом круге.</value></data>
   <data name="StudentQueues_Leave" xml:space="preserve"><value>Выйти из очереди</value></data>
   <data name="StudentQueues_Left" xml:space="preserve"><value>Вы вышли из очереди</value></data>
   <data name="StudentStatus_Title" xml:space="preserve"><value>Где вы сейчас</value></data>
@@ -920,4 +912,15 @@
   <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Разные студенты, которых проверяющий вёл последним и завершил в очереди</value></data>
   <data name="Stats_Note" xml:space="preserve"><value>Попытки считаются за всё время, включая повторные; отменённые отметки не считаются. Завершённые в очереди считаются с обновления, в котором появился этот раздел.</value></data>
   <data name="Stats_Empty" xml:space="preserve"><value>Проверяющих пока нет</value></data>
+  <data name="Queue_LateBadge" xml:space="preserve"><value>Опоздание {0} мин</value></data>
+  <data name="QueueDetails_LateExcusedBadge" xml:space="preserve"><value>Опоздание {0} мин снято</value></data>
+  <data name="QueueDetails_LateExcuse" xml:space="preserve"><value>Снять</value></data>
+  <data name="QueueDetails_LateExcuseHint" xml:space="preserve"><value>Уважительная причина: студент возвращается на обычное место</value></data>
+  <data name="QueueDetails_LateRestore" xml:space="preserve"><value>Вернуть</value></data>
+  <data name="QueueDetails_LateRestoreHint" xml:space="preserve"><value>Снова считать студента опоздавшим</value></data>
+  <data name="QueueDetails_LateRule" xml:space="preserve"><value>Опоздание после, мин</value></data>
+  <data name="QueueDetails_LateRuleHint" xml:space="preserve"><value>Записавшиеся позже ждут после пришедших вовремя. Пусто — не отмечать</value></data>
+  <data name="QueueDetails_LateRuleSaved" xml:space="preserve"><value>Порог опоздания сохранён</value></data>
+  <data name="QueueDetails_LateRuleOff" xml:space="preserve"><value>Опоздания больше не отмечаются</value></data>
+  <data name="StudentQueues_LateHint" xml:space="preserve"><value>Вы записались через {0} мин после начала: опоздавшие ждут после пришедших вовремя.</value></data>
 </root>

@@ -50,6 +50,8 @@ public partial class Queues : IAsyncDisposable
 
     private HubConnection? _listHub;
     private readonly List<IDisposable> _listHubHandlers = [];
+    // Обработчики открытой очереди: снимаются при уходе к списку или в другую очередь.
+    private readonly List<IDisposable> _detailHandlers = [];
     private readonly SemaphoreSlim _listHubLock = new(1, 1);
     private int? _viewedEventId;
     private bool _disposed;
@@ -80,7 +82,7 @@ public partial class Queues : IAsyncDisposable
         }
         else
         {
-            await CloseDetailsAsync();
+            CloseDetails();
             await LoadAllAsync();
         }
     }
@@ -157,13 +159,7 @@ public partial class Queues : IAsyncDisposable
         if (_viewedEventId != eventId)
             _latestColorChanges.Clear();
         _viewedEventId = eventId;
-
-        if (_listHub?.State == HubConnectionState.Connected)
-        {
-            var handler = _listHub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-            _listHubHandlers.Add(handler);
-            await _listHub.InvokeAsync("SubscribeToQueue", eventId);
-        }
+        await AttachDetailsAsync(eventId);
 
         try
         {
@@ -202,11 +198,58 @@ public partial class Queues : IAsyncDisposable
     }
 
 
+    /// <summary>
+    /// Живые обновления открытой очереди. Обработчики прошлой открытой очереди снимаются, а события других очередей
+    /// пропускаются: страница подписана на все очереди списка. Обработчики можно навесить и до подключения —
+    /// подписку на группу тогда сделает переподключение.
+    /// </summary>
+    private async Task AttachDetailsAsync(int eventId)
+    {
+        DetachDetails();
+        if (_listHub is not { } hub)
+            return;
+        _detailHandlers.Add(hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", update =>
+            update.EventId == eventId ? InvokeAsync(() => LoadDetailsAsync(eventId)) : Task.CompletedTask));
+        // Изменилось само событие (название, время, порог опоздания) — порядок мог поменяться.
+        _detailHandlers.Add(hub.On<int>("QueueChanged", changed =>
+            changed == eventId ? InvokeAsync(() => LoadDetailsAsync(eventId)) : Task.CompletedTask));
+        _detailHandlers.Add(hub.On<StudentColorUpdateDto>("StudentColorUpdated", update =>
+            InvokeAsync(() => UpdateStudentColor(eventId, update))));
+        await SubscribeAsync(eventId);
+    }
+
+    private void DetachDetails()
+    {
+        foreach (var handler in _detailHandlers)
+            handler.Dispose();
+        _detailHandlers.Clear();
+    }
+
+    /// <summary>Подписка на группу очереди; сбой не страшен — переподключение подпишет заново.</summary>
+    private async Task SubscribeAsync(int eventId)
+    {
+        if (_listHub?.State != HubConnectionState.Connected)
+            return;
+        try
+        {
+            await _listHub.InvokeAsync("SubscribeToQueue", eventId);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to subscribe to queue {eventId}: {ex.Message}");
+        }
+    }
+
     private async Task InitializeListHubAsync()
     {
+        if (_disposed)
+            return;
         await _listHubLock.WaitAsync();
         try
         {
+            // Страницу закрыли, пока грузился список: соединение уже не нужно.
+            if (_disposed)
+                return;
             await DisposeListHubAsync();
 
             _listHub = new HubConnectionBuilder()
@@ -216,19 +259,29 @@ public partial class Queues : IAsyncDisposable
                 .Build();
 
             _listHubHandlers.Add(_listHub.On<QueueSettingsUpdateDto>("QueueSettingsChanged", dto =>
-                InvokeAsync(() => OnQueueSettingsChangedAsync(dto))));
+                InvokeAsync(() => OnQueueSettingsChanged(dto))));
 
+            // После переподключения подписки на группы теряются: подписываемся заново (и на открытую очередь,
+            // даже если её нет в списке) и перечитываем то, что на экране, иначе очередь «зависает».
             _listHub.Reconnected += async _ =>
             {
                 try
                 {
+                    if (_disposed)
+                        return;
                     await SubscribeToAllQueueGroupsAsync();
+                    if (_viewedEventId is int viewed)
+                        await SubscribeAsync(viewed);
+                    // Разброс, чтобы после сбоя сети все студенты не перечитывали очередь одновременно.
                     await Task.Delay(Random.Shared.Next(500, 3000));
-                    await InvokeAsync(LoadAllAsync);
+                    if (_disposed)
+                        return;
+                    await InvokeAsync(() => _viewedEventId is int id ? LoadDetailsAsync(id) : LoadAllAsync());
                 }
                 catch (Exception ex)
                 {
-                    Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
+                    if (!_disposed)
+                        Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
                 }
             };
 
@@ -255,56 +308,35 @@ public partial class Queues : IAsyncDisposable
             .ToList();
 
         foreach (var eventId in allQueueIds)
-        {
-            try
-            {
-                await _listHub.InvokeAsync("SubscribeToQueue", eventId);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to subscribe to queue {eventId}: {ex.Message}");
-            }
-        }
+            await SubscribeAsync(eventId);
     }
 
-    private async Task OnQueueSettingsChangedAsync(QueueSettingsUpdateDto dto)
+    /// <summary>Запись в очередь открыли или закрыли: обновляем кнопки и сообщаем, только если флаг правда сменился.</summary>
+    private void OnQueueSettingsChanged(QueueSettingsUpdateDto dto)
     {
-        bool updated = false;
-        string? queueName = null;
+        if (_disposed)
+            return;
+        var known = _myEvents.Concat(_availableEvents).FirstOrDefault(q => q.Id == dto.EventId);
+        var listChanged = known is not null && known.AllowSelfJoin != dto.AllowSelfJoin;
+        var detailsChanged = _details is { } shown && shown.EventId == dto.EventId && shown.AllowSelfJoin != dto.AllowSelfJoin;
+        if (!listChanged && !detailsChanged)
+            return;
 
-        var myQueue = _myEvents.FirstOrDefault(q => q.Id == dto.EventId);
-        if (myQueue is not null)
-        {
-            var index = _myEvents.IndexOf(myQueue);
-            _myEvents[index] = myQueue with { AllowSelfJoin = dto.AllowSelfJoin };
-            queueName = myQueue.Name;
-            updated = true;
-        }
+        _myEvents = _myEvents.Select(q => q.Id == dto.EventId ? q with { AllowSelfJoin = dto.AllowSelfJoin } : q).ToList();
+        _availableEvents = _availableEvents.Select(q => q.Id == dto.EventId ? q with { AllowSelfJoin = dto.AllowSelfJoin } : q).ToList();
+        if (detailsChanged)
+            _details = _details! with { AllowSelfJoin = dto.AllowSelfJoin };
+        StateHasChanged();
 
-        var availQueue = _availableEvents.FirstOrDefault(q => q.Id == dto.EventId);
-        if (availQueue is not null)
-        {
-            var index = _availableEvents.IndexOf(availQueue);
-            _availableEvents[index] = availQueue with { AllowSelfJoin = dto.AllowSelfJoin };
-            queueName ??= availQueue.Name;
-            updated = true;
-        }
-
-        if (updated)
-        {
-            StateHasChanged();
-
-            var message = dto.AllowSelfJoin
-                ? string.Format(Loc["StudentQueues_RegistrationNowOpen"], queueName)
-                : string.Format(Loc["StudentQueues_RegistrationNowClosed"], queueName);
-
-            Snackbar.Add(message, Severity.Warning, config =>
+        // Открытая очередь перечитывается при переименовании, а список — нет: её название свежее.
+        var queueName = _details?.EventId == dto.EventId ? _details.EventName : known?.Name;
+        Snackbar.Add(string.Format(Loc[dto.AllowSelfJoin ? "StudentQueues_RegistrationNowOpen" : "StudentQueues_RegistrationNowClosed"], queueName),
+            Severity.Warning, config =>
             {
                 config.ShowCloseIcon = true;
                 config.VisibleStateDuration = 10000;
                 config.SnackbarVariant = Variant.Filled;
             });
-        }
     }
 
     private async Task DisposeListHubAsync()
@@ -341,23 +373,13 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
-    private async Task CloseDetailsAsync()
+    /// <summary>
+    /// Назад к списку. От группы очереди не отписываемся: список подписан на все свои очереди и ждёт от неё
+    /// уведомлений о записи. Снимаются только обработчики открытой очереди.
+    /// </summary>
+    private void CloseDetails()
     {
-        if (_viewedEventId is not int eventId) return;
-        
-        var handlersToRemove = _listHubHandlers.Where(h => 
-            h.GetType().Name.Contains("QueueEntryUpdated")).ToList();
-        foreach (var handler in handlersToRemove)
-        {
-            handler.Dispose();
-            _listHubHandlers.Remove(handler);
-        }
-        if (_listHub?.State == HubConnectionState.Connected)
-        {
-            try { await _listHub.InvokeAsync("UnsubscribeFromQueue", eventId); }
-            catch { }
-        }
-
+        DetachDetails();
         _viewedEventId = null;
         _details = null;
         _latestColorChanges.Clear();
@@ -399,10 +421,12 @@ public partial class Queues : IAsyncDisposable
     {
         _disposed = true;
         _viewedEventId = null;
+        DetachDetails();
 
-        var cutoff = DateTime.UtcNow.AddDays(-1);
+        // Семафор не уничтожаем: InitializeListHubAsync может ещё ждать его и сам выйдет по _disposed.
+        // SemaphoreSlim без AvailableWaitHandle неуправляемых ресурсов не держит.
         await _listHubLock.WaitAsync();
         try { await DisposeListHubAsync(); }
-        finally { _listHubLock.Release(); _listHubLock.Dispose(); }
+        finally { _listHubLock.Release(); }
     }
 }

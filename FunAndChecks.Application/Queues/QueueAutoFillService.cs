@@ -57,6 +57,8 @@ public class QueueAutoFillService(
                     StudentId = studentId,
                     JoinedAt = now,
                     Status = QueueEntryStatus.Waiting,
+                    // Добавила автозапись, а не сам студент: опоздавшим он не считается.
+                    LateExcused = true,
                 }));
                 await db.SaveChangesAsync(ct);
             }, cancellationToken);

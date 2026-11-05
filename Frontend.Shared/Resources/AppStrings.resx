@@ -329,19 +329,11 @@
   <data name="QueueDetails_LoadError" xml:space="preserve"><value>Failed to load queue data.</value></data>
   <data name="QueueDetails_LoadErrorPrefix" xml:space="preserve"><value>Error loading queue: {0}</value></data>
   <data name="QueueDetails_WorkTitle" xml:space="preserve"><value>Work with student</value></data>
-  <data name="QueueDetails_RegistrationOpen" xml:space="preserve"><value>Registration is open</value></data>
-  <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Registration is closed</value></data>
-  <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Close registration</value></data>
-  <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Open registration</value></data>
-  <data name="QueueDetails_ResumeRegistration" xml:space="preserve"><value>Resume</value></data>
-  <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Toggle student self-registration</value></data>
-  <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Registration opened</value></data>
-  <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Registration closed</value></data>
   <data name="QueueDetails_SettingsChangedBy" xml:space="preserve"><value>Queue settings changed by {0}</value></data>
-  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Registration is now <b>open</b> u2014 students can join the queue.</value></data>
-  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Registration is now <b>closed</b> u2014 students can no longer join the queue.</value></data>
-  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Registration for <b>{0}</b> is now <b>open</b> u2014 you can join the queue.</value></data>
-  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Registration for <b>{0}</b> is now <b>closed</b> u2014 you can no longer join the queue.</value></data>
+  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Registration is now open — students can join the queue.</value></data>
+  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Registration is now closed — students can no longer join the queue.</value></data>
+  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Registration for {0} is now open — you can join the queue.</value></data>
+  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Registration for {0} is now closed — you can no longer join the queue.</value></data>
 
   <!-- ==================== Student Grading (extra) ==================== -->
   <data name="Grading_SearchLabel" xml:space="preserve"><value>Search student by last name</value></data>
@@ -637,7 +629,7 @@
   <data name="Management_TaskSetCreated" xml:space="preserve"><value>Tasks created: {0}, existing skipped: {1}</value></data>
   <data name="Management_InvalidDate" xml:space="preserve"><value>Enter the date and time as {0}.</value></data>
   <data name="StudentQueues_MyPlace" xml:space="preserve"><value>You are #{0} of {1} waiting</value></data>
-  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Order: more points first, then who joined earlier. Students who rejoined wait after everyone on their first round.</value></data>
+  <data name="StudentQueues_OrderHint" xml:space="preserve"><value>Order: more points first, then who joined earlier. If the teacher set a late threshold, late students wait after those on time. Students who rejoined wait after everyone on their first round.</value></data>
   <data name="StudentQueues_Leave" xml:space="preserve"><value>Leave the queue</value></data>
   <data name="StudentQueues_Left" xml:space="preserve"><value>You left the queue</value></data>
   <data name="StudentStatus_Title" xml:space="preserve"><value>Where you are</value></data>
@@ -918,4 +910,15 @@
   <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Different students this reviewer led last and finished in a queue</value></data>
   <data name="Stats_Note" xml:space="preserve"><value>Attempts are counted for all time, including repeated ones; undone marks are not counted. Students finished in a queue are counted since the update that added this section.</value></data>
   <data name="Stats_Empty" xml:space="preserve"><value>No reviewers yet</value></data>
+  <data name="Queue_LateBadge" xml:space="preserve"><value>Late by {0} min</value></data>
+  <data name="QueueDetails_LateExcusedBadge" xml:space="preserve"><value>Late by {0} min, excused</value></data>
+  <data name="QueueDetails_LateExcuse" xml:space="preserve"><value>Excuse</value></data>
+  <data name="QueueDetails_LateExcuseHint" xml:space="preserve"><value>Valid reason: the student returns to the usual place</value></data>
+  <data name="QueueDetails_LateRestore" xml:space="preserve"><value>Restore</value></data>
+  <data name="QueueDetails_LateRestoreHint" xml:space="preserve"><value>Mark the student as late again</value></data>
+  <data name="QueueDetails_LateRule" xml:space="preserve"><value>Late after, min</value></data>
+  <data name="QueueDetails_LateRuleHint" xml:space="preserve"><value>Students who join later wait after those on time. Empty: off</value></data>
+  <data name="QueueDetails_LateRuleSaved" xml:space="preserve"><value>Late threshold saved</value></data>
+  <data name="QueueDetails_LateRuleOff" xml:space="preserve"><value>Lateness is no longer tracked</value></data>
+  <data name="StudentQueues_LateHint" xml:space="preserve"><value>You joined {0} min after the start: late students wait after those on time.</value></data>
 </root>

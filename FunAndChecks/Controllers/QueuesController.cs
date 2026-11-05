@@ -80,6 +80,26 @@ public class QueuesController(IQueueService queueService) : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Порог опоздания: через сколько минут после начала записавшийся считается опоздавшим (null — не отмечать).</summary>
+    [HttpPut("{eventId:int}/late-rule")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetLateRule(int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken)
+    {
+        await queueService.SetLateRuleAsync(User.GetUserId(), eventId, request, cancellationToken);
+        return NoContent();
+    }
+
+    /// <summary>Снять или вернуть опоздание записи (уважительная причина).</summary>
+    [HttpPut("{eventId:int}/entries/{entryId:int}/late-excused")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetLateExcused(int eventId, int entryId, SetLateExcusedRequest request, CancellationToken cancellationToken)
+    {
+        await queueService.SetLateExcusedAsync(User.GetUserId(), eventId, entryId, request.Excused, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Админ меняет статус студента в очереди (берёт на проверку, завершает и т.д.).</summary>
     [HttpPut("{eventId:int}/students/{studentId:guid}/status")]
     [Authorize(Roles = Roles.Admin)]

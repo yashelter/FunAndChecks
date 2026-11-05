@@ -4,6 +4,7 @@
 @inject JwtAuthenticationStateProvider AuthState
 @inject NavigationManager Nav
 @inject LegalConsentState Consent
+@implements IDisposable
 
 @*
     Согласие с политикой и соглашением у студента. Проверяется в оболочке кабинета, а не на странице входа:
@@ -13,6 +14,9 @@
 
 @code {
     private bool _checking;
+    private bool _disposed;
+
+    public void Dispose() => _disposed = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -41,13 +45,27 @@
         }
 
         var options = new DialogOptions { BackdropClick = false, CloseOnEscapeKey = false, CloseButton = false, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<PrivacyConsentDialog>((string?)null, options);
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
+        while (true)
         {
-            Consent.ConfirmedFor = userId;
-            _checking = false;
-            return;
+            var dialog = await DialogService.ShowAsync<PrivacyConsentDialog>((string?)null, options);
+            var result = await dialog.Result;
+            if (result is { Canceled: false, Data: true })
+            {
+                Consent.ConfirmedFor = userId;
+                _checking = false;
+                return;
+            }
+            if (result is { Canceled: false })
+                break;
+
+            // Окно закрыла навигация (назад в браузере, переход из кода), а не студент: это не отказ.
+            // Даём переходу отрисоваться; если оболочку убрали или студент уже вышел — спрашивать некого.
+            await Task.Yield();
+            if (_disposed || !(await ((AuthenticationStateProvider)AuthState).GetAuthenticationStateAsync()).User.IsInRole(Frontend.Shared.Auth.Roles.Student))
+            {
+                _checking = false;
+                return;
+            }
         }
 
         // Отказ: без согласия кабинетом пользоваться нельзя — выходим.

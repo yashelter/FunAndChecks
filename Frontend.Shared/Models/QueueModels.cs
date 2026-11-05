@@ -14,15 +14,21 @@ public record CreateQueueEventRequest(
     DateTime EventDateTime,
     int SubjectId,
     bool AllowSelfJoin = true,
-    List<int>? AutoFillGroupIds = null);
+    List<int>? AutoFillGroupIds = null,
+    int? LateAfterMinutes = null);
 
 /// <summary>Правка события; <c>AllowSelfJoin</c> = null — флаг самозаписи не меняется.</summary>
 public record UpdateQueueEventRequest(string Name, DateTime EventDateTime, bool? AllowSelfJoin = null);
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
+/// <summary>Порог опоздания в минутах после начала события; null — опоздания не отмечаются.</summary>
+public record SetQueueLateRuleRequest(int? LateAfterMinutes);
+
+public record SetLateExcusedRequest(bool Excused);
+
 /// <summary>Событие SignalR об изменении настроек очереди (AllowSelfJoin).</summary>
-public record QueueSettingsUpdateDto(int EventId, bool AllowSelfJoin, string? AdminName);
+public record QueueSettingsUpdateDto(int EventId, bool AllowSelfJoin, string? AdminName, Guid? AdminId = null);
 
 public record QueueParticipantDto(
     Guid StudentId,
@@ -38,11 +44,15 @@ public record QueueParticipantDto(
     Guid? CheckingByAdminId = null,
     int EntryId = 0,
     int Round = 1,
-    List<PinnedAchievementBadgeDto>? PinnedAchievements = null)
+    List<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    int? LateMinutes = null,
+    bool LateExcused = false)
 {
     public string FullName => $"{FirstName} {LastName}";
     /// <summary>Повторный круг: студент встал снова после «сдал» или «пропущен».</summary>
     public bool IsRejoin => Round > 1;
+    /// <summary>Записался на первый круг позже порога, и опоздание не снято: ждёт после пришедших вовремя.</summary>
+    public bool IsLate => LateMinutes is not null && !LateExcused;
 }
 
 public record QueueDetailsDto(
@@ -52,7 +62,8 @@ public record QueueDetailsDto(
     int SubjectId,
     DateTime EventDateTime,
     bool AllowSelfJoin,
-    List<QueueParticipantDto> Participants);
+    List<QueueParticipantDto> Participants,
+    int? LateAfterMinutes = null);
 
 /// <summary>Событие SignalR об изменении записи в очереди.</summary>
 public record QueueEntryUpdateDto(int EventId, Guid StudentId, QueueEntryStatus NewStatus, string? AdminName);

@@ -28,7 +28,9 @@
 </MudDialog>
 
 @code {
-    // Открывается через DialogService (LegalConsentGate): Ok — согласие дано, Cancel — пользователь отказался.
+    // Открывается через DialogService (LegalConsentGate): Ok(true) — согласие дано, Ok(false) — пользователь отказался.
+    // Отказ — не Cancel: Cancel приходит и тогда, когда окно закрыла навигация (MudDialogProvider закрывает диалоги
+    // при смене адреса), а это не отказ.
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
 
     private bool _terms;
@@ -55,7 +57,7 @@
         }
     }
 
-    private void Decline() => MudDialog.Cancel();
+    private void Decline() => MudDialog.Close(DialogResult.Ok(false));
 
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
 }

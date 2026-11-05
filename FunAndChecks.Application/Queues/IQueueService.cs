@@ -27,6 +27,12 @@ public interface IQueueService
     /// <summary>Очереди, где записан студент, — со статусом и местом среди ожидающих.</summary>
     Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, bool includePast, CancellationToken cancellationToken = default);
 
+    /// <summary>Порог опоздания события; клиенты перечитывают очередь (порядок мог измениться).</summary>
+    Task SetLateRuleAsync(Guid adminId, int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Преподаватель снимает или возвращает опоздание записи (уважительная причина).</summary>
+    Task SetLateExcusedAsync(Guid adminId, int eventId, int entryId, bool excused, CancellationToken cancellationToken = default);
+
     Task UpdateParticipantStatusAsync(
         int eventId, Guid studentId, Guid adminId, QueueEntryStatus status,
         CancellationToken cancellationToken = default);

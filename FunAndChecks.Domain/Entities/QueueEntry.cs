@@ -15,6 +15,12 @@ public class QueueEntry
     /// <summary>Номер круга: 1 — первое вступление, больше 1 — повторное.</summary>
     public int Round { get; set; } = 1;
 
+    /// <summary>
+    /// Опоздание не учитывается: преподаватель принял причину или студента добавила автозапись.
+    /// Само опоздание не хранится — оно считается по <see cref="JoinedAt"/> и порогу события.
+    /// </summary>
+    public bool LateExcused { get; set; }
+
     public int QueueEventId { get; set; }
     public QueueEvent QueueEvent { get; set; } = null!;
 

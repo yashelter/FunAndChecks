@@ -117,6 +117,33 @@ public partial class QueueDetails : IAsyncDisposable
         catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
     }
 
+    private const int QueueLateMax = 240;
+
+    /// <summary>Порог опоздания: записавшиеся позже ждут после пришедших вовремя. Пусто — не отмечать.</summary>
+    private async Task SetLateRuleAsync(int? minutes)
+    {
+        if (_details is null || minutes == _details.LateAfterMinutes) return;
+        try
+        {
+            await Queues.SetLateRuleAsync(EventId, minutes);
+            Snackbar.Add(Loc[minutes is null ? "QueueDetails_LateRuleOff" : "QueueDetails_LateRuleSaved"], Severity.Success);
+            // Опоздания считает сервер: порядок мог измениться.
+            await LoadAsync();
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    /// <summary>Уважительная причина: опоздание снимается, студент возвращается на обычное место. Можно вернуть.</summary>
+    private async Task SetLateExcusedAsync(QueueParticipantDto participant, bool excused)
+    {
+        try
+        {
+            await Queues.SetLateExcusedAsync(EventId, participant.EntryId, excused);
+            await LoadAsync();
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
     private async Task LoadAsync()
     {
         if (_disposed)
@@ -254,9 +281,9 @@ public partial class QueueDetails : IAsyncDisposable
             _details = _details with { AllowSelfJoin = dto.AllowSelfJoin };
             StateHasChanged();
 
-            // Only show toast if value actually changed AND not initiated by us
-            // (the clicker gets success toast in SetSelfJoinAsync)
-            if (oldValue != dto.AllowSelfJoin && !string.IsNullOrEmpty(dto.AdminName))
+            // Сообщаем только о чужом переключении: своё преподаватель видит по переключателю,
+            // а событие может прийти раньше ответа на его же запрос.
+            if (oldValue != dto.AllowSelfJoin && dto.AdminId != _currentAdminId && !string.IsNullOrEmpty(dto.AdminName))
             {
                 var message = string.Format(Loc["QueueDetails_SettingsChangedBy"], dto.AdminName) + " — " +
                     (dto.AllowSelfJoin ? Loc["QueueDetails_RegistrationNowOpen"] : Loc["QueueDetails_RegistrationNowClosed"]);
