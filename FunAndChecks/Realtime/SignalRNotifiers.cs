@@ -26,6 +26,12 @@ public class QueueNotifier(IHubContext<QueueHub> hubContext) : IQueueNotifier
         hubContext.Clients
             .Group(QueueHub.GroupName(eventId))
             .SendAsync("QueueChanged", eventId, cancellationToken);
+
+    /// <summary>Уведомление об изменении настроек очереди (AllowSelfJoin).</summary>
+    public Task QueueSettingsChangedAsync(QueueSettingsUpdateDto update, CancellationToken cancellationToken = default) =>
+        hubContext.Clients
+            .Group(QueueHub.GroupName(update.EventId))
+            .SendAsync("QueueSettingsChanged", update, cancellationToken);
 }
 
 public class ResultsNotifier(IHubContext<ResultsHub> hubContext) : IResultsNotifier
