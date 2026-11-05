@@ -1,3 +1,6 @@
+graphify-out/
+AGENTS.md
+
 # Секреты приложения, включая InitialAdmins — реальный файл (шаблон рядом: secrets.template.json)
 **/secrets.json
 logs/

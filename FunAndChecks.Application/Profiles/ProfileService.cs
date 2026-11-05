@@ -46,8 +46,7 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
                     pin.Position,
                     AwardId = award.Id,
                     award.AchievementId,
-                    award.Achievement.Name,
-                    award.Achievement.Description
+                    award.Achievement.Name
                 })
             .OrderBy(x => x.UserId)
             .ThenBy(x => x.Position)
@@ -73,7 +72,7 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
                 g => g.Key,
                 g => (IReadOnlyList<PinnedAchievementBadgeDto>)g
                     .Select(x => new PinnedAchievementBadgeDto(x.AwardId, x.AchievementId, x.Name,
-                        x.Description, images.GetValueOrDefault(x.AchievementId), x.Position))
+                        images.GetValueOrDefault(x.AchievementId), x.Position))
                     .ToList());
     }
 
@@ -152,6 +151,7 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
     public async Task<UserProfileDto> UpdateAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(request, ct);
+        var pinsChanged = false;
         await db.ExecuteSerializableAsync(async token =>
         {
             await RequireAccountAsync(userId, token);
@@ -164,6 +164,7 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
             profile.PortfolioUrl = CleanUrl(request.PortfolioUrl);
             profile.UpdatedAtUtc = DateTime.UtcNow;
             var previous = await db.PinnedAchievements.Where(p => p.UserId == userId).ToListAsync(token);
+            pinsChanged = !previous.OrderBy(p => p.Position).Select(p => p.AchievementAwardId).SequenceEqual(ids);
             db.PinnedAchievements.RemoveRange(previous);
             // Save removal before inserting positions, so reorderings cannot collide with old keys.
             await db.SaveChangesAsync(token);
@@ -171,8 +172,19 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
                 { UserId = userId, AchievementAwardId = id, Position = index + 1 }));
             await db.SaveChangesAsync(token);
         }, ct);
-        resultsCache?.Clear();
+        if (pinsChanged) await InvalidateResultsAsync(db, resultsCache, userId, ct);
         return await GetAsync(userId, userId, ct);
+    }
+
+    /// <summary>Закреплённые ачивки показываются в кэшированных таблицах результатов предметов группы студента.</summary>
+    internal static async Task InvalidateResultsAsync(IApplicationDbContext db, IResultsCacheService? cache, Guid userId, CancellationToken ct)
+    {
+        if (cache is null) return;
+        var subjectIds = await db.Students.Where(s => s.Id == userId)
+            .SelectMany(s => db.GroupSubjects.Where(gs => gs.GroupId == s.GroupId).Select(gs => gs.SubjectId))
+            .ToListAsync(ct);
+        foreach (var subjectId in subjectIds)
+            cache.Invalidate(subjectId);
     }
 
     public async Task<MediaAssetDto> SetAvatarAsync(Guid userId, UpdateAvatarRequest request, CancellationToken ct = default)

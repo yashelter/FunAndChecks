@@ -23,8 +23,7 @@
         Achievements ?? AwardItems?
             .Where(x => x.PinPosition.HasValue)
             .OrderBy(x => x.PinPosition)
-            .Select(x => new PinnedAchievementBadgeDto(x.Id, x.AchievementId, x.Name, x.Description,
-                x.Image, x.PinPosition!.Value))
+            .Select(x => new PinnedAchievementBadgeDto(x.Id, x.AchievementId, x.Name, x.Image, x.PinPosition!.Value))
             .ToList();
     private async Task OpenAsync(PinnedAchievementBadgeDto achievement)
     {

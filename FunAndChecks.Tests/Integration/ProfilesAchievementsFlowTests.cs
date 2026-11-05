@@ -5,8 +5,11 @@ using FluentAssertions;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Profiles;
+using FunAndChecks.Application.Queues;
+using FunAndChecks.Application.Results;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
+using FunAndChecks.Domain.Enums;
 using FunAndChecks.Infrastructure.Identity;
 using FunAndChecks.Infrastructure.Persistence;
 using FunAndChecks.Tests.Common;
@@ -281,6 +284,91 @@ public class ProfilesAchievementsFlowTests : IDisposable
                 { Data = [1], ContentType = "image/webp", PosterData = [1], PosterContentType = "image/webp", Width = 256, Height = 256 });
             await FluentActions.Invoking(() => db.SaveChangesAsync()).Should().ThrowAsync<DbUpdateException>();
         }
+    }
+
+    [Fact]
+    public async Task PinnedBadges_InResultsAndQueue_FollowPinsRevokeAndRename()
+    {
+        var seed = await SeedAsync();
+        var (subjectId, _, queueId) = await SeedSubjectsAsync(seed.StudentId);
+        using var super = Client(seed.SuperToken);
+        using var admin = Client(seed.AdminToken);
+        using var student = Client(seed.StudentToken);
+        var first = await CreateAsync(super, "Первая");
+        var second = await CreateAsync(super, "Вторая");
+        var firstAward = await GrantAsync(admin, first.Id, seed.StudentId);
+        var secondAward = await GrantAsync(admin, second.Id, seed.StudentId);
+
+        async Task<IEnumerable<string>?> BadgesInResults()
+        {
+            var results = await super.GetFromJsonAsync<SubjectResultsDto>($"/api/results/subjects/{subjectId}");
+            return results!.UserResults.Single(r => r.StudentId == seed.StudentId).PinnedAchievements?.Select(b => b.Name);
+        }
+
+        // Первый запрос заполняет кэш таблицы: дальше каждое изменение обязано его сбросить.
+        (await BadgesInResults()).Should().BeNull();
+
+        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("", null, null, [secondAward.Id, firstAward.Id])))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await BadgesInResults()).Should().Equal("Вторая", "Первая");
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var queue = await scope.ServiceProvider.GetRequiredService<IQueueService>().GetDetailsAsync(queueId, seed.SuperId);
+            queue.Participants.Single(p => p.StudentId == seed.StudentId).PinnedAchievements!
+                .Select(b => (b.AwardId, b.Position)).Should().Equal((secondAward.Id, 1), (firstAward.Id, 2));
+        }
+
+        (await admin.PostAsync($"/api/admin/achievement-awards/{secondAward.Id}/revoke", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await BadgesInResults()).Should().Equal("Первая");
+
+        (await super.PutAsJsonAsync($"/api/admin/achievements/{first.Id}", new UpsertAchievementRequest("Новая", "Description")))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await BadgesInResults()).Should().Equal("Новая");
+
+        // Публичная страница /results: таблица и диалог бейджа доступны без входа, список ачивок — нет.
+        using var anonymous = _factory.CreateClient();
+        (await anonymous.GetAsync($"/api/results/subjects/{subjectId}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await anonymous.GetAsync($"/api/achievements/{first.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task SavingProfile_DropsCachedResults_OnlyWhenPinsChange_AndOnlyForOwnSubjects()
+    {
+        var seed = await SeedAsync();
+        var (subjectId, otherSubjectId, _) = await SeedSubjectsAsync(seed.StudentId);
+        using var super = Client(seed.SuperToken);
+        using var admin = Client(seed.AdminToken);
+        using var student = Client(seed.StudentToken);
+        var award = await GrantAsync(admin, (await CreateAsync(super)).Id, seed.StudentId);
+        var cache = _factory.Services.GetRequiredService<IResultsCacheService>();
+        foreach (var id in new[] { subjectId, otherSubjectId })
+            (await super.GetAsync($"/api/results/subjects/{id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+
+        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Новый текст", null, null, [])))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        cache.GetResults(subjectId).Should().NotBeNull("the pins did not change");
+
+        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Новый текст", null, null, [award.Id])))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        cache.GetResults(subjectId).Should().BeNull();
+        cache.GetResults(otherSubjectId).Should().NotBeNull("the student's group does not study this subject");
+    }
+
+    /// <summary>Предмет группы студента с очередью, в которой он стоит, и предмет, не связанный с его группой.</summary>
+    private async Task<(int SubjectId, int OtherSubjectId, int QueueId)> SeedSubjectsAsync(Guid studentId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var subject = db.Subject("Математика");
+        var other = db.Subject("Физика");
+        await db.SaveChangesAsync();
+        db.LinkGroupSubject(await db.Groups.SingleAsync(g => g.Name == "Hidden group"), subject);
+        var queue = new QueueEvent { Name = "Сдача", SubjectId = subject.Id, EventDateTime = DateTime.UtcNow };
+        db.QueueEvents.Add(queue);
+        await db.SaveChangesAsync();
+        db.QueueEntries.Add(new QueueEntry { QueueEventId = queue.Id, StudentId = studentId, Status = QueueEntryStatus.Waiting, JoinedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        return (subject.Id, other.Id, queue.Id);
     }
 
     private static readonly MediaRenderRequest Crop = new(0, 0, 1, 1, 0, 0, 0, "Still");

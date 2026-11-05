@@ -10,7 +10,7 @@
                  Class="@ResultsColumns.GridClass(Results)">
         <Columns>
             <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
-                <CellTemplate><span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></span></CellTemplate>
+                <CellTemplate><span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" /></span></CellTemplate>
             </TemplateColumn>
             @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
             <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" HeaderClass="fc-results-total-column" CellClass="fc-results-total-column fc-core-score" />

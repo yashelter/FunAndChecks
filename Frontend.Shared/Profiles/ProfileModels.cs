@@ -1,8 +1,7 @@
 namespace Frontend.Shared.Profiles;
 
 public record MediaDto(Guid Id, string ContentType, int Width, int Height, double? DurationSeconds, bool IsAnimated, bool HasPoster);
-public record PinnedAchievementBadgeDto(int AwardId, int AchievementId, string Name, string Description,
-    MediaDto? Image, int Position);
+public record PinnedAchievementBadgeDto(int AwardId, int AchievementId, string Name, MediaDto? Image, int Position);
 public record UserProfileDto(Guid UserId, string FullName, string? GroupName, bool IsAdmin, string? AboutMe,
     string? GitHubUrl, string? PortfolioUrl, MediaDto? Avatar, List<AchievementAwardDto> Awards);
 public record AchievementAwardDto(int Id, int AchievementId, string Name, string Description, MediaDto? Image,

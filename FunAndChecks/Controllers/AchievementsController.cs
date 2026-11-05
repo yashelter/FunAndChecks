@@ -16,6 +16,7 @@ public class AchievementsController(IAchievementService achievements) : Controll
         CancellationToken ct = default) => Ok(await achievements.GetAsync(query, page, pageSize, includeArchived, ct));
 
     [HttpGet("api/achievements/{id:int}")]
+    // Бейджи видны и на публичной странице /results: диалог ачивки открывается без входа.
     [AllowAnonymous]
     public async Task<ActionResult<AchievementDto>> GetOne(int id, CancellationToken ct) =>
         Ok(await achievements.GetByIdAsync(id, ct));

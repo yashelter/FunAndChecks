@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 namespace FunAndChecks.Application.Profiles;
 
 public class AchievementService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
-    IValidator<UpsertAchievementRequest> validator, INotificationService? notifications = null) : IAchievementService
+    IValidator<UpsertAchievementRequest> validator, INotificationService? notifications = null,
+    IResultsCacheService? resultsCache = null) : IAchievementService
 {
     public async Task<AchievementPageDto> GetAsync(string? query, int page, int pageSize, bool includeArchived, CancellationToken ct = default)
     {
@@ -87,10 +88,12 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
         await RequireDefinitionAsync(id, ct);
         await using var lease = request.MediaSessionId.HasValue
             ? await processor.RenderAsync(adminId, request.MediaSessionId.Value, request.Media!, 512, ct) : null;
+        var badgeChanged = false;
         await db.ExecuteSerializableAsync(async token =>
         {
             await EnsureAdminAsync(adminId, true, token);
             var definition = await RequireDefinitionAsync(id, token);
+            badgeChanged = definition.Name != request.Name!.Trim() || lease is not null || request.RemoveImage;
             definition.Name = request.Name!.Trim();
             definition.Description = request.Description?.Trim() ?? "";
             definition.UpdatedAtUtc = DateTime.UtcNow;
@@ -109,6 +112,8 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
             await db.SaveChangesAsync(token);
         }, ct);
         if (lease is not null) await lease.CommitAsync(ct);
+        // Название и картинка видны в таблицах результатов всех, кто закрепил эту ачивку.
+        if (badgeChanged) resultsCache?.Clear();
         return await GetByIdAsync(id, ct);
     }
 
@@ -158,6 +163,7 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
 
     public async Task RevokeAsync(Guid adminId, int awardId, CancellationToken ct = default)
     {
+        Guid? unpinnedUserId = null;
         try
         {
             await db.ExecuteSerializableAsync(async token =>
@@ -176,9 +182,11 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
                 var pins = await db.PinnedAchievements.Where(p => p.AchievementAwardId == awardId).ToListAsync(token);
                 db.PinnedAchievements.RemoveRange(pins);
                 await db.SaveChangesAsync(token);
+                unpinnedUserId = pins.Count > 0 ? award.UserId : null;
             }, ct);
         }
         catch (DbUpdateConcurrencyException) { throw new ConflictException("Award changed. Refresh and try again.", "achievement.changed"); }
+        if (unpinnedUserId is Guid userId) await ProfileService.InvalidateResultsAsync(db, resultsCache, userId, ct);
     }
 
     public async Task<AchievementRecipientAccountPageDto> SearchRecipientsAsync(Guid adminId, string? query, int page,

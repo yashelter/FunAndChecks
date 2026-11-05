@@ -16,8 +16,7 @@ public record AchievementAwardDto(int Id, int AchievementId, string Name, string
     MediaAssetDto? Image, DateTime GrantedAtUtc, Guid? IssuedByUserId, string IssuedByName,
     int? PinPosition, bool CanRevoke);
 
-public record PinnedAchievementBadgeDto(int AwardId, int AchievementId, string Name, string Description,
-    MediaAssetDto? Image, int Position);
+public record PinnedAchievementBadgeDto(int AwardId, int AchievementId, string Name, MediaAssetDto? Image, int Position);
 
 public record AchievementDto(int Id, string Name, string Description, MediaAssetDto? Image,
     bool IsArchived, int RecipientCount, DateTime CreatedAtUtc);

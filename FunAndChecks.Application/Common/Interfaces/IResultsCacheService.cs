@@ -15,6 +15,6 @@ public interface IResultsCacheService
 
     void Invalidate(int subjectId);
 
-    /// <summary>Сбрасывает кэш всех предметов (после восстановления БД из бэкапа).</summary>
+    /// <summary>Сбрасывает кэш всех предметов (после восстановления БД из бэкапа, правки ачивки).</summary>
     void Clear();
 }

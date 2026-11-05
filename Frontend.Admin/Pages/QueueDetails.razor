@@ -81,7 +81,7 @@ else if (_details is not null)
                 var past = IsPastRound(p);
                 <article class="fc-queue-person @QueueClass(p.Status) @(past ? "fc-queue-past-round" : "")" @key="p.EntryId">
                     <div class="fc-queue-person-identity">
-                        <UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" />
+                        <div class="fc-queue-name-cell"><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-student-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="p.PinnedAchievements" /></div>
                         <MudText Typo="Typo.caption" Class="fc-muted">@p.GroupName · @p.JoinedAt.ToLocalTime().ToString("t")@(past ? $" · {Loc["Queue_PastRound", p.Round]}" : "")</MudText>
                         @if (!p.CanManage) { <MudText Typo="Typo.caption" Class="fc-semantic-warning">@Loc["Common_GradingRestricted"]</MudText> }
                     </div>
