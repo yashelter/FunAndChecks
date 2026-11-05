@@ -2,6 +2,7 @@ using FluentValidation;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Profiles;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +16,8 @@ public class QueueService(
     IAdminAccessService accessService,
     IValidator<CreateQueueEventRequest> createEventValidator,
     IValidator<UpdateQueueEventRequest> updateEventValidator,
-    ILogger<QueueService> logger)
+    ILogger<QueueService> logger,
+    IProfileService? profiles = null)
     : IQueueService
 {
     /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
@@ -101,6 +103,9 @@ public class QueueService(
         // Баллы (сумма MaxPoints принятых задач предмета) считаем в памяти —
         // так избегаем непереводимого Distinct().Sum() и лишних подзапросов.
         var studentIds = entries.Select(e => e.StudentId).ToList();
+        var pinnedAchievements = profiles is null
+            ? new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>()
+            : await profiles.GetPinnedAchievementsAsync(studentIds, cancellationToken);
         var allSubmissions = await db.Submissions
             .Where(s => studentIds.Contains(s.StudentId)
                         && s.Task.SubjectId == queueEvent.SubjectId)
@@ -138,7 +143,8 @@ public class QueueService(
                 e.CanManage,
                 e.CheckingByAdminId,
                 e.Id,
-                e.Round))
+                e.Round,
+                pinnedAchievements.GetValueOrDefault(e.StudentId)))
             .ToList();
 
         return new QueueDetailsDto(

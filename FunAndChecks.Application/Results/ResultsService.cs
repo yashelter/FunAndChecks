@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Profiles;
 using FunAndChecks.Application.Students;
 using FunAndChecks.Application.Submissions;
 using FunAndChecks.Application.Tasks;
@@ -12,7 +13,8 @@ namespace FunAndChecks.Application.Results;
 
 public class ResultsService(
     IApplicationDbContext db,
-    IResultsCacheService cache)
+    IResultsCacheService cache,
+    IProfileService? profiles = null)
     : IResultsService
 {
     public async Task<SubjectResultsDto> GetSubjectResultsAsync(int subjectId, CancellationToken cancellationToken = default)
@@ -70,6 +72,9 @@ public class ResultsService(
             .ToListAsync(cancellationToken);
 
         var studentIds = studentsData.Select(s => s.Id).ToList();
+        var pinnedAchievements = profiles is null
+            ? new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>()
+            : await profiles.GetPinnedAchievementsAsync(studentIds, cancellationToken);
 
         var allSubmissions = await db.Submissions
             .Where(s => s.Task.SubjectId == subjectId && studentIds.Contains(s.StudentId))
@@ -141,7 +146,8 @@ public class ResultsService(
                 grades,
                 student.Color,
                 student.LastName,
-                student.FirstName);
+                student.FirstName,
+                pinnedAchievements.GetValueOrDefault(student.Id));
         })
         .OrderByDescending(r => r.TotalPoints)
         .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)

@@ -1,4 +1,5 @@
 using FunAndChecks.Application.Submissions;
+using FunAndChecks.Application.Profiles;
 using FunAndChecks.Domain.Enums;
 
 namespace FunAndChecks.Application.Results;
@@ -24,7 +25,8 @@ public record StudentResultRowDto(
     IReadOnlyDictionary<int, int> Grades,
     string? StudentColor,
     string LastName = "",
-    string FirstName = "");
+    string FirstName = "",
+    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null);
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>
 public record SubjectResultsDto(

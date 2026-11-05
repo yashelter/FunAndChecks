@@ -9,5 +9,7 @@ public interface IProfileService
     Task<MediaFileDto> GetMediaAsync(Guid mediaId, bool poster, CancellationToken ct = default);
     /// <summary>Аватары пачкой для списков (очереди, форум); пользователи без аватара не попадают в ответ.</summary>
     Task<IReadOnlyDictionary<Guid, MediaAssetDto>> GetAvatarsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default);
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>> GetPinnedAchievementsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken ct = default);
     Task<ProfileStatsDto> GetStatsAsync(Guid viewerId, Guid userId, CancellationToken ct = default);
 }

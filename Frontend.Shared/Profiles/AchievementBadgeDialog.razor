@@ -1,0 +1,81 @@
+@namespace Frontend.Shared.Profiles
+@implements IDisposable
+@inject ProfileApi Api
+
+<MudDialog>
+    <TitleContent>@(_achievement?.Name ?? Achievement?.Name ?? ProfileText.T("Достижение", "Achievement"))</TitleContent>
+    <DialogContent>
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_error</MudAlert>
+        }
+        @if (_loading)
+        {
+            <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div>
+        }
+        else if (_achievement is not null)
+        {
+            <div class="fc-profile-detail-image">
+                <ProfileMedia Media="_achievement.Image" Alt="@_achievement.Name" Class="fc-profile-detail-media" />
+            </div>
+            <p class="fc-profile-bio">@_achievement.Description</p>
+            @if (_achievement.IsArchived)
+            {
+                <span class="fc-profile-status">@ProfileText.T("В архиве", "Archived")</span>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Disabled="@_busy">@ProfileText.T("Закрыть", "Close")</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public PinnedAchievementBadgeDto? Achievement { get; set; }
+
+    private AchievementDefinitionDto? _achievement;
+    private bool _loading = true;
+    private bool _busy;
+    private string? _error;
+    private readonly CancellationTokenSource _life = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Achievement is null || Achievement.AchievementId <= 0)
+        {
+            _error = ProfileText.T("Информация о достижении недоступна.", "Achievement information is unavailable.");
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _achievement = await Api.AchievementAsync(Achievement.AchievementId, _life.Token);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void Close()
+    {
+        if (!_busy)
+            MudDialog.Close();
+    }
+
+    public void Dispose()
+    {
+        _busy = true;
+        _life.Cancel();
+        _life.Dispose();
+    }
+}

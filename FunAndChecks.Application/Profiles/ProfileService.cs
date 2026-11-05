@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace FunAndChecks.Application.Profiles;
 
 public class ProfileService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
-    IValidator<UpdateProfileRequest> validator, IAdminAccessService? adminAccess = null) : IProfileService
+    IValidator<UpdateProfileRequest> validator, IAdminAccessService? adminAccess = null,
+    IResultsCacheService? resultsCache = null) : IProfileService
 {
     internal const int MaxAvatarBatch = 100;
 
@@ -25,6 +26,55 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
             .Select(a => new { UserId = a.UserProfileId!.Value, Media = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height,
                 a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0) })
             .ToDictionaryAsync(a => a.UserId, a => a.Media, ct);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>> GetPinnedAchievementsAsync(
+        IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>();
+
+        var pins = await db.PinnedAchievements.AsNoTracking()
+            .Where(p => ids.Contains(p.UserId))
+            .Join(db.AchievementAwards.AsNoTracking().Where(a => a.RevokedAtUtc == null),
+                pin => pin.AchievementAwardId,
+                award => award.Id,
+                (pin, award) => new
+                {
+                    pin.UserId,
+                    pin.Position,
+                    AwardId = award.Id,
+                    award.AchievementId,
+                    award.Achievement.Name,
+                    award.Achievement.Description
+                })
+            .OrderBy(x => x.UserId)
+            .ThenBy(x => x.Position)
+            .ToListAsync(ct);
+
+        var achievementIds = pins.Select(x => x.AchievementId).Distinct().ToArray();
+        var images = achievementIds.Length == 0
+            ? new Dictionary<int, MediaAssetDto>()
+            : await db.ProfileMediaAssets.AsNoTracking()
+                .Where(a => a.AchievementDefinitionId.HasValue &&
+                            achievementIds.Contains(a.AchievementDefinitionId.Value))
+                .Select(a => new
+                {
+                    AchievementId = a.AchievementDefinitionId!.Value,
+                    Image = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height,
+                        a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0)
+                })
+                .ToDictionaryAsync(a => a.AchievementId, a => a.Image, ct);
+
+        return pins
+            .GroupBy(x => x.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<PinnedAchievementBadgeDto>)g
+                    .Select(x => new PinnedAchievementBadgeDto(x.AwardId, x.AchievementId, x.Name,
+                        x.Description, images.GetValueOrDefault(x.AchievementId), x.Position))
+                    .ToList());
     }
 
     public async Task<ProfileStatsDto> GetStatsAsync(Guid viewerId, Guid userId, CancellationToken ct = default)
@@ -121,6 +171,7 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
                 { UserId = userId, AchievementAwardId = id, Position = index + 1 }));
             await db.SaveChangesAsync(token);
         }, ct);
+        resultsCache?.Clear();
         return await GetAsync(userId, userId, ct);
     }
 

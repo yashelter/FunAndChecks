@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Frontend.Shared.Models;
+using Frontend.Shared.Profiles;
 
 namespace Frontend.Shared.Api;
 
@@ -11,5 +12,6 @@ namespace Frontend.Shared.Api;
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(SubjectResultsDto))]
+[JsonSerializable(typeof(List<PinnedAchievementBadgeDto>))]
 [JsonSerializable(typeof(List<StudentColorUpdateDto>))]
 internal sealed partial class ResultsJsonContext : JsonSerializerContext;

@@ -30,7 +30,7 @@
         <Columns>
             <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-name-column" HeaderClass="fc-results-name-column">
                 <CellTemplate>
-                    <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink></span>
+                    <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" BasePath="/student" /></span>
                 </CellTemplate>
             </TemplateColumn>
             @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@

@@ -1,5 +1,7 @@
 namespace Frontend.Shared.Models;
 
+using Frontend.Shared.Profiles;
+
 public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin,
     string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
 
@@ -32,7 +34,8 @@ public record QueueParticipantDto(
     bool CanManage = false,
     Guid? CheckingByAdminId = null,
     int EntryId = 0,
-    int Round = 1)
+    int Round = 1,
+    List<PinnedAchievementBadgeDto>? PinnedAchievements = null)
 {
     public string FullName => $"{FirstName} {LastName}";
     /// <summary>Повторный круг: студент встал снова после «сдал» или «пропущен».</summary>
