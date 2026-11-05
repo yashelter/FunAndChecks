@@ -329,6 +329,19 @@
   <data name="QueueDetails_LoadError" xml:space="preserve"><value>Failed to load queue data.</value></data>
   <data name="QueueDetails_LoadErrorPrefix" xml:space="preserve"><value>Error loading queue: {0}</value></data>
   <data name="QueueDetails_WorkTitle" xml:space="preserve"><value>Work with student</value></data>
+  <data name="QueueDetails_RegistrationOpen" xml:space="preserve"><value>Registration is open</value></data>
+  <data name="QueueDetails_RegistrationClosed" xml:space="preserve"><value>Registration is closed</value></data>
+  <data name="QueueDetails_CloseRegistration" xml:space="preserve"><value>Close registration</value></data>
+  <data name="QueueDetails_OpenRegistration" xml:space="preserve"><value>Open registration</value></data>
+  <data name="QueueDetails_ResumeRegistration" xml:space="preserve"><value>Resume</value></data>
+  <data name="QueueDetails_ToggleRegistrationTooltip" xml:space="preserve"><value>Toggle student self-registration</value></data>
+  <data name="QueueDetails_RegistrationOpened" xml:space="preserve"><value>Registration opened</value></data>
+  <data name="QueueDetails_RegistrationClosedMsg" xml:space="preserve"><value>Registration closed</value></data>
+  <data name="QueueDetails_SettingsChangedBy" xml:space="preserve"><value>Queue settings changed by {0}</value></data>
+  <data name="QueueDetails_RegistrationNowOpen" xml:space="preserve"><value>Registration is now <b>open</b> u2014 students can join the queue.</value></data>
+  <data name="QueueDetails_RegistrationNowClosed" xml:space="preserve"><value>Registration is now <b>closed</b> u2014 students can no longer join the queue.</value></data>
+  <data name="StudentQueues_RegistrationNowOpen" xml:space="preserve"><value>Registration for <b>{0}</b> is now <b>open</b> u2014 you can join the queue.</value></data>
+  <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Registration for <b>{0}</b> is now <b>closed</b> u2014 you can no longer join the queue.</value></data>
 
   <!-- ==================== Student Grading (extra) ==================== -->
   <data name="Grading_SearchLabel" xml:space="preserve"><value>Search student by last name</value></data>

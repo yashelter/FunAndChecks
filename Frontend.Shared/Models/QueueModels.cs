@@ -21,6 +21,9 @@ public record UpdateQueueEventRequest(string Name, DateTime EventDateTime, bool?
 
 public record UpdateQueueStatusRequest(QueueEntryStatus Status);
 
+/// <summary>Событие SignalR об изменении настроек очереди (AllowSelfJoin).</summary>
+public record QueueSettingsUpdateDto(int EventId, bool AllowSelfJoin, string? AdminName);
+
 public record QueueParticipantDto(
     Guid StudentId,
     string FirstName,

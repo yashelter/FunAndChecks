@@ -48,8 +48,9 @@ public partial class Queues : IAsyncDisposable
     private bool _loading = true;
     private bool _showPast;
 
-    private HubConnection? _hub;
-    private readonly SemaphoreSlim _hubLock = new(1, 1);
+    private HubConnection? _listHub;
+    private readonly List<IDisposable> _listHubHandlers = [];
+    private readonly SemaphoreSlim _listHubLock = new(1, 1);
     private int? _viewedEventId;
     private bool _disposed;
     private long _colorRevision;
@@ -59,6 +60,8 @@ public partial class Queues : IAsyncDisposable
     {
         var user = (await Authentication.GetAuthenticationStateAsync()).User;
         if (Guid.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)) _myId = id;
+        await LoadAllAsync();
+        await InitializeListHubAsync();
     }
 
     private int? _shownEvent = -1;
@@ -86,6 +89,10 @@ public partial class Queues : IAsyncDisposable
     {
         _showPast = value;
         await LoadAllAsync();
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            await SubscribeToAllQueueGroupsAsync();
+        }
     }
 
     private async Task LoadAllAsync()
@@ -150,10 +157,17 @@ public partial class Queues : IAsyncDisposable
         if (_viewedEventId != eventId)
             _latestColorChanges.Clear();
         _viewedEventId = eventId;
+
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            var handler = _listHub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
+            _listHubHandlers.Add(handler);
+            await _listHub.InvokeAsync("SubscribeToQueue", eventId);
+        }
+
         try
         {
             await LoadDetailsAsync(eventId);
-            await InitializeSignalRAsync(eventId);
         }
         catch (ApiException ex)
         {
@@ -187,63 +201,122 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
-    private async Task InitializeSignalRAsync(int eventId)
+
+    private async Task InitializeListHubAsync()
     {
-        await _hubLock.WaitAsync();
+        await _listHubLock.WaitAsync();
         try
         {
-            if (_disposed || _viewedEventId != eventId)
-                return;
-            await DisposeHubAsync();
+            await DisposeListHubAsync();
 
-            _hub = new HubConnectionBuilder()
+            _listHub = new HubConnectionBuilder()
                 .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
                     options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
                 .WithAutomaticReconnect()
                 .Build();
 
-            // На любое обновление очереди перечитываем её состав.
-            _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-            _hub.On<int>("QueueChanged", _ => InvokeAsync(() => LoadDetailsAsync(eventId)));
-            _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(eventId, update)));
+            _listHubHandlers.Add(_listHub.On<QueueSettingsUpdateDto>("QueueSettingsChanged", dto =>
+                InvokeAsync(() => OnQueueSettingsChangedAsync(dto))));
 
-            var hub = _hub;
-
-            // После переподключения подписка на группу теряется — переподписываемся и обновляем данные,
-            // иначе очередь «зависает» и перестаёт обновляться.
-            _hub.Reconnected += async _ =>
+            _listHub.Reconnected += async _ =>
             {
                 try
                 {
-                    if (_disposed || _viewedEventId != eventId || !ReferenceEquals(_hub, hub))
-                        return;
-                    await hub.InvokeAsync("SubscribeToQueue", eventId);
-                    await InvokeAsync(() => LoadDetailsAsync(eventId));
+                    await SubscribeToAllQueueGroupsAsync();
+                    await Task.Delay(Random.Shared.Next(500, 3000));
+                    await InvokeAsync(LoadAllAsync);
                 }
                 catch (Exception ex)
                 {
-                    if (!_disposed && _viewedEventId == eventId)
-                        Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
+                    Snackbar.Add(string.Format(Loc["Common_SignalRReconnectError"], ex.Message), Severity.Error);
                 }
             };
 
-            try
-            {
-                await hub.StartAsync();
-                if (_disposed || _viewedEventId != eventId)
-                    return;
-                await hub.InvokeAsync("SubscribeToQueue", eventId);
-                await LoadDetailsAsync(eventId);
-            }
-            catch (Exception ex)
-            {
-                if (!_disposed && _viewedEventId == eventId)
-                    Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
-            }
+            await _listHub.StartAsync();
+            await SubscribeToAllQueueGroupsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(string.Format(Loc["Common_SignalRConnectError"], ex.Message), Severity.Warning);
         }
         finally
         {
-            _hubLock.Release();
+            _listHubLock.Release();
+        }
+    }
+
+    private async Task SubscribeToAllQueueGroupsAsync()
+    {
+        if (_listHub?.State != HubConnectionState.Connected) return;
+
+        var allQueueIds = _myEvents.Select(e => e.Id)
+            .Concat(_availableEvents.Select(e => e.Id))
+            .Distinct()
+            .ToList();
+
+        foreach (var eventId in allQueueIds)
+        {
+            try
+            {
+                await _listHub.InvokeAsync("SubscribeToQueue", eventId);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to subscribe to queue {eventId}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OnQueueSettingsChangedAsync(QueueSettingsUpdateDto dto)
+    {
+        bool updated = false;
+        string? queueName = null;
+
+        var myQueue = _myEvents.FirstOrDefault(q => q.Id == dto.EventId);
+        if (myQueue is not null)
+        {
+            var index = _myEvents.IndexOf(myQueue);
+            _myEvents[index] = myQueue with { AllowSelfJoin = dto.AllowSelfJoin };
+            queueName = myQueue.Name;
+            updated = true;
+        }
+
+        var availQueue = _availableEvents.FirstOrDefault(q => q.Id == dto.EventId);
+        if (availQueue is not null)
+        {
+            var index = _availableEvents.IndexOf(availQueue);
+            _availableEvents[index] = availQueue with { AllowSelfJoin = dto.AllowSelfJoin };
+            queueName ??= availQueue.Name;
+            updated = true;
+        }
+
+        if (updated)
+        {
+            StateHasChanged();
+
+            var message = dto.AllowSelfJoin
+                ? string.Format(Loc["StudentQueues_RegistrationNowOpen"], queueName)
+                : string.Format(Loc["StudentQueues_RegistrationNowClosed"], queueName);
+
+            Snackbar.Add(message, Severity.Warning, config =>
+            {
+                config.ShowCloseIcon = true;
+                config.VisibleStateDuration = 10000;
+                config.SnackbarVariant = Variant.Filled;
+            });
+        }
+    }
+
+    private async Task DisposeListHubAsync()
+    {
+        if (_listHub is not null)
+        {
+            foreach (var handler in _listHubHandlers)
+                handler.Dispose();
+            _listHubHandlers.Clear();
+
+            await _listHub.DisposeAsync();
+            _listHub = null;
         }
     }
 
@@ -270,11 +343,24 @@ public partial class Queues : IAsyncDisposable
 
     private async Task CloseDetailsAsync()
     {
+        if (_viewedEventId is not int eventId) return;
+        
+        var handlersToRemove = _listHubHandlers.Where(h => 
+            h.GetType().Name.Contains("QueueEntryUpdated")).ToList();
+        foreach (var handler in handlersToRemove)
+        {
+            handler.Dispose();
+            _listHubHandlers.Remove(handler);
+        }
+        if (_listHub?.State == HubConnectionState.Connected)
+        {
+            try { await _listHub.InvokeAsync("UnsubscribeFromQueue", eventId); }
+            catch { }
+        }
+
         _viewedEventId = null;
         _details = null;
-        await _hubLock.WaitAsync();
-        try { await DisposeHubAsync(); }
-        finally { _hubLock.Release(); }
+        _latestColorChanges.Clear();
     }
 
     private void UpdateStudentColor(int eventId, StudentColorUpdateDto update)
@@ -313,24 +399,10 @@ public partial class Queues : IAsyncDisposable
     {
         _disposed = true;
         _viewedEventId = null;
-        // Под замком, чтобы не пересечься с идущей (пере)инициализацией хаба.
-        await _hubLock.WaitAsync();
-        try
-        {
-            await DisposeHubAsync();
-        }
-        finally
-        {
-            _hubLock.Release();
-        }
-    }
 
-    private async Task DisposeHubAsync()
-    {
-        if (_hub is not null)
-        {
-            await _hub.DisposeAsync();
-            _hub = null;
-        }
+        var cutoff = DateTime.UtcNow.AddDays(-1);
+        await _listHubLock.WaitAsync();
+        try { await DisposeListHubAsync(); }
+        finally { _listHubLock.Release(); _listHubLock.Dispose(); }
     }
 }

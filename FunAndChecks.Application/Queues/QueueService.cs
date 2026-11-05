@@ -232,19 +232,34 @@ public class QueueService(
     {
         await updateEventValidator.ValidateAndThrowAsync(request, cancellationToken);
 
-        var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
+        var subjectId = await db.QueueEvents
+            .Where(qe => qe.Id == eventId)
+            .Select(qe => (int?)qe.SubjectId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+
+        QueueEvent queueEvent = null!;
+        string? adminName = null;
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
 
-        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
+            var admin = await db.Admins.FindAsync([adminId], ct);
+            adminName = admin?.FullName;
 
-        queueEvent.Name = request.Name;
-        queueEvent.EventDateTime = request.EventDateTime;
-        if (request.AllowSelfJoin is { } allowSelfJoin)
-            queueEvent.AllowSelfJoin = allowSelfJoin;
-        await db.SaveChangesAsync(cancellationToken);
+            queueEvent.Name = request.Name;
+            queueEvent.EventDateTime = request.EventDateTime;
+            if (request.AllowSelfJoin is { } allowSelfJoin)
+                queueEvent.AllowSelfJoin = allowSelfJoin;
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
 
-        try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
-        catch (Exception ex) { logger.LogWarning(ex, "Queue event {EventId} updated, but notification failed.", eventId); }
+        // Notify all subscribers
+        await queueNotifier.QueueSettingsChangedAsync(
+            new QueueSettingsUpdateDto(queueEvent.Id, queueEvent.AllowSelfJoin, adminName),
+            cancellationToken);
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
     }
@@ -268,12 +283,6 @@ public class QueueService(
         if (student.GroupId == null)
             throw new ForbiddenException("You are not assigned to any group.");
 
-        var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
-                         ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
-
-        if (!queueEvent.AllowSelfJoin)
-            throw new ForbiddenException("Self-enrollment is disabled for this queue.", "queue.self_join_disabled");
-
         var isGroupAllowed = await db.QueueEvents
             .Where(qe => qe.Id == eventId)
             .AnyAsync(qe => qe.Subject.GroupSubjects.Any(gs => gs.GroupId == student.GroupId.Value), cancellationToken);
@@ -287,9 +296,15 @@ public class QueueService(
             // фильтрованный уникальный индекс (catch ниже).
             await db.ExecuteSerializableAsync(async ct =>
             {
+                var queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
+                                 ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
                 var latest = await LatestEntryQuery(eventId, studentId).AsNoTracking().FirstOrDefaultAsync(ct);
                 if (latest?.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Checking)
                     throw AlreadyJoined();
+                // The switch blocks only a first entry. Students already in the queue may
+                // leave and later rejoin, even while new self-enrollment is frozen.
+                if (latest is null && !queueEvent.AllowSelfJoin)
+                    throw new ForbiddenException("Self-enrollment is disabled for this queue.", "queue.self_join_disabled");
                 db.QueueEntries.Add(new QueueEntry
                 {
                     QueueEventId = eventId,
@@ -320,8 +335,7 @@ public class QueueService(
         // Выходят из последнего круга; прошлые круги (и их результат) остаются.
         var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(cancellationToken)
                     ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
-        // Без самозаписи встать обратно нельзя — значит, и уйти самому тоже.
-        if (!entry.QueueEvent.AllowSelfJoin || entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished)
+        if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished)
             throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
         db.QueueEntries.Remove(entry);
         await db.SaveChangesAsync(cancellationToken);
