@@ -755,6 +755,8 @@
   <data name="Maintenance_RestoreErrorTools" xml:space="preserve"><value>На сервере недоступны утилиты PostgreSQL (pg_restore, psql). Данные не изменены.</value></data>
   <data name="Maintenance_RestoreErrorDatabase" xml:space="preserve"><value>Не удалось восстановить базу: транзакция откачена, данные не изменены.</value></data>
   <data name="Maintenance_RestoreErrorMigration" xml:space="preserve"><value>База восстановлена, но обновить её схему не удалось. Проверьте логи сервера; бэкап предыдущего состояния есть в списке.</value></data>
+  <data name="Maintenance_RestoreErrorMigrationRolledBack" xml:space="preserve"><value>Бэкап восстановлен, но обновить его схему не удалось, поэтому прежнее состояние возвращено автоматически. Проверьте логи сервера.</value></data>
+  <data name="Maintenance_RestoreErrorRollbackFailed" xml:space="preserve"><value>Не удалось обновить схему восстановленной базы, и автоматический откат тоже не удался. Сервис остаётся в техническом режиме: проверьте логи сервера и перезапустите его после исправления базы.</value></data>
   <data name="Maintenance_RestoreErrorGeneric" xml:space="preserve"><value>Восстановление не удалось. Проверьте логи сервера.</value></data>
   <data name="Maintenance_RestoreWarningNoAttachments" xml:space="preserve"><value>У бэкапа нет архива вложений: файлы форума оставлены как есть.</value></data>
   <data name="Maintenance_RestoreWarningAttachments" xml:space="preserve"><value>База восстановлена, но вложения форума восстановить не удалось. Проверьте логи сервера.</value></data>

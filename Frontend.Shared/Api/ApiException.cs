@@ -149,7 +149,14 @@ public static class HttpResponseExtensions
             var errors = LocalizeValidation(problem, loc);
 
             if (!string.IsNullOrWhiteSpace(problem?.Code) && Catalog.ContainsKey(problem.Code))
-                return (Localize(problem.Code, problem.Args, loc), problem!.Code, errors);
+            {
+                var localized = Localize(problem.Code, problem.Args, loc);
+                // Ошибка проверки без полей: конкретная причина есть только в detail.
+                if (problem.Code == "validation.failed" && errors.Count == 0
+                    && !string.IsNullOrWhiteSpace(problem.Detail) && problem.Detail != "Validation failed.")
+                    localized = $"{localized} {problem.Detail}";
+                return (localized, problem!.Code, errors);
+            }
 
             if (!string.IsNullOrWhiteSpace(problem?.Detail))
                 return (problem!.Detail!, problem?.Code, errors);

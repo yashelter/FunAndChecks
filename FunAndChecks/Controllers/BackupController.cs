@@ -10,7 +10,8 @@ namespace FunAndChecks.Controllers;
 [ApiController]
 [Route("api/admin/backup")]
 [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
-public class BackupController(IDatabaseBackupService backupService, IDatabaseRestoreService restoreService) : ControllerBase
+public class BackupController(IDatabaseBackupService backupService, IDatabaseRestoreService restoreService,
+    IBackupDownloadLinks downloadLinks) : ControllerBase
 {
     /// <summary>Предел загрузки бэкапа (дамп + архив вложений).</summary>
     internal const long MaxUploadBytes = 2L * 1024 * 1024 * 1024;
@@ -53,6 +54,35 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public ActionResult<RestoreStatusDto> Restore(string fileName) =>
         Accepted(restoreService.Start(fileName));
+
+    /// <summary>
+    /// Выдаёт одноразовую по смыслу (несколько минут) подписанную ссылку: по ней браузер скачивает файл сам,
+    /// потоком на диск, без буферизации всего дампа во вкладке.
+    /// </summary>
+    [HttpPost("{fileName}/download-link")]
+    [ProducesResponseType<BackupDownloadLinkDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<BackupDownloadLinkDto>> DownloadLink(string fileName, CancellationToken cancellationToken)
+    {
+        // Проверяем имя и наличие файла сразу, чтобы ошибка пришла в интерфейс, а не в окно скачивания.
+        await using (await backupService.OpenReadAsync(fileName, cancellationToken)) { }
+        return Ok(new BackupDownloadLinkDto(downloadLinks.CreateUrl(fileName)));
+    }
+
+    /// <summary>Скачивание по подписанной ссылке. Авторизация — подпись: браузерная загрузка не передаёт Bearer-токен.</summary>
+    [HttpGet("download/{fileName}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadSigned(string fileName, [FromQuery] long exp, [FromQuery] string? sig,
+        CancellationToken cancellationToken)
+    {
+        if (!downloadLinks.Verify(fileName, exp, sig))
+            return NotFound();
+        var stream = await backupService.OpenReadAsync(fileName, cancellationToken);
+        Response.Headers.CacheControl = "no-store";
+        return File(stream, "application/octet-stream", fileName, enableRangeProcessing: true);
+    }
 
     /// <summary>Скачивает выбранную резервную копию.</summary>
     [HttpGet("{fileName}")]

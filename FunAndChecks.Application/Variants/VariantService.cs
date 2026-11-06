@@ -152,8 +152,8 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
     {
         var set = await GetSetForAdminAsync(adminId, setId, ct);
         await access.EnsureStudentAllowedAsync(adminId, studentId, ct);
-        var student = await db.Students.FindAsync([studentId], ct) ?? throw new NotFoundException("Student not found.");
-        await EnsureEnrolledAsync(student, set.SubjectId, ct);
+        if (!await db.Students.AnyAsync(s => s.Id == studentId, ct))
+            throw new NotFoundException("Student not found.");
         var variant = await db.Variants.SingleOrDefaultAsync(v => v.Id == variantId && v.VariantSetId == setId, ct)
             ?? throw VariantNotFound();
 
@@ -161,6 +161,8 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
         var changed = false;
         await db.ExecuteSerializableAsync(async token =>
         {
+            // Зачисление проверяем в той же транзакции, что и запись: студента могли перевести в другую группу.
+            await EnsureEnrolledAsync(await ReadStudentAsync(studentId, token), set.SubjectId, token);
             var assignment = await db.VariantAssignments.SingleOrDefaultAsync(a => a.VariantSetId == setId && a.StudentId == studentId, token);
             changed = assignment?.VariantId != variantId;
             if (!changed) return;
@@ -200,17 +202,22 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
 
     public async Task<StudentVariantSetDto> ClaimAsync(Guid studentId, int setId, int variantId, CancellationToken ct = default)
     {
-        var student = await db.Students.FindAsync([studentId], ct) ?? throw new NotFoundException("Student not found.");
+        if (!await db.Students.AnyAsync(s => s.Id == studentId, ct))
+            throw new NotFoundException("Student not found.");
         var subjectId = await db.VariantSets.Where(s => s.Id == setId).Select(s => (int?)s.SubjectId).SingleOrDefaultAsync(ct)
             ?? throw SetNotFound();
-        await EnsureEnrolledAsync(student, subjectId, ct);
+        int? groupId = null;
 
         try
         {
             // Кто первый — того и вариант: проверка занятости и запись в одной сериализуемой транзакции,
-            // проигравший в гонке после повтора видит вариант занятым.
+            // проигравший в гонке после повтора видит вариант занятым. Группу и зачисление читаем там же:
+            // перевод студента между проверкой и записью иначе прошёл бы незамеченным.
             await db.ExecuteSerializableAsync(async token =>
             {
+                var student = await ReadStudentAsync(studentId, token);
+                await EnsureEnrolledAsync(student, subjectId, token);
+                groupId = student.GroupId;
                 var set = await db.VariantSets.SingleAsync(s => s.Id == setId, token);
                 if (!set.IsClaimOpen(UtcNow))
                     throw new ConflictException("Choosing variants is closed.", "variant.claims_closed");
@@ -218,7 +225,7 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
                     throw AlreadyChosen();
                 if (!await db.Variants.AnyAsync(v => v.Id == variantId && v.VariantSetId == setId, token))
                     throw VariantNotFound();
-                if (await TakenByOthersQuery(set, studentId, student.GroupId).AnyAsync(a => a.VariantId == variantId, token))
+                if (await TakenByOthersQuery(set, studentId, groupId).AnyAsync(a => a.VariantId == variantId, token))
                     throw new ConflictException("The variant is already taken.", "variant.taken");
                 db.VariantAssignments.Add(new VariantAssignment
                 {
@@ -230,7 +237,7 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
         }
         catch (DbUpdateException ex) when (DatabaseErrors.IsUniqueViolation(ex)) { throw AlreadyChosen(); }
 
-        return (await BuildStudentViewAsync(subjectId, studentId, student.GroupId, ct)).Single(s => s.Id == setId);
+        return (await BuildStudentViewAsync(subjectId, studentId, groupId, ct)).Single(s => s.Id == setId);
     }
 
     /// <summary>Выдачи, из-за которых вариант уже не взять этому студенту по правилу набора.</summary>
@@ -247,12 +254,25 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
         var sets = await db.VariantSets.AsNoTracking().Include(s => s.Variants)
             .Where(s => s.SubjectId == subjectId).OrderBy(s => s.CreatedAt).ThenBy(s => s.Id).ToListAsync(ct);
         var now = UtcNow;
+        // Все выдачи наборов предмета — одним запросом, а не два запроса на каждый набор.
+        var setIds = sets.Select(s => s.Id).ToList();
+        var assignments = await db.VariantAssignments.AsNoTracking()
+            .Where(a => setIds.Contains(a.VariantSetId))
+            .Select(a => new { a.VariantSetId, a.VariantId, a.StudentId, a.SelfClaimed, a.Student.GroupId })
+            .ToListAsync(ct);
+        var bySet = assignments.ToLookup(a => a.VariantSetId);
         var result = new List<StudentVariantSetDto>(sets.Count);
         foreach (var set in sets)
         {
-            var mine = await db.VariantAssignments.AsNoTracking()
-                .SingleOrDefaultAsync(a => a.VariantSetId == set.Id && a.StudentId == studentId, ct);
-            var taken = (await TakenByOthersQuery(set, studentId, groupId).Select(a => a.VariantId).Distinct().ToListAsync(ct)).ToHashSet();
+            var mine = bySet[set.Id].FirstOrDefault(a => a.StudentId == studentId);
+            // Те же правила, что у TakenByOthersQuery (по ним проверяется выбор), — только в памяти.
+            var taken = bySet[set.Id].Where(a => a.StudentId != studentId && set.Uniqueness switch
+                {
+                    VariantUniqueness.UniqueInSubject => true,
+                    VariantUniqueness.UniqueInGroup => a.GroupId != null && a.GroupId == groupId,
+                    _ => false,
+                })
+                .Select(a => a.VariantId).ToHashSet();
             var variants = set.Variants.OrderBy(v => v.Number)
                 .Select(v => new StudentVariantDto(v.Id, v.Number, v.Title, v.Description, taken.Contains(v.Id))).ToList();
             result.Add(new(set.Id, set.Name, set.Uniqueness, set.IsClaimOpen(now), set.ClaimDeadline,
@@ -263,12 +283,19 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
 
     private async Task<List<VariantSetDto>> LoadSetsAsync(int subjectId, CancellationToken ct)
     {
-        var ids = await db.VariantSets.Where(s => s.SubjectId == subjectId).OrderBy(s => s.CreatedAt).ThenBy(s => s.Id)
-            .Select(s => s.Id).ToListAsync(ct);
-        var result = new List<VariantSetDto>(ids.Count);
-        foreach (var id in ids) result.Add(await LoadSetAsync(id, ct));
-        return result;
+        // Наборы с вариантами и счётчики выдач — двумя запросами на весь предмет, а не двумя на каждый набор.
+        var sets = await db.VariantSets.AsNoTracking().Include(s => s.Variants)
+            .Where(s => s.SubjectId == subjectId).OrderBy(s => s.CreatedAt).ThenBy(s => s.Id).ToListAsync(ct);
+        var setIds = sets.Select(s => s.Id).ToList();
+        var counts = await db.VariantAssignments.Where(a => setIds.Contains(a.VariantSetId)).GroupBy(a => a.VariantId)
+            .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+        return sets.Select(set => ToDto(set, counts)).ToList();
     }
+
+    private VariantSetDto ToDto(VariantSet set, IReadOnlyDictionary<int, int> counts) =>
+        new(set.Id, set.SubjectId, set.Name, set.Uniqueness, set.ClaimsOpen, set.ClaimDeadline, set.IsClaimOpen(UtcNow),
+            set.Variants.OrderBy(v => v.Number)
+                .Select(v => new VariantDto(v.Id, v.Number, v.Title, v.Description, counts.GetValueOrDefault(v.Id))).ToList());
 
     private async Task<VariantSetDto> LoadSetAsync(int setId, CancellationToken ct)
     {
@@ -301,6 +328,10 @@ public class VariantService(IApplicationDbContext db, IAdminAccessService access
         await access.EnsureSubjectAllowedAsync(adminId, variant.VariantSet.SubjectId, ct);
         return variant;
     }
+
+    private async Task<Student> ReadStudentAsync(Guid studentId, CancellationToken ct) =>
+        await db.Students.AsNoTracking().SingleOrDefaultAsync(s => s.Id == studentId, ct)
+        ?? throw new NotFoundException("Student not found.");
 
     private async Task EnsureEnrolledAsync(Student student, int subjectId, CancellationToken ct)
     {

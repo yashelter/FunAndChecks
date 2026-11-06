@@ -114,34 +114,41 @@ public class AuthService(
         // Активируем профиль студента — теперь он виден в рейтинге и не подлежит очистке.
         var account = await identityService.FindByEmailAsync(request.Email);
         if (account is not null)
+            await ActivateStudentAsync(account.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// Первая активация студента после подтверждения почты (кодом или сбросом пароля): профиль попадает
+    /// в таблицы результатов, а сам студент — в уже созданные авто-очереди своей группы.
+    /// </summary>
+    private async Task ActivateStudentAsync(Guid accountId, CancellationToken cancellationToken)
+    {
+        var student = await db.Students.FindAsync([accountId], cancellationToken);
+        if (student is not { IsActive: false })
+            return;
+
+        student.IsActive = true;
+        await db.SaveChangesAsync(cancellationToken);
+        try
         {
-            var student = await db.Students.FindAsync([account.Id], cancellationToken);
-            if (student is { IsActive: false })
+            var subjectIds = await db.GroupSubjects
+                .Where(gs => gs.GroupId == student.GroupId)
+                .Select(gs => gs.SubjectId)
+                .ToListAsync(cancellationToken);
+
+            foreach (var subjectId in subjectIds)
             {
-                student.IsActive = true;
-                await db.SaveChangesAsync(cancellationToken);
-                try
-                {
-                    var subjectIds = await db.GroupSubjects
-                        .Where(gs => gs.GroupId == student.GroupId)
-                        .Select(gs => gs.SubjectId)
-                        .ToListAsync(cancellationToken);
-
-                    foreach (var subjectId in subjectIds)
-                    {
-                        resultsCacheService.Invalidate(subjectId);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to invalidate cache");
-                }
-
-                // Подтвердился после создания авто-очереди своей группы — встаёт в неё сам.
-                if (queueAutoFill is not null)
-                    await queueAutoFill.EnrollAsync(student.Id, cancellationToken);
+                resultsCacheService.Invalidate(subjectId);
             }
         }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to invalidate cache");
+        }
+
+        // Подтвердился после создания авто-очереди своей группы — встаёт в неё сам.
+        if (queueAutoFill is not null)
+            await queueAutoFill.EnrollAsync(student.Id, cancellationToken);
     }
 
     public async Task ResendConfirmationAsync(ResendConfirmationRequest request, CancellationToken cancellationToken = default)
@@ -266,6 +273,9 @@ public class AuthService(
     {
         await resetPasswordValidator.ValidateAndThrowAsync(request, cancellationToken);
 
+        // Сброс по коду из письма подтверждает почту. Запоминаем, была ли она подтверждена до него:
+        // только тогда студента нужно активировать (деактивированного преподавателем сброс не возвращает).
+        var before = await identityService.FindByEmailAsync(request.Email);
         var result = await identityService.ResetPasswordAsync(request.Email, request.Code, request.NewPassword);
         if (!result.Succeeded)
             throw new ForbiddenException("Invalid or expired reset code, or the password does not meet requirements.", "auth.invalid_reset_code");
@@ -273,7 +283,11 @@ public class AuthService(
         // Смена пароля обесценивает все ранее выданные refresh-токены (защита при компрометации).
         var account = await identityService.FindByEmailAsync(request.Email);
         if (account is not null)
+        {
             await refreshTokenService.RevokeAllAsync(account.Id, cancellationToken);
+            if (before is { EmailConfirmed: false })
+                await ActivateStudentAsync(account.Id, cancellationToken);
+        }
     }
 
     private async Task SendConfirmationCodeAsync(string email, CancellationToken cancellationToken)

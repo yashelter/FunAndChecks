@@ -97,11 +97,15 @@
     {
         if (_disposed || Media is null || Media.Id == _loaded || Media.Id == _loadingId) return;
         var media = Media; var generation = _generation; _loadingId = media.Id;
+        // Загрузка отменяется, когда медиа ушло с экрана, сменилось или компонент уничтожен.
+        _loadCancel?.Cancel();
+        _loadCancel = CancellationTokenSource.CreateLinkedTokenSource(_life.Token);
+        var ct = _loadCancel.Token;
         MediaBlobLease? blob = null, poster = null;
         try
         {
-            blob = await Cache.AcquireAsync(media, false);
-            if (media.HasPoster) poster = await Cache.AcquireAsync(media, true);
+            blob = await Cache.AcquireAsync(media, false, ct);
+            if (media.HasPoster) poster = await Cache.AcquireAsync(media, true, ct);
             if (_disposed || !_visible || generation != _generation) { await blob.DisposeAsync(); if (poster is not null) await poster.DisposeAsync(); return; }
             _loaded = media.Id; _blob = blob; _posterBlob = poster; _url = blob.Url; _poster = poster?.Url;
             _observe = true; await InvokeAsync(StateHasChanged);
@@ -109,8 +113,11 @@
         catch (Exception ex) when (ex is ApiException or JSException or OperationCanceledException) { if (blob is not null) await blob.DisposeAsync(); if (poster is not null) await poster.DisposeAsync(); }
         finally { if (_loadingId == media.Id) _loadingId = null; }
     }
+    private CancellationTokenSource? _loadCancel;
+
     private async Task ReleaseAsync()
     {
+        _loadCancel?.Cancel();
         var blob = _blob; var poster = _posterBlob;
         _blob = _posterBlob = null;
         _url = _poster = null;

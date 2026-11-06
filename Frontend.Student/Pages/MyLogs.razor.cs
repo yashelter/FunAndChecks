@@ -57,27 +57,32 @@ public partial class MyLogs
         }
     }
 
+    private int _loadVersion;
+
     private async Task OnSubjectSelectedAsync(SubjectDto? subject)
     {
         if (subject is null)
             return;
 
         _selectedSubject = subject;
+        var version = ++_loadVersion;
         await CurrentSubject.SetAsync(subject.Id);
         _loading = true;
         _results = null;
 
         try
         {
-            _results = await Me.GetMyResultsAsync(subject.Id);
+            var results = await Me.GetMyResultsAsync(subject.Id);
+            if (version == _loadVersion) _results = results;
         }
-        catch (ApiException ex)
+        catch (ApiException ex) when (version == _loadVersion)
         {
             Snackbar.Add(string.Format(Loc["Common_LoadResultsError"], ex.Message), Severity.Error);
         }
+        catch (ApiException) { /* Ответ по уже не выбранному предмету. */ }
         finally
         {
-            _loading = false;
+            if (version == _loadVersion) _loading = false;
         }
     }
 

@@ -26,7 +26,10 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
                     g => g.Key,
                     g => g.Select(ToDescriptor).ToArray());
 
-            await ApiProblemDetails.WriteAsync(context, StatusCodes.Status400BadRequest, "Validation failed.",
+            // ValidationException(string) не содержит ошибок полей — тогда причина только в сообщении,
+            // и терять его нельзя: клиент показывает её рядом с общим текстом.
+            var detail = errors.Count == 0 && !string.IsNullOrWhiteSpace(ex.Message) ? ex.Message : "Validation failed.";
+            await ApiProblemDetails.WriteAsync(context, StatusCodes.Status400BadRequest, detail,
                 "validation.failed", errors: errors, validationCodes: validationCodes);
         }
         catch (EmailDeliveryException ex)

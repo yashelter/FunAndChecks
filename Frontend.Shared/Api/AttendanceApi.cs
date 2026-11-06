@@ -10,6 +10,8 @@ public class AttendanceApi(HttpClient http, IStringLocalizer<AppStrings> loc) : 
         PutAsync($"api/attendance/subjects/{subjectId}/settings", new AttendanceSettingsDto(enabled));
     public Task<List<GroupDto>> GetGroupsAsync(int subjectId) =>
         GetAsync<List<GroupDto>>($"api/attendance/subjects/{subjectId}/groups");
+    public Task<AttendanceSummaryDto> GetSummaryAsync(int subjectId, CancellationToken ct = default) =>
+        GetAsync<AttendanceSummaryDto>($"api/attendance/subjects/{subjectId}/summary", ct);
     public Task<AttendanceJournalDto> GetJournalAsync(int subjectId, int? groupId = null, DateOnly? from = null, DateOnly? to = null) =>
         GetAsync<AttendanceJournalDto>($"api/attendance/subjects/{subjectId}/journal{Query(groupId, from, to)}");
     public Task<AttendanceSessionDto> CreateSessionAsync(int subjectId, CreateAttendanceSessionRequest request) =>

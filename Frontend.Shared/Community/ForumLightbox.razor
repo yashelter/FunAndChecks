@@ -15,16 +15,21 @@
     [Parameter] public EventCallback Close { get; set; }
     private ElementReference _element;
     private IJSObjectReference? _module;
+    private bool _disposed;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         try
         {
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", Frontend.Shared.Profiles.ProfileMediaModule.Url);
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", Frontend.Shared.Profiles.ProfileMediaModule.Url);
+            // Закрыли до загрузки модуля — не захватываем фокус и прокрутку за уже убранным окном.
+            if (_disposed) { await module.DisposeAsync(); return; }
+            _module = module;
             await _module.InvokeVoidAsync("trapDialog", _element);
         }
         catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 
     private async Task KeyDown(KeyboardEventArgs args)
@@ -34,6 +39,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         if (_module is null) return;
         try { await _module.InvokeVoidAsync("releaseDialog", _element); await _module.DisposeAsync(); } catch (JSException) { } catch (JSDisconnectedException) { }
     }

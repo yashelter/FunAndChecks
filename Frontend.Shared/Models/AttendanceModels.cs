@@ -12,6 +12,10 @@ public record AttendanceSessionDetailsDto(int Id, int SubjectId, string SubjectN
     DateTime StartsAt, bool Enabled, List<GroupDto> Groups, List<AttendanceParticipantDto> Participants);
 public record AttendanceStudentRowDto(Guid StudentId, string FullName, int GroupId, string GroupName,
     Dictionary<int, AttendanceStatus> Marks, int Present, int Absent, int Unmarked);
+/// <summary>Итоги посещаемости по студентам предмета — для колонки в таблице результатов без полного журнала.</summary>
+public record AttendanceStudentTotalsDto(Guid StudentId, int Present, int Absent, int Unmarked);
+public record AttendanceSummaryDto(int SubjectId, bool Enabled, bool HasSessions, List<AttendanceStudentTotalsDto> Students);
+
 public record AttendanceJournalDto(int SubjectId, string SubjectName, bool Enabled,
     List<AttendanceSessionDto> Sessions, List<AttendanceStudentRowDto> Students);
 public record StudentAttendanceDto(int SessionId, string Name, DateTime StartsAt, AttendanceStatus Status,

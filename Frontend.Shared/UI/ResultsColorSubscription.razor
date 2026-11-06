@@ -72,19 +72,40 @@
                 .WithAutomaticReconnect()
                 .Build();
             _hub = hub;
-            hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(async () =>
+            // Обработчики не ждут перечитывания таблицы: клиент SignalR вызывает их по одному и ждёт Task,
+            // поэтому пачка событий иначе выстроилась бы в очередь полных загрузок, а debounce страницы не склеивал бы её.
+            hub.On<StudentColorUpdateDto>("StudentColorUpdated", update =>
             {
-                if (IsCurrent(hub, subjectId))
+                _ = InvokeAsync(async () =>
                 {
-                    _latestChanges[update.StudentId] = ++_colorRevision;
-                    await OnColorsUpdated.InvokeAsync(new[] { update });
-                }
-            }));
-            hub.On<ResultUpdateDto>("ResultUpdated", update => InvokeAsync(async () =>
+                    if (IsCurrent(hub, subjectId))
+                    {
+                        _latestChanges[update.StudentId] = ++_colorRevision;
+                        await OnColorsUpdated.InvokeAsync(new[] { update });
+                    }
+                });
+                return Task.CompletedTask;
+            });
+            hub.On<ResultUpdateDto>("ResultUpdated", update =>
             {
-                if (IsCurrent(hub, subjectId) && OnResultUpdated.HasDelegate)
-                    await OnResultUpdated.InvokeAsync(update);
-            }));
+                _ = InvokeAsync(async () =>
+                {
+                    if (IsCurrent(hub, subjectId) && OnResultUpdated.HasDelegate)
+                        await OnResultUpdated.InvokeAsync(update);
+                });
+                return Task.CompletedTask;
+            });
+            // Оценки (в том числе удаление) приходят отдельным событием; страницы реагируют на него так же —
+            // перечитывают таблицу.
+            hub.On<GradeUpdateDto>("GradeUpdated", update =>
+            {
+                _ = InvokeAsync(async () =>
+                {
+                    if (IsCurrent(hub, subjectId) && OnResultUpdated.HasDelegate)
+                        await OnResultUpdated.InvokeAsync(new ResultUpdateDto(update.StudentId, 0, GradeChangedStatus));
+                });
+                return Task.CompletedTask;
+            });
             hub.Reconnected += async _ =>
             {
                 if (!IsCurrent(hub, subjectId))
@@ -129,6 +150,9 @@
             _subscriptionLock.Release();
         }
     }
+
+    /// <summary>NewStatus в <see cref="ResultUpdateDto"/>, которым передаётся изменение оценки.</summary>
+    public const string GradeChangedStatus = "GradeChanged";
 
     private bool IsCurrent(HubConnection hub, int subjectId) =>
         !_disposed && ReferenceEquals(_hub, hub) && _subscribedSubject == subjectId && SubjectId == subjectId;

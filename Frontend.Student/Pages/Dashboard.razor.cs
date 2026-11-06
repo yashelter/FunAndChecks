@@ -8,7 +8,7 @@ using MudBlazor;
 
 namespace Frontend.Student.Pages;
 
-public partial class Dashboard
+public partial class Dashboard : IDisposable
 {
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private CurrentSubject CurrentSubject { get; set; } = null!;
@@ -50,6 +50,8 @@ public partial class Dashboard
         _selectedSubject = subject;
         _refresh?.Cancel();
         _refreshMine = false;
+        // Карточка прошлого предмета не должна остаться под новым, пока не пришли свои результаты.
+        _mine = null;
         await CurrentSubject.SetAsync(subject.Id);
         _loading = true;
         _results = null;
@@ -73,6 +75,10 @@ public partial class Dashboard
     private StudentSubjectResultsDto? _mine;
     private List<QueueEventDto> _queues = [];
     private CancellationTokenSource? _refresh;
+    private readonly CancellationTokenSource _life = new();
+    // Версии загрузок: ответ применяется, только если после него не стартовала более новая загрузка.
+    // Проверка одного id предмета не спасает при быстром A → B → A.
+    private int _tableVersion, _mineVersion;
 
     // Своя отметка пришла в окне склейки событий: при обновлении перечитать и карточку статуса.
     private bool _refreshMine;
@@ -88,20 +94,31 @@ public partial class Dashboard
             var user = (await Authentication.GetAuthenticationStateAsync()).User;
             if (Guid.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)) _myId = id;
         }
-        var tableTask = Results.GetSubjectResultsAsync(subjectId);
-        var mineTask = includeMine ? Me.GetMyResultsAsync(subjectId) : null;
-        var queuesTask = includeMine ? Me.GetMyQueueEventsAsync() : null;
+        var ct = _life.Token;
+        var tableVersion = ++_tableVersion;
+        var mineVersion = includeMine ? ++_mineVersion : -1;
+        var tableTask = Results.GetSubjectResultsAsync(subjectId, ct);
+        var mineTask = includeMine ? Me.GetMyResultsAsync(subjectId, ct) : null;
+        var queuesTask = includeMine ? Me.GetMyQueueEventsAsync(ct: ct) : null;
         var table = await tableTask;
-        if (_selectedSubject?.Id != subjectId) return;
-        _results = table;
-        if (mineTask is not null)
-        {
-            try { _mine = await mineTask; } catch (ApiException) { _mine = null; }
-        }
-        if (queuesTask is not null)
-        {
-            try { _queues = await queuesTask; } catch (ApiException) { _queues = []; }
-        }
+        if (tableVersion == _tableVersion && _selectedSubject?.Id == subjectId)
+            _results = table;
+        if (mineTask is null || queuesTask is null) return;
+
+        StudentSubjectResultsDto? mine;
+        try { mine = await mineTask; } catch (ApiException) { mine = null; }
+        List<QueueEventDto> queues;
+        try { queues = await queuesTask; } catch (ApiException) { queues = []; }
+        if (mineVersion != _mineVersion || _selectedSubject?.Id != subjectId) return;
+        _mine = mine;
+        _queues = queues;
+    }
+
+    public void Dispose()
+    {
+        _refresh?.Cancel();
+        _life.Cancel();
+        _life.Dispose();
     }
 
     /// <summary>
@@ -136,5 +153,6 @@ public partial class Dashboard
         }
         catch (OperationCanceledException) { }
         catch (ApiException) { /* Следующее событие или ручное обновление подтянут данные. */ }
+        catch (ObjectDisposedException) { /* Страницу уже закрыли. */ }
     }
 }

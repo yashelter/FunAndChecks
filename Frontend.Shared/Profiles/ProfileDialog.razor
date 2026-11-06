@@ -18,16 +18,29 @@
     private readonly string _titleId = $"profile-dialog-{Guid.NewGuid():N}";
     private ElementReference _element;
     private IJSObjectReference? _module;
+    private bool _disposed;
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        _module = await JS.InvokeAsync<IJSObjectReference>("import", ProfileMediaModule.Url);
-        await _module.InvokeVoidAsync("trapDialog", _element);
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", ProfileMediaModule.Url);
+            // Окно могли закрыть, пока грузился модуль: тогда не захватываем фокус и прокрутку за уже убранным окном
+            // (иначе страница осталась бы без прокрутки) и сразу освобождаем ссылку на модуль.
+            if (_disposed) { await module.DisposeAsync(); return; }
+            _module = module;
+            await _module.InvokeVoidAsync("trapDialog", _element);
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
     private async Task KeyDown(KeyboardEventArgs args) { if (args.Key == "Escape" && !Busy && _module is not null && await _module.InvokeAsync<bool>("isTopDialog", _element)) await Close.InvokeAsync(); }
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         if (_module is null) return;
-        try { await _module.InvokeVoidAsync("releaseDialog", _element); await _module.DisposeAsync(); } catch (JSException) { }
+        try { await _module.InvokeVoidAsync("releaseDialog", _element); await _module.DisposeAsync(); }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
     }
 }

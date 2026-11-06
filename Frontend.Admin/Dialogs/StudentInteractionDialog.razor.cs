@@ -101,7 +101,7 @@ public partial class StudentInteractionDialog : IDisposable
         if (FocusTaskId is int focus && !open.Contains(focus)) open.Add(focus);
         foreach (var id in open) _openHistory.Add(id);
         _focusPending = FocusTaskId is not null;
-        await Task.WhenAll(open.Select(LoadHistoryAsync));
+        await LoadHistoriesAsync(open);
     }
 
     private bool IsTaskVisible(TaskWithStatusDto task) => task.TaskGroupId is not int group || _openGroups.Contains(group);
@@ -120,7 +120,7 @@ public partial class StudentInteractionDialog : IDisposable
         {
             if (_openHistory.Add(task.Id)) load.Add(task.Id);
         }
-        await Task.WhenAll(load.Select(LoadHistoryAsync));
+        await LoadHistoriesAsync(load);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -144,6 +144,31 @@ public partial class StudentInteractionDialog : IDisposable
         }
 
         await LoadHistoryAsync(taskId);
+    }
+
+    /// <summary>
+    /// История нескольких задач — одним запросом по предмету, а не запросом на каждую задачу
+    /// (у студента может быть сотня несданных задач).
+    /// </summary>
+    private async Task LoadHistoriesAsync(IReadOnlyCollection<int> taskIds)
+    {
+        if (taskIds.Count == 0) return;
+        if (taskIds.Count == 1) { await LoadHistoryAsync(taskIds.First()); return; }
+        foreach (var id in taskIds) _historyErrors.Remove(id);
+        try
+        {
+            var logs = await Submissions.GetSubjectLogsAsync(StudentId, SubjectId);
+            // Задачи без попыток в ответе нет — это пустая история, а не ошибка.
+            foreach (var id in taskIds) _history[id] = logs.GetValueOrDefault(id) ?? [];
+        }
+        catch (ApiException)
+        {
+            foreach (var id in taskIds)
+            {
+                _history.Remove(id);
+                _historyErrors.Add(id);
+            }
+        }
     }
 
     private async Task LoadHistoryAsync(int taskId)

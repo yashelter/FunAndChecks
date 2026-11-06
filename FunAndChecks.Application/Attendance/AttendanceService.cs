@@ -136,6 +136,24 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
             .Select(s => new StudentDto(s.Id, s.FirstName, s.LastName, s.Color)).ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Счётчики по студентам считаются в БД: таблице результатов не нужно тянуть все занятия и отметки журнала.
+    /// </summary>
+    public async Task<AttendanceSummaryDto> GetSummaryAsync(Guid adminId, int subjectId, CancellationToken ct = default)
+    {
+        var subject = await GetSubjectAsync(adminId, subjectId, ct);
+        var hasSessions = await db.AttendanceSessions.AnyAsync(s => s.SubjectId == subjectId, ct);
+        var students = await db.AttendanceRecords.AsNoTracking()
+            .Where(r => r.Session.SubjectId == subjectId)
+            .GroupBy(r => r.StudentId)
+            .Select(g => new AttendanceStudentTotalsDto(g.Key,
+                g.Count(r => r.Status == AttendanceStatus.Present),
+                g.Count(r => r.Status == AttendanceStatus.Absent),
+                g.Count(r => r.Status == AttendanceStatus.Unmarked)))
+            .ToListAsync(ct);
+        return new(subjectId, subject.AttendanceEnabled, hasSessions, students);
+    }
+
     public async Task<AttendanceJournalDto> GetJournalAsync(Guid adminId, int subjectId, int? groupId = null,
         DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default)
     {
@@ -162,8 +180,12 @@ public class AttendanceService(IApplicationDbContext db, IAdminAccessService acc
         var recordsQuery = db.AttendanceRecords.AsNoTracking().Where(r => sessionIds.Contains(r.SessionId));
         if (groupId.HasValue) recordsQuery = recordsQuery.Where(r => r.GroupId == groupId);
         var records = await recordsQuery.Include(r => r.Student).ToListAsync(ct);
-        var students = records.GroupBy(r => new { r.StudentId, r.GroupId, r.GroupName }).Select(g =>
-            new AttendanceStudentRowDto(g.Key.StudentId, g.First().Student.FullName, g.Key.GroupId, g.Key.GroupName,
+        // Имя группы — снимок на каждом занятии. Строка студента определяется группой (Id), а не её именем:
+        // после переименования той же группы история не раздваивается; подпись берём с последнего занятия.
+        var sessionOrder = sessionIds.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
+        var students = records.GroupBy(r => new { r.StudentId, r.GroupId }).Select(g =>
+            new AttendanceStudentRowDto(g.Key.StudentId, g.First().Student.FullName, g.Key.GroupId,
+                g.MaxBy(r => sessionOrder[r.SessionId])!.GroupName,
                 g.ToDictionary(r => r.SessionId, r => r.Status),
                 g.Count(r => r.Status == AttendanceStatus.Present), g.Count(r => r.Status == AttendanceStatus.Absent),
                 g.Count(r => r.Status == AttendanceStatus.Unmarked), g.First().Student.LastName, g.First().Student.FirstName))

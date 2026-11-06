@@ -22,4 +22,5 @@ public record StudentGradeDto(
     DateTime UpdatedAt);
 
 /// <summary>Событие для подписчиков SignalR об изменении оценки.</summary>
-public record GradeUpdateDto(Guid StudentId, int ComponentId, int Points);
+/// <summary>Изменение оценки; <c>Removed</c> = true — оценку удалили (Points тогда 0).</summary>
+public record GradeUpdateDto(Guid StudentId, int ComponentId, int Points, bool Removed = false);

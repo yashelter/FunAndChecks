@@ -29,14 +29,22 @@ public partial class Attendance
     }
 
     private async Task ChangeSubjectAsync(int? id) { _subjectId = id; await CurrentSubject.SetAsync(id); await LoadAsync(); }
+    private int _loadVersion;
+
     private async Task LoadAsync()
     {
+        var version = ++_loadVersion;
         _history = [];
         _error = null;
         if (_subjectId is null) { _loading = false; return; }
         _loading = true;
-        try { _history = await Api.GetMyHistoryAsync(_subjectId.Value); }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException) { _error = ex.Message; }
-        finally { _loading = false; }
+        try
+        {
+            var history = await Api.GetMyHistoryAsync(_subjectId.Value);
+            if (version == _loadVersion) _history = history;
+        }
+        catch (Exception ex) when ((ex is ApiException or HttpRequestException) && version == _loadVersion) { _error = ex.Message; }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { }
+        finally { if (version == _loadVersion) _loading = false; }
     }
 }

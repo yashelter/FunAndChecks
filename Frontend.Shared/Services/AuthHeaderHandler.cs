@@ -37,7 +37,7 @@ public class AuthHeaderHandler(TokenStore tokenStore, TokenRefresher refresher) 
     private static string CurrentCultureName() =>
         CultureInfo.CurrentUICulture.Name is "en-US" or "ru-RU" ? CultureInfo.CurrentUICulture.Name : "en-US";
 
-    private static bool IsExpiredOrSoon(string token)
+    internal static bool IsExpiredOrSoon(string token)
     {
         try
         {

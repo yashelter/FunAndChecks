@@ -45,7 +45,9 @@ public partial class QueueDetails : IAsyncDisposable
     private ParticipantSort _sort = ParticipantSort.Points;
     // Группы, которые этот преподаватель смотрит в этой очереди; пусто — все. Хранится в браузере.
     private HashSet<string> _groups = new(StringComparer.Ordinal);
-    private bool _dialogOpen, _reloadScheduled;
+    private bool _dialogOpen, _reloadScheduled, _reloadPending;
+    // Очередь, которую показывает страница: маршрут /admin/queues/{id} переиспользует компонент при переходе A -> B.
+    private int? _shownEvent;
     private string? _loadError;
 
     public enum ParticipantSort { Group, Points, JoinedAt }
@@ -59,6 +61,26 @@ public partial class QueueDetails : IAsyncDisposable
         var user = (await Authentication.GetAuthenticationStateAsync()).User;
         if (Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user.FindFirst("sub")?.Value ?? user.FindFirst("nameid")?.Value, out var adminId))
             _currentAdminId = adminId;
+        await LoadAsync();
+        await RestoreGroupsAsync();
+        if (_details is not null && !_disposed)
+            await InitializeSignalRAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_shownEvent is null) { _shownEvent = EventId; return; }
+        if (_shownEvent == EventId || _disposed) return;
+        // Другая очередь в том же экземпляре: отписываемся от прежней и загружаем новую с нуля,
+        // иначе действия ушли бы с новым EventId к участникам прежней очереди.
+        var previous = _shownEvent.Value;
+        _shownEvent = EventId;
+        await StopHubAsync(previous);
+        _details = null;
+        _participants = [];
+        _latestColorChanges.Clear();
+        _loadError = null;
+        _loading = true;
         await LoadAsync();
         await RestoreGroupsAsync();
         if (_details is not null && !_disposed)
@@ -101,7 +123,9 @@ public partial class QueueDetails : IAsyncDisposable
         .ThenByDescending(p => p.TotalPoints).ThenBy(p => p.JoinedAt)
         .FirstOrDefault();
 
-    private bool IsPastRound(QueueParticipantDto participant) => QueueStyles.IsPastRound(participant, _participants);
+    // Проверяется для каждой строки по нескольку раз за рендер: поиск по всему списку давал O(N²).
+    private readonly QueueStyles.RoundIndex _rounds = new();
+    private bool IsPastRound(QueueParticipantDto participant) => _rounds.IsPastRound(participant, _participants);
 
     /// <summary>
     /// Самозапись меняется прямо из очереди: студенты сразу видят или теряют кнопку «Встать».
@@ -205,13 +229,19 @@ public partial class QueueDetails : IAsyncDisposable
     /// </summary>
     private async Task OnQueueChangedAsync()
     {
-        if (_disposed) return;
-        if (_dialogOpen || _reloadScheduled) return;
+        if (_disposed || _dialogOpen) return;
+        // Событие во время уже запланированного перечитывания не теряется: после него будет ещё одно.
+        if (_reloadScheduled) { _reloadPending = true; return; }
         _reloadScheduled = true;
         try
         {
-            await Task.Delay(ReloadDelay);
-            if (!_dialogOpen) await LoadAsync();
+            do
+            {
+                _reloadPending = false;
+                await Task.Delay(ReloadDelay);
+                if (!_dialogOpen) await LoadAsync();
+            }
+            while (_reloadPending && !_disposed && !_dialogOpen);
         }
         finally { _reloadScheduled = false; }
     }
@@ -229,8 +259,10 @@ public partial class QueueDetails : IAsyncDisposable
         var hub = _hub;
         var eventId = EventId;
 
-        _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _ => InvokeAsync(OnQueueChangedAsync));
-        _hub.On<int>("QueueChanged", _ => InvokeAsync(OnQueueChangedAsync));
+        // Обработчик не ждёт перечитывания: клиент SignalR вызывает обработчики по одному и ждёт их Task,
+        // и пачка событий иначе выстроилась бы в очередь полных загрузок вместо одной склеенной.
+        _hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", _update => { _ = InvokeAsync(OnQueueChangedAsync); return Task.CompletedTask; });
+        _hub.On<int>("QueueChanged", _eventId => { _ = InvokeAsync(OnQueueChangedAsync); return Task.CompletedTask; });
         _hub.On<StudentColorUpdateDto>("StudentColorUpdated", update => InvokeAsync(() => UpdateStudentColor(update)));
 
         // Handler for queue settings changes (AllowSelfJoin toggle)
@@ -481,21 +513,26 @@ public partial class QueueDetails : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        await StopHubAsync(_shownEvent ?? EventId);
+    }
+
+    private async Task StopHubAsync(int eventId)
+    {
         _settingsChangedHandler?.Dispose();
-
-        if (_hub is not null)
+        _settingsChangedHandler = null;
+        var hub = _hub;
+        _hub = null;
+        if (hub is null) return;
+        try
         {
-            try
-            {
-                if (_hub.State == HubConnectionState.Connected)
-                    await _hub.InvokeAsync("UnsubscribeFromQueue", EventId);
-            }
-            catch
-            {
-                // соединение могло уже закрыться
-            }
-
-            await _hub.DisposeAsync();
+            if (hub.State == HubConnectionState.Connected)
+                await hub.InvokeAsync("UnsubscribeFromQueue", eventId);
         }
+        catch
+        {
+            // соединение могло уже закрыться
+        }
+
+        await hub.DisposeAsync();
     }
 }

@@ -22,7 +22,8 @@ public class PgDumpBackupService(
     IOptions<BackupOptions> options,
     ILogger<PgDumpBackupService> logger,
     AdminAuditContext? audit = null,
-    IOptions<AttachmentStorageOptions>? attachments = null)
+    IOptions<AttachmentStorageOptions>? attachments = null,
+    MaintenanceModeState? maintenance = null)
     : IDatabaseBackupService
 {
     internal const string AttachmentsSuffix = ".attachments.zip";
@@ -135,6 +136,9 @@ public class PgDumpBackupService(
         psi.Environment["PGPASSWORD"] = csb.Password ?? string.Empty;
 
         using var process = new Process { StartInfo = psi };
+        // Пока вложения архивируются, фоновая очистка их не удаляет: иначе дамп ссылался бы на файл,
+        // которого уже нет в парном архиве.
+        using var backupScope = maintenance?.BeginBackup();
 
         bool success = false;
         bool processStarted = false;
@@ -152,8 +156,23 @@ public class PgDumpBackupService(
                     "Could not start pg_dump. Make sure PostgreSQL client tools are installed and Backup:PgDumpPath is correct.", ex);
             }
 
-            var stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            string stderr;
+            using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                // Зависший pg_dump не должен держать запрос (и страховочный бэкап перед восстановлением) вечно;
+                // процесс убивается в finally.
+                deadline.CancelAfter(_options.ProcessTimeout);
+                try
+                {
+                    stderr = await process.StandardError.ReadToEndAsync(deadline.Token);
+                    await process.WaitForExitAsync(deadline.Token);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new InvalidOperationException(
+                        $"pg_dump did not finish within {_options.ProcessTimeout.TotalMinutes:0} minutes.");
+                }
+            }
 
             if (process.ExitCode != 0)
             {
@@ -166,13 +185,28 @@ public class PgDumpBackupService(
             cancellationToken.ThrowIfCancellationRequested();
             if (!IsRegularFile(new FileInfo(partialPath)))
                 throw new InvalidOperationException("pg_dump did not produce a regular backup file.");
-            File.Move(partialPath, filePath);
+            // Архив вложений публикуется раньше дампа (как при загрузке): список, восстановление и удаление
+            // никогда не видят дамп без уже готовой пары.
+            var archivePath = await ArchiveAttachmentsAsync(fileName, cancellationToken);
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                File.Move(partialPath, filePath);
+            }
+            catch
+            {
+                if (archivePath is not null)
+                {
+                    try { File.Delete(archivePath); }
+                    catch { /* Best effort */ }
+                }
+                throw;
+            }
             success = true;
             if (audit?.Enabled == true)
                 audit.Committed(audit.Create("backup", fileName, "success", $"create: backup {fileName}",
                     after: new Dictionary<string, object?> { ["fileName"] = fileName, ["sizeBytes"] = SafeFileSize(filePath) }));
             logger.LogInformation("Database backup created at {FilePath}.", filePath);
-            await ArchiveAttachmentsAsync(fileName, cancellationToken);
             return filePath;
         }
         finally
@@ -279,24 +313,27 @@ public class PgDumpBackupService(
 
     /// <summary>
     /// Файлы форума лежат не в БД, поэтому рядом с дампом кладётся их архив с тем же именем.
-    /// Ошибка архива не отменяет готовый дамп, но пишется в лог.
+    /// Ошибка архива не отменяет готовый дамп, но пишется в лог. Возвращает путь опубликованного архива.
     /// </summary>
-    private async Task ArchiveAttachmentsAsync(string dumpFileName, CancellationToken cancellationToken)
+    private async Task<string?> ArchiveAttachmentsAsync(string dumpFileName, CancellationToken cancellationToken)
     {
-        if (attachments is null) return;
+        if (attachments is null) return null;
         var source = Path.GetFullPath(attachments.Value.RootDirectory);
-        if (!Directory.Exists(source)) return;
+        if (!Directory.Exists(source)) return null;
         var archiveName = dumpFileName[..^".dump".Length] + AttachmentsSuffix;
+        var archivePath = Path.Combine(GetBackupDirectory(), archiveName);
         try
         {
-            var size = await CreateAttachmentsArchiveAsync(source, Path.Combine(GetBackupDirectory(), archiveName), cancellationToken);
+            var size = await CreateAttachmentsArchiveAsync(source, archivePath, cancellationToken);
             if (audit?.Enabled == true)
                 audit.Committed(audit.Create("backup", archiveName, "success", $"create: backup {archiveName}",
                     after: new Dictionary<string, object?> { ["fileName"] = archiveName, ["sizeBytes"] = size }));
+            return archivePath;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             logger.LogError(ex, "Database backup {FileName} was created, but attachments could not be archived.", dumpFileName);
+            return null;
         }
     }
 

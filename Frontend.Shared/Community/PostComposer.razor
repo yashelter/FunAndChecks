@@ -1,6 +1,7 @@
 @implements IAsyncDisposable
 @inject ForumApi Api
 @inject IJSRuntime JS
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
 @inject ISnackbar Snackbar
 
 @* Редактор сообщения: Markdown с предпросмотром, файлы (кнопка, вставка из буфера, перетаскивание), упоминания. *@
@@ -93,6 +94,8 @@
     private DotNetObjectReference<PostComposer>? _self;
     private bool _draftLoaded, _focusMentions;
     private CancellationTokenSource? _draftSave;
+    /// <summary><see cref="DraftKey"/> с id пользователя; null — черновик не храним.</summary>
+    private string? _draftKey;
     private string _body = "";
     private List<AttachmentDto> _files = [];
     private readonly HashSet<Guid> _initialIds = [];
@@ -123,8 +126,9 @@
         if (!_draftLoaded)
         {
             _draftLoaded = true;
-            if (DraftKey is not null && string.IsNullOrEmpty(InitialBody) &&
-                await _module.InvokeAsync<string?>("loadDraft", DraftKey) is { Length: > 0 } draft)
+            _draftKey = DraftKey is null ? null : await DraftKeys.ForCurrentUserAsync(AuthState, DraftKey);
+            if (_draftKey is not null && string.IsNullOrEmpty(InitialBody) &&
+                await _module.InvokeAsync<string?>("loadDraft", _draftKey) is { Length: > 0 } draft)
             {
                 _body = draft;
                 StateHasChanged();
@@ -139,12 +143,12 @@
 
     private void ScheduleDraftSave()
     {
-        if (DraftKey is null || _module is null) return;
+        if (_draftKey is not { } key || _module is null) return;
         _draftSave?.Cancel();
         var token = (_draftSave = new CancellationTokenSource()).Token;
         _ = Task.Delay(700, token).ContinueWith(async _ =>
         {
-            if (!token.IsCancellationRequested) await _module.InvokeVoidAsync("saveDraft", DraftKey, _body);
+            if (!token.IsCancellationRequested) await _module.InvokeVoidAsync("saveDraft", key, _body);
         }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Current);
     }
 
@@ -187,7 +191,9 @@
 
     private async Task UploadAsync(InputFileChangeEventArgs args)
     {
-        foreach (var file in args.GetMultipleFiles(20))
+        // GetMultipleFiles бросает исключение, если выбрано больше max, — тогда упала бы вся страница.
+        // Берём все выбранные файлы, лишние отсекает проверка MaxFiles с понятным сообщением.
+        foreach (var file in args.GetMultipleFiles(Math.Max(1, args.FileCount)))
         {
             if (_files.Count + _uploading >= MaxFiles) { Snackbar.Add(CommunityText.T("Не больше пяти файлов.", "At most five files."), Severity.Warning); break; }
             if (file.Size > MaxBytes) { Snackbar.Add(CommunityText.T($"«{file.Name}» больше 10 МБ.", $"“{file.Name}” is larger than 10 MB."), Severity.Warning); continue; }
@@ -260,7 +266,7 @@
                 _files = [];
                 _preview = false;
                 _draftSave?.Cancel();
-                if (DraftKey is not null && _module is not null) await _module.InvokeVoidAsync("saveDraft", DraftKey, "");
+                if (_draftKey is not null && _module is not null) await _module.InvokeVoidAsync("saveDraft", _draftKey, "");
             }
         }
         finally { _busy = false; }

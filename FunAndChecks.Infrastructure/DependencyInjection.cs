@@ -63,6 +63,7 @@ public static class DependencyInjection
 
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<IDatabaseBackupService, PgDumpBackupService>();
+        services.AddSingleton<IBackupDownloadLinks, HmacBackupDownloadLinks>();
         services.AddSingleton<MaintenanceModeState>();
         services.AddSingleton<IDatabaseRestoreTarget, PostgresRestoreTarget>();
         services.AddSingleton<IDatabaseRestoreService, DatabaseRestoreService>();
@@ -81,6 +82,8 @@ public static class DependencyInjection
 
         // Фоновая очистка неподтверждённых аккаунтов.
         services.AddHostedService<UnconfirmedAccountCleanupService>();
+        // Просроченные refresh-токены и лишние уведомления.
+        services.AddHostedService<RetentionCleanupService>();
 
         services.AddScoped<DataSeeder>();
 

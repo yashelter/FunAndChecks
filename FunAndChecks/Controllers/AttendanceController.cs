@@ -24,6 +24,10 @@ public class AttendanceController(IAttendanceService attendance) : ControllerBas
     public async Task<IActionResult> GetGroups(int subjectId, CancellationToken ct) =>
         Ok(await attendance.GetGroupsAsync(User.GetUserId(), subjectId, ct));
 
+    [HttpGet("subjects/{subjectId:int}/summary")]
+    public async Task<ActionResult<AttendanceSummaryDto>> GetSummary(int subjectId, CancellationToken ct) =>
+        Ok(await attendance.GetSummaryAsync(User.GetUserId(), subjectId, ct));
+
     [HttpGet("subjects/{subjectId:int}/journal")]
     public async Task<ActionResult<AttendanceJournalDto>> GetJournal(int subjectId, [FromQuery] int? groupId,
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct) =>

@@ -25,6 +25,12 @@ public class SubmissionsController(ISubmissionService submissionService) : Contr
     public async Task<ActionResult<UndoSubmissionResultDto>> UndoLatest(Guid studentId, int taskId, CancellationToken cancellationToken) =>
         Ok(new UndoSubmissionResultDto(await submissionService.UndoLatestAsync(User.GetUserId(), studentId, taskId, cancellationToken)));
 
+    /// <summary>История попыток студента по всем задачам предмета (id задачи → попытки).</summary>
+    [HttpGet("students/{studentId:guid}/subjects/{subjectId:int}")]
+    public async Task<ActionResult<Dictionary<int, List<SubmissionLogDto>>>> GetSubjectLogs(Guid studentId, int subjectId,
+        CancellationToken cancellationToken) =>
+        Ok(await submissionService.GetSubjectLogsAsync(User.GetUserId(), studentId, subjectId, cancellationToken));
+
     /// <summary>История попыток сдачи задания студентом.</summary>
     [HttpGet("students/{studentId:guid}/tasks/{taskId:int}")]
     public async Task<ActionResult<List<SubmissionLogDto>>> GetLog(Guid studentId, int taskId, CancellationToken cancellationToken) =>

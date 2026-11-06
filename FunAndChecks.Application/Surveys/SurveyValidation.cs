@@ -55,6 +55,10 @@ public static class SurveyRules
     public const int ShortTextLimit = 300;
     public const int LongTextLimit = 4000;
 
+    /// <summary>Числовой ответ хранится как numeric(18,4): не больше 14 цифр до запятой и 4 после.</summary>
+    public const decimal NumberAbsLimit = 100_000_000_000_000m;
+    public const int NumberMaxScale = 4;
+
     /// <summary>Сколько ответов нужно, чтобы показать детали анонимного опроса.</summary>
     public const int AnonymityThreshold = 3;
 

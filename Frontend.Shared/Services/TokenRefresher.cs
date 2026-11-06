@@ -35,7 +35,13 @@ public class TokenRefresher(IHttpClientFactory httpClientFactory, TokenStore tok
             using var response = await http.PostAsJsonAsync("api/auth/refresh", new RefreshRequest(refreshToken));
 
             if (!response.IsSuccessStatusCode)
+            {
+                // Временный отказ (лимит запросов, сбой или перезапуск сервера) не значит, что refresh недействителен:
+                // токены сохраняем, следующая попытка обновит их. Выходим из сессии только на явный отказ.
+                if (!IsRejection(response.StatusCode))
+                    return null;
                 return await TakeSiblingTokenOrClearAsync(refreshToken);
+            }
 
             var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
             if (auth is null || string.IsNullOrEmpty(auth.AccessToken))
@@ -84,4 +90,9 @@ public class TokenRefresher(IHttpClientFactory httpClientFactory, TokenStore tok
     }
 
     private static readonly TimeSpan SiblingWriteGrace = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>Ответы, которыми сервер отвергает сам refresh-токен (просрочен, отозван, неверен).</summary>
+    private static bool IsRejection(System.Net.HttpStatusCode status) =>
+        status is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Unauthorized
+            or System.Net.HttpStatusCode.Forbidden;
 }

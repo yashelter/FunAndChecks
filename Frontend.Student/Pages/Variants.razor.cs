@@ -43,14 +43,22 @@ public partial class Variants
         await LoadAsync();
     }
 
+    private int _loadVersion;
+
     private async Task LoadAsync()
     {
+        var version = ++_loadVersion;
         _error = null;
         if (_subjectId is not { } subjectId) { _sets = []; _loading = false; return; }
         _loading = _sets.Count == 0;
-        try { _sets = await Api.GetMyAsync(subjectId); }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException) { _error = ex.Message; }
-        finally { _loading = false; }
+        try
+        {
+            var sets = await Api.GetMyAsync(subjectId);
+            if (version == _loadVersion) _sets = sets;
+        }
+        catch (Exception ex) when ((ex is ApiException or HttpRequestException) && version == _loadVersion) { _error = ex.Message; }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException) { }
+        finally { if (version == _loadVersion) _loading = false; }
     }
 
     /// <summary>Выбор окончательный — подтверждаем. Если вариант успели занять, список перечитывается.</summary>

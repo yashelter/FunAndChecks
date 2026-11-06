@@ -141,6 +141,41 @@ public class DatabaseRestoreServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Restore_WhenMigrationsFail_RollsBackToSafetyBackupAndClearsCache()
+    {
+        await File.WriteAllTextAsync(Path.Combine(BackupDirectory, "old.dump"), "PGDMP");
+        var migrations = 0;
+        _target.MigrateAndSeedAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => ++migrations == 1 ? Task.FromException(new InvalidOperationException("bad schema")) : Task.CompletedTask);
+        var sut = Service();
+
+        sut.Start("old.dump");
+        await sut.Completion;
+
+        var status = sut.GetStatus();
+        status.State.Should().Be(RestoreState.Failed);
+        status.ErrorCode.Should().Be("restore.migration_failed_rolled_back");
+        await _target.Received(1).ReplaceDatabaseAsync(Path.Combine(BackupDirectory, "safety.dump"), Arg.Any<CancellationToken>());
+        _cache.Received().Clear();
+        _maintenance.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Restore_WhenRollbackAlsoFails_StaysInMaintenance()
+    {
+        await File.WriteAllTextAsync(Path.Combine(BackupDirectory, "old.dump"), "PGDMP");
+        _target.MigrateAndSeedAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("bad schema"));
+        var sut = Service();
+
+        sut.Start("old.dump");
+        await sut.Completion;
+
+        sut.GetStatus().ErrorCode.Should().Be("restore.rollback_failed");
+        _cache.Received().Clear();
+        _maintenance.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Start_WhileRestoreIsRunning_ThrowsConflict()
     {
         await File.WriteAllTextAsync(Path.Combine(BackupDirectory, "old.dump"), "PGDMP");

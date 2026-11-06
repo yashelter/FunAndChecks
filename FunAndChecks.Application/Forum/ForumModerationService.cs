@@ -5,6 +5,7 @@ using FunAndChecks.Application.Profiles;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace FunAndChecks.Application.Forum;
 
@@ -23,7 +24,9 @@ public class ForumModerationService(
     IForumAccess access,
     IIdentityService identity,
     IValidator<ReportForumPostRequest> reportValidator,
-    IValidator<BanForumUserRequest> banValidator) : IForumModerationService
+    IValidator<BanForumUserRequest> banValidator,
+    IForumNotifier? forumNotifier = null,
+    ILogger<ForumModerationService>? logger = null) : IForumModerationService
 {
     public async Task ReportAsync(Guid userId, long postId, ReportForumPostRequest request, CancellationToken ct = default)
     {
@@ -68,8 +71,10 @@ public class ForumModerationService(
     public async Task ResolveReportAsync(Guid adminId, int reportId, ResolveForumReportRequest request, CancellationToken ct = default)
     {
         var viewer = await RequireAdminAsync(adminId, ct);
+        (int TopicId, long PostId)? deleted = null;
         await db.ExecuteSerializableAsync(async token =>
         {
+            deleted = null;
             var report = await db.ForumReports.Include(r => r.Post).ThenInclude(p => p.Topic)
                 .SingleOrDefaultAsync(r => r.Id == reportId, token)
                 ?? throw new NotFoundException("Report not found.", "forum.report_not_found");
@@ -84,9 +89,22 @@ public class ForumModerationService(
                 item.ResolvedById = adminId;
             }
             if (request.DeletePost && !report.Post.IsDeleted)
+            {
                 await ForumService.SoftDeleteAsync(db, report.Post, report.Post.Topic, adminId, token);
+                deleted = (report.Post.TopicId, report.PostId);
+            }
             await db.SaveChangesAsync(token);
         }, ct);
+
+        // Открытые у других вкладки темы должны убрать удалённое сообщение, как при обычном удалении.
+        if (deleted is { } post && forumNotifier is not null)
+        {
+            try { await forumNotifier.TopicChangedAsync(new(post.TopicId, ForumEventKinds.PostChanged, post.PostId), ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger?.LogWarning(ex, "Report resolved, but realtime notification failed for topic {TopicId}.", post.TopicId);
+            }
+        }
     }
 
     public async Task<IReadOnlyList<ForumBanDto>> GetBansAsync(Guid adminId, CancellationToken ct = default)
@@ -108,9 +126,7 @@ public class ForumModerationService(
         if (userId == adminId) throw new ConflictException("You cannot ban yourself.", "forum.ban_self");
         _ = await identity.GetProfileAccountAsync(userId, ct)
             ?? throw new NotFoundException("User not found.", "profile.not_found");
-        var roles = await identity.GetCurrentRolesAsync(userId, ct);
-        if ((roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin)) && !viewer.IsSuperAdmin)
-            throw new ForbiddenException("Only a super administrator can restrict teachers.", "forum.ban_forbidden");
+        await RequireCanRestrictAsync(viewer, userId, ct);
         await db.ExecuteSerializableAsync(async token =>
         {
             var ban = await db.ForumBans.SingleOrDefaultAsync(b => b.UserId == userId, token);
@@ -129,11 +145,21 @@ public class ForumModerationService(
 
     public async Task UnbanAsync(Guid adminId, Guid userId, CancellationToken ct = default)
     {
-        await RequireAdminAsync(adminId, ct);
+        var viewer = await RequireAdminAsync(adminId, ct);
+        // Снять ограничение может тот же круг, что и наложить: иначе обычный преподаватель
+        // снимал бы ограничение, наложенное суперадминистратором на него самого или коллегу.
+        await RequireCanRestrictAsync(viewer, userId, ct);
         var ban = await db.ForumBans.SingleOrDefaultAsync(b => b.UserId == userId, ct);
         if (ban is null) return;
         db.ForumBans.Remove(ban);
         await db.SaveChangesAsync(ct);
+    }
+
+    private async Task RequireCanRestrictAsync(ForumViewer viewer, Guid userId, CancellationToken ct)
+    {
+        var roles = await identity.GetCurrentRolesAsync(userId, ct);
+        if ((roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin)) && !viewer.IsSuperAdmin)
+            throw new ForbiddenException("Only a super administrator can restrict teachers.", "forum.ban_forbidden");
     }
 
     private async Task<ForumViewer> RequireAdminAsync(Guid adminId, CancellationToken ct)

@@ -52,6 +52,39 @@ public static class QueueStyles
     public static bool IsPastRound(QueueParticipantDto participant, IEnumerable<QueueParticipantDto> all) =>
         all.Any(p => p.StudentId == participant.StudentId && p.Round > participant.Round);
 
+    /// <summary>Последний круг каждого студента — один проход по списку вместо поиска на каждую строку.</summary>
+    public static Dictionary<Guid, int> LatestRounds(IEnumerable<QueueParticipantDto> all)
+    {
+        var latest = new Dictionary<Guid, int>();
+        foreach (var p in all)
+            if (!latest.TryGetValue(p.StudentId, out var round) || p.Round > round)
+                latest[p.StudentId] = p.Round;
+        return latest;
+    }
+
+    public static bool IsPastRound(QueueParticipantDto participant, IReadOnlyDictionary<Guid, int> latestRounds) =>
+        latestRounds.TryGetValue(participant.StudentId, out var latest) && latest > participant.Round;
+
+    /// <summary>
+    /// Кэш <see cref="LatestRounds"/> для одного списка: страницы заменяют список целиком при перечитывании,
+    /// поэтому пересчёт нужен только при смене ссылки на список.
+    /// </summary>
+    public sealed class RoundIndex
+    {
+        private IReadOnlyCollection<QueueParticipantDto>? _source;
+        private Dictionary<Guid, int> _latest = [];
+
+        public bool IsPastRound(QueueParticipantDto participant, IReadOnlyCollection<QueueParticipantDto> all)
+        {
+            if (!ReferenceEquals(_source, all))
+            {
+                _latest = LatestRounds(all);
+                _source = all;
+            }
+            return QueueStyles.IsPastRound(participant, _latest);
+        }
+    }
+
     /// <summary>Порядок статусов: сдают → в очереди → пропущенные → завершившие.</summary>
     public static int StatusOrder(QueueEntryStatus status) => status switch
     {

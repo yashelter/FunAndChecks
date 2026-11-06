@@ -1,4 +1,5 @@
 using FluentValidation;
+using FluentValidation.Results;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -235,7 +236,51 @@ public class QueueService(
 
         await db.SaveChangesAsync(cancellationToken);
 
+        if (autoFillGroupIds.Count > 0)
+            await TopUpAutoFillAsync(queueEvent.Id, autoFillGroupIds, cancellationToken);
+
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
+    }
+
+    /// <summary>
+    /// Студент мог подтвердиться между выборкой состава и коммитом очереди: состав он уже пропустил, а
+    /// <see cref="QueueAutoFillService"/> ещё не видел очередь. Повторная выборка после коммита закрывает это окно.
+    /// Ошибка здесь не отменяет созданную очередь.
+    /// </summary>
+    private async Task TopUpAutoFillAsync(int eventId, List<int> groupIds, CancellationToken cancellationToken)
+    {
+        List<QueueEntry> added = [];
+        try
+        {
+            await db.ExecuteSerializableAsync(async ct =>
+            {
+                var missing = await db.Students
+                    .Where(s => s.IsActive && s.GroupId != null && groupIds.Contains(s.GroupId.Value)
+                                && !db.QueueEntries.Any(e => e.QueueEventId == eventId && e.StudentId == s.Id))
+                    .Select(s => s.Id)
+                    .ToListAsync(ct);
+                if (missing.Count == 0) return;
+
+                var now = DateTime.UtcNow;
+                added = missing.Select(studentId => new QueueEntry
+                {
+                    QueueEventId = eventId,
+                    StudentId = studentId,
+                    JoinedAt = now,
+                    Status = QueueEntryStatus.Waiting,
+                    LateExcused = true,
+                }).ToList();
+                db.QueueEntries.AddRange(added);
+                await db.SaveChangesAsync(ct);
+            }, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Параллельный QueueAutoFillService успел добавить того же студента — уникальный индекс отверг дубль.
+            foreach (var entry in added)
+                db.QueueEntries.Entry(entry).State = EntityState.Detached;
+            logger.LogWarning(ex, "Auto-fill top-up for queue {EventId} failed.", eventId);
+        }
     }
 
     public async Task<QueueEventDto> UpdateEventAsync(Guid adminId, int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken = default)
@@ -319,6 +364,11 @@ public class QueueService(
             {
                 var queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
                                  ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+                // Перепроверка в транзакции записи: студента могли перевести в группу без этого предмета
+                // или отвязать группу от предмета после проверок выше.
+                var groupId = await db.Students.Where(s => s.Id == studentId).Select(s => s.GroupId).SingleOrDefaultAsync(ct);
+                if (groupId is null || !await db.GroupSubjects.AnyAsync(gs => gs.GroupId == groupId && gs.SubjectId == queueEvent.SubjectId, ct))
+                    throw new ForbiddenException("Your group does not have access to the subject of this event.");
                 var latest = await LatestEntryQuery(eventId, studentId).AsNoTracking().FirstOrDefaultAsync(ct);
                 if (latest?.Status is QueueEntryStatus.Waiting or QueueEntryStatus.Checking)
                     throw AlreadyJoined();
@@ -353,16 +403,21 @@ public class QueueService(
 
     public async Task LeaveAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default)
     {
-        // Выходят из последнего круга; прошлые круги (и их результат) остаются.
-        var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(cancellationToken)
-                    ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
-        // Без самозаписи встать можно только тому, у кого уже есть круг (JoinAsync), а выход удаляет строку:
-        // ушедший с первого круга не вернулся бы. Поэтому из первого круга при закрытой записи выйти нельзя.
-        if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished
-            || (entry.Round == 1 && !entry.QueueEvent.AllowSelfJoin))
-            throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
-        db.QueueEntries.Remove(entry);
-        await db.SaveChangesAsync(cancellationToken);
+        // Чтение, проверка статуса и удаление — в одной serializable-транзакции: иначе преподаватель
+        // мог бы взять студента на проверку между проверкой и DELETE, и начатая проверка исчезла бы.
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            // Выходят из последнего круга; прошлые круги (и их результат) остаются.
+            var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(ct)
+                        ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
+            // Без самозаписи встать можно только тому, у кого уже есть круг (JoinAsync), а выход удаляет строку:
+            // ушедший с первого круга не вернулся бы. Поэтому из первого круга при закрытой записи выйти нельзя.
+            if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished
+                || (entry.Round == 1 && !entry.QueueEvent.AllowSelfJoin))
+                throw new ConflictException("You cannot leave this queue now: it was filled by the teacher, or you are being checked or finished.", "queue.leave_unavailable");
+            db.QueueEntries.Remove(entry);
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
         await NotifyBestEffortAsync(new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Finished, null), cancellationToken);
     }
 
@@ -373,19 +428,58 @@ public class QueueService(
             .Where(qe => includePast || qe.EventDateTime > threshold)
             .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
             .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new { qe.Id })
+            .Select(qe => new { qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin, qe.SubjectId, SubjectName = qe.Subject.Name, qe.LateAfterMinutes })
             .ToListAsync(cancellationToken);
+        if (events.Count == 0) return [];
+
+        // Для карточек нужны только статус, место и длина очереди: участники всех событий и их баллы — двумя
+        // запросами на все события, без имён, цветов и достижений, которые собирает полный GetDetailsAsync.
+        var eventIds = events.Select(e => e.Id).ToList();
+        var entries = await db.QueueEntries.AsNoTracking()
+            .Where(e => eventIds.Contains(e.QueueEventId))
+            .Select(e => new { e.QueueEventId, e.Id, e.StudentId, e.Status, e.Round, e.JoinedAt, e.LateExcused })
+            .ToListAsync(cancellationToken);
+        var subjectIds = events.Select(e => e.SubjectId).Distinct().ToList();
+        var points = await AcceptedPointsAsync(entries.Select(e => e.StudentId).Distinct().ToList(), subjectIds, cancellationToken);
+
+        var entriesByEvent = entries.ToLookup(e => e.QueueEventId);
         var result = new List<QueueEventDto>(events.Count);
         foreach (var queueEvent in events)
         {
-            var details = await GetDetailsAsync(queueEvent.Id, null, cancellationToken);
-            var waiting = QueueOrder.Waiting(details.Participants);
-            var me = details.Participants.Where(p => p.StudentId == studentId).MaxBy(p => p.Round);
+            var participants = entriesByEvent[queueEvent.Id].Select(e => new QueueParticipantDto(
+                    e.StudentId, "", "", "", points.GetValueOrDefault((e.StudentId, queueEvent.SubjectId)), e.Status, null, e.JoinedAt,
+                    null, false, null, e.Id, e.Round, null,
+                    QueueLateness.LateMinutes(queueEvent.EventDateTime, queueEvent.LateAfterMinutes, e.Round, e.JoinedAt),
+                    e.LateExcused))
+                .ToList();
+            var waiting = QueueOrder.Waiting(participants);
+            var me = participants.Where(p => p.StudentId == studentId).MaxBy(p => p.Round);
             var position = waiting.FindIndex(p => p.StudentId == studentId);
-            result.Add(new QueueEventDto(details.EventId, details.EventName, details.EventDateTime, details.AllowSelfJoin,
-                details.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
+            result.Add(new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin,
+                queueEvent.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
         }
         return result;
+    }
+
+    /// <summary>
+    /// Баллы студентов по предметам: сумма MaxPoints задач, последняя попытка по которым принята
+    /// (тай-брейк по Id — как в таблице результатов и GetDetailsAsync).
+    /// </summary>
+    private async Task<Dictionary<(Guid StudentId, int SubjectId), int>> AcceptedPointsAsync(
+        List<Guid> studentIds, List<int> subjectIds, CancellationToken cancellationToken)
+    {
+        var latest = await db.Submissions
+            .Where(s => studentIds.Contains(s.StudentId) && subjectIds.Contains(s.Task.SubjectId))
+            .Where(s => s.Id == db.Submissions
+                .Where(s2 => s2.StudentId == s.StudentId && s2.TaskId == s.TaskId)
+                .OrderByDescending(s2 => s2.SubmittedAt)
+                .ThenByDescending(s2 => s2.Id)
+                .Select(s2 => (int?)s2.Id)
+                .FirstOrDefault())
+            .Where(s => s.Status == SubmissionStatus.Accepted)
+            .Select(s => new { s.StudentId, s.Task.SubjectId, s.Task.MaxPoints })
+            .ToListAsync(cancellationToken);
+        return latest.GroupBy(s => (s.StudentId, s.SubjectId)).ToDictionary(g => g.Key, g => g.Sum(s => s.MaxPoints));
     }
 
     public async Task SetLateRuleAsync(Guid adminId, int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken = default)
@@ -423,6 +517,10 @@ public class QueueService(
         int eventId, Guid studentId, Guid adminId, QueueEntryStatus status,
         CancellationToken cancellationToken = default)
     {
+        // Числовой JSON пропускает любое значение enum; неизвестный статус выпал бы из активного индекса очереди.
+        if (!Enum.IsDefined(status))
+            throw new ValidationException([new ValidationFailure(nameof(status), "Unknown queue entry status.")]);
+
         // Преподаватель работает с последним кругом студента; прошлые круги — история.
         var entry = await LatestEntryQuery(eventId, studentId)
             .AsNoTracking()
@@ -451,6 +549,10 @@ public class QueueService(
 
             var existingTracked = db.QueueEntries.Local.FirstOrDefault(qu => qu.Id == current.Id);
             if (existingTracked is not null) db.QueueEntries.Entry(existingTracked).State = EntityState.Detached;
+            // Повторное «Завершено» (повтор запроса, второе нажатие) ничего не меняет: иначе зачёт за проверку
+            // перешёл бы к нажавшему, ведь CurrentAdminId после первого завершения уже пуст.
+            if (current.Status == QueueEntryStatus.Finished && status == QueueEntryStatus.Finished)
+                return;
             db.QueueEntries.Attach(current);
             // Для статистики: круг засчитывается последнему, кто вёл студента, а без взятия на проверку — нажавшему.
             // Читаем владельца до того, как CurrentAdminId перезапишется ниже.

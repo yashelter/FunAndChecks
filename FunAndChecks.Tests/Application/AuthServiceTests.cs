@@ -214,6 +214,33 @@ public class AuthServiceTests : IDisposable
         await _refresh.Received(1).RevokeAllAsync(userId, Arg.Any<CancellationToken>());
     }
 
+    // REV-06: reset by an email code confirms the address and must activate the student like confirmation does.
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task ResetPassword_ActivatesOnlyPreviouslyUnconfirmedStudent(bool confirmedBefore, bool expectedActive)
+    {
+        var groupId = await SeedGroupAsync();
+        Guid studentId;
+        await using (var setup = _db.NewContext())
+        {
+            var student = setup.Student(await setup.Groups.SingleAsync(g => g.Id == groupId));
+            student.IsActive = false;
+            await setup.SaveChangesAsync();
+            studentId = student.Id;
+        }
+        _identity.FindByEmailAsync("a@b.c").Returns(
+            new AccountInfo(studentId, EmailConfirmed: confirmedBefore),
+            new AccountInfo(studentId, EmailConfirmed: true));
+        _identity.ResetPasswordAsync("a@b.c", "000000", "newpass").Returns(AccountResult.Success());
+
+        await using (var ctx = _db.NewContext())
+            await CreateSut(ctx).ResetPasswordAsync(new ResetPasswordRequest("a@b.c", "000000", "newpass"));
+
+        await using var check = _db.NewContext();
+        (await check.Students.SingleAsync(s => s.Id == studentId)).IsActive.Should().Be(expectedActive);
+    }
+
     [Theory]
     [InlineData(LoginStatus.EmailNotConfirmed, "auth.email_not_confirmed")]
     [InlineData(LoginStatus.LockedOut, "auth.account_locked")]

@@ -35,6 +35,7 @@ public partial class AttendanceSession
     protected override async Task OnParametersSetAsync()
     {
         if (_loadedSession == SessionId) return;
+        if (_loadedSession is not null) _details = null;
         _loadedSession = SessionId;
         _loading = true;
         await LoadAsync();
@@ -46,7 +47,13 @@ public partial class AttendanceSession
     {
         _refreshing = !_loading;
         _error = null;
-        try { _details = await Api.GetSessionAsync(SessionId); }
+        var sessionId = SessionId;
+        try
+        {
+            var details = await Api.GetSessionAsync(sessionId);
+            // Пока шёл запрос, могли открыть другое занятие — старый ответ его не подменяет.
+            if (sessionId == SessionId) _details = details;
+        }
         catch (Exception ex) when (ex is ApiException or HttpRequestException)
         {
             if (_details is null) _error = ex.Message;

@@ -154,6 +154,17 @@ public class GradeService(
         await db.SaveChangesAsync(cancellationToken);
 
         cache.Invalidate(subjectId);
+        try
+        {
+            await resultsNotifier.GradeUpdatedAsync(
+                subjectId,
+                new GradeUpdateDto(studentId, componentId, 0, Removed: true),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Grade deleted, but results notification failed for subject {SubjectId}.", subjectId);
+        }
     }
 
     public async Task<List<StudentGradeDto>> GetStudentGradesAsync(Guid adminId, Guid studentId, int subjectId, CancellationToken cancellationToken = default)

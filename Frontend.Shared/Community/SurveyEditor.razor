@@ -6,6 +6,8 @@
 @inject IJSRuntime JS
 @inject ConfirmService Confirm
 @inject AttendanceApi Attendance
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
+@implements IDisposable
 
 <PageTitle>@(_title is { Length: > 0 } ? _title : CommunityText.T("Новый опрос", "New survey"))</PageTitle>
 @* Незаписанные правки не теряются молча: уход со страницы спрашивает подтверждение. *@
@@ -112,11 +114,11 @@ else
                         <MudIconButton Icon="@Icons.Material.Outlined.ArrowUpward" Size="Size.Small" Disabled="@(index == 0)" OnClick="() => Move(index, -1)" aria-label="@CommunityText.T("Выше", "Move up")" />
                         <MudIconButton Icon="@Icons.Material.Outlined.ArrowDownward" Size="Size.Small" Disabled="@(index == _questions.Count - 1)" OnClick="() => Move(index, 1)" aria-label="@CommunityText.T("Ниже", "Move down")" />
                         <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small" OnClick="() => Copy(index)" aria-label="@CommunityText.T("Копировать", "Duplicate")" />
-                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="() => _questions.RemoveAt(index)" aria-label="@CommunityText.T("Удалить", "Delete")" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="() => RemoveQuestion(index)" aria-label="@CommunityText.T("Удалить", "Delete")" />
                     </header>
                     <div class="fc-survey-grid">
                         <MudTextField T="string" @bind-Value="q.Text" Label="@CommunityText.T("Вопрос", "Question")" MaxLength="500" Variant="Variant.Outlined" Immediate="true" />
-                        <MudSelect T="SurveyQuestionType" @bind-Value="q.Type" Label="@CommunityText.T("Тип", "Type")" Variant="Variant.Outlined">
+                        <MudSelect T="SurveyQuestionType" @bind-Value="q.Type" @bind-Value:after="MarkDirty" Label="@CommunityText.T("Тип", "Type")" Variant="Variant.Outlined">
                             @foreach (var type in Enum.GetValues<SurveyQuestionType>()) { <MudSelectItem Value="type">@TypeName(type)</MudSelectItem> }
                         </MudSelect>
                     </div>
@@ -130,9 +132,9 @@ else
                                 @* Ввод сохраняется сразу; Enter — новый вариант; вставка нескольких строк — несколько вариантов. *@
                                 <div><input class="fc-input" maxlength="300" value="@q.Options[optionIndex]" @oninput="e => SetOption(q, optionIndex, e.Value?.ToString())"
                                             @onkeydown="e => OptionKeyDown(q, optionIndex, e)" placeholder="@CommunityText.T($"Вариант {optionIndex + 1}", $"Option {optionIndex + 1}")" />
-                                    <button type="button" class="fc-icon-link" disabled="@(q.Options.Count <= 2)" @onclick="() => q.Options.RemoveAt(optionIndex)" aria-label="@CommunityText.T("Убрать вариант", "Remove option")">×</button></div>
+                                    <button type="button" class="fc-icon-link" disabled="@(q.Options.Count <= 2)" @onclick="() => RemoveOption(q, optionIndex)" aria-label="@CommunityText.T("Убрать вариант", "Remove option")">×</button></div>
                             }
-                            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" Disabled="@(q.Options.Count >= 30)" OnClick="() => q.Options.Add(string.Empty)">@CommunityText.T("Вариант", "Option")</MudButton>
+                            <MudButton Size="Size.Small" StartIcon="@Icons.Material.Outlined.Add" Disabled="@(q.Options.Count >= 30)" OnClick="() => AddOption(q)">@CommunityText.T("Вариант", "Option")</MudButton>
                         </div>
                         <MudCheckBox T="bool" @bind-Value="q.AllowOther" Label="@CommunityText.T("Разрешить свой вариант «Другое»", "Allow an “Other” answer")" />
                     }
@@ -155,7 +157,7 @@ else
                     <MudCheckBox T="bool" @bind-Value="q.IsRequired" Label="@CommunityText.T("Обязательный", "Required")" />
                 </section>
             }
-            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddQuestion" Disabled="@(_questions.Count >= 50)" Class="mb-4">@CommunityText.T("Добавить вопрос", "Add question")</MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddQuestionByUser" Disabled="@(_questions.Count >= 50)" Class="mb-4">@CommunityText.T("Добавить вопрос", "Add question")</MudButton>
         }
         </div>
 
@@ -241,9 +243,16 @@ else
     {
         if (_loadedId == SurveyId) return;
         _loadedId = SurveyId;
+        // Отложенное сохранение черновика относится к прежнему опросу — отменяем его.
+        _draftSave?.Cancel();
+        // Компонент переиспользуется между /new и /{id} (в том числе по «Назад»): поля прежнего опроса
+        // не должны перейти в новый, иначе /new показал бы чужие вопросы и статус «опубликован».
+        Reset();
         _loading = true; _error = null; _preview = false;
         try
         {
+            _draftKey = await DraftKeys.ForCurrentUserAsync(AuthState,
+                SurveyId is int draftId ? $"fc-survey-draft:{draftId}" : "fc-survey-draft:new");
             if (_subjects.Count == 0) _subjects = await Me.GetVisibleSubjectsAsync();
             if (_groups.Count == 0) _groups = await Me.GetVisibleGroupsAsync();
             if (SurveyId is int id) Fill(await Api.GetAsync(id));
@@ -254,6 +263,15 @@ else
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _loading = false; }
+    }
+
+    private void Reset()
+    {
+        _title = ""; _description = ""; _subject = "none"; _opens = null; _closes = null;
+        _trigger = SurveyTriggerType.Immediate; _threshold = 3; _anonymous = false;
+        _allowSnooze = false; _snoozeHours = 24; _maxSnoozes = null;
+        _status = SurveyStatus.Draft; _responses = 0; _frozen = [];
+        _targets.Clear(); _questions = []; _problems = []; _draft = null; _dirty = false;
     }
 
     private void Fill(SurveyAdminDto survey)
@@ -288,31 +306,44 @@ else
     }
 
     // ----- Черновик в браузере: правки опроса переживают закрытую вкладку или сбой сети. -----
-    private string DraftKey => SurveyId is int id ? $"fc-survey-draft:{id}" : "fc-survey-draft:new";
+    // Ключ включает id пользователя: другой аккаунт в этом браузере чужой черновик не увидит. null — не храним.
+    private string? _draftKey;
     private SaveSurveyRequest? _draft;
     private CancellationTokenSource? _draftSave;
 
     private void ScheduleDraftSave()
     {
-        if (Locked) return;
+        if (Locked || _draftKey is not { } key) return;
         _draftSave?.Cancel();
         var token = (_draftSave = new CancellationTokenSource()).Token;
-        var key = DraftKey;
-        _ = Task.Delay(1000, token).ContinueWith(async _ =>
+        // Снимок берём сейчас, вместе с ключом: через секунду компонент может показывать уже другой опрос.
+        var snapshot = System.Text.Json.JsonSerializer.Serialize(Request());
+        _ = SaveDraftLaterAsync(key, snapshot, token);
+    }
+
+    private async Task SaveDraftLaterAsync(string key, string snapshot, CancellationToken token)
+    {
+        try
         {
-            if (token.IsCancellationRequested) return;
-            try { await JS.InvokeVoidAsync("localStorage.setItem", key, System.Text.Json.JsonSerializer.Serialize(Request())); }
-            catch (JSException) { }
-        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Current);
+            await Task.Delay(1000, token);
+            await JS.InvokeVoidAsync("localStorage.setItem", token, key, snapshot);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or JSException or JSDisconnectedException) { }
+    }
+
+    public void Dispose()
+    {
+        _draftSave?.Cancel();
+        _draftSave?.Dispose();
     }
 
     private async Task CheckDraftAsync()
     {
         _draft = null;
-        if (Locked) return;
+        if (Locked || _draftKey is null) return;
         try
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", DraftKey);
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", _draftKey);
             if (!string.IsNullOrEmpty(json)) _draft = System.Text.Json.JsonSerializer.Deserialize<SaveSurveyRequest>(json);
         }
         catch (Exception ex) when (ex is JSException or System.Text.Json.JsonException) { _draft = null; }
@@ -322,7 +353,8 @@ else
     {
         _draftSave?.Cancel();
         _draft = null;
-        try { await JS.InvokeVoidAsync("localStorage.removeItem", DraftKey); }
+        if (_draftKey is null) return;
+        try { await JS.InvokeVoidAsync("localStorage.removeItem", _draftKey); }
         catch (JSException) { }
     }
 
@@ -358,7 +390,7 @@ else
 
     private async Task SubjectChangedAsync()
     {
-        _dirty = true;
+        MarkDirty();
         await LoadSubjectGroupsAsync();
         // Цели из другого предмета больше не подходят.
         var allowed = SubjectGroups.Select(g => g.Id).ToHashSet();
@@ -374,9 +406,9 @@ else
 
     private void SetAllGroups(bool all)
     {
-        _dirty = true;
         _targets.Clear();
         if (all) foreach (var group in SubjectGroups) _targets.Add(group.Id);
+        MarkDirty();
     }
 
     private void SetOption(QuestionDraft q, int index, string? value)
@@ -391,7 +423,7 @@ else
 
     private void OptionKeyDown(QuestionDraft q, int index, KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && q.Options.Count < 30) { q.Options.Insert(index + 1, ""); _dirty = true; }
+        if (e.Key == "Enter" && q.Options.Count < 30) { q.Options.Insert(index + 1, ""); MarkDirty(); }
     }
 
     /// <summary>Те же правила, что на сервере, — чтобы ошибка была видна до запроса и рядом с кнопкой.</summary>
@@ -422,16 +454,51 @@ else
         return problems;
     }
 
-    private void Copy(int index) => _questions.Insert(index + 1, _questions[index].Clone());
+    // Кнопки не порождают input/change, поэтому структурные правки отмечают изменения сами:
+    // иначе уход со страницы не спросил бы подтверждения, а черновик не сохранился бы.
+    private void Copy(int index)
+    {
+        _questions.Insert(index + 1, _questions[index].Clone());
+        MarkDirty();
+    }
 
     private void Move(int index, int delta)
     {
         var item = _questions[index];
         _questions.RemoveAt(index);
         _questions.Insert(index + delta, item);
+        MarkDirty();
     }
 
-    private void ToggleGroup(int id, bool on) { if (on) _targets.Add(id); else _targets.Remove(id); }
+    private void RemoveQuestion(int index)
+    {
+        _questions.RemoveAt(index);
+        MarkDirty();
+    }
+
+    private void AddQuestionByUser()
+    {
+        AddQuestion();
+        MarkDirty();
+    }
+
+    private void AddOption(QuestionDraft q)
+    {
+        q.Options.Add(string.Empty);
+        MarkDirty();
+    }
+
+    private void RemoveOption(QuestionDraft q, int index)
+    {
+        q.Options.RemoveAt(index);
+        MarkDirty();
+    }
+
+    private void ToggleGroup(int id, bool on)
+    {
+        if (on) _targets.Add(id); else _targets.Remove(id);
+        MarkDirty();
+    }
 
     private static bool IsChoice(SurveyQuestionType type) =>
         type is SurveyQuestionType.SingleChoice or SurveyQuestionType.MultipleChoice or SurveyQuestionType.Dropdown;
@@ -465,24 +532,35 @@ else
         try
         {
             SurveyAdminDto saved;
-            if (Locked) saved = await Api.UpdateDetailsAsync(SurveyId!.Value, new(_title ?? "", _description, Utc(_closes)));
+            if (Locked)
+            {
+                if (SurveyId is not int lockedId) return;
+                saved = await Api.UpdateDetailsAsync(lockedId, new(_title ?? "", _description, Utc(_closes)));
+            }
             else saved = SurveyId is int id ? await Api.SaveAsync(id, Request()) : await Api.CreateAsync(Request());
             // Сохранено на сервере — переход на страницу нового опроса не должен спрашивать «уйти без сохранения?».
             _dirty = false;
             await DropDraftAsync();
+            if (SurveyId is null)
+            {
+                // Новый опрос уже создан: сразу уходим на его страницу, чтобы повтор после сбоя публикации
+                // сохранял этот же опрос, а не создавал ещё один.
+                Nav.NavigateTo($"/admin/surveys/{saved.Id}", replace: true);
+                if (!publish)
+                {
+                    Snackbar.Add(CommunityText.T("Сохранено", "Saved"), Severity.Success);
+                    return;
+                }
+            }
             if (publish)
             {
                 if (!await Confirm.ConfirmAsync(CommunityText.T("Опубликовать опрос?", "Publish the survey?"), CommunityText.T("После публикации вопросы и условия нельзя будет изменить.", "Questions and conditions cannot be changed after publishing."), CommunityText.T("Опубликовать", "Publish")))
-                {
-                    if (SurveyId is null) Nav.NavigateTo($"/admin/surveys/{saved.Id}");
                     return;
-                }
                 saved = await Api.PublishAsync(saved.Id);
             }
             _dirty = false;
             Snackbar.Add(publish ? CommunityText.T("Опрос опубликован", "Survey published") : CommunityText.T("Сохранено", "Saved"), Severity.Success);
-            if (SurveyId is null) { Nav.NavigateTo($"/admin/surveys/{saved.Id}"); return; }
-            Fill(saved);
+            if (SurveyId == saved.Id) Fill(saved);
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _busy = false; }
@@ -491,7 +569,8 @@ else
     private async Task CloseSurveyAsync()
     {
         if (!await Confirm.ConfirmAsync(CommunityText.T("Завершить опрос?", "Close the survey?"), CommunityText.T("Новые ответы приниматься не будут.", "No new answers will be accepted."), CommunityText.T("Завершить", "Close"))) return;
-        try { Fill(await Api.CloseAsync(SurveyId!.Value)); }
+        if (SurveyId is not int id) return;
+        try { Fill(await Api.CloseAsync(id)); }
         catch (ApiException ex) { _error = ex.Message; }
     }
 

@@ -125,7 +125,18 @@
             anchor.download = fileName ?? '';
             anchor.click();
             anchor.remove();
-            URL.revokeObjectURL(url);
+            // Некоторые браузеры начинают читать blob уже после click(): отзываем адрес не сразу.
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        };
+        // Большие файлы (бэкапы) браузер качает сам по подписанной ссылке — потоком на диск.
+        window.downloadFileFromUrl = (fileName, url) => {
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = fileName ?? '';
+            anchor.rel = 'noopener';
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
         };
     </script>
 </body>

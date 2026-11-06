@@ -18,10 +18,16 @@ public class ResultsCacheService : IResultsCacheService
     /// </summary>
     private const int MaxRebuildAttempts = 5;
 
+    /// <summary>
+    /// Число замков построения. Замки разделены по предметам полосами, а не созданы на каждый ID:
+    /// запросы к произвольным (в том числе несуществующим) ID не должны увеличивать память.
+    /// </summary>
+    private const int LockStripes = 64;
+
     private readonly ConcurrentDictionary<int, SubjectResultsDto> _cache = new();
-    // Замки живут всё время работы приложения и растут с числом предметов; SemaphoreSlim
-    // без AvailableWaitHandle не держит неуправляемых ресурсов и не требует Dispose.
-    private readonly ConcurrentDictionary<int, Lazy<SemaphoreSlim>> _locks = new();
+    private readonly SemaphoreSlim[] _locks = Enumerable.Range(0, LockStripes).Select(_ => new SemaphoreSlim(1, 1)).ToArray();
+    // Запись появляется только при инвалидации, то есть при реальном изменении данных предмета.
+    // Отсутствие записи равнозначно поколению 0.
     private readonly ConcurrentDictionary<int, long> _generations = new();
 
     public SubjectResultsDto? GetResults(int subjectId) =>
@@ -32,7 +38,7 @@ public class ResultsCacheService : IResultsCacheService
         if (_cache.TryGetValue(subjectId, out var cached))
             return cached;
 
-        var semaphore = _locks.GetOrAdd(subjectId, _ => new Lazy<SemaphoreSlim>(() => new SemaphoreSlim(1, 1))).Value;
+        var semaphore = _locks[(int)((uint)subjectId % LockStripes)];
         await semaphore.WaitAsync();
         try
         {
@@ -41,12 +47,16 @@ public class ResultsCacheService : IResultsCacheService
 
             for (var attempt = 1; ; attempt++)
             {
-                var subjectGeneration = _generations.GetOrAdd(subjectId, 0);
+                var subjectGeneration = Generation(subjectId);
                 var results = await factory();
 
-                if (subjectGeneration == _generations.GetOrAdd(subjectId, 0))
+                if (subjectGeneration == Generation(subjectId))
                 {
                     _cache[subjectId] = results;
+                    // Invalidate мог пройти между проверкой и публикацией: он сначала увеличивает поколение,
+                    // затем удаляет запись. Если поколение уже другое, снимаем именно свою (устаревшую) запись.
+                    if (subjectGeneration != Generation(subjectId))
+                        _cache.TryRemove(new KeyValuePair<int, SubjectResultsDto>(subjectId, results));
                     return results;
                 }
 
@@ -78,4 +88,6 @@ public class ResultsCacheService : IResultsCacheService
         foreach (var subjectId in _cache.Keys.Concat(_generations.Keys).Distinct().ToList())
             Invalidate(subjectId);
     }
+
+    private long Generation(int subjectId) => _generations.TryGetValue(subjectId, out var generation) ? generation : 0;
 }

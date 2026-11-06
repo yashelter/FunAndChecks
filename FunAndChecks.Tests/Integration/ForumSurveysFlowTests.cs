@@ -298,6 +298,47 @@ public class ForumSurveysFlowTests : IDisposable
     private static CreateForumTopicRequest Topic(int? subjectId) =>
         new(subjectId, "Lab 1 questions", "Ask here", null);
 
+    // C01: снять ограничение с преподавателя (в том числе с себя) может только суперадминистратор.
+    [Fact]
+    public async Task Forum_RegularTeacher_CannotLiftTeacherRestrictions()
+    {
+        var seed = await SeedAsync();
+        Guid otherAdminId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            otherAdminId = await db.Admins.Where(a => a.Id != seed.AdminId).Select(a => a.Id).SingleAsync();
+            foreach (var id in new[] { otherAdminId, seed.AdminId })
+                db.ForumBans.Add(new ForumBan { UserId = id, UntilUtc = DateTime.UtcNow.AddDays(1), Reason = "by super admin", CreatedAtUtc = DateTime.UtcNow });
+            await db.SaveChangesAsync();
+        }
+        using var admin = Client(seed.AdminToken);
+
+        await ExpectCodeAsync(await admin.DeleteAsync($"/api/admin/forum/bans/{otherAdminId}"), HttpStatusCode.Forbidden, "forum.ban_forbidden");
+        await ExpectCodeAsync(await admin.DeleteAsync($"/api/admin/forum/bans/{seed.AdminId}"), HttpStatusCode.Forbidden, "forum.ban_forbidden");
+
+        using var check = _factory.Services.CreateScope();
+        (await check.ServiceProvider.GetRequiredService<ApplicationDbContext>().ForumBans.CountAsync()).Should().Be(2);
+    }
+
+    // C04: файлы удалённой темы освобождаются для фоновой очистки, как у удалённого сообщения.
+    [Fact]
+    public async Task Forum_DeletingTopic_ReleasesItsAttachments()
+    {
+        var seed = await SeedAsync();
+        using var admin = Client(seed.AdminToken);
+        var topicId = (await CreateTopicAsync(admin, Topic(seed.SubjectId))).Topic.Id;
+        var image = (await (await UploadAsync(admin, "shot.png", Png)).Content.ReadFromJsonAsync<AttachmentDto>())!;
+        (await admin.PostAsJsonAsync($"/api/forum/topics/{topicId}/posts", new CreateForumPostRequest("file", null, [image.Id])))
+            .EnsureSuccessStatusCode();
+
+        (await admin.DeleteAsync($"/api/forum/topics/{topicId}")).EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var attachment = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Attachments.SingleAsync(a => a.Id == image.Id);
+        attachment.ForumPostId.Should().BeNull();
+    }
+
     private static CreateForumPostRequest Post(string body) => new(body, null, null);
 
     private static SaveSurveyRequest Survey(int subjectId, SurveyTriggerType trigger, int threshold) =>

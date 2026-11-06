@@ -29,6 +29,20 @@ public class TokenStore(IJSRuntime js)
         await js.InvokeVoidAsync($"{other}.removeItem", RefreshKey);
     }
 
+    /// <summary>Удаляет черновики форума и опросов этого браузера (при явном выходе из аккаунта).</summary>
+    public async Task ClearDraftsAsync()
+    {
+        // Выход не должен сорваться из-за необязательной очистки: любые сбои JS здесь проглатываются.
+        try
+        {
+            var module = await js.InvokeAsync<IJSObjectReference?>("import", "./_content/Frontend.Shared/community.js");
+            if (module is null) return;
+            await using (module)
+                await module.InvokeVoidAsync("clearDrafts");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException) { }
+    }
+
     public async Task ClearAsync()
     {
         await js.InvokeVoidAsync("localStorage.removeItem", AccessKey);

@@ -106,45 +106,49 @@ public partial class StudentGrading
         await LoadStudentsAsync();
     }
 
+    private int _loadVersion;
+
     /// <summary>Студенты предмета и их прогресс (из таблицы результатов) — параллельно, одним заходом.</summary>
     private async Task LoadStudentsAsync(bool showSpinner = true)
     {
         if (_subjectId is not int subjectId)
         {
+            ++_loadVersion;
             _students = [];
             return;
         }
         _loading = showSpinner;
+        // Ответы прежнего предмета не должны лечь под новый: применяет только последняя загрузка.
+        var version = ++_loadVersion;
         try
         {
             var accessTask = Me.GetMyAccessAsync();
             var studentsTask = Subjects.GetStudentsAsync(subjectId);
             var resultsTask = Results.GetSubjectResultsAsync(subjectId);
-            _restrictedGroups = [.. (await accessTask).RestrictedGroupIds];
-            _students = (await studentsTask).OrderBy(s => s.LastName).ThenBy(s => s.FirstName).ToList();
-            if (showSpinner) await RestoreGroupsAsync();
+            var restricted = (await accessTask).RestrictedGroupIds;
+            var students = await studentsTask;
             // Прогресс — подсказка в строке; если таблица результатов не загрузилась, список всё равно показываем.
-            try
-            {
-                var results = await resultsTask;
-                _taskCount = results.TaskHeaders.Count;
-                _progress = results.UserResults.ToDictionary(r => r.StudentId, r => (
-                    r.Results.Values.Count(c => c.Status == SubmissionStatus.Accepted),
-                    r.Results.Values.Count(c => c.Status == SubmissionStatus.Rejected)));
-            }
-            catch (ApiException)
-            {
-                _taskCount = 0;
-                _progress = [];
-            }
+            SubjectResultsDto? results;
+            try { results = await resultsTask; }
+            catch (ApiException) { results = null; }
+            if (version != _loadVersion) return;
+
+            _restrictedGroups = [.. restricted];
+            _students = students.OrderBy(s => s.LastName).ThenBy(s => s.FirstName).ToList();
+            _taskCount = results?.TaskHeaders.Count ?? 0;
+            _progress = results?.UserResults.ToDictionary(r => r.StudentId, r => (
+                r.Results.Values.Count(c => c.Status == SubmissionStatus.Accepted),
+                r.Results.Values.Count(c => c.Status == SubmissionStatus.Rejected))) ?? [];
+            if (showSpinner) await RestoreGroupsAsync();
         }
-        catch (ApiException ex)
+        catch (ApiException ex) when (version == _loadVersion)
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+        catch (ApiException) { /* Ответ по уже не выбранному предмету. */ }
         finally
         {
-            _loading = false;
+            if (version == _loadVersion) _loading = false;
         }
     }
 

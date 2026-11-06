@@ -53,6 +53,7 @@ public partial class Queues : IAsyncDisposable
     // Обработчики открытой очереди: снимаются при уходе к списку или в другую очередь.
     private readonly List<IDisposable> _detailHandlers = [];
     private readonly SemaphoreSlim _listHubLock = new(1, 1);
+    private readonly QueueStyles.RoundIndex _rounds = new();
     private int? _viewedEventId;
     private bool _disposed;
     private long _colorRevision;
@@ -63,6 +64,8 @@ public partial class Queues : IAsyncDisposable
         var user = (await Authentication.GetAuthenticationStateAsync()).User;
         if (Guid.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)) _myId = id;
         await LoadAllAsync();
+        // Список уже загружен: первый OnParametersSetAsync без открытой очереди не должен читать его второй раз.
+        if (EventId is null) _shownEvent = null;
         await InitializeListHubAsync();
     }
 
@@ -208,14 +211,43 @@ public partial class Queues : IAsyncDisposable
         DetachDetails();
         if (_listHub is not { } hub)
             return;
+        // Обработчики не ждут загрузку (клиент SignalR вызывает их по одному), а пачку событий склеивает
+        // ScheduleDetailsReload — одно перечитывание вместо очереди полных загрузок.
         _detailHandlers.Add(hub.On<QueueEntryUpdateDto>("QueueEntryUpdated", update =>
-            update.EventId == eventId ? InvokeAsync(() => LoadDetailsAsync(eventId)) : Task.CompletedTask));
+        {
+            if (update.EventId == eventId) _ = InvokeAsync(() => ScheduleDetailsReloadAsync(eventId));
+            return Task.CompletedTask;
+        }));
         // Изменилось само событие (название, время, порог опоздания) — порядок мог поменяться.
         _detailHandlers.Add(hub.On<int>("QueueChanged", changed =>
-            changed == eventId ? InvokeAsync(() => LoadDetailsAsync(eventId)) : Task.CompletedTask));
+        {
+            if (changed == eventId) _ = InvokeAsync(() => ScheduleDetailsReloadAsync(eventId));
+            return Task.CompletedTask;
+        }));
         _detailHandlers.Add(hub.On<StudentColorUpdateDto>("StudentColorUpdated", update =>
             InvokeAsync(() => UpdateStudentColor(eventId, update))));
         await SubscribeAsync(eventId);
+    }
+
+    private static readonly TimeSpan DetailsReloadDelay = TimeSpan.FromMilliseconds(250);
+    private bool _detailsReloadScheduled, _detailsReloadPending;
+
+    private async Task ScheduleDetailsReloadAsync(int eventId)
+    {
+        if (_disposed) return;
+        if (_detailsReloadScheduled) { _detailsReloadPending = true; return; }
+        _detailsReloadScheduled = true;
+        try
+        {
+            do
+            {
+                _detailsReloadPending = false;
+                await Task.Delay(DetailsReloadDelay);
+                await LoadDetailsAsync(eventId);
+            }
+            while (_detailsReloadPending && !_disposed && _viewedEventId == eventId);
+        }
+        finally { _detailsReloadScheduled = false; }
     }
 
     private void DetachDetails()

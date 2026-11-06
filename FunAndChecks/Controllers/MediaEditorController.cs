@@ -2,6 +2,7 @@ using FunAndChecks.Application.Profiles;
 using FunAndChecks.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FunAndChecks.Controllers;
 
@@ -11,6 +12,7 @@ namespace FunAndChecks.Controllers;
 public sealed class MediaEditorController(IProfileMediaProcessor processor) : ControllerBase
 {
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.MediaProcessing)]
     [RequestSizeLimit(21L * 1024 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = 21L * 1024 * 1024)]
     public async Task<ActionResult<MediaEditorSessionDto>> Prepare(IFormFile file, CancellationToken cancellationToken)
@@ -29,6 +31,7 @@ public sealed class MediaEditorController(IProfileMediaProcessor processor) : Co
     }
 
     [HttpGet("{sessionId:guid}/frame")]
+    [EnableRateLimiting(RateLimitPolicies.MediaProcessing)]
     public async Task<IActionResult> Frame(Guid sessionId, [FromQuery] double timeSeconds, CancellationToken cancellationToken)
     {
         var result = await processor.GetFrameAsync(User.GetUserId(), sessionId, timeSeconds, cancellationToken);

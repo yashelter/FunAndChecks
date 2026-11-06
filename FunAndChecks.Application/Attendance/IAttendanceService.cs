@@ -14,6 +14,7 @@ public interface IAttendanceService
     Task MarkRemainingAbsentAsync(Guid adminId, int sessionId, RemainingAttendanceRequest request, CancellationToken ct = default);
     Task AddStudentAsync(Guid adminId, int sessionId, Guid studentId, CancellationToken ct = default);
     Task<List<StudentDto>> GetAvailableStudentsAsync(Guid adminId, int sessionId, CancellationToken ct = default);
+    Task<AttendanceSummaryDto> GetSummaryAsync(Guid adminId, int subjectId, CancellationToken ct = default);
     Task<AttendanceJournalDto> GetJournalAsync(Guid adminId, int subjectId, int? groupId = null, DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default);
     Task<List<StudentAttendanceDto>> GetStudentHistoryAsync(Guid studentId, int subjectId, CancellationToken ct = default);
     Task<List<SubjectDto>> GetStudentSubjectsAsync(Guid studentId, CancellationToken ct = default);

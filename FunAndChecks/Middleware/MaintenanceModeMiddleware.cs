@@ -21,8 +21,28 @@ public sealed class MaintenanceModeMiddleware(RequestDelegate next, MaintenanceM
             return;
         }
 
-        await next(context);
+        // Восстановление после входа в техрежим ждёт, пока завершатся уже начатые API-запросы,
+        // чтобы они не писали в базу во время страховочного бэкапа и замены. Хабы (долгие соединения)
+        // и опрос статуса не считаются.
+        if (!IsCounted(context.Request))
+        {
+            await next(context);
+            return;
+        }
+        maintenance.RequestStarted();
+        try
+        {
+            await next(context);
+        }
+        finally
+        {
+            maintenance.RequestFinished();
+        }
     }
+
+    internal static bool IsCounted(HttpRequest request) =>
+        request.Path.StartsWithSegments("/api")
+        && !(HttpMethods.IsGet(request.Method) && request.Path.Equals(RestoreStatusPath, StringComparison.OrdinalIgnoreCase));
 
     internal static bool IsBlocked(HttpRequest request)
     {

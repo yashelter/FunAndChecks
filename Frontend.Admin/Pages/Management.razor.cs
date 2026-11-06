@@ -13,7 +13,7 @@ using MudBlazor;
 
 namespace Frontend.Admin.Pages;
 
-public partial class Management
+public partial class Management : IAsyncDisposable
 {
     [Inject] private SubjectsApi Subjects { get; set; } = null!;
     [Inject] private GroupsApi Groups { get; set; } = null!;
@@ -299,6 +299,7 @@ public partial class Management
         (TaskCreateMode.Copy, "Management_TaskModeCopy"),
     ];
     private TaskCreateMode _taskCreateMode = TaskCreateMode.Single;
+    private int _taskLoadVersion, _componentLoadVersion;
 
     private async Task OnTaskSubjectChanged(int? subjectId)
     {
@@ -308,6 +309,7 @@ public partial class Management
         await CurrentSubject.SetAsync(subjectId);
         if (subjectId is null)
         {
+            ++_taskLoadVersion;
             _tasks = [];
             _taskGroups = [];
             _selectedTasks = [];
@@ -315,13 +317,19 @@ public partial class Management
             return;
         }
 
+        // Ответ предыдущего выбора (или более ранней перечитки) не должен подменить список: иначе под селектором
+        // предмета B оказались бы задачи A с их настоящими Id, и правка ушла бы не в тот предмет.
+        var version = ++_taskLoadVersion;
         try
         {
             var groupsTask = Subjects.GetTaskGroupsAsync(subjectId.Value);
-            _tasks = (await Subjects.GetTasksAsync(subjectId.Value))
+            var tasks = await Subjects.GetTasksAsync(subjectId.Value);
+            var groups = await groupsTask;
+            if (version != _taskLoadVersion) return;
+            _tasks = tasks
                 .Select(t => new TaskRow { Id = t.Id, Name = t.Name, Description = t.Description, MaxPoints = t.MaxPoints, TaskGroupId = t.TaskGroupId })
                 .ToList();
-            _taskGroups = (await groupsTask).Select(g => new TaskGroupRow { Id = g.Id, Name = g.Name, TaskCount = g.TaskCount }).ToList();
+            _taskGroups = groups.Select(g => new TaskGroupRow { Id = g.Id, Name = g.Name, TaskCount = g.TaskCount }).ToList();
             if (_taskGroups.All(g => g.Id != _newTaskGroupId)) _newTaskGroupId = 0;
             if (_bulkGroupSelection > 0 && _taskGroups.All(g => g.Id != _bulkGroupSelection)) _bulkGroupSelection = KeepValue;
             _selectedTasks = _tasks.Where(t => keepSelected.Contains(t.Id)).ToHashSet();
@@ -371,7 +379,14 @@ public partial class Management
             }
             requests.Add(new CreateTaskRequest(parts[0], parts.Length > 2 ? parts[2] : "", points, NewTaskGroupId));
         }
-        if (await CreateTasksAsync(subjectId, requests) is int created && created > 0)
+        var (created, failed) = await CreateTasksAsync(subjectId, requests);
+        if (failed)
+        {
+            // Созданные строки убираем, несозданные (с той, на которой остановились) оставляем для исправления.
+            _bulkTasks = string.Join('\n', lines.Skip(created));
+            if (created > 0) Snackbar.Add(Loc["Management_TasksBulkAdded", created], Severity.Info);
+        }
+        else if (created > 0)
         {
             _bulkTasks = null;
             Snackbar.Add(Loc["Management_TasksBulkAdded", created], Severity.Success);
@@ -400,8 +415,8 @@ public partial class Management
             var requests = sourceTasks
                 .Select(t => new CreateTaskRequest(t.Name, t.Description, t.MaxPoints,
                     t.TaskGroupName is string g ? groupIds[g] : null)).ToList();
-            var created = await CreateTasksAsync(subjectId, requests) ?? 0;
-            Snackbar.Add(Loc["Management_TasksCopied", created], Severity.Success);
+            var (created, failed) = await CreateTasksAsync(subjectId, requests);
+            Snackbar.Add(Loc["Management_TasksCopied", created], failed ? Severity.Info : Severity.Success);
         }
         catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
     }
@@ -437,11 +452,12 @@ public partial class Management
         var names = BuildSetNames(_setPrefix.Trim(), _setCount);
         var requests = names.Where(n => !existing.Contains(n))
             .Select(n => new CreateTaskRequest(n, "", _setPoints, NewTaskGroupId)).ToList();
-        var created = await CreateTasksAsync(subjectId, requests) ?? 0;
-        Snackbar.Add(Loc["Management_TaskSetCreated", created, names.Count - requests.Count], Severity.Success);
+        var (created, failed) = await CreateTasksAsync(subjectId, requests);
+        Snackbar.Add(Loc["Management_TaskSetCreated", created, names.Count - requests.Count], failed ? Severity.Info : Severity.Success);
     }
 
-    private async Task<int?> CreateTasksAsync(int subjectId, IReadOnlyList<CreateTaskRequest> requests)
+    /// <summary>Создаёт задачи по порядку до первой ошибки: Created — сколько создано, Failed — была ли ошибка.</summary>
+    private async Task<(int Created, bool Failed)> CreateTasksAsync(int subjectId, IReadOnlyList<CreateTaskRequest> requests)
     {
         _bulkBusy = true;
         var created = 0;
@@ -452,12 +468,12 @@ public partial class Management
                 await Subjects.CreateTaskAsync(subjectId, request);
                 created++;
             }
-            return created;
+            return (created, false);
         }
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
-            return created;
+            return (created, true);
         }
         finally
         {
@@ -497,6 +513,13 @@ public partial class Management
             await _dragSelectModule.InvokeVoidAsync("init", _tasksTableHost);
         }
         catch (JSException) { /* без протяжки остаются обычные галочки */ }
+        catch (JSDisconnectedException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dragSelectModule is null) return;
+        try { await _dragSelectModule.DisposeAsync(); }
         catch (JSDisconnectedException) { }
     }
 
@@ -596,13 +619,17 @@ public partial class Management
         await CurrentSubject.SetAsync(subjectId);
         if (subjectId is null)
         {
+            ++_componentLoadVersion;
             _components = [];
             return;
         }
 
+        var version = ++_componentLoadVersion;
         try
         {
-            _components = (await Subjects.GetGradeComponentsAsync(subjectId.Value))
+            var components = await Subjects.GetGradeComponentsAsync(subjectId.Value);
+            if (version != _componentLoadVersion) return;
+            _components = components
                 .Select(c => new ComponentRow { Id = c.Id, Name = c.Name, MinPoints = c.MinPoints, MaxPoints = c.MaxPoints })
                 .ToList();
         }

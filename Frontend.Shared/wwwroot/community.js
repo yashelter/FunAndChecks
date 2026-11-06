@@ -91,6 +91,18 @@ export function saveDraft(key, value) {
     } catch { /* приватный режим и т.п. */ }
 }
 
+/** Удаляет все черновики (форум и опросы) — при выходе из аккаунта, чтобы их не увидел следующий пользователь. */
+export function clearDrafts() {
+    try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('fc-draft:') || key.startsWith('fc-survey-draft:'))) keys.push(key);
+        }
+        keys.forEach(key => localStorage.removeItem(key));
+    } catch { /* приватный режим и т.п. */ }
+}
+
 export function focusElement(element) { element?.focus(); }
 
 export function unbindComposer(zone) {

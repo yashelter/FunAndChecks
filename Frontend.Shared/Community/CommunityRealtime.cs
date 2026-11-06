@@ -52,8 +52,12 @@ public sealed class CommunityRealtime : IAsyncDisposable
         catch (Exception)
         {
             // Без живого канала всё работает по запросу; попробуем при следующем открытии страницы.
-            _hub = null;
-            _starting = null;
+            // Пока шёл старт, могли сменить аккаунт и запустить новый канал — его ссылки не трогаем.
+            if (ReferenceEquals(_hub, hub))
+            {
+                _hub = null;
+                _starting = null;
+            }
             await hub.DisposeAsync();
         }
     }

@@ -755,6 +755,8 @@
   <data name="Maintenance_RestoreErrorTools" xml:space="preserve"><value>PostgreSQL client tools (pg_restore, psql) are unavailable on the server. Nothing was changed.</value></data>
   <data name="Maintenance_RestoreErrorDatabase" xml:space="preserve"><value>The database could not be restored; the transaction was rolled back and the data is unchanged.</value></data>
   <data name="Maintenance_RestoreErrorMigration" xml:space="preserve"><value>The database was restored, but updating its schema failed. Check the server logs; the backup of the previous state is listed below.</value></data>
+  <data name="Maintenance_RestoreErrorMigrationRolledBack" xml:space="preserve"><value>The backup was restored, but updating its schema failed, so the previous state was brought back automatically. Check the server logs.</value></data>
+  <data name="Maintenance_RestoreErrorRollbackFailed" xml:space="preserve"><value>Updating the schema of the restored database failed and the automatic rollback failed too. The service stays in maintenance mode: check the server logs and restart it after fixing the database.</value></data>
   <data name="Maintenance_RestoreErrorGeneric" xml:space="preserve"><value>The restore failed. Check the server logs.</value></data>
   <data name="Maintenance_RestoreWarningNoAttachments" xml:space="preserve"><value>The backup has no attachments archive: forum files were left as they are.</value></data>
   <data name="Maintenance_RestoreWarningAttachments" xml:space="preserve"><value>The database was restored, but forum attachments could not be restored. Check the server logs.</value></data>

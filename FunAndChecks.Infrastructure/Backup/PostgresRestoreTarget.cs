@@ -156,7 +156,18 @@ public sealed partial class PostgresRestoreTarget(
             var entries = list.Output.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => !PublicSchemaEntry().IsMatch(l));
             await File.WriteAllLinesAsync(listFile, entries, cancellationToken);
 
-            await PipeRestoreAsync(dumpPath, listFile, cancellationToken);
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(_options.ProcessTimeout);
+            try
+            {
+                await PipeRestoreAsync(dumpPath, listFile, deadline.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Процессы убиты в finally, psql не дописал COMMIT — сервер откатил транзакцию.
+                throw new RestoreStepException("restore.database_failed",
+                    $"pg_restore/psql did not finish within {_options.ProcessTimeout.TotalMinutes:0} minutes.");
+            }
         }
         finally
         {
@@ -273,12 +284,19 @@ public sealed partial class PostgresRestoreTarget(
         using var process = new Process { StartInfo = StartInfo(fileName, ConnectionString(), arguments) };
         process.StartInfo.RedirectStandardOutput = true;
         StartOrThrow(process, fileName, "Backup:PgRestorePath");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(_options.ProcessTimeout);
         try
         {
-            var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var error = process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            var output = process.StandardOutput.ReadToEndAsync(deadline.Token);
+            var error = process.StandardError.ReadToEndAsync(deadline.Token);
+            await process.WaitForExitAsync(deadline.Token);
             return (process.ExitCode, await output, await error);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new RestoreStepException("restore.invalid_dump",
+                $"{Path.GetFileName(fileName)} did not finish within {_options.ProcessTimeout.TotalMinutes:0} minutes.");
         }
         finally { Kill(process); }
     }

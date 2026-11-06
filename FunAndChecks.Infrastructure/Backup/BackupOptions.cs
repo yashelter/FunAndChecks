@@ -16,4 +16,12 @@ public class BackupOptions
 
     /// <summary>Путь к утилите psql (восстановление из бэкапа).</summary>
     public string PsqlPath { get; set; } = "psql";
+
+    /// <summary>
+    /// Предельное время одного запуска pg_dump / pg_restore+psql. Зависший процесс иначе держал бы
+    /// технический режим до перезапуска приложения.
+    /// </summary>
+    public int ProcessTimeoutMinutes { get; set; } = 60;
+
+    internal TimeSpan ProcessTimeout => TimeSpan.FromMinutes(Math.Max(1, ProcessTimeoutMinutes));
 }

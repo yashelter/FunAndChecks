@@ -23,14 +23,24 @@ public sealed class ProfileMediaCache : IAsyncDisposable
         _api = api; _js = js; _authentication = authentication;
         authentication.AuthenticationStateChanged += AccountChanged;
     }
-    public async Task<MediaBlobLease> AcquireAsync(MediaDto media, bool poster)
+    /// <param name="cancellationToken">
+    /// Отмена со стороны потребителя (ушёл с экрана, уничтожен). Общая загрузка прерывается, только когда
+    /// её больше никто не ждёт: иначе быстрая прокрутка оставляла бы впереди очередь ненужных скачиваний.
+    /// </param>
+    public async Task<MediaBlobLease> AcquireAsync(MediaDto media, bool poster, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!_initialized) { _initialized = true; _account = (await _authentication.GetAuthenticationStateAsync()).User.FindFirst(ClaimTypes.NameIdentifier)?.Value; }
         var key = (media.Id, poster);
-        if (!_entries.TryGetValue(key, out var entry)) { entry = new Entry(); _entries[key] = entry; entry.Load = LoadAsync(media, poster, _accountLifetime.Token); }
+        if (!_entries.TryGetValue(key, out var entry))
+        {
+            entry = new Entry { Cancellation = CancellationTokenSource.CreateLinkedTokenSource(_accountLifetime.Token) };
+            _entries[key] = entry;
+            entry.Load = LoadAsync(media, poster, entry.Cancellation.Token);
+        }
         entry.References++;
-        try { return new MediaBlobLease(await entry.Load, () => ReleaseAsync(key, entry)); }
+        try { return new MediaBlobLease(await entry.Load.WaitAsync(cancellationToken), () => ReleaseAsync(key, entry)); }
         catch { await ReleaseAsync(key, entry); throw; }
     }
     private async Task<string> LoadAsync(MediaDto media, bool poster, CancellationToken ct)
@@ -56,8 +66,11 @@ public sealed class ProfileMediaCache : IAsyncDisposable
         if (--entry.References > 0) return;
         if (_entries.GetValueOrDefault(key) == entry) _entries.Remove(key);
         entry.Released = true;
+        // Больше никто не ждёт: незавершённая загрузка (в том числе ещё ждущая слота) прерывается.
+        entry.Cancellation?.Cancel();
         try { var url = await entry.Load; if (_module is not null) await _module.InvokeVoidAsync("release", url); }
         catch (Exception ex) when (ex is OperationCanceledException or JSException or Frontend.Shared.Api.ApiException) { }
+        finally { entry.Cancellation?.Dispose(); }
     }
     private async void AccountChanged(Task<AuthenticationState> pending)
     {
@@ -94,7 +107,13 @@ public sealed class ProfileMediaCache : IAsyncDisposable
         if (_module is not null) await _module.DisposeAsync();
         _transfers.Dispose();
     }
-    private sealed class Entry { public Task<string> Load { get; set; } = Task.FromResult(""); public int References { get; set; } public bool Released { get; set; } }
+    private sealed class Entry
+    {
+        public Task<string> Load { get; set; } = Task.FromResult("");
+        public CancellationTokenSource? Cancellation { get; init; }
+        public int References { get; set; }
+        public bool Released { get; set; }
+    }
 }
 
 public sealed class MediaBlobLease(string url, Func<ValueTask> release) : IAsyncDisposable

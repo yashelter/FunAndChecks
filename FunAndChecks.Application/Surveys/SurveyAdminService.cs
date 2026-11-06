@@ -240,7 +240,11 @@ public class SurveyAdminService(
                 .ToList(),
             survey.IsAnonymous ? null : r.RespondentId is Guid l && accounts.TryGetValue(l, out var c) ? c.LastName : null,
             survey.IsAnonymous ? null : r.RespondentId is Guid f && accounts.TryGetValue(f, out var d) ? d.FirstName : null)).ToList();
-        return survey.IsAnonymous ? rows.OrderBy(_ => Random.Shared.Next()).ToList() : rows;
+        // Настоящий Id ответа растёт по порядку сдачи и вместе со списком прошедших выдал бы респондента.
+        // Для анонимного опроса — перемешанный порядок и порядковые номера вместо Id.
+        return survey.IsAnonymous
+            ? rows.OrderBy(_ => Random.Shared.Next()).Select((row, index) => row with { ResponseId = index + 1 }).ToList()
+            : rows;
     }
 
     /// <summary>Студенты, которым опрос адресован: целевые группы или группы предмета, иначе все активные.</summary>

@@ -102,10 +102,18 @@ public class GroupService(
         var group = await db.Groups.FindAsync([groupId], cancellationToken)
                     ?? throw new NotFoundException($"Group with ID {groupId} not found.");
 
-        await InvalidateGroupSubjectsCacheAsync(groupId, cancellationToken);
+        // Связи с предметами исчезнут вместе с группой, поэтому собираем их заранее, а кэш сбрасываем
+        // только после коммита: иначе параллельное чтение снова закэшировало бы студентов удаляемой группы.
+        var subjectIds = await db.GroupSubjects
+            .Where(gs => gs.GroupId == groupId)
+            .Select(gs => gs.SubjectId)
+            .ToListAsync(cancellationToken);
 
         db.Groups.Remove(group);
         await db.SaveChangesAsync(cancellationToken);
+
+        foreach (var subjectId in subjectIds)
+            cache.Invalidate(subjectId);
     }
 
     public async Task LinkSubjectAsync(Guid adminId, int groupId, int subjectId, CancellationToken cancellationToken = default)

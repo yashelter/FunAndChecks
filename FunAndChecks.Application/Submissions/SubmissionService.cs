@@ -122,6 +122,35 @@ public class SubmissionService(
         return current;
     }
 
+    public async Task<Dictionary<int, List<SubmissionLogDto>>> GetSubjectLogsAsync(Guid adminId, Guid studentId, int subjectId,
+        CancellationToken cancellationToken = default)
+    {
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+        var student = await db.Students
+            .Where(s => s.Id == studentId)
+            .Select(s => new { s.GroupId })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Student with ID {studentId} not found.");
+        if (student.GroupId is int groupId)
+            await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
+
+        // Одним запросом вместо запроса на каждую задачу: окно студента открывает историю всех несданных задач.
+        var rows = await db.Submissions
+            .Where(s => s.StudentId == studentId && s.Task.SubjectId == subjectId)
+            .OrderBy(s => s.SubmittedAt).ThenBy(s => s.Id)
+            .Select(s => new
+            {
+                s.TaskId,
+                Log = new SubmissionLogDto(
+                    s.Status,
+                    s.Comment,
+                    s.SubmittedAt,
+                    new AdminDto(s.Admin.Id, s.Admin.FirstName, s.Admin.LastName, s.Admin.Color, s.Admin.Letter)),
+            })
+            .ToListAsync(cancellationToken);
+        return rows.GroupBy(r => r.TaskId).ToDictionary(g => g.Key, g => g.Select(r => r.Log).ToList());
+    }
+
     public async Task<List<SubmissionLogDto>> GetLogAsync(Guid adminId, Guid studentId, int taskId, CancellationToken cancellationToken = default)
     {
         var subjectId = await db.Tasks.Where(t => t.Id == taskId).Select(t => (int?)t.SubjectId).FirstOrDefaultAsync(cancellationToken)

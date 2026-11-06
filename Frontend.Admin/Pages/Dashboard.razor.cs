@@ -10,7 +10,7 @@ using MudBlazor;
 
 namespace Frontend.Admin.Pages;
 
-public partial class Dashboard
+public partial class Dashboard : IDisposable
 {
     [Inject] private MeApi Me { get; set; } = null!;
     [Inject] private ResultsApi Results { get; set; } = null!;
@@ -49,18 +49,21 @@ public partial class Dashboard
         catch (ApiException) { }
     }
 
-    /// <summary>Посещаемость — дополнительная колонка: если журнал не загрузился, таблица показывается без неё.</summary>
+    /// <summary>
+    /// Посещаемость — дополнительная колонка: если итоги не загрузились, таблица показывается без неё.
+    /// Берём серверную сводку, а не весь журнал: колонке нужны три счётчика на студента.
+    /// </summary>
     private async Task<Dictionary<Guid, (int Present, int Absent, int Unmarked)>?> LoadAttendanceAsync(int subjectId)
     {
         try
         {
-            var journal = await Attendance.GetJournalAsync(subjectId);
-            if (!journal.Enabled && journal.Sessions.Count == 0)
+            var summary = await Attendance.GetSummaryAsync(subjectId, _life.Token);
+            if (!summary.Enabled && !summary.HasSessions)
                 return null;
-            return journal.Students.GroupBy(s => s.StudentId).ToDictionary(g => g.Key,
-                g => (g.Sum(s => s.Present), g.Sum(s => s.Absent), g.Sum(s => s.Unmarked)));
+            return summary.Students.ToDictionary(s => s.StudentId, s => (s.Present, s.Absent, s.Unmarked));
         }
         catch (ApiException) { return null; }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { return null; }
     }
 
     /// <summary>
@@ -89,6 +92,16 @@ public partial class Dashboard
     }
 
     private CancellationTokenSource? _liveRefresh;
+    // Отмена запросов при уходе со страницы; версия выбора — защита от ответа прежнего выбора при A → B → A.
+    private readonly CancellationTokenSource _life = new();
+    private int _selectVersion;
+
+    public void Dispose()
+    {
+        _liveRefresh?.Cancel();
+        _life.Cancel();
+        _life.Dispose();
+    }
 
     /// <summary>Отметки других преподавателей появляются без ручного обновления; пачка событий — один запрос.</summary>
     private async Task OnResultUpdatedAsync(ResultUpdateDto update)
@@ -102,6 +115,7 @@ public partial class Dashboard
             StateHasChanged();
         }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { /* Страницу уже закрыли. */ }
     }
 
     /// <summary>
@@ -115,9 +129,10 @@ public partial class Dashboard
         var subjectId = _results.SubjectId;
         try
         {
-            var fresh = await Results.GetSubjectResultsAsync(subjectId);
+            var fresh = await Results.GetSubjectResultsAsync(subjectId, _life.Token);
             if (_results?.SubjectId == subjectId && _selectedSubject?.Id == subjectId) SetResults(fresh);
         }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
         catch (ApiException ex) when (!quiet) { Snackbar.Add(string.Format(Loc["Common_LoadResultsError"], ex.Message), Severity.Error); }
         catch (ApiException) { }
     }
@@ -152,6 +167,7 @@ public partial class Dashboard
             return;
 
         _selectedSubject = subject;
+        var version = ++_selectVersion;
         _liveRefresh?.Cancel();
         ProfileReturn.SelectSubject("/admin", subject.Id);
         await CurrentSubject.SetAsync(subject.Id);
@@ -163,7 +179,7 @@ public partial class Dashboard
         try
         {
             // Таблица, варианты и журнал независимы — запрашиваем параллельно.
-            var resultsTask = Results.GetSubjectResultsAsync(subject.Id);
+            var resultsTask = Results.GetSubjectResultsAsync(subject.Id, _life.Token);
             var attendanceTask = LoadAttendanceAsync(subject.Id);
             var variantsTask = RefreshVariantsAsync(subject.Id);
             var results = await resultsTask;
@@ -171,19 +187,20 @@ public partial class Dashboard
             // большую таблицу ещё раз. Без них таблица всё равно показывается — обе загрузки ошибок не бросают.
             await variantsTask;
             var attendance = await attendanceTask;
-            // Пока грузили, могли выбрать другой предмет — его загрузка и покажет свою таблицу.
-            if (_selectedSubject?.Id != subject.Id) return;
+            // Пока грузили, могли выбрать другой предмет (или вернуться к этому) — покажет таблицу последняя загрузка.
+            if (version != _selectVersion) return;
             SetResults(results);
             _attendance = attendance;
         }
-        catch (ApiException ex) when (_selectedSubject?.Id == subject.Id)
+        catch (ApiException ex) when (version == _selectVersion)
         {
             Snackbar.Add(string.Format(Loc["Common_LoadResultsError"], ex.Message), Severity.Error);
         }
         catch (ApiException) { /* Ответ по уже не выбранному предмету. */ }
+        catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
         finally
         {
-            if (_selectedSubject?.Id == subject.Id) _loading = false;
+            if (version == _selectVersion && !_life.IsCancellationRequested) _loading = false;
         }
     }
 

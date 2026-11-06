@@ -11,7 +11,7 @@ public class NotificationService(IApplicationDbContext db, IUserNotifier notifie
     : INotificationService
 {
     /// <summary>Уведомления не копятся бесконечно: храним последние на пользователя.</summary>
-    internal const int KeepPerUser = 200;
+    public const int KeepPerUser = 200;
 
     public async Task NotifyAsync(IEnumerable<Guid> userIds, NotificationRequest request, CancellationToken ct = default)
     {
@@ -50,7 +50,7 @@ public class NotificationService(IApplicationDbContext db, IUserNotifier notifie
     public async Task<NotificationPageDto> ListAsync(Guid userId, int page, int pageSize, CancellationToken ct = default)
     {
         ProfileValidation.Page(page, pageSize);
-        if (page == 1) await TrimAsync(userId, ct);
+        if (page == 1) await TrimAsync(db, userId, ct);
         var mine = db.Notifications.AsNoTracking().Where(n => n.UserId == userId);
         var total = await mine.CountAsync(ct);
         var unread = await mine.CountAsync(n => n.ReadAtUtc == null, ct);
@@ -94,13 +94,21 @@ public class NotificationService(IApplicationDbContext db, IUserNotifier notifie
         return read.Count;
     }
 
-    private async Task TrimAsync(Guid userId, CancellationToken ct)
+    /// <summary>
+    /// Оставляет пользователю последние <see cref="KeepPerUser"/> уведомлений одним DELETE, без загрузки строк.
+    /// Вызывается при чтении и фоновой очисткой — для тех, кто приложение не открывает.
+    /// </summary>
+    public static async Task<int> TrimAsync(IApplicationDbContext db, Guid userId, CancellationToken ct)
     {
-        var stale = await db.Notifications.Where(n => n.UserId == userId)
-            .OrderByDescending(n => n.CreatedAtUtc).ThenByDescending(n => n.Id).Skip(KeepPerUser).ToListAsync(ct);
-        if (stale.Count == 0) return;
-        db.Notifications.RemoveRange(stale);
-        await db.SaveChangesAsync(ct);
+        var boundary = await db.Notifications.Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAtUtc).ThenByDescending(n => n.Id).Skip(KeepPerUser - 1)
+            .Select(n => new { n.CreatedAtUtc, n.Id })
+            .FirstOrDefaultAsync(ct);
+        if (boundary is null) return 0;
+        return await db.Notifications
+            .Where(n => n.UserId == userId && (n.CreatedAtUtc < boundary.CreatedAtUtc
+                                               || (n.CreatedAtUtc == boundary.CreatedAtUtc && n.Id < boundary.Id)))
+            .ExecuteDeleteAsync(ct);
     }
 
     internal static NotificationDto ToDto(Notification n) =>

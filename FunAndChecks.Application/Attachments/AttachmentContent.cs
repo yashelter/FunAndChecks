@@ -69,7 +69,9 @@ public static class AttachmentContent
         if (data.IndexOf((byte)0) >= 0) return false;
         try
         {
-            new UTF8Encoding(false, true).GetCharCount(data);
+            // Проверяется начало файла (первые 64 КиБ), и граница может разрезать многобайтный символ.
+            // flush: false не считает незавершённую последовательность в конце ошибкой.
+            new UTF8Encoding(false, true).GetDecoder().GetCharCount(data, flush: false);
             return true;
         }
         catch (DecoderFallbackException)

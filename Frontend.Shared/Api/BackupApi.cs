@@ -12,14 +12,27 @@ public class BackupApi(HttpClient http, IStringLocalizer<AppStrings> loc, IHttpC
     /// <summary>Предел загрузки бэкапа — совпадает с серверным.</summary>
     public const long MaxUploadBytes = 2L * 1024 * 1024 * 1024;
 
-    public Task<BackupResultDto> CreateAsync(CancellationToken ct = default) =>
-        PostAsync<BackupResultDto>("api/admin/backup", new { }, ct);
+    /// <summary>
+    /// Сервер снимает дамп и архивирует вложения прямо в запросе — на большой базе это дольше стандартных
+    /// 100 секунд, а обрыв запроса отменил бы создание. Поэтому клиент с долгим таймаутом.
+    /// </summary>
+    public Task<BackupResultDto> CreateAsync(CancellationToken ct = default) => GuardAsync(async () =>
+    {
+        var client = httpFactory.CreateClient(DependencyInjection.LongRunningApiClient);
+        using var response = await client.PostAsJsonAsync("api/admin/backup", new { }, ct);
+        await response.EnsureSuccessAsync(Loc);
+        return (await response.Content.ReadFromJsonAsync<BackupResultDto>(ct))!;
+    }, Loc, ct);
 
     public Task<List<BackupFileDto>> ListAsync(CancellationToken ct = default) =>
         GetAsync<List<BackupFileDto>>("api/admin/backup", ct);
 
     public new Task DeleteAsync(string fileName, CancellationToken ct = default) =>
         base.DeleteAsync(FileUrl(fileName), ct);
+
+    /// <summary>Подписанная ссылка на скачивание: браузер качает файл сам, потоком на диск.</summary>
+    public Task<BackupDownloadLinkDto> GetDownloadLinkAsync(string fileName, CancellationToken ct = default) =>
+        PostAsync<BackupDownloadLinkDto>($"{FileUrl(fileName)}/download-link", new { }, ct);
 
     // Keep the response and its stream alive until the browser has consumed the file.
     public Task DownloadAsync(string fileName, Func<Stream, Task> saveFile, CancellationToken ct = default) =>

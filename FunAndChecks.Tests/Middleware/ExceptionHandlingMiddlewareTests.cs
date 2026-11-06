@@ -119,6 +119,25 @@ public class ExceptionHandlingMiddlewareTests
         args.GetProperty("expectedValue").GetString().Should().Be("Waiting");
     }
 
+    // FE-17: ValidationException(string) has no field errors; its message must reach the client.
+    [Fact]
+    public async Task InvokeAsync_MessageOnlyValidation_KeepsMessageAsDetail()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var sut = new ExceptionHandlingMiddleware(
+            _ => throw new ValidationException("The answer is longer than 300 characters."),
+            NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+        await sut.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        context.Response.Body.Position = 0;
+        using var json = await JsonDocument.ParseAsync(context.Response.Body);
+        json.RootElement.GetProperty("code").GetString().Should().Be("validation.failed");
+        json.RootElement.GetProperty("detail").GetString().Should().Be("The answer is longer than 300 characters.");
+    }
+
     [Fact]
     public async Task InvokeAsync_WhenResponseHasStarted_RethrowsException_AndDoesNotModifyStatusCode()
     {

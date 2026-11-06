@@ -59,8 +59,16 @@ public class AttachmentService(IApplicationDbContext db, IFileStorage storage, I
         };
         try
         {
-            db.Attachments.Add(attachment);
-            await db.SaveChangesAsync(ct);
+            // Повторный подсчёт в той же транзакции, что и вставка: параллельные загрузки иначе
+            // все прошли бы проверку выше и превысили лимит.
+            await db.ExecuteSerializableAsync(async token =>
+            {
+                if (await db.Attachments.CountAsync(a => a.UploaderId == userId && a.ForumPostId == null, token) >= MaxPendingPerUser)
+                    throw new ConflictException("Too many files are waiting to be attached. Publish or remove them first.",
+                        "attachment.too_many_pending");
+                db.Attachments.Add(attachment);
+                await db.SaveChangesAsync(token);
+            }, ct);
         }
         catch
         {
@@ -86,9 +94,14 @@ public class AttachmentService(IApplicationDbContext db, IFileStorage storage, I
             ?? throw new NotFoundException("Attachment not found.", "attachment.not_found");
         if (attachment.ForumPostId is not null)
             throw new ConflictException("The file is already attached to a message.", "attachment.in_use");
-        db.Attachments.Remove(attachment);
-        await db.SaveChangesAsync(ct);
-        await storage.DeleteAsync(attachment.StorageKey, ct);
+        // Условие «не прикреплён» повторяется в DELETE: публикация в соседней вкладке могла успеть его прикрепить.
+        if (await db.Attachments.Where(a => a.Id == id && a.ForumPostId == null).ExecuteDeleteAsync(ct) == 0)
+            throw new ConflictException("The file is already attached to a message.", "attachment.in_use");
+        try { await storage.DeleteAsync(attachment.StorageKey, ct); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Строки уже нет; файл без строки удалит фоновая сверка диска с БД.
+        }
     }
 
     public static AttachmentDto ToDto(Attachment a, IAttachmentUrlSigner signer) =>

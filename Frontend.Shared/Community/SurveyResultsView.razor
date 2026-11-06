@@ -121,21 +121,41 @@ else
     private ResponseSort _sort = ResponseSort.Time;
     private bool _descending;
 
+    private int? _loadedSurvey;
+    private int _version;
+
     protected override async Task OnParametersSetAsync()
     {
-        try { _results = await Api.ResultsAsync(SurveyId, _groupId); }
-        catch (ApiException ex) { _error = ex.Message; }
+        // Перерисовка родителя не повод перечитывать результаты; другой опрос — начинаем с чистого состояния.
+        if (_loadedSurvey == SurveyId) return;
+        _loadedSurvey = SurveyId;
+        _results = null; _responses = null; _groupId = null; _error = null;
+        var version = ++_version;
+        try
+        {
+            var results = await Api.ResultsAsync(SurveyId, null);
+            if (version == _version) _results = results;
+        }
+        catch (ApiException ex) when (version == _version) { _error = ex.Message; }
+        catch (ApiException) { }
     }
 
     private async Task SelectGroupAsync(int? groupId)
     {
         _groupId = groupId;
+        var version = ++_version;
+        var surveyId = SurveyId;
         try
         {
-            _results = await Api.ResultsAsync(SurveyId, groupId);
-            if (_responses is not null) _responses = _results.HiddenForAnonymity ? null : await Api.ResponsesAsync(SurveyId, groupId);
+            var results = await Api.ResultsAsync(surveyId, groupId);
+            var responses = _responses is not null && !results.HiddenForAnonymity ? await Api.ResponsesAsync(surveyId, groupId) : null;
+            // Быстрое переключение групп: применяем только ответ на последний выбор.
+            if (version != _version) return;
+            _results = results;
+            if (_responses is not null) _responses = responses;
         }
-        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (ApiException ex) when (version == _version) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (ApiException) { }
     }
 
     private async Task ToggleResponsesAsync()

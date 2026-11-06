@@ -19,6 +19,9 @@ public class SubmissionsApi(HttpClient http, IStringLocalizer<AppStrings> loc) :
             return (await System.Net.Http.Json.HttpContentJsonExtensions.ReadFromJsonAsync<UndoSubmissionResultDto>(response.Content, ct))!;
         }, Loc, ct)).Status;
 
+    public Task<Dictionary<int, List<SubmissionLogDto>>> GetSubjectLogsAsync(Guid studentId, int subjectId, CancellationToken ct = default) =>
+        GetAsync<Dictionary<int, List<SubmissionLogDto>>>($"api/submissions/students/{studentId}/subjects/{subjectId}", ct);
+
     public Task<List<SubmissionLogDto>> GetLogAsync(Guid studentId, int taskId, CancellationToken ct = default) =>
         GetAsync<List<SubmissionLogDto>>($"api/submissions/students/{studentId}/tasks/{taskId}", ct);
 }

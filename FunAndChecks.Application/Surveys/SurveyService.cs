@@ -50,6 +50,7 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
         var groupId = await db.Students.Where(s => s.Id == studentId).Select(s => s.GroupId).SingleOrDefaultAsync(ct);
         await db.ExecuteSerializableAsync(async token =>
         {
+            await EnsureStillOpenAsync(surveyId, token);
             var participation = await db.SurveyParticipations
                 .SingleOrDefaultAsync(p => p.SurveyId == surveyId && p.UserId == studentId, token);
             if (participation?.Status == SurveyParticipationStatus.Completed)
@@ -81,6 +82,7 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
         if (!survey.AllowSnooze) throw new ConflictException("This survey cannot be postponed.", "survey.snooze_not_allowed");
         await db.ExecuteSerializableAsync(async token =>
         {
+            await EnsureStillOpenAsync(surveyId, token);
             var participation = await db.SurveyParticipations
                 .SingleOrDefaultAsync(p => p.SurveyId == surveyId && p.UserId == studentId, token);
             if (participation?.Status == SurveyParticipationStatus.Completed)
@@ -122,7 +124,7 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
     }
 
     /// <summary>Опросы, которые студент может пройти прямо сейчас.</summary>
-    internal async Task<List<Survey>> AvailableAsync(Guid studentId, bool respectSnooze, CancellationToken ct)
+    internal async Task<List<Survey>> AvailableAsync(Guid studentId, bool respectSnooze, CancellationToken ct, int? onlySurveyId = null)
     {
         var student = await db.Students.AsNoTracking().Where(s => s.Id == studentId && s.IsActive)
             .Select(s => new { s.GroupId }).SingleOrDefaultAsync(ct);
@@ -134,6 +136,7 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
         var now = DateTime.UtcNow;
         var candidates = await db.Surveys.AsNoTracking().AsSplitQuery()
             .Include(s => s.Subject).Include(s => s.Questions).ThenInclude(q => q.Options).Include(s => s.TargetGroups)
+            .Where(s => onlySurveyId == null || s.Id == onlySurveyId)
             .Where(s => s.Status == SurveyStatus.Published && (s.OpensAtUtc == null || s.OpensAtUtc <= now) &&
                 (s.ClosesAtUtc == null || s.ClosesAtUtc > now))
             .Where(s => s.SubjectId == null || subjectIds.Contains(s.SubjectId.Value))
@@ -153,9 +156,22 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
         }).ToList();
     }
 
+    /// <summary>
+    /// Перепроверка в транзакции записи: доступность проверялась до неё, а преподаватель мог успеть закрыть опрос.
+    /// </summary>
+    private async Task EnsureStillOpenAsync(int surveyId, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        if (!await db.Surveys.AnyAsync(s => s.Id == surveyId && s.Status == SurveyStatus.Published
+                                            && (s.OpensAtUtc == null || s.OpensAtUtc <= now)
+                                            && (s.ClosesAtUtc == null || s.ClosesAtUtc > now), ct))
+            throw new NotFoundException("Survey not found.", "survey.not_found");
+    }
+
     private async Task<Survey> RequireAvailableAsync(Guid studentId, int surveyId, CancellationToken ct)
     {
-        var survey = (await AvailableAsync(studentId, respectSnooze: false, ct)).SingleOrDefault(s => s.Id == surveyId);
+        // Полный граф (вопросы, варианты) нужен только запрошенному опросу, а не всем доступным.
+        var survey = (await AvailableAsync(studentId, respectSnooze: false, ct, surveyId)).SingleOrDefault();
         if (survey is not null) return survey;
         if (await db.SurveyParticipations.AnyAsync(p => p.SurveyId == surveyId && p.UserId == studentId &&
                 p.Status == SurveyParticipationStatus.Completed, ct))
@@ -229,6 +245,10 @@ public class SurveyService(IApplicationDbContext db, IUserNotifier userNotifier,
                     throw new ValidationException($"Choose a point on the scale: {question.Text}");
                 if ((question.ScaleMin is int min && number < min) || (question.ScaleMax is int max && number > max))
                     throw new ValidationException($"The value is out of range: {question.Text}");
+                if (Math.Abs(number) >= SurveyRules.NumberAbsLimit || number.Scale > SurveyRules.NumberMaxScale
+                    && number != decimal.Round(number, SurveyRules.NumberMaxScale))
+                    throw new ValidationException(
+                        $"Enter a number with at most 14 digits before and {SurveyRules.NumberMaxScale} after the decimal point: {question.Text}");
                 return [new(question.Id, null, null, number)];
             }
             default:

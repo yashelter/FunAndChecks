@@ -46,10 +46,23 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 
 // Секреты (ConnectionStrings, Jwt:Key, Smtp, InitialAdmins) — реальный файл не в репозитории,
 // шаблон рядом: secrets.template.json. Можно заменить user-secrets/переменными окружения.
+// Файл встаёт сразу после appsettings*.json, а не в конец: user-secrets, переменные окружения и
+// аргументы командной строки должны его перекрывать (порядок описан в docs/configuration.md).
 builder.Configuration.AddJsonFile(
     "secrets.json",
     optional: true,
     reloadOnChange: true);
+{
+    var sources = builder.Configuration.Sources;
+    var secrets = sources[^1];
+    sources.RemoveAt(sources.Count - 1);
+    var lastAppSettings = -1;
+    for (var i = 0; i < sources.Count; i++)
+        if (sources[i] is Microsoft.Extensions.Configuration.Json.JsonConfigurationSource { Path: { } path }
+            && path.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase))
+            lastAppSettings = i;
+    sources.Insert(lastAppSettings + 1, secrets);
+}
 
 // Слои приложения
 builder.Services.AddApplication();
@@ -171,6 +184,18 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new SlidingWindowRateLimiterOptions
             {
                 PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6,
+                QueueLimit = 0,
+            }));
+    // Редактор медиа: каждый запрос запускает FFmpeg; кадры берутся по действию пользователя, 60 в минуту с запасом.
+    options.AddPolicy(RateLimitPolicies.MediaProcessing, httpContext =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 SegmentsPerWindow = 6,
                 QueueLimit = 0,

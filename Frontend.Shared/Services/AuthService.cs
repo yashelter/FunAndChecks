@@ -16,9 +16,19 @@ public record AuthResult(bool Success, string? Error = null, string? Code = null
 /// Сценарии аутентификации: вход, регистрация, подтверждение почты, сброс пароля.
 /// Хранит токен через <see cref="TokenStore"/>.
 /// </summary>
-public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalizer<AppStrings> loc)
+public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalizer<AppStrings> loc, TokenRefresher? refresher = null)
 {
-    public Task<string?> GetTokenAsync() => tokenStore.GetTokenAsync();
+    /// <summary>
+    /// Access-токен для SignalR (AccessTokenProvider). Хабы не ходят через AuthHeaderHandler, поэтому истекающий
+    /// токен обновляется здесь: иначе переподключение долго открытой страницы слало бы просроченный токен.
+    /// </summary>
+    public async Task<string?> GetTokenAsync()
+    {
+        var token = await tokenStore.GetTokenAsync();
+        if (refresher is not null && !string.IsNullOrEmpty(token) && AuthHeaderHandler.IsExpiredOrSoon(token))
+            token = await refresher.RefreshAsync() ?? token;
+        return token;
+    }
 
     public Task<AuthResult> LoginAsync(LoginRequest request, bool sharedComputer = false) =>
         ApiClientBase.GuardAsync(async () =>
@@ -93,6 +103,7 @@ public class AuthService(HttpClient http, TokenStore tokenStore, IStringLocalize
         }
 
         await tokenStore.ClearAsync();
+        await tokenStore.ClearDraftsAsync();
     }
 
     /// <summary>Получить статус согласия с политикой конфиденциальности и Пользовательским соглашением.</summary>

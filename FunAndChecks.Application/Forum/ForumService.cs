@@ -199,6 +199,10 @@ public partial class ForumService(
             topic.IsDeleted = true;
             topic.DeletedAtUtc = DateTime.UtcNow;
             topic.DeletedById = userId;
+            // Как при удалении отдельного сообщения: файлы удалённой темы становятся висячими
+            // и стираются фоновой очисткой, а не занимают диск навсегда.
+            foreach (var file in await db.Attachments.Where(a => a.ForumPost != null && a.ForumPost.TopicId == topicId).ToListAsync(token))
+                file.ForumPostId = null;
             await db.SaveChangesAsync(token);
         }, ct);
         await PublishAsync(new(topicId, ForumEventKinds.TopicChanged, null), ct);

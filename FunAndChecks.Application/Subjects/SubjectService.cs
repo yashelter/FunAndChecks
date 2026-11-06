@@ -160,6 +160,7 @@ public class SubjectService(
                 LastStatus = task.Submissions
                     .Where(sub => sub.StudentId == studentId)
                     .OrderByDescending(sub => sub.SubmittedAt)
+                    .ThenByDescending(sub => sub.Id) // как в таблице результатов и очередях
                     .Select(sub => (SubmissionStatus?)sub.Status)
                     .FirstOrDefault(),
             })

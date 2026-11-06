@@ -167,6 +167,8 @@ public partial class Maintenance
         "restore.tools_unavailable" => Loc["Maintenance_RestoreErrorTools"],
         "restore.database_failed" => Loc["Maintenance_RestoreErrorDatabase"],
         "restore.migration_failed" => Loc["Maintenance_RestoreErrorMigration"],
+        "restore.migration_failed_rolled_back" => Loc["Maintenance_RestoreErrorMigrationRolledBack"],
+        "restore.rollback_failed" => Loc["Maintenance_RestoreErrorRollbackFailed"],
         "restore.attachments_missing" => Loc["Maintenance_RestoreWarningNoAttachments"],
         "restore.attachments_failed" => Loc["Maintenance_RestoreWarningAttachments"],
         _ => Loc["Maintenance_RestoreErrorGeneric"],
@@ -216,7 +218,9 @@ public partial class Maintenance
         _downloading = true;
         try
         {
-            await Backup.DownloadAsync(file.FileName, stream => Downloader.DownloadAsync(file.FileName, stream), _lifetime.Token);
+            // Дамп может весить гигабайты: браузер качает его сам по подписанной ссылке, а не через память вкладки.
+            var link = await Backup.GetDownloadLinkAsync(file.FileName, _lifetime.Token);
+            await Downloader.DownloadFromUrlAsync(file.FileName, link.Url);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }

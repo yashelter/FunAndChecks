@@ -25,6 +25,8 @@ public sealed class DatabaseRestoreService(
     ILogger<DatabaseRestoreService> logger,
     IHostApplicationLifetime? lifetime = null) : IDatabaseRestoreService
 {
+    private static readonly TimeSpan RequestDrainTimeout = TimeSpan.FromSeconds(30);
+
     private readonly Lock _gate = new();
     private RestoreStatusDto _status = RestoreStatusDto.Idle;
 
@@ -75,15 +77,28 @@ public sealed class DatabaseRestoreService(
                     $"The dump was made by a newer version of the application (unknown migrations: {string.Join(", ", unknown)}).");
 
             maintenance.Enter();
+            // После успешной замены БД кэш таблиц описывает уже не ту базу, пока его не сбросят.
+            // Неудачная замена кэш не портит: pg_restore идёт одной транзакцией и откатывается целиком.
+            var cacheStale = false;
+            // Выходим из техрежима, только если база гарантированно в рабочем состоянии.
+            var leaveMaintenance = true;
             try
             {
+                // Новые запросы уже получают 503; ждём завершения начатых, чтобы их записи не разошлись
+                // со страховочным бэкапом. Зависший запрос не блокирует восстановление: его соединение
+                // всё равно разорвёт TerminateOtherSessionsAsync.
+                if (!await maintenance.WaitForRequestsAsync(RequestDrainTimeout, cancellationToken))
+                    logger.LogWarning("Restore continues while {Count} API request(s) are still running.", maintenance.RequestsInFlight);
+
                 Update(RestoreSteps.SafetyBackup);
-                var safety = await CreateSafetyBackupAsync(cancellationToken);
+                var safetyPath = await CreateSafetyBackupAsync(cancellationToken);
+                var safety = Path.GetFileName(safetyPath);
                 Update(RestoreSteps.SafetyBackup, safetyBackup: safety);
 
                 Update(RestoreSteps.RestoringDatabase);
                 await target.TerminateOtherSessionsAsync(cancellationToken);
                 await target.ReplaceDatabaseAsync(dumpPath, cancellationToken);
+                cacheStale = true;
 
                 Update(RestoreSteps.Migrating);
                 try
@@ -92,10 +107,15 @@ public sealed class DatabaseRestoreService(
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException and not RestoreStepException)
                 {
-                    throw new RestoreStepException("restore.migration_failed",
+                    logger.LogError(ex, "Migrations failed after restoring {FileName}; rolling back to safety backup {Safety}.",
+                        fileName, safety);
+                    leaveMaintenance = await RollBackAsync(safetyPath, cancellationToken);
+                    throw new RestoreStepException(
+                        leaveMaintenance ? "restore.migration_failed_rolled_back" : "restore.rollback_failed",
                         $"The database was restored, but migrations or seeding failed: {ex.Message}", ex);
                 }
                 resultsCache.Clear();
+                cacheStale = false;
 
                 Update(RestoreSteps.RestoringAttachments);
                 var warning = RestoreAttachments(fileName, dumpPath);
@@ -105,7 +125,13 @@ public sealed class DatabaseRestoreService(
             }
             finally
             {
-                maintenance.Exit();
+                if (cacheStale)
+                    resultsCache.Clear();
+                if (leaveMaintenance)
+                    maintenance.Exit();
+                else
+                    logger.LogCritical("Restore from {FileName} left the database in an unknown state; " +
+                                       "maintenance mode stays on until the application is restarted.", fileName);
             }
         }
         catch (RestoreStepException ex)
@@ -120,13 +146,33 @@ public sealed class DatabaseRestoreService(
         }
     }
 
+    /// <summary>
+    /// Возвращает базу к страховочному бэкапу, если миграции восстановленного дампа упали.
+    /// true — база снова в прежнем рабочем состоянии и техрежим можно снять.
+    /// </summary>
+    private async Task<bool> RollBackAsync(string safetyPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await target.TerminateOtherSessionsAsync(cancellationToken);
+            await target.ReplaceDatabaseAsync(safetyPath, cancellationToken);
+            await target.MigrateAndSeedAsync(cancellationToken);
+            logger.LogWarning("Rolled the database back to safety backup {Safety}.", Path.GetFileName(safetyPath));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger.LogCritical(ex, "Rolling back to safety backup {Safety} failed.", Path.GetFileName(safetyPath));
+            return false;
+        }
+    }
+
     private async Task<string> CreateSafetyBackupAsync(CancellationToken cancellationToken)
     {
         try
         {
             using var scope = scopes.CreateScope();
-            var path = await scope.ServiceProvider.GetRequiredService<IDatabaseBackupService>().CreateBackupAsync(cancellationToken);
-            return Path.GetFileName(path);
+            return await scope.ServiceProvider.GetRequiredService<IDatabaseBackupService>().CreateBackupAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -148,23 +194,30 @@ public sealed class DatabaseRestoreService(
 
         var root = Path.GetFullPath(attachmentOptions.Value.RootDirectory);
         var staging = Path.Combine(root, $".restore-{Guid.NewGuid():N}");
+        var previous = Path.Combine(root, $".previous-{Guid.NewGuid():N}");
         try
         {
+            EnsureArchiveFits(archivePath, root);
             Directory.CreateDirectory(staging);
             // ExtractToDirectory отклоняет записи, выходящие за пределы каталога (zip-slip).
             ZipFile.ExtractToDirectory(archivePath, staging);
 
-            foreach (var entry in Directory.EnumerateFileSystemEntries(root).ToList())
+            // Текущие файлы не удаляем, а откладываем: если перенос новых сорвётся, их можно вернуть.
+            Directory.CreateDirectory(previous);
+            foreach (var entry in TopLevelEntries(root, staging, previous))
+                MoveEntry(entry, Path.Combine(previous, Path.GetFileName(entry)));
+            try
             {
-                if (string.Equals(entry, staging, StringComparison.Ordinal)) continue;
-                if (Directory.Exists(entry)) Directory.Delete(entry, recursive: true);
-                else File.Delete(entry);
+                foreach (var entry in Directory.EnumerateFileSystemEntries(staging).ToList())
+                    MoveEntry(entry, Path.Combine(root, Path.GetFileName(entry)));
             }
-            foreach (var entry in Directory.EnumerateFileSystemEntries(staging).ToList())
+            catch
             {
-                var destination = Path.Combine(root, Path.GetFileName(entry));
-                if (Directory.Exists(entry)) Directory.Move(entry, destination);
-                else File.Move(entry, destination);
+                foreach (var entry in TopLevelEntries(root, staging, previous))
+                    DeleteEntry(entry);
+                foreach (var entry in Directory.EnumerateFileSystemEntries(previous).ToList())
+                    MoveEntry(entry, Path.Combine(root, Path.GetFileName(entry)));
+                throw;
             }
             return null;
         }
@@ -175,9 +228,62 @@ public sealed class DatabaseRestoreService(
         }
         finally
         {
-            try { if (Directory.Exists(staging)) Directory.Delete(staging, recursive: true); }
-            catch { /* Best effort */ }
+            foreach (var temporary in new[] { staging, previous })
+            {
+                try { if (Directory.Exists(temporary)) Directory.Delete(temporary, recursive: true); }
+                catch { /* Best effort */ }
+            }
         }
+    }
+
+    /// <summary>Предел числа файлов в архиве вложений: защищает от архива-бомбы из миллионов пустых записей.</summary>
+    internal const int MaxArchiveEntries = 1_000_000;
+
+    /// <summary>
+    /// Проверяет архив до распаковки: число записей и суммарный распакованный размер против свободного места.
+    /// Заявленные размеры .NET сверяет при распаковке, поэтому занизить их в архиве нельзя.
+    /// </summary>
+    private static void EnsureArchiveFits(string archivePath, string root)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        if (archive.Entries.Count > MaxArchiveEntries)
+            throw new InvalidDataException($"The attachments archive has more than {MaxArchiveEntries} entries.");
+        var expanded = archive.Entries.Sum(e => e.Length);
+        if (FreeSpace(root) is long free && expanded > free * 9 / 10)
+            throw new InvalidDataException($"The attachments archive needs {expanded} bytes, but only {free} are free.");
+    }
+
+    private static long? FreeSpace(string path)
+    {
+        try
+        {
+            // Самый длинный подходящий корень: на Linux каталог обычно лежит на отдельно смонтированном томе.
+            var drive = DriveInfo.GetDrives()
+                .Where(d => d.IsReady && path.StartsWith(d.RootDirectory.FullName, StringComparison.OrdinalIgnoreCase))
+                .MaxBy(d => d.RootDirectory.FullName.Length);
+            return drive?.AvailableFreeSpace;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static List<string> TopLevelEntries(string root, params string[] except) =>
+        Directory.EnumerateFileSystemEntries(root)
+            .Where(entry => !except.Contains(entry, StringComparer.Ordinal))
+            .ToList();
+
+    private static void MoveEntry(string source, string destination)
+    {
+        if (Directory.Exists(source)) Directory.Move(source, destination);
+        else File.Move(source, destination);
+    }
+
+    private static void DeleteEntry(string entry)
+    {
+        if (Directory.Exists(entry)) Directory.Delete(entry, recursive: true);
+        else File.Delete(entry);
     }
 
     private void Update(string step, string? safetyBackup = null)

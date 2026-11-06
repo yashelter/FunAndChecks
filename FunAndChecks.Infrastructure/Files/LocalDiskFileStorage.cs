@@ -70,6 +70,22 @@ public partial class LocalDiskFileStorage(IOptions<AttachmentStorageOptions> opt
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Все сохранённые файлы с временем последней записи — для сверки с базой (файлы без строки в БД).
+    /// Незавершённые <c>.part</c> и посторонние файлы пропускаются.
+    /// </summary>
+    public IEnumerable<(string Key, DateTime LastWriteUtc)> EnumerateFiles()
+    {
+        var root = Root;
+        if (!Directory.Exists(root)) yield break;
+        foreach (var path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            var key = Path.GetRelativePath(root, path).Replace(Path.DirectorySeparatorChar, '/');
+            if (KeyPattern().IsMatch(key))
+                yield return (key, File.GetLastWriteTimeUtc(path));
+        }
+    }
+
     private string PathFor(string key)
     {
         if (!KeyPattern().IsMatch(key)) throw new InvalidOperationException("Invalid storage key.");
