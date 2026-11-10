@@ -15,24 +15,32 @@ public partial class Queues
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private IDialogService Dialogs { get; set; } = null!;
 
+    /// <summary>Вкладка: archive — «Архив» (в рамках доступных предметов), иначе «Текущие».</summary>
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    private bool Archive => string.Equals(View, "archive", StringComparison.OrdinalIgnoreCase);
+
     private List<QueueEventDto> _queues = [];
     private bool _loading = true;
-    private bool _showPast;
+    private bool? _shownArchive;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
-
-    private async Task OnShowPastChangedAsync(bool value)
+    protected override async Task OnParametersSetAsync()
     {
-        _showPast = value;
+        if (_shownArchive == Archive) return;
+        _shownArchive = Archive;
         await LoadAsync();
     }
 
-    private async Task LoadAsync()
+    private void OnTabChanged(int index) => Nav.NavigateTo(index == 1 ? "/admin/queues?view=archive" : "/admin/queues");
+
+    private async Task LoadAsync(bool quiet = false)
     {
-        _loading = true;
+        if (!quiet) _loading = true;
+        var archive = Archive;
         try
         {
-            _queues = _showPast ? await QueuesApi.GetAllAsync() : await QueuesApi.GetActiveAsync();
+            var queues = archive ? await QueuesApi.GetArchiveAsync() : await QueuesApi.GetActiveAsync();
+            // Пока грузилось, могли переключить вкладку: чужой ответ не показываем.
+            if (archive == Archive) _queues = queues;
         }
         catch (ApiException ex)
         {
@@ -44,7 +52,7 @@ public partial class Queues
         }
     }
 
-    private void Open(int eventId) => Nav.NavigateTo($"/admin/queues/{eventId}");
+    private Task ReloadQuietAsync() => LoadAsync(quiet: true);
 
     /// <summary>Новая очередь прямо со страницы очередей — та же форма, что в «Управлении».</summary>
     private async Task CreateAsync()

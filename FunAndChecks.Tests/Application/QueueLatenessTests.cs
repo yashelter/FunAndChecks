@@ -191,7 +191,7 @@ public class QueueLatenessTests : IDisposable
 
         (await sut.GetDetailsAsync(c.QueueId)).LateAfterMinutes.Should().Be(30);
         (await WaitingAsync(ctx, c)).Select(p => p.StudentId).Should().Equal(onTime.Id, late.Id);
-        (await sut.GetMyEventsAsync(late.Id, includePast: true)).Single().MyPosition.Should().Be(2);
+        (await sut.GetMyEventsAsync(late.Id, QueueListScope.All)).Single().MyPosition.Should().Be(2);
         await _notifier.Received(1).QueueChangedAsync(c.QueueId, Arg.Any<CancellationToken>());
         await sut.Invoking(s => s.SetLateRuleAsync(c.Admin.Id, c.QueueId, new SetQueueLateRuleRequest(QueueLateness.MaxLateAfterMinutes + 1)))
             .Should().ThrowAsync<FluentValidation.ValidationException>();

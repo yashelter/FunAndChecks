@@ -24,6 +24,10 @@ public partial class Queues : IAsyncDisposable
 
     /// <summary>Открытая очередь — в адресе: «назад» в браузере и обновление страницы её не теряют.</summary>
     [Parameter] public int? EventId { get; set; }
+    /// <summary>Вкладка списка: archive — «Архив», иначе «Текущие». Сохраняется и в адресе открытой очереди.</summary>
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+    private bool Archive => string.Equals(View, "archive", StringComparison.OrdinalIgnoreCase);
+    private string ViewQuery => Archive ? "?view=archive" : "";
     private Guid? _myId;
 
     /// <summary>Своя запись — последний круг; прошлые круги остаются в списке историей.</summary>
@@ -43,10 +47,10 @@ public partial class Queues : IAsyncDisposable
 
     private List<QueueEventDto> _myEvents = [];
     private List<QueueEventDto> _availableEvents = [];
+    private List<QueueEventDto> _archiveEvents = [];
     private QueueDetailsDto? _details;
     private List<QueueParticipantDto> _participants = [];
     private bool _loading = true;
-    private bool _showPast;
 
     private HubConnection? _listHub;
     private readonly List<IDisposable> _listHubHandlers = [];
@@ -65,16 +69,19 @@ public partial class Queues : IAsyncDisposable
         if (Guid.TryParse(user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id)) _myId = id;
         await LoadAllAsync();
         // Список уже загружен: первый OnParametersSetAsync без открытой очереди не должен читать его второй раз.
-        if (EventId is null) _shownEvent = null;
+        if (EventId is null) (_shownEvent, _shownArchive) = (null, Archive);
         await InitializeListHubAsync();
     }
 
     private int? _shownEvent = -1;
+    private bool? _shownArchive;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_shownEvent == EventId) return;
+        // Вкладка важна только для списка: у открытой очереди она лишь запоминает, куда вернуться.
+        if (_shownEvent == EventId && (EventId is not null || _shownArchive == Archive)) return;
         _shownEvent = EventId;
+        _shownArchive = Archive;
         if (EventId is int eventId)
         {
             _loading = true;
@@ -87,26 +94,25 @@ public partial class Queues : IAsyncDisposable
         {
             CloseDetails();
             await LoadAllAsync();
-        }
-    }
-
-    private async Task OnShowPastChangedAsync(bool value)
-    {
-        _showPast = value;
-        await LoadAllAsync();
-        if (_listHub?.State == HubConnectionState.Connected)
-        {
             await SubscribeToAllQueueGroupsAsync();
         }
     }
 
-    private async Task LoadAllAsync()
+    private void OnTabChanged(int index) => Nav.NavigateTo(index == 1 ? "/student/queues?view=archive" : "/student/queues");
+
+    private async Task LoadAllAsync(bool quiet = false)
     {
-        _loading = true;
+        if (!quiet) _loading = true;
         try
         {
-            var mine = await Me.GetMyQueueEventsAsync(_showPast);
-            var available = await Me.GetAvailableQueueEventsAsync(_showPast);
+            if (Archive)
+            {
+                _archiveEvents = await Me.GetMyArchivedQueueEventsAsync();
+                return;
+            }
+            // Текущие: сервер уже убрал из них вручную архивированные и прошедшие.
+            var mine = await Me.GetMyQueueEventsAsync();
+            var available = await Me.GetAvailableQueueEventsAsync();
 
             _myEvents = mine;
             var joinedIds = mine.Select(e => e.Id).ToHashSet();
@@ -229,6 +235,30 @@ public partial class Queues : IAsyncDisposable
         await SubscribeAsync(eventId);
     }
 
+    private bool _listReloadScheduled, _listReloadPending;
+
+    /// <summary>Пачка событий — одно тихое перечитывание списка.</summary>
+    private async Task ScheduleListReloadAsync()
+    {
+        if (_disposed) return;
+        if (_listReloadScheduled) { _listReloadPending = true; return; }
+        _listReloadScheduled = true;
+        try
+        {
+            do
+            {
+                _listReloadPending = false;
+                await Task.Delay(DetailsReloadDelay);
+                if (_disposed || _viewedEventId is not null) return;
+                await LoadAllAsync(quiet: true);
+                await SubscribeToAllQueueGroupsAsync();
+                StateHasChanged();
+            }
+            while (_listReloadPending && !_disposed);
+        }
+        finally { _listReloadScheduled = false; }
+    }
+
     private static readonly TimeSpan DetailsReloadDelay = TimeSpan.FromMilliseconds(250);
     private bool _detailsReloadScheduled, _detailsReloadPending;
 
@@ -292,6 +322,12 @@ public partial class Queues : IAsyncDisposable
 
             _listHubHandlers.Add(_listHub.On<QueueSettingsUpdateDto>("QueueSettingsChanged", dto =>
                 InvokeAsync(() => OnQueueSettingsChanged(dto))));
+            // Очередь изменили или архивировали: перечитать список (открытую очередь перечитывает свой обработчик).
+            _listHubHandlers.Add(_listHub.On<int>("QueueChanged", changed =>
+            {
+                if (_viewedEventId is null) _ = InvokeAsync(ScheduleListReloadAsync);
+                return Task.CompletedTask;
+            }));
 
             // После переподключения подписки на группы теряются: подписываемся заново (и на открытую очередь,
             // даже если её нет в списке) и перечитываем то, что на экране, иначе очередь «зависает».
@@ -384,9 +420,20 @@ public partial class Queues : IAsyncDisposable
         }
     }
 
-    private void BackToList() => Nav.NavigateTo("/student/queues");
+    private void BackToList() => Nav.NavigateTo($"/student/queues{ViewQuery}");
 
-    private void Open(int eventId) => Nav.NavigateTo($"/student/queues/{eventId}");
+    private void Open(int eventId) => Nav.NavigateTo($"/student/queues/{eventId}{ViewQuery}");
+
+    /// <summary>Табло: «Вы следующий», «Перед вами N человек» или текущий статус (на проверке, сдал, пропущен).</summary>
+    private string BoardHeadline(QueueParticipantDto mine)
+    {
+        if (mine.Status != QueueEntryStatus.Waiting || MyPosition is not int place)
+            return QueueStyles.StatusText(mine.Status, mine.CheckingByAdminName, Loc);
+        var ahead = place - 1;
+        return ahead == 0
+            ? Loc["StudentQueues_YouAreNext"]
+            : Loc[Frontend.Shared.Community.CommunityText.PluralKey("StudentQueues_Ahead", ahead), ahead];
+    }
 
     private async Task LeaveAsync()
     {

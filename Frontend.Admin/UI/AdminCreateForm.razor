@@ -1,0 +1,137 @@
+@namespace Frontend.Admin.UI
+@implements IDisposable
+@inject AdminsApi Admins
+@inject ISnackbar Snackbar
+@inject IStringLocalizer<AppStrings> Loc
+@inject UnsavedChangesTracker Dirty
+
+<MudPaper Outlined="true" Class="fc-admin-editor fc-admin-create">
+    <section class="fc-admin-section">
+        <div class="fc-admin-section-head">
+            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_ProfileSection"]</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_ProfileHint"]</MudText>
+        </div>
+        <div class="fc-admin-field-row">
+            <MudTextField @bind-Value="_lastName" Immediate="true" Label="@Loc["AdminMgmt_LastNameLabel"]" Variant="Variant.Outlined"
+                          Error="@(_submitted && string.IsNullOrWhiteSpace(_lastName))" ErrorText="@Loc["AdminMgmt_Required"]"
+                          Disabled="_saving" MaxLength="100" />
+            <MudTextField @bind-Value="_firstName" Immediate="true" Label="@Loc["AdminMgmt_FirstNameLabel"]" Variant="Variant.Outlined"
+                          Error="@(_submitted && string.IsNullOrWhiteSpace(_firstName))" ErrorText="@Loc["AdminMgmt_Required"]"
+                          Disabled="_saving" MaxLength="100" />
+        </div>
+        <AdminAppearanceFields @bind-Letter="_letter" @bind-Color="_color" PreviewName="@($"{_lastName} {_firstName}")" Disabled="_saving" />
+    </section>
+
+    <section class="fc-admin-section">
+        <div class="fc-admin-section-head">
+            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_AccountSection"]</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_CreateHint"]</MudText>
+        </div>
+        <div class="fc-admin-field-row">
+            <MudTextField @bind-Value="_email" Immediate="true" Label="@Loc["AdminMgmt_EmailLabel"]" Variant="Variant.Outlined" InputType="InputType.Email"
+                          Error="@(EmailError is not null)" ErrorText="@EmailError" Disabled="_saving" MaxLength="256" autocomplete="off" />
+            <div class="fc-admin-password">
+                <MudTextField @bind-Value="_password" Immediate="true" Label="@Loc["AdminMgmt_PasswordLabel"]" Variant="Variant.Outlined"
+                              InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                              Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                              AdornmentAriaLabel="@Loc["AdminMgmt_ShowPassword"]" OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                              Error="@(PasswordError is not null)" ErrorText="@PasswordError" Disabled="_saving" MaxLength="128" autocomplete="new-password" />
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Casino" OnClick="GeneratePassword" Disabled="_saving">@Loc["AdminMgmt_GeneratePassword"]</MudButton>
+            </div>
+        </div>
+        <div class="fc-admin-role">
+            <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Disabled="_saving">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
+            <MudText Typo="Typo.caption" Class="fc-muted">@Loc["AdminMgmt_SuperAdminHint"]</MudText>
+        </div>
+    </section>
+
+    <div class="fc-admin-save-bar">
+        <MudButton Variant="Variant.Text" OnClick="Reset" Disabled="@(_saving || !HasInput)">@Loc["AdminMgmt_ClearForm"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="CreateAsync" Disabled="_saving">
+            @(_saving ? Loc["AdminMgmt_Creating"] : Loc["AdminMgmt_CreateButton"])
+        </MudButton>
+    </div>
+</MudPaper>
+
+@code {
+    /// <summary>Id созданного админа — страница переключается на список и выбирает его.</summary>
+    [Parameter] public EventCallback<Guid> OnCreated { get; set; }
+
+    private string _firstName = string.Empty;
+    private string _lastName = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _color;
+    private string? _letter;
+    private bool _isSuperAdmin;
+    private bool _showPassword;
+    private bool _submitted;
+    private bool _saving;
+    private UnsavedChangesTracker.Registration? _edits;
+
+    private string? EmailError => _submitted || _email.Length > 0 ? AdminFormRules.EmailError(_email, Loc) : null;
+    private string? PasswordError =>
+        !_submitted && _password.Length == 0 ? null
+        : _password.Length < AdminFormRules.MinPasswordLength ? Loc["AdminMgmt_PasswordTooShort", AdminFormRules.MinPasswordLength].Value
+        : null;
+    private bool IsValid =>
+        !string.IsNullOrWhiteSpace(_firstName) && !string.IsNullOrWhiteSpace(_lastName) &&
+        AdminFormRules.EmailError(_email, Loc) is null && _password.Length >= AdminFormRules.MinPasswordLength;
+    private bool HasInput =>
+        _firstName.Length > 0 || _lastName.Length > 0 || _email.Length > 0 || _password.Length > 0 ||
+        !string.IsNullOrEmpty(_letter) || _color is not null || _isSuperAdmin;
+
+    protected override void OnInitialized() => _edits = Dirty.Register();
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (HasInput) _edits?.MarkDirty(); else _edits?.MarkClean();
+    }
+
+    private void GeneratePassword()
+    {
+        _password = AdminFormRules.GeneratePassword();
+        _showPassword = true;
+    }
+
+    private void Reset()
+    {
+        _firstName = _lastName = _email = _password = string.Empty;
+        _color = _letter = null;
+        _isSuperAdmin = _showPassword = _submitted = false;
+        _edits?.MarkClean();
+    }
+
+    private async Task CreateAsync()
+    {
+        _submitted = true;
+        if (_saving || !IsValid)
+        {
+            Snackbar.Add(Loc["AdminMgmt_FixErrors"], Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var id = await Admins.CreateAsync(new CreateAdminRequest(
+                _firstName.Trim(), _lastName.Trim(), _email.Trim(), _password,
+                string.IsNullOrWhiteSpace(_color) ? null : _color.Trim(),
+                string.IsNullOrWhiteSpace(_letter) ? null : _letter.Trim(),
+                _isSuperAdmin));
+            Snackbar.Add(Loc["AdminMgmt_Created"], Severity.Success);
+            Reset();
+            await OnCreated.InvokeAsync(id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    public void Dispose() => _edits?.Dispose();
+}

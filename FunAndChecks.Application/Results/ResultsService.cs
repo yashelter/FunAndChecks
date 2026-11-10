@@ -153,6 +153,16 @@ public class ResultsService(
         .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
 
+        // Место по Σ на полном снимке: равные баллы — одно место, следующее учитывает размер группы равных.
+        // Строки уже отсортированы по убыванию Σ, поэтому хватает одного прохода.
+        var rank = 0;
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (i == 0 || rows[i].TotalPoints != rows[i - 1].TotalPoints)
+                rank = i + 1;
+            rows[i] = rows[i] with { Rank = rank };
+        }
+
         return new SubjectResultsDto(subject.Id, subject.Name, taskHeaders, gradeColumns, rows);
     }
 

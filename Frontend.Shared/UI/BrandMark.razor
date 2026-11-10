@@ -2,14 +2,19 @@
 @inject SeasonalThemes Seasons
 @inject DashboardAppearanceService Appearance
 
-@* Значок FunAndChecks; в сезон его может заменить тема (например, тыква на Хэллоуин). *@
+@* Значок FunAndChecks — галочка в клетке ведомости; в сезон его может заменить тема (например, тыква на Хэллоуин). *@
 @if (Seasons.Enabled.Select(t => t.BrandMark).FirstOrDefault(t => t is not null) is { } seasonal)
 {
     <DynamicComponent Type="seasonal" />
 }
 else
 {
-    <span class="fc-brand-mark"><MudIcon Icon="@Icons.Material.Outlined.Code" /></span>
+    <span class="fc-brand-mark fc-brand-mark-check">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path class="fc-brand-mark-rule" d="M4 5.5h16M4 18.5h16" />
+            <path class="fc-brand-mark-tick" d="M7 11.8l3.2 3.2L17.2 8" />
+        </svg>
+    </span>
 }
 
 @code {

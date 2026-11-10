@@ -6,9 +6,11 @@ namespace FunAndChecks.Application.Queues;
 /// <summary>
 /// Событие очереди. Для «моих очередей» студента дополнительно: предмет, статус последнего круга и место среди
 /// ожидающих (тот же порядок, что видит преподаватель, см. <see cref="QueueOrder"/>).
+/// <c>ArchivedAt</c> — когда очередь вручную завершили и архивировали (null — не архивирована).
 /// </summary>
 public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin,
-    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
+    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null,
+    DateTime? ArchivedAt = null);
 
 /// <summary>
 /// Создание события очереди. Если заданы <c>AutoFillGroupIds</c>, в очередь сразу добавляются подтверждённые
@@ -62,7 +64,8 @@ public record QueueDetailsDto(
     DateTime EventDateTime,
     bool AllowSelfJoin,
     List<QueueParticipantDto> Participants,
-    int? LateAfterMinutes = null);
+    int? LateAfterMinutes = null,
+    DateTime? ArchivedAt = null);
 
 /// <summary>Событие для подписчиков SignalR об изменении записи в очереди.</summary>
 public record QueueEntryUpdateDto(int EventId, Guid StudentId, QueueEntryStatus NewStatus, string? AdminName);

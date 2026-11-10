@@ -14,19 +14,39 @@ else if (_details is not null)
 {
     <div class="fc-page-heading">
         <div>
-            <div class="fc-core-back"><MudLink Href="/admin/queues"><MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />@Loc["AdminNav_Queues"]</MudLink></div>
+            <div class="fc-core-back"><MudLink Href="@(_details.IsArchived ? "/admin/queues?view=archive" : "/admin/queues")"><MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />@Loc["AdminNav_Queues"]</MudLink></div>
             <MudText Typo="Typo.h4">@_details.EventName</MudText>
             <MudText Typo="Typo.body2" Class="fc-muted">@_details.SubjectName · @_details.EventDateTime.ToLocalTime().ToString("g")</MudText>
-            <MudSwitch T="bool" Value="_details.AllowSelfJoin" ValueChanged="SetSelfJoinAsync" Color="Color.Primary" Class="fc-queue-selfjoin"
-                       Label="@Loc["QueueDetails_SelfJoin"]" title="@Loc["QueueDetails_SelfJoinHint"]" />
-            <MudNumericField T="int?" Value="_details.LateAfterMinutes" ValueChanged="SetLateRuleAsync" Min="0" Max="@QueueLateMax"
-                             Label="@Loc["QueueDetails_LateRule"]" HelperText="@Loc["QueueDetails_LateRuleHint"]" Clearable="true"
-                             DebounceInterval="700" Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-queue-late-rule" />
+            @if (_details.IsArchived)
+            {
+                @* Ручной архив — только просмотр: настройки, «Взять следующего» и смена статусов скрыты, сервер их отклоняет. *@
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Outlined.Inventory2" Class="fc-queue-archived-chip">@Loc["Queue_ArchivedOn", _details.ArchivedAt!.Value.ToLocalTime().ToString("g")]</MudChip>
+            }
+            else
+            {
+                <MudSwitch T="bool" Value="_details.AllowSelfJoin" ValueChanged="SetSelfJoinAsync" Color="Color.Primary" Class="fc-queue-selfjoin"
+                           Label="@Loc["QueueDetails_SelfJoin"]" title="@Loc["QueueDetails_SelfJoinHint"]" />
+                <MudNumericField T="int?" Value="_details.LateAfterMinutes" ValueChanged="SetLateRuleAsync" Min="0" Max="@QueueLateMax"
+                                 Label="@Loc["QueueDetails_LateRule"]" HelperText="@Loc["QueueDetails_LateRuleHint"]" Clearable="true"
+                                 DebounceInterval="700" Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-queue-late-rule" />
+            }
         </div>
-        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="@(_hub?.State == HubConnectionState.Connected ? Color.Success : Color.Warning)"
-                 Icon="@(_hub?.State == HubConnectionState.Connected ? Icons.Material.Filled.Circle : Icons.Material.Outlined.SyncProblem)">
-            @Loc[_hub?.State == HubConnectionState.Connected ? "QueueDetails_Live" : "QueueDetails_Offline"]
-        </MudChip>
+        <div class="fc-queue-heading-actions">
+            @if (!_details.IsArchived)
+            {
+                @* Пока идёт проверка, архивировать нельзя: сначала её завершают (сервер проверяет то же в транзакции). *@
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.Inventory2" OnClick="ArchiveAsync"
+                           Disabled="@(Count(QueueEntryStatus.Checking) > 0 || _archiving)" aria-describedby="@(Count(QueueEntryStatus.Checking) > 0 ? "fc-archive-hint" : null)">@Loc["QueueArchive_Action"]</MudButton>
+                @if (Count(QueueEntryStatus.Checking) > 0)
+                {
+                    <small id="fc-archive-hint" class="fc-muted fc-queue-archive-hint">@Loc["QueueArchive_CheckingHint"]</small>
+                }
+                <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small" Color="@(_hub?.State == HubConnectionState.Connected ? Color.Success : Color.Warning)"
+                         Icon="@(_hub?.State == HubConnectionState.Connected ? Icons.Material.Filled.Circle : Icons.Material.Outlined.SyncProblem)">
+                    @Loc[_hub?.State == HubConnectionState.Connected ? "QueueDetails_Live" : "QueueDetails_Offline"]
+                </MudChip>
+            }
+        </div>
     </div>
 
     @if (_loadError is not null)
@@ -41,10 +61,13 @@ else if (_details is not null)
         <div class="fc-stat"><span>@Loc["Queue_StatusFinished"]</span><strong class="fc-semantic-success">@StatCount(QueueEntryStatus.Finished)</strong></div>
     </div>
 
-    <div class="fc-panel fc-queue-next">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.SkipNext" OnClick="TakeNextAsync"
-                   Disabled="@(NextWaiting() is null)">@Loc["QueueDetails_TakeNext"]</MudButton>
-    </div>
+    @if (!_details.IsArchived)
+    {
+        <div class="fc-panel fc-queue-next">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.SkipNext" OnClick="TakeNextAsync"
+                       Disabled="@(NextWaiting() is null)">@Loc["QueueDetails_TakeNext"]</MudButton>
+        </div>
+    }
 
     @if (_participants.Any(p => p.Status == QueueEntryStatus.Checking))
     {
@@ -92,7 +115,7 @@ else if (_details is not null)
                             <div class="fc-queue-late">
                                 <MudChip T="string" Size="Size.Small" Variant="@(p.LateExcused ? Variant.Outlined : Variant.Text)" Color="@(p.LateExcused ? Color.Default : Color.Warning)"
                                          Icon="@Icons.Material.Outlined.Schedule">@(p.LateExcused ? Loc["QueueDetails_LateExcusedBadge", late] : Loc["Queue_LateBadge", late])</MudChip>
-                                @if (p.CanManage)
+                                @if (p.CanManage && !_details.IsArchived)
                                 {
                                     <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => SetLateExcusedAsync(p, !p.LateExcused))"
                                                title="@Loc[p.LateExcused ? "QueueDetails_LateRestoreHint" : "QueueDetails_LateExcuseHint"]">@Loc[p.LateExcused ? "QueueDetails_LateRestore" : "QueueDetails_LateExcuse"]</MudButton>

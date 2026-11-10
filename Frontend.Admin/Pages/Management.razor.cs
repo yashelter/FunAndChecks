@@ -48,6 +48,8 @@ public partial class Management : IAsyncDisposable
         public string Name = "";
         public DateTime EventDateTime;
         public bool AllowSelfJoin;
+        /// <summary>Когда очередь вручную архивировали; такую очередь не правят.</summary>
+        public DateTime? ArchivedAt;
 
         /// <summary>Введённая дата не разобралась — сохранять строку нельзя.</summary>
         public bool InvalidDate;
@@ -182,7 +184,7 @@ public partial class Management : IAsyncDisposable
         try
         {
             _queues = (await QueuesApi.GetAllAsync())
-                .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin })
+                .Select(q => new QueueRow { Id = q.Id, Name = q.Name, EventDateTime = q.EventDateTime, AllowSelfJoin = q.AllowSelfJoin, ArchivedAt = q.ArchivedAt })
                 .ToList();
         }
         catch (ApiException ex)

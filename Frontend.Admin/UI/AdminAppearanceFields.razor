@@ -1,0 +1,71 @@
+@namespace Frontend.Admin.UI
+@using MudBlazor.Utilities
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Буква-метка и цвет админа с живым предпросмотром; общий для создания и редактирования. *@
+<div class="fc-admin-appearance">
+    <div class="fc-admin-appearance-fields">
+        <MudTextField T="string" Value="Letter" ValueChanged="SetLetterAsync" Immediate="true" MaxLength="8" Counter="8"
+                      Label="@Loc["AdminMgmt_LetterLabel"]" HelperText="@Loc["AdminMgmt_LetterHint"]"
+                      Variant="Variant.Outlined" Disabled="Disabled" />
+        <div class="fc-admin-preview" aria-live="polite">
+            <span class="fc-muted">@Loc["AdminMgmt_Preview"]</span>
+            <span class="fc-admin-letter" style="@AdminStyles.Letter(Color)">@(string.IsNullOrWhiteSpace(Letter) ? "?" : Letter.Trim())</span>
+            <span class="fc-admin-preview-name">@PreviewName</span>
+        </div>
+    </div>
+    <div class="fc-admin-color">
+        <div class="fc-admin-color-head">
+            <span>@Loc["AdminMgmt_ColorLabel"]</span>
+            <code>@(Color ?? "—")</code>
+            <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.FormatColorReset"
+                       Disabled="@(Disabled || Color is null)" OnClick="@(() => SetColorAsync(null))">@Loc["AdminMgmt_ColorReset"]</MudButton>
+        </div>
+        <StudentColorPicker Value="_pickerColor" ValueChanged="OnPickerChanged" Disabled="Disabled"
+                            HueLabel="@Loc["Dialog_ColorHue"]" SpectrumLabel="@Loc["Dialog_ColorSaturationBrightness"]" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Letter { get; set; }
+    [Parameter] public EventCallback<string?> LetterChanged { get; set; }
+    [Parameter] public string? Color { get; set; }
+    [Parameter] public EventCallback<string?> ColorChanged { get; set; }
+    [Parameter] public string? PreviewName { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private MudColor? _pickerColor;
+    private string? _pickerHex;
+
+    protected override void OnParametersSet()
+    {
+        // Пикер хранит своё состояние; пересоздаём значение только когда цвет пришёл снаружи.
+        if (string.Equals(Color, _pickerHex, StringComparison.OrdinalIgnoreCase))
+            return;
+        _pickerHex = Color;
+        _pickerColor = TryParse(Color);
+    }
+
+    private Task SetLetterAsync(string? value) => LetterChanged.InvokeAsync(value);
+
+    private Task OnPickerChanged(MudColor color)
+    {
+        _pickerColor = color;
+        _pickerHex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        return ColorChanged.InvokeAsync(_pickerHex);
+    }
+
+    private Task SetColorAsync(string? hex)
+    {
+        _pickerHex = hex;
+        _pickerColor = TryParse(hex);
+        return ColorChanged.InvokeAsync(hex);
+    }
+
+    private static MudColor? TryParse(string? hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) return null;
+        try { return new MudColor(hex); }
+        catch (Exception) { return null; }
+    }
+}

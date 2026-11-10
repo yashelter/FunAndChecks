@@ -99,6 +99,11 @@ public interface IIdentityService
     /// <summary>Current database roles, independent of potentially stale token claims.</summary>
     Task<IReadOnlyCollection<string>> GetCurrentRolesAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Выдаёт или снимает роль; отзывает refresh-токены, чтобы роль из старого JWT не пережила access-токен.
+    /// </summary>
+    Task SetRoleAsync(Guid userId, string role, bool enabled, CancellationToken cancellationToken = default);
+
     /// <summary>Accounts currently holding the role in the database.</summary>
     Task<IReadOnlyCollection<Guid>> GetUserIdsInRoleAsync(string role, CancellationToken cancellationToken = default);
 

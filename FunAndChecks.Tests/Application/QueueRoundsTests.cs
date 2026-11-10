@@ -67,7 +67,7 @@ public class QueueRoundsTests : IDisposable
         var details = await sut.GetDetailsAsync(c.QueueId);
         details.Participants.Should().HaveCount(3).And.OnlyContain(p => p.StudentId == c.Student.Id);
         details.Participants.Select(p => p.EntryId).Should().OnlyHaveUniqueItems();
-        var mine = (await sut.GetMyEventsAsync(c.Student.Id, false)).Single();
+        var mine = (await sut.GetMyEventsAsync(c.Student.Id, QueueListScope.Current)).Single();
         mine.MyStatus.Should().Be(QueueEntryStatus.Waiting);
         mine.MyPosition.Should().Be(1);
     }
@@ -151,7 +151,7 @@ public class QueueRoundsTests : IDisposable
         await sut.JoinAsync(c.QueueId, weak.Id);
         await sut.JoinAsync(c.QueueId, c.Student.Id);
 
-        async Task<int?> Position(Guid id) => (await sut.GetMyEventsAsync(id, false)).Single().MyPosition;
+        async Task<int?> Position(Guid id) => (await sut.GetMyEventsAsync(id, QueueListScope.Current)).Single().MyPosition;
 
         // Первый круг: баллы равны — раньше тот, кто раньше записался.
         (await Position(weak.Id)).Should().Be(1);

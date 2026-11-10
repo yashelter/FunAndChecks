@@ -7,11 +7,13 @@
     <MudDataGrid @key="ColumnsKey" @ref="_grid" T="StudentResultRowDto" Items="@Results.UserResults"
                  Filterable="true" Dense="true" Hover="true" Elevation="0" Breakpoint="Breakpoint.None"
                  Virtualize="true" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" FixedHeader="true"
-                 Class="@ResultsColumns.GridClass(Results)">
+                 Class="@ResultsColumns.GridClass(Results, ranked: true)">
         <Columns>
             <TemplateColumn Title="@Loc["Dashboard_FullName"]" SortBy="@(x => x.FullName)" HeaderClass="fc-results-name-column" CellClass="fc-results-name-column">
                 <CellTemplate><span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-student-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" /></span></CellTemplate>
             </TemplateColumn>
+            @* Место по Σ из полного снимка предмета: фильтр по группе и сортировка его не меняют. *@
+            <PropertyColumn Property="x => x.Rank" Title="@Loc["Results_ColRank"]" Filterable="false" HeaderClass="fc-results-rank-column" CellClass="fc-results-rank-column" />
             @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
             <PropertyColumn Property="x => x.TotalPoints" Title="@Loc["Dashboard_TotalPoints"]" HeaderClass="fc-results-total-column" CellClass="fc-results-total-column fc-core-score" />
             <PropertyColumn Property="x => x.GroupName" Title="@Loc["Dashboard_Group"]" />

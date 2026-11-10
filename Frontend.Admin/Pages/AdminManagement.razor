@@ -1,60 +1,79 @@
 @page "/admin/admins"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.SuperAdmin)]
+@using Frontend.Admin.UI
 
 <PageTitle>@Loc["AdminMgmt_PageTitle"]</PageTitle>
+<NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="OnBeforeInternalNavigationAsync" />
 
-<div class="fc-page-heading"><div><span class="fc-eyebrow">@Loc["AdminMgmt_ListTitle"]</span><MudText Typo="Typo.h4">@Loc["AdminMgmt_Title"]</MudText></div></div>
+<div class="fc-page-heading"><div><span class="fc-eyebrow">@Loc["AdminMgmt_Eyebrow"]</span><MudText Typo="Typo.h4">@Loc["AdminMgmt_Title"]</MudText></div></div>
 
-<MudGrid Class="fc-admin-management">
-    <MudItem xs="12" md="5">
-        <MudCard Elevation="0">
-            <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">@Loc["AdminMgmt_CreateTitle"]</MudText></CardHeaderContent></MudCardHeader>
-            <MudCardContent>
-                <MudTextField @bind-Value="_firstName" Label="@Loc["AdminMgmt_FirstNameLabel"]" Variant="Variant.Outlined" />
-                <MudTextField @bind-Value="_lastName" Label="@Loc["AdminMgmt_LastNameLabel"]" Variant="Variant.Outlined" Class="mt-2" />
-                <MudTextField @bind-Value="_email" Label="@Loc["AdminMgmt_EmailLabel"]" Variant="Variant.Outlined" Class="mt-2" />
-                <MudTextField @bind-Value="_password" Label="@Loc["AdminMgmt_PasswordLabel"]" InputType="InputType.Password" Variant="Variant.Outlined" Class="mt-2" />
-                <MudTextField @bind-Value="_color" Label="@Loc["AdminMgmt_ColorLabel"]" Variant="Variant.Outlined" Class="mt-2" />
-                <MudTextField @bind-Value="_letter" Label="@Loc["AdminMgmt_LetterLabel"]" Variant="Variant.Outlined" Class="mt-2" />
-                <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Class="mt-2">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
-            </MudCardContent>
-            <MudCardActions>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateAsync">@Loc["Management_CreateButton"]</MudButton>
-            </MudCardActions>
-        </MudCard>
-    </MudItem>
-
-    <MudItem xs="12" md="7">
-        <MudText Typo="Typo.h6" GutterBottom="true">@Loc["AdminMgmt_ListTitle"]</MudText>
+<MudTabs Elevation="0" Rounded="true" MinimumTabWidth="0px" KeepPanelsAlive="true" @bind-ActivePanelIndex="_activeTab" Class="fc-admin-management">
+    <MudTabPanel Text="@Loc["AdminMgmt_TabList", _admins.Count]" Icon="@Icons.Material.Outlined.ManageAccounts">
         @if (_loading)
         {
-            <MudProgressCircular Indeterminate="true" />
+            <MudProgressCircular Indeterminate="true" Class="ma-4" />
+        }
+        else if (_loadFailed)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">
+                @Loc["AdminMgmt_LoadFailed"]
+                <MudButton Variant="Variant.Text" OnClick="LoadAsync">@Loc["AdminMgmt_Retry"]</MudButton>
+            </MudAlert>
         }
         else
         {
-            <MudList T="AdminDto" ReadOnly="true">
-                @foreach (var admin in _admins)
-                {
-                    <MudPaper Outlined="true" Class="fc-admin-row mb-3">
-                        <div>
-                            <UserChip UserId="admin.Id" Name="@($"{admin.LastName} {admin.FirstName}")" NameClass="fc-bold" />
-                            @if (!string.IsNullOrEmpty(admin.Letter))
-                            {
-                                <MudChip T="string" Size="Size.Small"
-                                         Style="@($"background-color:{admin.Color};color:{ColorUtils.ContrastText(admin.Color)};")">@admin.Letter</MudChip>
-                            }
-                        </div>
-                        <div class="fc-admin-actions">
-                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
-                                       OnClick="@(() => OpenAccessAsync(admin))">@Loc["Common_Access"]</MudButton>
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@($"{Loc["Common_Delete"]}: {admin.LastName} {admin.FirstName}")"
-                                           OnClick="@(() => DeleteAsync(admin))" />
-                        </div>
-                    </MudPaper>
-                }
-            </MudList>
-        }
+            <div class="fc-admin-layout">
+                <MudPaper Outlined="true" Class="fc-admin-list-panel">
+                    <MudTextField @bind-Value="_search" Immediate="true" DebounceInterval="150" Placeholder="@Loc["AdminMgmt_SearchLabel"]"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
+                                  Margin="Margin.Dense" Clearable="true" Class="fc-admin-search" />
+                    <ul class="fc-admin-list" role="listbox" aria-label="@Loc["AdminMgmt_Title"]">
+                        @foreach (var admin in FilteredAdmins)
+                        {
+                            var selected = admin.Id == _selectedId;
+                            <li @key="admin.Id" role="option" aria-selected="@(selected ? "true" : "false")" tabindex="0"
+                                class="fc-admin-list-item @(selected ? "is-selected" : "")"
+                                @onclick="@(() => SelectAsync(admin.Id))" @onkeydown="@(e => OnItemKeyDownAsync(e, admin.Id))">
+                                <span class="fc-admin-letter" style="@AdminStyles.Letter(admin.Color)">@(string.IsNullOrWhiteSpace(admin.Letter) ? "?" : admin.Letter)</span>
+                                <UserChip UserId="admin.Id" Name="@admin.FullName" Subtitle="@admin.Email" Link="false" NameClass="fc-bold" Class="fc-admin-list-chip" />
+                                <span class="fc-admin-list-tags">
+                                    @if (admin.IsSuperAdmin)
+                                    {
+                                        <MudTooltip Text="@Loc["AdminMgmt_IsSuperAdmin"]"><MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" Color="Color.Primary" /></MudTooltip>
+                                    }
+                                    @if (admin.Id == _currentUserId)
+                                    {
+                                        <span class="fc-admin-you">@Loc["AdminMgmt_YouBadge"]</span>
+                                    }
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                    @if (!FilteredAdmins.Any())
+                    {
+                        <MudText Typo="Typo.body2" Class="fc-muted pa-4">@Loc["AdminMgmt_NoMatches"]</MudText>
+                    }
+                </MudPaper>
 
-    </MudItem>
-</MudGrid>
+                <div class="fc-admin-detail">
+                    @if (SelectedAdmin is { } selectedAdmin)
+                    {
+                        <AdminEditorPanel @ref="_editor" Admin="selectedAdmin" CurrentUserId="_currentUserId"
+                                          OnSaved="OnAdminSavedAsync" OnDeleted="OnAdminDeletedAsync" />
+                    }
+                    else
+                    {
+                        <MudPaper Outlined="true" Class="fc-admin-empty">
+                            <MudIcon Icon="@Icons.Material.Outlined.TouchApp" Size="Size.Large" />
+                            <MudText Typo="Typo.body1">@Loc["AdminMgmt_SelectHint"]</MudText>
+                        </MudPaper>
+                    }
+                </div>
+            </div>
+        }
+    </MudTabPanel>
+    <MudTabPanel Text="@Loc["AdminMgmt_TabCreate"]" Icon="@Icons.Material.Outlined.PersonAdd">
+        <AdminCreateForm OnCreated="OnAdminCreatedAsync" />
+    </MudTabPanel>
+</MudTabs>

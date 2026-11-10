@@ -25,6 +25,10 @@ public class MeApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClien
     public Task<List<QueueEventDto>> GetMyQueueEventsAsync(bool includePast = false, CancellationToken ct = default) =>
         GetAsync<List<QueueEventDto>>($"api/me/queue-events?includePast={includePast}", ct);
 
+    /// <summary>Архив студента: завершённые и прошедшие очереди, в которых он участвовал.</summary>
+    public Task<List<QueueEventDto>> GetMyArchivedQueueEventsAsync(CancellationToken ct = default) =>
+        GetAsync<List<QueueEventDto>>("api/me/queue-events?scope=archive", ct);
+
     public Task<List<QueueEventDto>> GetAvailableQueueEventsAsync(bool includePast = false, CancellationToken ct = default) =>
         GetAsync<List<QueueEventDto>>($"api/me/available-queue-events?includePast={includePast}", ct);
 

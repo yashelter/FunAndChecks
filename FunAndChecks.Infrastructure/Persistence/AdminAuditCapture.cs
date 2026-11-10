@@ -24,7 +24,7 @@ internal static class AdminAuditCapture
             [typeof(GradeComponent)] = ("grade_component", ["Id", "SubjectId", "Name", "MinPoints", "MaxPoints"]),
             [typeof(StudentGrade)] = ("grade", ["Id", "GradeComponentId", "StudentId", "Points", "Comment", "AdminId", "UpdatedAt"]),
             [typeof(Submission)] = ("submission", ["Id", "TaskId", "StudentId", "Status", "Comment", "AdminId", "SubmittedAt", "QueueEventId"]),
-            [typeof(QueueEvent)] = ("queue", ["Id", "SubjectId", "Name", "EventDateTime", "AllowSelfJoin", "LateAfterMinutes"]),
+            [typeof(QueueEvent)] = ("queue", ["Id", "SubjectId", "Name", "EventDateTime", "AllowSelfJoin", "LateAfterMinutes", "ArchivedAt"]),
             [typeof(QueueEntry)] = ("queue_entry", ["Id", "QueueEventId", "StudentId", "Status", "CurrentAdminId", "FinishedByAdminId", "JoinedAt", "Round", "LateExcused"]),
             [typeof(AttendanceSession)] = ("attendance_session", ["Id", "SubjectId", "Name", "StartsAt", "CreatedAt", "CreatedByAdminId"]),
             [typeof(AttendanceRecord)] = ("attendance_record", ["SessionId", "StudentId", "GroupId", "GroupName", "Status", "MarkedByAdminId", "UpdatedAt"]),

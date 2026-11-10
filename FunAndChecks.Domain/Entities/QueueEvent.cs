@@ -22,6 +22,13 @@ public class QueueEvent
     /// </summary>
     public int? LateAfterMinutes { get; set; }
 
+    /// <summary>
+    /// Когда преподаватель вручную завершил и архивировал очередь (UTC); null — не архивирована.
+    /// Архивная очередь только для просмотра: записи, выхода и изменений нет. Отметка не зависит от
+    /// <see cref="AllowSelfJoin"/>, который управляет первым входом в действующую очередь.
+    /// </summary>
+    public DateTime? ArchivedAt { get; set; }
+
     public int SubjectId { get; set; }
     public Subject Subject { get; set; } = null!;
 

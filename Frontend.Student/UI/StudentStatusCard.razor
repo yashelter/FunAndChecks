@@ -1,46 +1,79 @@
-@* «Где вы сейчас»: что зачтено, что переделать (с последним комментарием) и ближайшая очередь с местом. *@
-<section class="fc-panel fc-student-status" aria-label="@Loc["StudentStatus_Title"]">
-    <div class="fc-student-status-numbers">
-        <div><span>@Loc["StudentStatus_Accepted"]</span><strong>@Accepted / @Results.TaskResults.Count</strong>
-            <div class="fc-progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@Results.TaskResults.Count" aria-valuenow="@Accepted"><span style="width:@Percent%"></span></div></div>
-        <div><span>@Loc["StudentStatus_Points"]</span><strong>@Results.TotalPointsEarned / @Results.MaxPointsPossible</strong></div>
+@using Frontend.Shared.Community
+@* Полоса личного прогресса над ведомостью: сдано, баллы, место, доработка и ближайшая очередь — одной строкой.
+   Место берётся из того же снимка, что и таблица, поэтому они обновляются вместе. *@
+<section class="fc-panel fc-student-strip" aria-label="@Loc["StudentStatus_Title"]">
+    <div class="fc-strip-progress">
+        <strong>@Loc[CommunityText.PluralKey("StudentStrip_Done", Total), Accepted, Total]</strong>
+        <div class="fc-progress-bar" role="progressbar" aria-label="@Loc["StudentStatus_Accepted"]" aria-valuemin="0" aria-valuemax="@Total" aria-valuenow="@Accepted"><span style="width:@Percent%"></span></div>
     </div>
-    <div class="fc-student-status-rework">
-        <h3>@Loc["StudentStatus_Rework"]</h3>
-        @if (Rework.Count == 0) { <p class="fc-muted">@Loc["StudentStatus_NoRework"]</p> }
-        else
+    <div class="fc-strip-metric">
+        <strong>@Loc[CommunityText.PluralKey("StudentStrip_Points", Results.TotalPointsEarned), Results.TotalPointsEarned]</strong>
+        <small>@Loc["StudentStrip_PointsMax", Results.MaxPointsPossible]</small>
+    </div>
+    @if (Rank is int rank && RankTotal > 0)
+    {
+        <div class="fc-strip-metric fc-strip-rank">
+            <strong>@Loc["Results_MyRank", rank, RankTotal]</strong>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.MyLocation"
+                       OnClick="OnJumpToRow" Class="fc-strip-jump">@Loc["Results_JumpToMyRow"]</MudButton>
+        </div>
+    }
+    <div class="fc-strip-actions">
+        @if (Rework.Count == 1)
         {
-            <ul>
+            var task = Rework[0];
+            <MudButton Href="@($"/student/logs?task={task.TaskId}")" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Replay"
+                       title="@ReworkTitle(task)">@Loc["StudentStrip_OpenRework"]</MudButton>
+        }
+        else if (Rework.Count > 1)
+        {
+            <MudMenu Label="@Loc["StudentStrip_OpenReworkCount", Rework.Count]" Variant="Variant.Filled" Color="Color.Primary"
+                     StartIcon="@Icons.Material.Outlined.Replay" EndIcon="@Icons.Material.Filled.ArrowDropDown" Dense="true">
                 @foreach (var task in Rework)
                 {
-                    var last = task.SubmissionHistory?.OrderByDescending(l => l.SubmittedAt).FirstOrDefault();
-                    <li><a href="@($"/student/logs?task={task.TaskId}")"><strong>@task.TaskName</strong>
-                        @if (!string.IsNullOrWhiteSpace(last?.Comment)) { <span>«@last.Comment»</span> }</a></li>
+                    <MudMenuItem Href="@($"/student/logs?task={task.TaskId}")">
+                        <span class="fc-strip-rework-item"><strong>@task.TaskName</strong>@if (LastComment(task) is { } comment) {<small>«@comment»</small>}</span>
+                    </MudMenuItem>
                 }
-            </ul>
+            </MudMenu>
         }
-    </div>
-    <div class="fc-student-status-queue">
-        <h3>@Loc["StudentStatus_NextQueue"]</h3>
         @if (NextQueue is { } queue)
         {
-            <a href="@($"/student/queues/{queue.Id}")"><strong>@queue.Name</strong>
-                <span>@queue.EventDateTime.ToLocalTime().ToString("g")</span>
+            <a class="fc-strip-queue" href="@($"/student/queues/{queue.Id}")">
+                <MudIcon Icon="@Icons.Material.Outlined.FormatListNumbered" Size="Size.Small" />
+                <span><small>@Loc["StudentStatus_NextQueue"]</small><strong>@queue.Name</strong>
+                    <time datetime="@queue.EventDateTime.ToUniversalTime().ToString("O")">@queue.EventDateTime.ToLocalTime().ToString("g")</time></span>
                 @if (queue.MyPosition is int place) { <span class="fc-queue-place-chip">@Loc["StudentQueues_MyPlace", place, queue.WaitingCount ?? place]</span> }
-                else if (queue.MyStatus is { } status) { <span class="fc-queue-place-chip">@QueueStyles.StatusText(status, null, Loc)</span> }</a>
+                else if (queue.MyStatus is { } status) { <span class="fc-queue-place-chip">@QueueStyles.StatusText(status, null, Loc)</span> }
+            </a>
         }
-        else { <p class="fc-muted">@Loc["StudentStatus_NoQueue"] <a href="/student/queues">@Loc["StudentStatus_FindQueue"] →</a></p> }
+        else
+        {
+            <a class="fc-strip-find" href="/student/queues">@Loc["StudentStatus_FindQueue"] →</a>
+        }
     </div>
 </section>
 
 @code {
     [Parameter, EditorRequired] public StudentSubjectResultsDto Results { get; set; } = default!;
     [Parameter] public List<QueueEventDto> Queues { get; set; } = [];
+    /// <summary>Место студента в снимке таблицы; null — студента нет в снимке, место и переход скрыты.</summary>
+    [Parameter] public int? Rank { get; set; }
+    /// <summary>Размер рейтинга: все строки снимка предмета.</summary>
+    [Parameter] public int RankTotal { get; set; }
+    [Parameter] public EventCallback OnJumpToRow { get; set; }
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
+    private int Total => Results.TaskResults.Count;
     private int Accepted => Results.TaskResults.Count(t => t.CurrentStatus == SubmissionStatus.Accepted);
-    private int Percent => Results.TaskResults.Count == 0 ? 0 : 100 * Accepted / Results.TaskResults.Count;
+    private int Percent => Total == 0 ? 0 : 100 * Accepted / Total;
     private List<StudentTaskResultDto> Rework => Results.TaskResults.Where(t => t.CurrentStatus == SubmissionStatus.Rejected).ToList();
+
+    private static string? LastComment(StudentTaskResultDto task) =>
+        task.SubmissionHistory?.OrderByDescending(l => l.SubmittedAt).FirstOrDefault()?.Comment is { Length: > 0 } comment ? comment : null;
+
+    private static string ReworkTitle(StudentTaskResultDto task) =>
+        LastComment(task) is { } comment ? $"{task.TaskName}: «{comment}»" : task.TaskName;
 
     /// <summary>Ближайшая очередь по этому предмету (если предмет известен), иначе любая ближайшая.</summary>
     private QueueEventDto? NextQueue => Queues.Where(q => q.MyStatus is not QueueEntryStatus.Finished)

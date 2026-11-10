@@ -346,6 +346,21 @@ public class IdentityService(
             where membership.UserId == userId && role.Name != null
             select role.Name!).ToListAsync(cancellationToken);
 
+    public async Task SetRoleAsync(Guid userId, string role, bool enabled, CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString())
+                   ?? throw new FunAndChecks.Application.Common.Exceptions.NotFoundException($"User {userId} not found.");
+
+        if (await userManager.IsInRoleAsync(user, role) == enabled)
+            return;
+
+        var result = enabled
+            ? await userManager.AddToRoleAsync(user, role)
+            : await userManager.RemoveFromRoleAsync(user, role);
+        EnsureSucceeded(result, "Role");
+        await refreshTokenService.RevokeAllAsync(userId);
+    }
+
     public async Task<IReadOnlyCollection<Guid>> GetUserIdsInRoleAsync(string role, CancellationToken cancellationToken = default) =>
         await (from membership in dbContext.UserRoles.AsNoTracking()
             join r in dbContext.Roles.AsNoTracking() on membership.RoleId equals r.Id

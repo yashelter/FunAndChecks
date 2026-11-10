@@ -15,7 +15,11 @@ public record GradeColumnDto(int ComponentId, string Name, int MaxPoints);
 /// </summary>
 public record ResultCellDto(string DisplayValue, string? AdminColor, SubmissionStatus Status);
 
-/// <summary>Строка таблицы результатов: студент, ячейки по TaskId и баллы по колонкам оценок.</summary>
+/// <summary>
+/// Строка таблицы результатов: студент, ячейки по TaskId и баллы по колонкам оценок.
+/// <see cref="Rank"/> — место по Σ среди всех строк предмета: 1 + число студентов со строго большим Σ
+/// (90, 80, 80, 60 → 1, 2, 2, 4). Считается при сборке полного снимка и не зависит от фильтров в UI.
+/// </summary>
 public record StudentResultRowDto(
     Guid StudentId,
     string FullName,
@@ -26,7 +30,8 @@ public record StudentResultRowDto(
     string? StudentColor,
     string LastName = "",
     string FirstName = "",
-    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null);
+    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    int Rank = 0);
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>
 public record SubjectResultsDto(

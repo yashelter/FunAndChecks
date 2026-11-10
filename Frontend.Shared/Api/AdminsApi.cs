@@ -12,6 +12,10 @@ public class AdminsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task<List<AdminDto>> GetAllAsync(CancellationToken ct = default) =>
         GetAsync<List<AdminDto>>("api/admins", ct);
 
+    /// <summary>Админы с почтой и ролью — экран управления (только суперадмин).</summary>
+    public Task<List<AdminDetailsDto>> GetDetailsAsync(CancellationToken ct = default) =>
+        GetAsync<List<AdminDetailsDto>>("api/admins/details", ct);
+
     /// <summary>Статистика проверяющих (только суперадмин): по всем предметам или по одному.</summary>
     public Task<List<ReviewerStatsDto>> GetReviewerStatsAsync(int? subjectId, CancellationToken ct = default) =>
         GetAsync<List<ReviewerStatsDto>>(subjectId is int id ? $"api/statistics/reviewers?subjectId={id}" : "api/statistics/reviewers", ct);

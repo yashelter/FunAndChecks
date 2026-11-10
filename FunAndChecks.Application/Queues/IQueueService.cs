@@ -4,10 +4,19 @@ namespace FunAndChecks.Application.Queues;
 
 public interface IQueueService
 {
-    /// <summary>События за последние 24 часа и будущие с учётом запретов предметов для админа.</summary>
+    /// <summary>Текущие события (<see cref="QueueVisibility.Current"/>) с учётом запретов предметов для админа.</summary>
     Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default);
 
     Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>События выборки <paramref name="scope"/> (текущие, архив или все) в доступных админу предметах.</summary>
+    Task<List<QueueEventDto>> GetEventsAsync(Guid? adminId, QueueListScope scope, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Завершить и архивировать очередь: она уходит из текущих списков и становится только для просмотра.
+    /// Нельзя, пока кого-то проверяют (queue.archive_checking). Повторный вызов ничего не меняет.
+    /// </summary>
+    Task<QueueEventDto> ArchiveEventAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default);
 
     Task<QueueDetailsDto> GetDetailsAsync(int eventId, Guid? adminId = null, CancellationToken cancellationToken = default);
 
@@ -24,8 +33,8 @@ public interface IQueueService
     /// <summary>Студент сам выходит из очереди, пока его не взяли на проверку.</summary>
     Task LeaveAsync(int eventId, Guid studentId, CancellationToken cancellationToken = default);
 
-    /// <summary>Очереди, где записан студент, — со статусом и местом среди ожидающих.</summary>
-    Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, bool includePast, CancellationToken cancellationToken = default);
+    /// <summary>Очереди выборки <paramref name="scope"/>, где записан студент, — со статусом и местом среди ожидающих.</summary>
+    Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, QueueListScope scope, CancellationToken cancellationToken = default);
 
     /// <summary>Порог опоздания события; клиенты перечитывают очередь (порядок мог измениться).</summary>
     Task SetLateRuleAsync(Guid adminId, int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken = default);

@@ -15,10 +15,21 @@ public static class CommunityText
     public static string Plural(int n, string one, string few, string many, string enOne, string enOther)
     {
         if (!Ru) return $"{n} {(n == 1 ? enOne : enOther)}";
-        var (mod10, mod100) = (Math.Abs(n) % 10, Math.Abs(n) % 100);
-        var word = mod10 == 1 && mod100 != 11 ? one : mod10 is >= 2 and <= 4 && mod100 is < 12 or > 14 ? few : many;
-        return $"{n} {word}";
+        return $"{n} {PluralCategory(n) switch { "One" => one, "Few" => few, _ => many }}";
     }
+
+    /// <summary>
+    /// Форма числа для текущего языка: "One", "Few" или "Many" (в английском только One и Many).
+    /// Для строк из AppStrings: ключ «X» + форма — <c>Loc[PluralKey("StudentQueues_Ahead", n), n]</c>.
+    /// </summary>
+    public static string PluralCategory(int n)
+    {
+        if (!Ru) return n == 1 ? "One" : "Many";
+        var (mod10, mod100) = (Math.Abs(n) % 10, Math.Abs(n) % 100);
+        return mod10 == 1 && mod100 != 11 ? "One" : mod10 is >= 2 and <= 4 && mod100 is < 12 or > 14 ? "Few" : "Many";
+    }
+
+    public static string PluralKey(string baseKey, int n) => baseKey + PluralCategory(n);
 
     public static string Questions(int n) => Plural(n, "вопрос", "вопроса", "вопросов", "question", "questions");
     public static string Posts(int n) => Plural(n, "сообщение", "сообщения", "сообщений", "post", "posts");

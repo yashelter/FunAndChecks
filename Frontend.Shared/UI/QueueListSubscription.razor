@@ -1,0 +1,114 @@
+@namespace Frontend.Shared.UI
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject AuthService Auth
+@inject NavigationManager Nav
+@*
+    Живое обновление списков очередей: подписка на группы показанных очередей. Когда очередь изменили
+    (архивировали, переименовали, открыли или закрыли запись), список перечитывается целиком — одним
+    запросом на пачку событий. Состояние из содержимого событий не собирается.
+*@
+
+@code {
+    /// <summary>Очереди, показанные на странице: на их группы подписывается соединение.</summary>
+    [Parameter] public IReadOnlyCollection<int> EventIds { get; set; } = [];
+    /// <summary>Перечитать список. Вызывается не чаще раза за <see cref="ReloadDelay"/>.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private static readonly TimeSpan ReloadDelay = TimeSpan.FromMilliseconds(300);
+    private HubConnection? _hub;
+    private readonly HashSet<int> _subscribed = [];
+    private readonly SemaphoreSlim _lock = new(1, 1);
+    private bool _disposed, _reloadScheduled, _reloadPending;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await ConnectAsync();
+    }
+
+    protected override Task OnParametersSetAsync() => SubscribeAsync();
+
+    private async Task ConnectAsync()
+    {
+        try
+        {
+            _hub = new HubConnectionBuilder()
+                .WithUrl(Nav.ToAbsoluteUri("/apiHub/queueHub"), options =>
+                    options.AccessTokenProvider = async () => await Auth.GetTokenAsync())
+                .WithAutomaticReconnect()
+                .Build();
+            _hub.On<int>("QueueChanged", _ => Schedule());
+            _hub.On<object>("QueueSettingsChanged", _ => Schedule());
+            // Подписки на группы теряются при переподключении: подписываемся заново и перечитываем пропущенное.
+            _hub.Reconnected += async _ =>
+            {
+                _subscribed.Clear();
+                await SubscribeAsync();
+                await Schedule();
+            };
+            await _hub.StartAsync();
+            await SubscribeAsync();
+        }
+        catch (Exception ex)
+        {
+            // Список работает и без живых обновлений: его перечитают навигация и следующая загрузка.
+            System.Diagnostics.Debug.WriteLine($"Queue list subscription failed: {ex.Message}");
+        }
+    }
+
+    private async Task SubscribeAsync()
+    {
+        if (_disposed || _hub?.State != HubConnectionState.Connected) return;
+        await _lock.WaitAsync();
+        try
+        {
+            foreach (var eventId in EventIds.Where(id => !_subscribed.Contains(id)).ToList())
+            {
+                try
+                {
+                    await _hub.InvokeAsync("SubscribeToQueue", eventId);
+                    _subscribed.Add(eventId);
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Failed to subscribe to queue {eventId}: {ex.Message}"); }
+            }
+        }
+        finally { _lock.Release(); }
+    }
+
+    private Task Schedule()
+    {
+        _ = InvokeAsync(ReloadDebouncedAsync);
+        return Task.CompletedTask;
+    }
+
+    private async Task ReloadDebouncedAsync()
+    {
+        if (_disposed) return;
+        if (_reloadScheduled) { _reloadPending = true; return; }
+        _reloadScheduled = true;
+        try
+        {
+            do
+            {
+                _reloadPending = false;
+                await Task.Delay(ReloadDelay);
+                if (_disposed) return;
+                await OnChanged.InvokeAsync();
+            }
+            while (_reloadPending && !_disposed);
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Queue list reload failed: {ex.Message}"); }
+        finally { _reloadScheduled = false; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_hub is not null)
+        {
+            try { await _hub.DisposeAsync(); } catch { /* Страница уже закрыта. */ }
+            _hub = null;
+        }
+    }
+}

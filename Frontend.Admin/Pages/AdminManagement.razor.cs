@@ -1,40 +1,81 @@
+using System.Security.Claims;
+using Frontend.Admin.UI;
 using Frontend.Shared.Api;
-using Frontend.Admin.Dialogs;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
+using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
 
+/// <summary>
+/// Администраторы: вкладка списка (поиск + панель выбранного, выбор хранится в ?id=)
+/// и отдельная вкладка создания.
+/// </summary>
 public partial class AdminManagement
 {
+    private const int ListTab = 0;
+
     [Inject] private AdminsApi Admins { get; set; } = null!;
-    [Inject] private IDialogService DialogService { get; set; } = null!;
-    [Inject] private ISnackbar Snackbar { get; set; } = null!;
+    [Inject] private ConfirmService Confirm { get; set; } = null!;
+    [Inject] private NavigationManager Navigation { get; set; } = null!;
+    [Inject] private AuthenticationStateProvider AuthState { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
 
-    private List<AdminDto> _admins = [];
-    private bool _loading = true;
+    [SupplyParameterFromQuery(Name = "id")] public Guid? SelectedIdQuery { get; set; }
 
-    private string _firstName = string.Empty;
-    private string _lastName = string.Empty;
-    private string _email = string.Empty;
-    private string _password = string.Empty;
-    private string? _color;
-    private string? _letter;
-    private bool _isSuperAdmin;
+    private List<AdminDetailsDto> _admins = [];
+    private bool _loading = true;
+    private bool _loadFailed;
+    private string? _search;
+    private Guid? _selectedId;
+    private Guid? _currentUserId;
+    private int _activeTab = ListTab;
+    private AdminEditorPanel? _editor;
+
+    private AdminDetailsDto? SelectedAdmin => _admins.FirstOrDefault(a => a.Id == _selectedId);
+    private bool HasUnsavedChanges => _editor?.HasChanges == true;
+
+    private IEnumerable<AdminDetailsDto> FilteredAdmins
+    {
+        get
+        {
+            var query = _search?.Trim();
+            return string.IsNullOrEmpty(query)
+                ? _admins
+                : _admins.Where(a =>
+                    $"{a.LastName} {a.FirstName}".Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                    $"{a.FirstName} {a.LastName}".Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                    (a.Email?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
+        var user = (await AuthState.GetAuthenticationStateAsync()).User;
+        if (Guid.TryParse(user.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var userId))
+            _currentUserId = userId;
+        await LoadAsync();
+    }
+
+    protected override void OnParametersSet() => _selectedId = SelectedIdQuery;
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _loadFailed = false;
         try
         {
-            await ReloadAdminsAsync();
+            _admins = await Admins.GetDetailsAsync();
         }
-        catch (ApiException ex)
+        catch (ApiException)
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            _loadFailed = true;
         }
         finally
         {
@@ -42,63 +83,58 @@ public partial class AdminManagement
         }
     }
 
-    private async Task ReloadAdminsAsync() => _admins = await Admins.GetAllAsync();
-
-    private async Task CreateAsync()
+    private async Task SelectAsync(Guid id)
     {
-        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
-        {
-            Snackbar.Add(Loc["AdminMgmt_EmailPasswordRequired"], Severity.Warning);
+        if (id == _selectedId)
             return;
-        }
-
-        try
-        {
-            await Admins.CreateAsync(new CreateAdminRequest(
-                _firstName.Trim(), _lastName.Trim(), _email.Trim(), _password,
-                string.IsNullOrWhiteSpace(_color) ? null : _color.Trim(),
-                string.IsNullOrWhiteSpace(_letter) ? null : _letter.Trim(),
-                _isSuperAdmin));
-
-            Snackbar.Add(Loc["AdminMgmt_Created"], Severity.Success);
-            _firstName = _lastName = _email = _password = string.Empty;
-            _color = _letter = null;
-            _isSuperAdmin = false;
-            await ReloadAdminsAsync();
-        }
-        catch (ApiException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error);
-        }
+        if (!await ConfirmDiscardAsync())
+            return;
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("id", id), replace: true);
     }
 
-    private async Task DeleteAsync(AdminDto admin)
+    private async Task OnItemKeyDownAsync(KeyboardEventArgs e, Guid id)
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            Loc["AdminMgmt_DeleteTitle"],
-            string.Format(Loc["AdminMgmt_DeleteConfirm"], admin.LastName, admin.FirstName),
-            yesText: Loc["Common_Delete"], cancelText: Loc["Common_Cancel"]);
-
-        if (confirmed != true)
-            return;
-
-        try
-        {
-            await Admins.DeleteAsync(admin.Id);
-            Snackbar.Add(Loc["AdminMgmt_Deleted"], Severity.Success);
-            await ReloadAdminsAsync();
-        }
-        catch (ApiException ex)
-        {
-            Snackbar.Add(ex.Message, Severity.Error);
-        }
+        if (e.Key is "Enter" or " ")
+            await SelectAsync(id);
     }
 
-    private async Task OpenAccessAsync(AdminDto admin)
+    /// <summary>Правки текущего админа теряются при переходе — спрашиваем и сбрасываем.</summary>
+    private async Task<bool> ConfirmDiscardAsync()
     {
-        var parameters = new DialogParameters<AdminRestrictionsDialog> { { x => x.Admin, admin } };
-        await DialogService.ShowAsync<AdminRestrictionsDialog>(
-            Loc["AdminMgmt_RestrictionsTitle", admin.LastName, admin.FirstName], parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
+        if (!HasUnsavedChanges)
+            return true;
+        var name = SelectedAdmin?.FullName ?? string.Empty;
+        if (!await Confirm.ConfirmAsync(Loc["AdminMgmt_UnsavedTitle"], Loc["AdminMgmt_UnsavedText", name], Loc["AdminMgmt_Revert"]))
+            return false;
+        _editor?.Discard();
+        return true;
+    }
+
+    private async Task OnBeforeInternalNavigationAsync(LocationChangingContext context)
+    {
+        // Смена ?id= обрабатывается в SelectAsync; здесь только уход со страницы.
+        var target = Navigation.ToBaseRelativePath(context.TargetLocation).Split('?', '#')[0];
+        var current = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];
+        if (string.Equals(target, current, StringComparison.OrdinalIgnoreCase))
+            return;
+        if (!await ConfirmDiscardAsync())
+            context.PreventNavigation();
+    }
+
+    private async Task OnAdminSavedAsync(Guid id) => await LoadAsync();
+
+    private async Task OnAdminDeletedAsync(Guid id)
+    {
+        await LoadAsync();
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("id", (Guid?)null), replace: true);
+    }
+
+    private async Task OnAdminCreatedAsync(Guid id)
+    {
+        await LoadAsync();
+        _search = null;
+        _activeTab = ListTab;
+        if (await ConfirmDiscardAsync())
+            Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("id", id), replace: true);
     }
 }

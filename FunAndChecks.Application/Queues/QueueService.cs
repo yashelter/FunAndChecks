@@ -21,9 +21,6 @@ public class QueueService(
     IProfileService? profiles = null)
     : IQueueService
 {
-    /// <summary>Сколько времени событие остаётся в списке активных после своей даты.</summary>
-    private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
-
     private static readonly SetQueueLateRuleRequestValidator LateRuleValidator = new();
 
     private async Task<IQueryable<QueueEvent>> VisibleEventsAsync(Guid? adminId, CancellationToken cancellationToken)
@@ -34,21 +31,24 @@ public class QueueService(
             a => a.AdminId == adminId && a.SubjectId == qe.SubjectId && !a.IsRestricted));
     }
 
-    public async Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default)
+    public Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>
+        GetEventsAsync(adminId, QueueListScope.Current, cancellationToken);
+
+    public Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>
+        GetEventsAsync(adminId, QueueListScope.All, cancellationToken);
+
+    public async Task<List<QueueEventDto>> GetEventsAsync(Guid? adminId, QueueListScope scope, CancellationToken cancellationToken = default)
     {
-        var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
-        return await (await VisibleEventsAsync(adminId, cancellationToken))
-            .Where(qe => qe.EventDateTime > threshold)
-            .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
+        var events = (await VisibleEventsAsync(adminId, cancellationToken)).InScope(scope, DateTime.UtcNow);
+        // Архив читают от свежих к старым; текущие и полный список — по времени начала.
+        events = scope == QueueListScope.Archive
+            ? events.OrderByDescending(qe => qe.EventDateTime)
+            : events.OrderBy(qe => qe.EventDateTime);
+        return await events
+            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin,
+                qe.Subject.Name, null, null, null, qe.ArchivedAt))
             .ToListAsync(cancellationToken);
     }
-
-    public async Task<List<QueueEventDto>> GetAllEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>
-        await (await VisibleEventsAsync(adminId, cancellationToken))
-            .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
-            .ToListAsync(cancellationToken);
 
     public async Task EnsureEventAllowedAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
     {
@@ -74,6 +74,7 @@ public class QueueService(
                 qe.EventDateTime,
                 qe.AllowSelfJoin,
                 qe.LateAfterMinutes,
+                qe.ArchivedAt,
             })
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
@@ -162,7 +163,8 @@ public class QueueService(
             queueEvent.EventDateTime,
             queueEvent.AllowSelfJoin,
             participants,
-            queueEvent.LateAfterMinutes);
+            queueEvent.LateAfterMinutes,
+            queueEvent.ArchivedAt);
     }
 
     public async Task<QueueEventDto> CreateEventAsync(Guid adminId, CreateQueueEventRequest request, CancellationToken cancellationToken = default)
@@ -301,6 +303,7 @@ public class QueueService(
         {
             queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
                          ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+            EnsureNotArchived(queueEvent);
 
             var admin = await db.Admins.FindAsync([adminId], ct);
             adminName = admin?.FullName;
@@ -325,6 +328,46 @@ public class QueueService(
         catch (Exception ex) { logger.LogWarning(ex, "Queue event {EventId} updated, but notification failed.", eventId); }
 
         return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin);
+    }
+
+    public async Task<QueueEventDto> ArchiveEventAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
+    {
+        var subjectId = await db.QueueEvents
+            .Where(qe => qe.Id == eventId)
+            .Select(qe => (int?)qe.SubjectId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
+
+        QueueEvent queueEvent = null!;
+        var archivedNow = false;
+        // Проверка «никого не проверяют» и отметка — в одной serializable-транзакции с изменениями статусов:
+        // параллельные «взять на проверку» и «архивировать» не могут оба зафиксироваться.
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            archivedNow = false;
+            queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
+                         ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+            await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, ct);
+            // Повторное архивирование ничего не меняет: отметка остаётся первой.
+            if (queueEvent.ArchivedAt is not null)
+                return;
+            if (await db.QueueEntries.AnyAsync(e => e.QueueEventId == eventId && e.Status == QueueEntryStatus.Checking, ct))
+                throw new ConflictException("Finish the review in progress before archiving the queue.", "queue.archive_checking");
+            queueEvent.ArchivedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            archivedNow = true;
+        }, cancellationToken);
+
+        // QueueChanged — открытые списки и детали перечитают очередь и увидят отметку архива.
+        if (archivedNow)
+        {
+            try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
+            catch (Exception ex) { logger.LogWarning(ex, "Queue {EventId} archived, but notification failed.", eventId); }
+        }
+
+        return new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin,
+            ArchivedAt: queueEvent.ArchivedAt);
     }
 
     public async Task DeleteEventAsync(Guid adminId, int eventId, CancellationToken cancellationToken = default)
@@ -364,6 +407,8 @@ public class QueueService(
             {
                 var queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
                                  ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+                // Архивная очередь закрыта и для первой записи, и для повторного круга.
+                EnsureNotArchived(queueEvent);
                 // Перепроверка в транзакции записи: студента могли перевести в группу без этого предмета
                 // или отвязать группу от предмета после проверок выше.
                 var groupId = await db.Students.Where(s => s.Id == studentId).Select(s => s.GroupId).SingleOrDefaultAsync(ct);
@@ -410,6 +455,7 @@ public class QueueService(
             // Выходят из последнего круга; прошлые круги (и их результат) остаются.
             var entry = await LatestEntryQuery(eventId, studentId).Include(e => e.QueueEvent).FirstOrDefaultAsync(ct)
                         ?? throw new NotFoundException("You are not in this queue.", "queue.not_joined");
+            EnsureNotArchived(entry.QueueEvent);
             // Без самозаписи встать можно только тому, у кого уже есть круг (JoinAsync), а выход удаляет строку:
             // ушедший с первого круга не вернулся бы. Поэтому из первого круга при закрытой записи выйти нельзя.
             if (entry.Status is QueueEntryStatus.Checking or QueueEntryStatus.Finished
@@ -421,14 +467,13 @@ public class QueueService(
         await NotifyBestEffortAsync(new QueueEntryUpdateDto(eventId, studentId, QueueEntryStatus.Finished, null), cancellationToken);
     }
 
-    public async Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, bool includePast, CancellationToken cancellationToken = default)
+    public async Task<List<QueueEventDto>> GetMyEventsAsync(Guid studentId, QueueListScope scope, CancellationToken cancellationToken = default)
     {
-        var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
-        var events = await db.QueueEvents.AsNoTracking()
-            .Where(qe => includePast || qe.EventDateTime > threshold)
-            .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
-            .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new { qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin, qe.SubjectId, SubjectName = qe.Subject.Name, qe.LateAfterMinutes })
+        var mine = db.QueueEvents.AsNoTracking()
+            .InScope(scope, DateTime.UtcNow)
+            .Where(qe => qe.Participants.Any(p => p.StudentId == studentId));
+        var events = await (scope == QueueListScope.Archive ? mine.OrderByDescending(qe => qe.EventDateTime) : mine.OrderBy(qe => qe.EventDateTime))
+            .Select(qe => new { qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin, qe.SubjectId, SubjectName = qe.Subject.Name, qe.LateAfterMinutes, qe.ArchivedAt })
             .ToListAsync(cancellationToken);
         if (events.Count == 0) return [];
 
@@ -456,7 +501,7 @@ public class QueueService(
             var me = participants.Where(p => p.StudentId == studentId).MaxBy(p => p.Round);
             var position = waiting.FindIndex(p => p.StudentId == studentId);
             result.Add(new QueueEventDto(queueEvent.Id, queueEvent.Name, queueEvent.EventDateTime, queueEvent.AllowSelfJoin,
-                queueEvent.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count));
+                queueEvent.SubjectName, me?.Status, position >= 0 ? position + 1 : null, waiting.Count, queueEvent.ArchivedAt));
         }
         return result;
     }
@@ -485,12 +530,22 @@ public class QueueService(
     public async Task SetLateRuleAsync(Guid adminId, int eventId, SetQueueLateRuleRequest request, CancellationToken cancellationToken = default)
     {
         await LateRuleValidator.ValidateAndThrowAsync(request, cancellationToken);
-        var queueEvent = await db.QueueEvents.FindAsync([eventId], cancellationToken)
-                         ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
-        await accessService.EnsureSubjectAllowedAsync(adminId, queueEvent.SubjectId, cancellationToken);
+        var subjectId = await db.QueueEvents
+            .Where(qe => qe.Id == eventId)
+            .Select(qe => (int?)qe.SubjectId)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+        await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
 
-        queueEvent.LateAfterMinutes = request.LateAfterMinutes;
-        await db.SaveChangesAsync(cancellationToken);
+        // В транзакции: правка не должна проскочить в уже архивированную очередь.
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            var queueEvent = await db.QueueEvents.FindAsync([eventId], ct)
+                             ?? throw new NotFoundException($"Queue event with ID {eventId} not found.");
+            EnsureNotArchived(queueEvent);
+            queueEvent.LateAfterMinutes = request.LateAfterMinutes;
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
 
         try { await queueNotifier.QueueChangedAsync(eventId, cancellationToken); }
         catch (Exception ex) { logger.LogWarning(ex, "Late rule of queue {EventId} changed, but notification failed.", eventId); }
@@ -507,8 +562,15 @@ public class QueueService(
         if (entry.Student.GroupId is int groupId)
             await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
 
-        entry.LateExcused = excused;
-        await db.SaveChangesAsync(cancellationToken);
+        await db.ExecuteSerializableAsync(async ct =>
+        {
+            var current = await db.QueueEntries.Include(e => e.QueueEvent)
+                .FirstOrDefaultAsync(e => e.Id == entryId && e.QueueEventId == eventId, ct)
+                ?? throw new NotFoundException("Queue entry not found.", "queue.entry_not_found");
+            EnsureNotArchived(current.QueueEvent);
+            current.LateExcused = excused;
+            await db.SaveChangesAsync(ct);
+        }, cancellationToken);
 
         await NotifyBestEffortAsync(new QueueEntryUpdateDto(eventId, entry.StudentId, entry.Status, null), cancellationToken);
     }
@@ -543,6 +605,10 @@ public class QueueService(
             var current = await db.QueueEntries.AsNoTracking()
                 .FirstOrDefaultAsync(qu => qu.Id == entry.Id, ct)
                 ?? throw new NotFoundException("Student not found in this queue.");
+            // Отметку архива читаем в той же транзакции: «взять на проверку» и «архивировать» не проходят вместе.
+            var archivedAt = await db.QueueEvents.Where(qe => qe.Id == eventId).Select(qe => qe.ArchivedAt).FirstOrDefaultAsync(ct);
+            if (archivedAt is not null)
+                throw Archived();
             await accessService.EnsureSubjectAllowedAsync(adminId, entry.QueueEvent.SubjectId, ct);
             if (entry.Student.GroupId is int currentGroupId)
                 await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, ct);
@@ -574,6 +640,14 @@ public class QueueService(
         .ThenByDescending(e => e.Id);
 
     private static ConflictException AlreadyJoined() => new("Student is already in the queue.", "queue.already_joined");
+
+    private static ConflictException Archived() => new("The queue is archived and read-only.", "queue.archived");
+
+    private static void EnsureNotArchived(QueueEvent queueEvent)
+    {
+        if (queueEvent.ArchivedAt is not null)
+            throw Archived();
+    }
 
     private async Task NotifyBestEffortAsync(QueueEntryUpdateDto update, CancellationToken cancellationToken)
     {

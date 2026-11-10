@@ -19,11 +19,53 @@
 .fc-management-table { box-shadow: none !important; background: transparent !important; }
 .fc-management-table .mud-table-cell { padding: 17px 14px; font-size: 13px; overflow-wrap: anywhere; }
 .fc-management-table .mud-table-head .mud-table-cell { color: var(--mud-palette-text-secondary); font-weight: 600; font-size: 11px; letter-spacing: .035em; }
-.fc-admin-management .mud-card, .fc-admin-management .mud-paper, .fc-maintenance .mud-card { border: 1px solid var(--mud-palette-lines-default); box-shadow: none; border-radius: 12px; }
-.fc-admin-management .fc-admin-row { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 18px; }
-.fc-admin-row > div:first-child { min-width: 0; overflow-wrap: anywhere; }
-.fc-admin-row .mud-chip { min-width: 30px; font-weight: 700; }
-.fc-admin-actions { display: flex; flex-shrink: 0; gap: 6px; align-items: center; }
+.fc-admin-management .mud-paper, .fc-maintenance .mud-card { border: 1px solid var(--mud-palette-lines-default); box-shadow: none; border-radius: 12px; }
+.fc-admin-management .mud-tabs-panels { padding-top: 18px; }
+.fc-admin-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.fc-admin-list-panel { padding: 12px; position: sticky; top: 90px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; }
+.fc-admin-search { flex: none; margin-bottom: 8px; }
+.fc-admin-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.fc-admin-list-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; min-width: 0; }
+.fc-admin-list-item:hover { background: var(--mud-palette-action-default-hover); }
+.fc-admin-list-item:focus-visible { outline: 2px solid var(--mud-palette-primary); outline-offset: 1px; }
+.fc-admin-list-item.is-selected { background: rgba(var(--mud-palette-primary-rgb), .12); border-color: rgba(var(--mud-palette-primary-rgb), .25); }
+.fc-admin-list-chip { flex: 1 1 auto; min-width: 0; }
+.fc-admin-list-chip .fc-user-chip-text, .fc-admin-list-chip .fc-user-chip-text > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-admin-list-tags { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.fc-admin-you { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--mud-palette-lines-default); color: var(--mud-palette-text-secondary); }
+.fc-admin-letter { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px; font-weight: 700; font-size: 13px; background: var(--mud-palette-action-default-hover); color: var(--mud-palette-text-primary); }
+.fc-admin-letter.large { min-width: 44px; height: 44px; font-size: 18px; border-radius: 12px; }
+.fc-admin-detail { min-width: 0; }
+.fc-admin-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; text-align: center; color: var(--mud-palette-text-secondary); }
+.fc-admin-editor { padding: 0; overflow: hidden; }
+.fc-admin-editor-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 18px 22px; border-bottom: 1px solid var(--mud-palette-lines-default); }
+.fc-admin-editor-title { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
+.fc-admin-editor-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fc-admin-profile-link { font-size: 13px; margin-left: 4px; }
+.fc-admin-section { padding: 20px 22px; border-bottom: 1px solid var(--mud-palette-lines-default); display: flex; flex-direction: column; gap: 14px; }
+.fc-admin-section:last-child { border-bottom: 0; }
+.fc-admin-section-head { display: flex; flex-direction: column; gap: 2px; }
+.fc-admin-field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.fc-admin-appearance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.fc-admin-appearance-fields { display: flex; flex-direction: column; gap: 14px; }
+.fc-admin-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; border: 1px dashed var(--mud-palette-lines-default); border-radius: 10px; font-size: 13px; }
+.fc-admin-preview-name { font-weight: 600; overflow-wrap: anywhere; }
+.fc-admin-color { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fc-admin-color-head { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--mud-palette-text-secondary); }
+.fc-admin-color-head code { font-size: 12px; }
+.fc-admin-color-head .mud-button-root { margin-left: auto; }
+.fc-admin-password { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.fc-admin-password > .mud-input-control { flex: 1 1 auto; min-width: 0; }
+.fc-admin-password > .mud-button-root { margin-top: 10px; flex-shrink: 0; }
+.fc-admin-role { display: flex; flex-direction: column; gap: 2px; }
+.fc-admin-save-bar { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 12px 22px; background: var(--mud-palette-surface); border-bottom: 1px solid var(--mud-palette-lines-default); }
+.fc-admin-save-bar > span { margin-right: auto; font-size: 13px; }
+.fc-admin-save-bar.dirty { background: rgba(var(--mud-palette-primary-rgb), .07); }
+.fc-admin-save-bar.dirty > span { color: var(--mud-palette-primary); font-weight: 600; }
+.fc-admin-create .fc-admin-save-bar { border-bottom: 0; }
+.fc-admin-create { max-width: 900px; }
+.fc-admin-access { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fc-admin-danger { background: rgba(var(--mud-palette-error-rgb), .04); }
 .fc-maintenance { max-width: 840px; }
 .fc-maintenance .mud-alert { overflow-wrap: anywhere; }
 .fc-backup-list { padding: 18px; }
@@ -155,8 +197,10 @@
     .fc-management-mobile { display: block; margin-bottom: 18px; }
     .fc-management-section { padding: 16px; }
     .fc-variants-filters > .mud-input-control { max-width: none; flex-basis: 100%; }
-    .fc-admin-management .fc-admin-row { flex-wrap: wrap; }
-    .fc-admin-actions { width: 100%; justify-content: flex-end; }
+    .fc-admin-layout { grid-template-columns: minmax(0, 1fr); }
+    .fc-admin-list-panel { position: static; max-height: 320px; }
+    .fc-admin-field-row, .fc-admin-appearance { grid-template-columns: minmax(0, 1fr); }
+    .fc-admin-section, .fc-admin-editor-head, .fc-admin-save-bar { padding-left: 16px; padding-right: 16px; }
 }
 @media (max-width: 599.98px) {
     .fc-visibility-list { padding: 12px; }

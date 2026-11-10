@@ -53,6 +53,32 @@ window.resultsScroll = (() => {
             if (!host) return;
             attached.get(host)?.dispose();
             attached.delete(host);
+        },
+        // «К моей строке»: строки виртуализированы, нужной может не быть в DOM. Сначала прокручиваем область
+        // таблицы по номеру строки (index × высота строки), затем, когда строка отрисована, ставим её в центр
+        // и переводим фокус на ссылку с именем — чтобы с клавиатуры можно было продолжить с этого места.
+        scrollToRow(host, index, rowHeight) {
+            const table = host?.querySelector('.mud-table-container');
+            if (!table) return;
+            const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            host.scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+            const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+            const header = table.querySelector('thead')?.offsetHeight ?? 0;
+            (async () => {
+                // Кадр на отрисовку после сброса фильтра: иначе высота содержимого ещё старая и scrollTop обрежется.
+                await frame();
+                const visible = table.clientHeight - header;
+                table.scrollTop = Math.max(0, index * rowHeight - Math.max(0, (visible - rowHeight) / 2));
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    await frame();
+                    const row = table.querySelector('tr.fc-results-me');
+                    if (!row) continue;
+                    const offset = row.offsetTop - header - Math.max(0, (visible - row.offsetHeight) / 2);
+                    if (Math.abs(table.scrollTop - offset) > 2) table.scrollTop = Math.max(0, offset);
+                    row.querySelector('.fc-results-name a')?.focus({ preventScroll: true });
+                    return;
+                }
+            })();
         }
     };
 })();

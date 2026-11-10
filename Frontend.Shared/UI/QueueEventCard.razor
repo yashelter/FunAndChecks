@@ -1,0 +1,42 @@
+@namespace Frontend.Shared.UI
+@using System.Globalization
+@inject IStringLocalizer<AppStrings> Loc
+@* Карточка события в стиле табло сдачи: крупно дата и время, рядом название и состояние записи. *@
+<article class="fc-panel fc-queue-card @StateClass">
+    <time class="fc-queue-card-date" datetime="@Event.EventDateTime.ToUniversalTime().ToString("O")">
+        <span class="fc-queue-card-day">@Local.Day</span>
+        <span class="fc-queue-card-month">@Local.ToString("MMM", CultureInfo.CurrentCulture)</span>
+    </time>
+    <div class="fc-queue-card-body">
+        <strong class="fc-queue-card-name">@Event.Name</strong>
+        <span class="fc-queue-card-meta"><span class="fc-queue-card-time">@Local.ToString("t", CultureInfo.CurrentCulture)</span>@if (!string.IsNullOrWhiteSpace(Event.SubjectName)) {<span>@Event.SubjectName</span>}</span>
+        <span class="fc-queue-state">@StateText</span>
+    </div>
+    @if (ChildContent is not null)
+    {
+        <div class="fc-queue-card-actions">@ChildContent</div>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public QueueEventDto Event { get; set; } = default!;
+    /// <summary>Карточка во вкладке «Архив»: без ручной отметки событие подписывается как «Прошедшая».</summary>
+    [Parameter] public bool InArchive { get; set; }
+    /// <summary>Действия (открыть, записаться).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private DateTime Local => Event.EventDateTime.ToLocalTime();
+
+    private (string Text, string Kind) State => Event switch
+    {
+        { IsArchived: true } => (Loc["Queue_Archived"], "archived"),
+        _ when InArchive => (Loc["Queue_Past"], "past"),
+        { MyPosition: int place } => (Loc["StudentQueues_MyPlace", place, Event.WaitingCount ?? place], "mine"),
+        { MyStatus: { } status } => (QueueStyles.StatusText(status, null, Loc), "mine"),
+        { AllowSelfJoin: true } => (Loc["Queue_RegistrationOpen"], "open"),
+        _ => (Loc["Queue_RegistrationClosed"], "closed"),
+    };
+
+    private string StateText => State.Text;
+    private string StateClass => $"fc-queue-card-{State.Kind}";
+}

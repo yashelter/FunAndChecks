@@ -9,7 +9,27 @@ public record CreateAdminRequest(
     string? Letter,
     bool IsSuperAdmin);
 
-public record UpdateAdminRequest(string FirstName, string LastName, string? Color, string? Letter);
+/// <summary>
+/// Изменение админа. Email/NewPassword/IsSuperAdmin = null — не менять (старые клиенты шлют только профиль).
+/// </summary>
+public record UpdateAdminRequest(
+    string FirstName,
+    string LastName,
+    string? Color,
+    string? Letter,
+    string? Email = null,
+    string? NewPassword = null,
+    bool? IsSuperAdmin = null);
+
+/// <summary>Админ для экрана управления (только супер-админ): с почтой и признаком супер-админа.</summary>
+public record AdminDetailsDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string? Color,
+    string? Letter,
+    string? Email,
+    bool IsSuperAdmin);
 
 /// <summary>Настройки видимости/ограничений одного админа.</summary>
 public record AdminAccessDto(

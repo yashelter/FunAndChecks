@@ -345,19 +345,59 @@
   <data name="StudentGrading_ProfileUpdated" xml:space="preserve"><value>Профиль успешно обновлён.</value></data>
 
   <!-- ==================== Admin Management (extra) ==================== -->
-  <data name="AdminMgmt_CreateTitle" xml:space="preserve"><value>Создать администратора</value></data>
-  <data name="AdminMgmt_ColorLabel" xml:space="preserve"><value>Цвет #RRGGBB</value></data>
+  <data name="AdminMgmt_ColorLabel" xml:space="preserve"><value>Цвет</value></data>
   <data name="AdminMgmt_LetterLabel" xml:space="preserve"><value>Буква-метка</value></data>
-  <data name="AdminMgmt_ListTitle" xml:space="preserve"><value>Список</value></data>
   <data name="AdminMgmt_RestrictionsTitle" xml:space="preserve"><value>Ограничения: {0} {1}</value></data>
   <data name="AdminMgmt_SubjectsTitle" xml:space="preserve"><value>Предметы</value></data>
   <data name="AdminMgmt_GroupsTitle" xml:space="preserve"><value>Группы</value></data>
-  <data name="AdminMgmt_Restricted" xml:space="preserve"><value>(запрет)</value></data>
-  <data name="AdminMgmt_EmailPasswordRequired" xml:space="preserve"><value>Укажите email и пароль.</value></data>
   <data name="AdminMgmt_Created" xml:space="preserve"><value>Администратор создан.</value></data>
-  <data name="AdminMgmt_DeleteTitle" xml:space="preserve"><value>Удаление администратора</value></data>
-  <data name="AdminMgmt_DeleteConfirm" xml:space="preserve"><value>Удалить администратора {0} {1}?</value></data>
   <data name="AdminMgmt_Deleted" xml:space="preserve"><value>Администратор удалён.</value></data>
+  <data name="AdminMgmt_Eyebrow" xml:space="preserve"><value>Команда</value></data>
+  <data name="AdminMgmt_TabList" xml:space="preserve"><value>Администраторы · {0}</value></data>
+  <data name="AdminMgmt_TabCreate" xml:space="preserve"><value>Новый администратор</value></data>
+  <data name="AdminMgmt_LoadFailed" xml:space="preserve"><value>Не удалось загрузить администраторов.</value></data>
+  <data name="AdminMgmt_Retry" xml:space="preserve"><value>Повторить</value></data>
+  <data name="AdminMgmt_SearchLabel" xml:space="preserve"><value>Поиск по имени или email</value></data>
+  <data name="AdminMgmt_YouBadge" xml:space="preserve"><value>Вы</value></data>
+  <data name="AdminMgmt_NoMatches" xml:space="preserve"><value>Никого не нашлось.</value></data>
+  <data name="AdminMgmt_SelectHint" xml:space="preserve"><value>Выберите администратора слева, чтобы изменить его данные.</value></data>
+  <data name="AdminMgmt_OpenProfile" xml:space="preserve"><value>Открыть профиль</value></data>
+  <data name="AdminMgmt_ProfileSection" xml:space="preserve"><value>Профиль</value></data>
+  <data name="AdminMgmt_ProfileHint" xml:space="preserve"><value>Имя, буква и цвет видны в таблицах результатов, истории и очередях.</value></data>
+  <data name="AdminMgmt_AccountSection" xml:space="preserve"><value>Вход и роль</value></data>
+  <data name="AdminMgmt_AccountHint" xml:space="preserve"><value>Смена почты, пароля или роли завершает сеансы администратора: ему нужно будет войти заново.</value></data>
+  <data name="AdminMgmt_NewPasswordLabel" xml:space="preserve"><value>Новый пароль</value></data>
+  <data name="AdminMgmt_NewPasswordHint" xml:space="preserve"><value>Оставьте пустым, чтобы не менять</value></data>
+  <data name="AdminMgmt_ShowPassword" xml:space="preserve"><value>Показать пароль</value></data>
+  <data name="AdminMgmt_SuperAdminHint" xml:space="preserve"><value>Полный доступ ко всем предметам и группам, администраторам, бэкапам и статистике.</value></data>
+  <data name="AdminMgmt_SelfSuperAdminHint" xml:space="preserve"><value>Нельзя снять роль суперадмина с самого себя.</value></data>
+  <data name="AdminMgmt_UnsavedHint" xml:space="preserve"><value>Есть несохранённые изменения</value></data>
+  <data name="AdminMgmt_NoChanges" xml:space="preserve"><value>Изменений нет</value></data>
+  <data name="AdminMgmt_Revert" xml:space="preserve"><value>Отменить изменения</value></data>
+  <data name="AdminMgmt_Saving" xml:space="preserve"><value>Сохранение…</value></data>
+  <data name="AdminMgmt_AccessSuperAdmin" xml:space="preserve"><value>Суперадмин работает со всеми предметами и группами, ограничения к нему не применяются.</value></data>
+  <data name="AdminMgmt_AccessSummary" xml:space="preserve"><value>Разрешено предметов: {0} из {1} · запрещено групп: {2}</value></data>
+  <data name="AdminMgmt_AccessLoadFailed" xml:space="preserve"><value>Не удалось загрузить сводку доступа.</value></data>
+  <data name="AdminMgmt_AccessConfigure" xml:space="preserve"><value>Настроить доступ</value></data>
+  <data name="AdminMgmt_DangerSection" xml:space="preserve"><value>Удаление</value></data>
+  <data name="AdminMgmt_DeleteHint" xml:space="preserve"><value>Удалить можно только администратора, который ещё не отмечал сдачи и оценки.</value></data>
+  <data name="AdminMgmt_DeleteButton" xml:space="preserve"><value>Удалить администратора</value></data>
+  <data name="AdminMgmt_Required" xml:space="preserve"><value>Обязательное поле</value></data>
+  <data name="AdminMgmt_EmailInvalid" xml:space="preserve"><value>Введите корректный email</value></data>
+  <data name="AdminMgmt_PasswordTooShort" xml:space="preserve"><value>Не короче {0} символов</value></data>
+  <data name="AdminMgmt_LetterHint" xml:space="preserve"><value>До 8 символов, видна в ячейках результатов</value></data>
+  <data name="AdminMgmt_Preview" xml:space="preserve"><value>Так это будет выглядеть</value></data>
+  <data name="AdminMgmt_ColorReset" xml:space="preserve"><value>Без цвета</value></data>
+  <data name="AdminMgmt_CreateHint" xml:space="preserve"><value>Учётная запись сразу готова к работе: подтверждать почту не нужно. Передайте пароль администратору сами.</value></data>
+  <data name="AdminMgmt_GeneratePassword" xml:space="preserve"><value>Сгенерировать</value></data>
+  <data name="AdminMgmt_ClearForm" xml:space="preserve"><value>Очистить</value></data>
+  <data name="AdminMgmt_Creating" xml:space="preserve"><value>Создание…</value></data>
+  <data name="AdminMgmt_CreateButton" xml:space="preserve"><value>Создать администратора</value></data>
+  <data name="AdminMgmt_FixErrors" xml:space="preserve"><value>Проверьте выделенные поля.</value></data>
+  <data name="AdminMgmt_UnsavedTitle" xml:space="preserve"><value>Несохранённые изменения</value></data>
+  <data name="AdminMgmt_UnsavedText" xml:space="preserve"><value>Изменения для {0} не сохранены. Отменить их?</value></data>
+  <data name="Error_AdminCannotDemoteSelf" xml:space="preserve"><value>Нельзя снять роль суперадмина с самого себя.</value></data>
+  <data name="Error_AdminLastSuperAdmin" xml:space="preserve"><value>Должен остаться хотя бы один суперадмин.</value></data>
 
   <!-- ==================== Maintenance (extra) ==================== -->
   <data name="Maintenance_Intro" xml:space="preserve"><value>Управление сущностями (создание, изменение, удаление) — на странице «Управление».</value></data>
@@ -925,4 +965,43 @@
   <data name="QueueDetails_LateRuleSaved" xml:space="preserve"><value>Порог опоздания сохранён</value></data>
   <data name="QueueDetails_LateRuleOff" xml:space="preserve"><value>Опоздания больше не отмечаются</value></data>
   <data name="StudentQueues_LateHint" xml:space="preserve"><value>Вы записались через {0} мин после начала: опоздавшие ждут после пришедших вовремя.</value></data>
+  <data name="Results_ColRank" xml:space="preserve"><value>Место</value></data>
+  <data name="Results_You" xml:space="preserve"><value>Вы</value></data>
+  <data name="Results_SheetTitle" xml:space="preserve"><value>Ведомость</value></data>
+  <data name="Results_MyRank" xml:space="preserve"><value>{0}-е место из {1}</value></data>
+  <data name="Results_JumpToMyRow" xml:space="preserve"><value>К моей строке</value></data>
+  <data name="Results_RowHiddenByFilter" xml:space="preserve"><value>Вашу строку скрывает фильтр таблицы.</value></data>
+  <data name="Results_ResetFilter" xml:space="preserve"><value>Сбросить фильтр</value></data>
+  <data name="StudentDashboard_SwitchSubject" xml:space="preserve"><value>Другой предмет</value></data>
+  <data name="StudentStrip_DoneOne" xml:space="preserve"><value>{0} из {1} работы сдано</value></data>
+  <data name="StudentStrip_DoneFew" xml:space="preserve"><value>{0} из {1} работ сдано</value></data>
+  <data name="StudentStrip_DoneMany" xml:space="preserve"><value>{0} из {1} работ сдано</value></data>
+  <data name="StudentStrip_PointsOne" xml:space="preserve"><value>{0} балл</value></data>
+  <data name="StudentStrip_PointsFew" xml:space="preserve"><value>{0} балла</value></data>
+  <data name="StudentStrip_PointsMany" xml:space="preserve"><value>{0} баллов</value></data>
+  <data name="StudentStrip_PointsMax" xml:space="preserve"><value>из {0}</value></data>
+  <data name="StudentStrip_OpenRework" xml:space="preserve"><value>Открыть доработку</value></data>
+  <data name="StudentStrip_OpenReworkCount" xml:space="preserve"><value>Открыть доработку · {0}</value></data>
+  <data name="StudentQueues_AheadOne" xml:space="preserve"><value>Перед вами {0} человек</value></data>
+  <data name="StudentQueues_AheadFew" xml:space="preserve"><value>Перед вами {0} человека</value></data>
+  <data name="StudentQueues_AheadMany" xml:space="preserve"><value>Перед вами {0} человек</value></data>
+  <data name="StudentQueues_YouAreNext" xml:space="preserve"><value>Вы следующий</value></data>
+  <data name="StudentQueues_PlaceOf" xml:space="preserve"><value>Место {0} из {1} в очереди</value></data>
+  <data name="StudentQueues_NoArchive" xml:space="preserve"><value>В архиве пока нет очередей, в которых вы участвовали.</value></data>
+  <data name="Queue_RegistrationOpen" xml:space="preserve"><value>Запись открыта</value></data>
+  <data name="Queue_RegistrationClosed" xml:space="preserve"><value>Запись закрыта</value></data>
+  <data name="Queues_TabCurrent" xml:space="preserve"><value>Текущие</value></data>
+  <data name="Queues_TabArchive" xml:space="preserve"><value>Архив</value></data>
+  <data name="Queues_ArchiveEmpty" xml:space="preserve"><value>В архиве пока нет очередей.</value></data>
+  <data name="Queue_Archived" xml:space="preserve"><value>В архиве</value></data>
+  <data name="Queue_ArchivedOn" xml:space="preserve"><value>В архиве · {0}</value></data>
+  <data name="Queue_Past" xml:space="preserve"><value>Прошедшая</value></data>
+  <data name="QueueArchive_Action" xml:space="preserve"><value>Завершить и архивировать</value></data>
+  <data name="QueueArchive_ConfirmTitle" xml:space="preserve"><value>Завершить очередь?</value></data>
+  <data name="QueueArchive_ConfirmText" xml:space="preserve"><value>Очередь уйдёт из текущих списков преподавателей и студентов. Записи останутся в истории.</value></data>
+  <data name="QueueArchive_ConfirmWaiting" xml:space="preserve"><value>Ещё ждут: {0}. Очередь завершится и для них, все записи останутся в истории.</value></data>
+  <data name="QueueArchive_CheckingHint" xml:space="preserve"><value>Идёт проверка: завершите её, чтобы архивировать очередь.</value></data>
+  <data name="QueueArchive_Done" xml:space="preserve"><value>Очередь завершена и перенесена в архив.</value></data>
+  <data name="Error_QueueArchived" xml:space="preserve"><value>Очередь в архиве: записаться, выйти или изменить её нельзя.</value></data>
+  <data name="Error_QueueArchiveChecking" xml:space="preserve"><value>Идёт проверка: завершите её, прежде чем архивировать очередь.</value></data>
 </root>

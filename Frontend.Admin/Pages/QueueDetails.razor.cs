@@ -31,6 +31,7 @@ public partial class QueueDetails : IAsyncDisposable
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
     [Inject] private IJSRuntime JS { get; set; } = null!;
+    [Inject] private ConfirmService Confirm { get; set; } = null!;
 
     private QueueDetailsDto? _details;
     private List<QueueParticipantDto> _participants = [];
@@ -139,6 +140,33 @@ public partial class QueueDetails : IAsyncDisposable
             _details = _details with { AllowSelfJoin = allow };
         }
         catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+
+    private bool _archiving;
+
+    /// <summary>
+    /// «Завершить и архивировать»: очередь уходит из текущих списков, записи остаются в истории.
+    /// Если кто-то ждёт — подтверждение называет их число. Начатую проверку сервер не даст оборвать.
+    /// </summary>
+    private async Task ArchiveAsync()
+    {
+        if (_details is null || _details.IsArchived || _archiving) return;
+        var waiting = Count(QueueEntryStatus.Waiting);
+        var text = waiting > 0 ? Loc["QueueArchive_ConfirmWaiting", waiting] : Loc["QueueArchive_ConfirmText"];
+        if (!await Confirm.ConfirmAsync(Loc["QueueArchive_ConfirmTitle"], text, Loc["QueueArchive_Action"])) return;
+        _archiving = true;
+        try
+        {
+            await Queues.ArchiveAsync(EventId);
+            Snackbar.Add(Loc["QueueArchive_Done"], Severity.Success);
+        }
+        catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally
+        {
+            _archiving = false;
+            // И при успехе, и при отказе (кто-то успел начать проверку) — показать актуальное состояние.
+            await LoadAsync();
+        }
     }
 
     private const int QueueLateMax = 240;
@@ -432,6 +460,9 @@ public partial class QueueDetails : IAsyncDisposable
         catch (JSException) { }
     }
 
+    /// <summary>Сколько записей в статусе во всей очереди (без учёта фильтра групп).</summary>
+    private int Count(QueueEntryStatus status) => _participants.Count(p => p.Status == status);
+
     /// <summary>Счётчик статуса: при выбранных группах — «в выбранных / всего».</summary>
     private string StatCount(QueueEntryStatus status)
     {
@@ -487,7 +518,9 @@ public partial class QueueDetails : IAsyncDisposable
     }
 
     // Прошлый круг — история: открыть можно, но без взятия на проверку и смены статуса.
-    private bool IsReadOnly(QueueParticipantDto participant) => _currentAdminId is null || IsPastRound(participant);
+    // Архивная очередь — тоже только просмотр.
+    private bool IsReadOnly(QueueParticipantDto participant) =>
+        _currentAdminId is null || IsPastRound(participant) || _details?.IsArchived == true;
 
     private bool IsOtherTeacherChecking(QueueParticipantDto participant) =>
         participant.Status == QueueEntryStatus.Checking &&

@@ -13,6 +13,14 @@ public class QueuesApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task<List<QueueEventDto>> GetAllAsync(CancellationToken ct = default) =>
         GetAsync<List<QueueEventDto>>("api/queues/all", ct);
 
+    /// <summary>Архив: вручную завершённые и прошедшие очереди (свежие первыми).</summary>
+    public Task<List<QueueEventDto>> GetArchiveAsync(CancellationToken ct = default) =>
+        GetAsync<List<QueueEventDto>>("api/queues?scope=archive", ct);
+
+    /// <summary>Завершить и архивировать очередь (повторный вызов ничего не меняет).</summary>
+    public Task<QueueEventDto> ArchiveAsync(int eventId, CancellationToken ct = default) =>
+        PostAsync<QueueEventDto>($"api/queues/{eventId}/archive", new { }, ct);
+
     public Task<QueueDetailsDto> GetDetailsAsync(int eventId, CancellationToken ct = default) =>
         GetAsync<QueueDetailsDto>($"api/queues/{eventId}", ct);
 

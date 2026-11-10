@@ -24,9 +24,6 @@ public class QueueAutoFillService(
     IQueueNotifier queueNotifier,
     ILogger<QueueAutoFillService> logger) : IQueueAutoFillService
 {
-    /// <summary>Тот же запас, что у списка активных очередей: событие актуально ещё сутки после начала.</summary>
-    private static readonly TimeSpan ActiveEventGracePeriod = TimeSpan.FromDays(1);
-
     public async Task EnrollAsync(Guid studentId, CancellationToken cancellationToken = default)
     {
         List<int> eventIds = [];
@@ -41,10 +38,10 @@ public class QueueAutoFillService(
                     .FirstOrDefaultAsync(ct);
                 if (student is null) return;
 
-                var threshold = DateTime.UtcNow - ActiveEventGracePeriod;
+                // Только текущие очереди (то же правило, что у списков): архивные и прошедшие автозапись пропускает.
                 eventIds = await db.QueueEvents
-                    .Where(qe => qe.EventDateTime > threshold
-                                 && qe.AutoFillGroups.Any(g => g.Id == student.GroupId)
+                    .Where(QueueVisibility.Current(DateTime.UtcNow))
+                    .Where(qe => qe.AutoFillGroups.Any(g => g.Id == student.GroupId)
                                  && !qe.Participants.Any(p => p.StudentId == studentId))
                     .Select(qe => qe.Id)
                     .ToListAsync(ct);

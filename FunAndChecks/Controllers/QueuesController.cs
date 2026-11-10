@@ -12,10 +12,13 @@ public class QueuesController(IQueueService queueService) : ControllerBase
 {
     private Guid? CurrentAdminId => User.IsInRole(Roles.Admin) ? User.GetUserId() : null;
 
-    /// <summary>Активные события, доступные текущему пользователю.</summary>
+    /// <summary>
+    /// События, доступные текущему пользователю: scope=current (по умолчанию) — текущие,
+    /// archive — вручную архивированные и прошедшие (свежие первыми).
+    /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<QueueEventDto>>> GetActive(CancellationToken cancellationToken) =>
-        Ok(await queueService.GetActiveEventsAsync(CurrentAdminId, cancellationToken));
+    public async Task<ActionResult<List<QueueEventDto>>> GetActive([FromQuery] QueueListScope? scope, CancellationToken cancellationToken) =>
+        Ok(await queueService.GetEventsAsync(CurrentAdminId, scope ?? QueueListScope.Current, cancellationToken));
 
     /// <summary>Все события за всю историю.</summary>
     [HttpGet("all")]
@@ -43,6 +46,16 @@ public class QueuesController(IQueueService queueService) : ControllerBase
     public async Task<ActionResult<QueueEventDto>> Update(
         int eventId, UpdateQueueEventRequest request, CancellationToken cancellationToken) =>
         Ok(await queueService.UpdateEventAsync(User.GetUserId(), eventId, request, cancellationToken));
+
+    /// <summary>
+    /// Завершить и архивировать очередь: исчезает из текущих списков, записи остаются в истории.
+    /// 409 queue.archive_checking, пока идёт проверка. Повторный вызов ничего не меняет.
+    /// </summary>
+    [HttpPost("{eventId:int}/archive")]
+    [Authorize(Roles = Roles.Admin)]
+    [ProducesResponseType(typeof(QueueEventDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<QueueEventDto>> Archive(int eventId, CancellationToken cancellationToken) =>
+        Ok(await queueService.ArchiveEventAsync(User.GetUserId(), eventId, cancellationToken));
 
     /// <summary>Удалить событие очереди вместе с записями участников.</summary>
     [HttpDelete("{eventId:int}")]

@@ -1,0 +1,105 @@
+@namespace Frontend.Admin.UI
+
+<MudPaper Outlined="true" Class="fc-admin-editor">
+    <header class="fc-admin-editor-head">
+        <span class="fc-admin-letter large" style="@AdminStyles.Letter(Admin.Color)">@(string.IsNullOrWhiteSpace(Admin.Letter) ? "?" : Admin.Letter)</span>
+        <div class="fc-admin-editor-title">
+            <MudText Typo="Typo.h6">@Admin.FullName</MudText>
+            <span class="fc-muted">@Admin.Email</span>
+        </div>
+        <div class="fc-admin-editor-badges">
+            @if (Admin.IsSuperAdmin)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@Loc["AdminMgmt_IsSuperAdmin"]</MudChip>
+            }
+            @if (IsSelf)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@Loc["AdminMgmt_YouBadge"]</MudChip>
+            }
+            <ProfileLink UserId="Admin.Id" Class="fc-admin-profile-link">@Loc["AdminMgmt_OpenProfile"]</ProfileLink>
+        </div>
+    </header>
+
+    <section class="fc-admin-section">
+        <div class="fc-admin-section-head">
+            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_ProfileSection"]</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_ProfileHint"]</MudText>
+        </div>
+        <div class="fc-admin-field-row">
+            <MudTextField @bind-Value="_lastName" Immediate="true" Label="@Loc["AdminMgmt_LastNameLabel"]" Variant="Variant.Outlined"
+                          Error="@(LastNameError is not null)" ErrorText="@LastNameError" Disabled="_saving" MaxLength="100" />
+            <MudTextField @bind-Value="_firstName" Immediate="true" Label="@Loc["AdminMgmt_FirstNameLabel"]" Variant="Variant.Outlined"
+                          Error="@(FirstNameError is not null)" ErrorText="@FirstNameError" Disabled="_saving" MaxLength="100" />
+        </div>
+        <AdminAppearanceFields @bind-Letter="_letter" @bind-Color="_color" PreviewName="@($"{_lastName} {_firstName}")" Disabled="_saving" />
+    </section>
+
+    <section class="fc-admin-section">
+        <div class="fc-admin-section-head">
+            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_AccountSection"]</MudText>
+            <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_AccountHint"]</MudText>
+        </div>
+        <div class="fc-admin-field-row">
+            <MudTextField @bind-Value="_email" Immediate="true" Label="@Loc["AdminMgmt_EmailLabel"]" Variant="Variant.Outlined" InputType="InputType.Email"
+                          Error="@(EmailError is not null)" ErrorText="@EmailError" Disabled="_saving" MaxLength="256" autocomplete="off" />
+            <MudTextField @bind-Value="_newPassword" Immediate="true" Label="@Loc["AdminMgmt_NewPasswordLabel"]" Variant="Variant.Outlined"
+                          HelperText="@Loc["AdminMgmt_NewPasswordHint"]" InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                          Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                          AdornmentAriaLabel="@Loc["AdminMgmt_ShowPassword"]" OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                          Error="@(PasswordError is not null)" ErrorText="@PasswordError" Disabled="_saving" MaxLength="128" autocomplete="new-password" />
+        </div>
+        <div class="fc-admin-role">
+            <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Disabled="@(_saving || CannotDemoteSelf)">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
+            <MudText Typo="Typo.caption" Class="fc-muted">@(CannotDemoteSelf ? Loc["AdminMgmt_SelfSuperAdminHint"] : Loc["AdminMgmt_SuperAdminHint"])</MudText>
+        </div>
+    </section>
+
+    <div class="fc-admin-save-bar @(HasChanges ? "dirty" : "")">
+        <span class="fc-muted">@(HasChanges ? Loc["AdminMgmt_UnsavedHint"] : Loc["AdminMgmt_NoChanges"])</span>
+        <MudButton Variant="Variant.Text" OnClick="Discard" Disabled="@(_saving || !HasChanges)">@Loc["AdminMgmt_Revert"]</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_saving || !HasChanges || !IsValid)"
+                   StartIcon="@Icons.Material.Filled.Save">@(_saving ? Loc["AdminMgmt_Saving"] : Loc["Common_Save"])</MudButton>
+    </div>
+
+    <section class="fc-admin-section">
+        <div class="fc-admin-section-head">
+            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["Common_Access"]</MudText>
+        </div>
+        @if (Admin.IsSuperAdmin)
+        {
+            <MudText Typo="Typo.body2">@Loc["AdminMgmt_AccessSuperAdmin"]</MudText>
+        }
+        else
+        {
+            <div class="fc-admin-access">
+                <MudText Typo="Typo.body2">
+                    @if (_access is { } access)
+                    {
+                        @Loc["AdminMgmt_AccessSummary", access.AllowedSubjects, access.TotalSubjects, access.RestrictedGroups]
+                    }
+                    else if (_accessFailed)
+                    {
+                        @Loc["AdminMgmt_AccessLoadFailed"]
+                    }
+                    else
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    }
+                </MudText>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune" OnClick="OpenAccessAsync">@Loc["AdminMgmt_AccessConfigure"]</MudButton>
+            </div>
+        }
+    </section>
+
+    @if (!IsSelf)
+    {
+        <section class="fc-admin-section fc-admin-danger">
+            <div class="fc-admin-section-head">
+                <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_DangerSection"]</MudText>
+                <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_DeleteHint"]</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="DeleteAsync" Disabled="_saving">@Loc["AdminMgmt_DeleteButton"]</MudButton>
+        </section>
+    }
+</MudPaper>

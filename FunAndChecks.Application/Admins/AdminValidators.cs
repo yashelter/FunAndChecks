@@ -24,5 +24,7 @@ public class UpdateAdminRequestValidator : AbstractValidator<UpdateAdminRequest>
         RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Color).HexColor();
         RuleFor(x => x.Letter).MaximumLength(8);
+        RuleFor(x => x.Email!).NotEmpty().EmailAddress().MaximumLength(256).When(x => x.Email is not null);
+        RuleFor(x => x.NewPassword!).MinimumLength(6).MaximumLength(128).When(x => !string.IsNullOrEmpty(x.NewPassword));
     }
 }

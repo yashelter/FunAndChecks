@@ -47,7 +47,32 @@ test('name and total stay pinned when scrolling sideways', () => {
     assert.ok(name && total, 'sticky rules for the name and Σ columns are missing');
     assert.match(name, /position:sticky; left:0/);
     assert.match(name, /width:var\(--fc-results-name\)/);
-    assert.match(total, /position:sticky; left:var\(--fc-results-name\)/, 'Σ sits right after the fixed-width name column');
+    assert.match(total, /position:sticky; left:calc\(var\(--fc-results-name\) \+ var\(--fc-results-rank\)\)/,
+        'Σ sits right after the fixed-width name and rank columns');
+    // «Место» закреплено между именем и Σ и имеет точную ширину — иначе Σ наехала бы на него при прокрутке.
+    const rank = rule('.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column');
+    assert.ok(rank, 'sticky rule for the rank column is missing');
+    assert.match(rank, /position:sticky; left:var\(--fc-results-name\)/);
+    assert.match(rank, /width:var\(--fc-results-rank\); min-width:var\(--fc-results-rank\); max-width:var\(--fc-results-rank\)/);
+    // Без колонки (публичная таблица) ширина нулевая и Σ стоит сразу после имени.
+    assert.match(css, /\.fc-results-grid \{[^}]*--fc-results-rank:0px/);
+    assert.match(css, /\.fc-results-grid\.fc-results-ranked \{ --fc-results-rank:\d+px; \}/);
+});
+
+test('rank column is in both cabinets, the public table keeps its columns', () => {
+    assert.match(adminGrid, /Property="x => x\.Rank"[^>]*CellClass="fc-results-rank-column"/);
+    assert.match(adminGrid, /GridClass\(Results, ranked: true\)/);
+    assert.match(sharedGrid, /@if \(ShowRank\)\s*\{[\s\S]*?Property="x => x\.Rank"/);
+    assert.match(sharedGrid, /GridClass\(Results, ShowRank\)/);
+    assert.match(read('Frontend.Student/Pages/Dashboard.razor'), /ShowRank="true"/);
+    assert.doesNotMatch(read('Frontend/Pages/PublicResults.razor'), /ShowRank/);
+});
+
+test('own row gets a "you" label inside the pinned name cell', () => {
+    assert.match(sharedGrid, /context\.Item\.StudentId == HighlightStudentId\) \{<span class="fc-results-you">/);
+    const community = read('Frontend.Shared/wwwroot/community.css');
+    assert.match(community, /\.fc-results-you\{flex-shrink:0;/);
+    assert.match(community, /\.fc-results-me td\.fc-results-name-column,[^{]*\{background:color-mix/);
 });
 
 test('many tasks get vertical, truncated headers', () => {
@@ -70,8 +95,9 @@ test('the results panel does not clip sticky elements into its own scroll box', 
 });
 
 test('changed stylesheets and the new script are referenced with fresh versions', () => {
-    assert.ok(Number(index.match(/dashboard-content\.css\?v=(\d+)/)[1]) >= 14);
-    assert.ok(Number(index.match(/admin-dashboard\.css\?v=ux-(\d+)/)[1]) >= 7);
+    assert.ok(Number(index.match(/dashboard-content\.css\?v=(\d+)/)[1]) >= 16);
+    assert.ok(Number(index.match(/community\.css\?v=(\d+)/)[1]) >= 11);
+    assert.ok(Number(index.match(/admin-dashboard\.css\?v=ux-(\d+)/)[1]) >= 9);
     assert.match(index, /_content\/Frontend\.Shared\/results-scroll\.js/);
 });
 
@@ -139,4 +165,30 @@ test('attach is idempotent and detach removes the listeners', () => {
     assert.equal(bar.listenerCount('scroll'), 0);
     assert.equal(table.listenerCount('scroll'), 0);
     assert.ok(observers.every(o => o.disconnected));
+});
+
+test('scrollToRow scrolls a virtualized table by row index, then centers and focuses the own row', async () => {
+    const link = { focused: null, focus(options) { this.focused = options; } };
+    const row = { offsetTop: 0, offsetHeight: 37, querySelector: () => link };
+    let rendered = false;
+    const table = {
+        clientHeight: 437, scrollTop: 0,
+        querySelector: s => s === 'thead' ? { offsetHeight: 40 } : s === 'tr.fc-results-me' && rendered ? row : null,
+    };
+    const host = { scrolled: null, scrollIntoView(o) { this.scrolled = o; }, querySelector: s => s === '.mud-table-container' ? table : null };
+    const frames = [];
+    const window = { matchMedia: () => ({ matches: true }) };
+    vm.runInNewContext(scrollJs, { window, ResizeObserver: undefined, requestAnimationFrame: cb => frames.push(cb) });
+    const flush = async () => { while (frames.length) { frames.shift()(); await new Promise(r => setImmediate(r)); } };
+
+    window.resultsScroll.scrollToRow(host, 100, 37);
+    assert.equal(host.scrolled.behavior, 'auto', 'reduced motion: no smooth scrolling');
+    frames.shift()(); await new Promise(r => setImmediate(r));
+    // 100 строк × 37 px минус половина видимой области под шапкой: строка ещё не в DOM, но окажется на экране.
+    assert.equal(table.scrollTop, 100 * 37 - (437 - 40 - 37) / 2);
+    rendered = true;
+    row.offsetTop = 40 + 100 * 37;
+    await flush();
+    assert.equal(table.scrollTop, 100 * 37 - (437 - 40 - 37) / 2);
+    assert.equal(link.focused?.preventScroll, true, "focus must not scroll the page again");
 });

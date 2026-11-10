@@ -3,7 +3,12 @@ namespace Frontend.Shared.Models;
 using Frontend.Shared.Profiles;
 
 public record QueueEventDto(int Id, string Name, DateTime EventDateTime, bool AllowSelfJoin,
-    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null);
+    string? SubjectName = null, QueueEntryStatus? MyStatus = null, int? MyPosition = null, int? WaitingCount = null,
+    DateTime? ArchivedAt = null)
+{
+    /// <summary>Очередь вручную завершена и архивирована: только просмотр.</summary>
+    public bool IsArchived => ArchivedAt is not null;
+}
 
 /// <summary>
 /// Создание события. Если заданы <c>AutoFillGroupIds</c>, в очередь добавляются студенты этих групп
@@ -63,7 +68,12 @@ public record QueueDetailsDto(
     DateTime EventDateTime,
     bool AllowSelfJoin,
     List<QueueParticipantDto> Participants,
-    int? LateAfterMinutes = null);
+    int? LateAfterMinutes = null,
+    DateTime? ArchivedAt = null)
+{
+    /// <summary>Очередь вручную завершена и архивирована: только просмотр.</summary>
+    public bool IsArchived => ArchivedAt is not null;
+}
 
 /// <summary>Событие SignalR об изменении записи в очереди.</summary>
 public record QueueEntryUpdateDto(int EventId, Guid StudentId, QueueEntryStatus NewStatus, string? AdminName);

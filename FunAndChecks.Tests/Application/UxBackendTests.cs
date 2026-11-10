@@ -115,7 +115,7 @@ public class UxBackendTests : IDisposable
         });
         await ctx.SaveChangesAsync();
 
-        async Task<QueueEventDto> Mine(Guid id) => (await sut.GetMyEventsAsync(id, false)).Single();
+        async Task<QueueEventDto> Mine(Guid id) => (await sut.GetMyEventsAsync(id, QueueListScope.Current)).Single();
 
         var first = await Mine(strong.Id);
         first.SubjectName.Should().Be(c.Subject.Name);
@@ -138,7 +138,7 @@ public class UxBackendTests : IDisposable
         await sut.LeaveAsync(queue.Id, c.Student.Id);
 
         ctx.QueueEntries.Should().BeEmpty();
-        (await sut.GetMyEventsAsync(c.Student.Id, false)).Should().BeEmpty();
+        (await sut.GetMyEventsAsync(c.Student.Id, QueueListScope.Current)).Should().BeEmpty();
         var again = () => sut.LeaveAsync(queue.Id, c.Student.Id);
         (await again.Should().ThrowAsync<NotFoundException>()).Which.Code.Should().Be("queue.not_joined");
 

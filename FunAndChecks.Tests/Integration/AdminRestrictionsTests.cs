@@ -262,6 +262,31 @@ public class AdminRestrictionsTests : IDisposable
         (await admin.DeleteAsync(gradeUrl)).StatusCode.Should().Be(HttpStatusCode.NoContent);
     }
 
+    [Fact]
+    public async Task AdminDetails_AreSuperAdminOnly_AndUpdateCanGrantSuperAdminRole()
+    {
+        var data = await SeedAsync();
+        using var admin = CreateClient(data.AdminToken);
+        using var superAdmin = CreateClient(data.SuperAdminToken);
+
+        (await admin.GetAsync("/api/admins/details")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var before = (await superAdmin.GetFromJsonAsync<List<AdminDetailsDto>>("/api/admins/details"))!;
+        before.Should().Contain(a => a.Id == data.AdminId && !a.IsSuperAdmin && a.Email != null);
+
+        (await admin.PutAsJsonAsync($"/api/admins/{data.AdminId}",
+                new UpdateAdminRequest("Self", "Promoted", null, null, IsSuperAdmin: true)))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await superAdmin.PutAsJsonAsync($"/api/admins/{data.AdminId}",
+                new UpdateAdminRequest("New", "Name", "#445566", "N", IsSuperAdmin: true)))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var after = (await superAdmin.GetFromJsonAsync<List<AdminDetailsDto>>("/api/admins/details"))!;
+        after.Should().Contain(a => a.Id == data.AdminId && a.IsSuperAdmin && a.FirstName == "New" && a.Letter == "N");
+        using var scope = _factory.Services.CreateScope();
+        var identity = scope.ServiceProvider.GetRequiredService<IIdentityService>();
+        (await identity.GetCurrentRolesAsync(data.AdminId)).Should().Contain(Roles.SuperAdmin);
+    }
+
     private async Task<TestData> SeedAsync()
     {
         using var scope = _factory.Services.CreateScope();

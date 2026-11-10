@@ -20,6 +20,12 @@ public class AdminsController(
     public async Task<ActionResult<List<AdminDto>>> GetAll(CancellationToken cancellationToken) =>
         Ok(await adminService.GetAllAsync(cancellationToken));
 
+    /// <summary>Админы с почтой и ролью — для экрана управления (только супер-админ).</summary>
+    [HttpGet("details")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    public async Task<ActionResult<List<AdminDetailsDto>>> GetDetails(CancellationToken cancellationToken) =>
+        Ok(await adminService.GetDetailsAsync(cancellationToken));
+
     /// <summary>Создать админа (только супер-админ).</summary>
     [HttpPost]
     [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
@@ -36,7 +42,7 @@ public class AdminsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(Guid adminId, UpdateAdminRequest request, CancellationToken cancellationToken)
     {
-        await adminService.UpdateAsync(adminId, request, cancellationToken);
+        await adminService.UpdateAsync(User.GetUserId(), adminId, request, cancellationToken);
         return NoContent();
     }
 

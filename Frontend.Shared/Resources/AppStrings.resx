@@ -345,19 +345,59 @@
   <data name="StudentGrading_ProfileUpdated" xml:space="preserve"><value>Profile updated successfully.</value></data>
 
   <!-- ==================== Admin Management (extra) ==================== -->
-  <data name="AdminMgmt_CreateTitle" xml:space="preserve"><value>Create administrator</value></data>
-  <data name="AdminMgmt_ColorLabel" xml:space="preserve"><value>Color #RRGGBB</value></data>
+  <data name="AdminMgmt_ColorLabel" xml:space="preserve"><value>Color</value></data>
   <data name="AdminMgmt_LetterLabel" xml:space="preserve"><value>Letter label</value></data>
-  <data name="AdminMgmt_ListTitle" xml:space="preserve"><value>List</value></data>
   <data name="AdminMgmt_RestrictionsTitle" xml:space="preserve"><value>Restrictions: {0} {1}</value></data>
   <data name="AdminMgmt_SubjectsTitle" xml:space="preserve"><value>Subjects</value></data>
   <data name="AdminMgmt_GroupsTitle" xml:space="preserve"><value>Groups</value></data>
-  <data name="AdminMgmt_Restricted" xml:space="preserve"><value>(restricted)</value></data>
-  <data name="AdminMgmt_EmailPasswordRequired" xml:space="preserve"><value>Enter email and password.</value></data>
   <data name="AdminMgmt_Created" xml:space="preserve"><value>Administrator created.</value></data>
-  <data name="AdminMgmt_DeleteTitle" xml:space="preserve"><value>Delete administrator</value></data>
-  <data name="AdminMgmt_DeleteConfirm" xml:space="preserve"><value>Delete administrator {0} {1}?</value></data>
   <data name="AdminMgmt_Deleted" xml:space="preserve"><value>Administrator deleted.</value></data>
+  <data name="AdminMgmt_Eyebrow" xml:space="preserve"><value>Team</value></data>
+  <data name="AdminMgmt_TabList" xml:space="preserve"><value>Administrators · {0}</value></data>
+  <data name="AdminMgmt_TabCreate" xml:space="preserve"><value>New administrator</value></data>
+  <data name="AdminMgmt_LoadFailed" xml:space="preserve"><value>Could not load administrators.</value></data>
+  <data name="AdminMgmt_Retry" xml:space="preserve"><value>Retry</value></data>
+  <data name="AdminMgmt_SearchLabel" xml:space="preserve"><value>Search by name or email</value></data>
+  <data name="AdminMgmt_YouBadge" xml:space="preserve"><value>You</value></data>
+  <data name="AdminMgmt_NoMatches" xml:space="preserve"><value>No administrators found.</value></data>
+  <data name="AdminMgmt_SelectHint" xml:space="preserve"><value>Select an administrator on the left to edit their data.</value></data>
+  <data name="AdminMgmt_OpenProfile" xml:space="preserve"><value>Open profile</value></data>
+  <data name="AdminMgmt_ProfileSection" xml:space="preserve"><value>Profile</value></data>
+  <data name="AdminMgmt_ProfileHint" xml:space="preserve"><value>The name, letter and color are shown in results tables, history and queues.</value></data>
+  <data name="AdminMgmt_AccountSection" xml:space="preserve"><value>Sign-in and role</value></data>
+  <data name="AdminMgmt_AccountHint" xml:space="preserve"><value>Changing the email, password or role ends the administrator's sessions: they will need to sign in again.</value></data>
+  <data name="AdminMgmt_NewPasswordLabel" xml:space="preserve"><value>New password</value></data>
+  <data name="AdminMgmt_NewPasswordHint" xml:space="preserve"><value>Leave empty to keep the current password</value></data>
+  <data name="AdminMgmt_ShowPassword" xml:space="preserve"><value>Show password</value></data>
+  <data name="AdminMgmt_SuperAdminHint" xml:space="preserve"><value>Full access to every subject and group, administrators, backups and statistics.</value></data>
+  <data name="AdminMgmt_SelfSuperAdminHint" xml:space="preserve"><value>You cannot remove the super admin role from yourself.</value></data>
+  <data name="AdminMgmt_UnsavedHint" xml:space="preserve"><value>There are unsaved changes</value></data>
+  <data name="AdminMgmt_NoChanges" xml:space="preserve"><value>No changes</value></data>
+  <data name="AdminMgmt_Revert" xml:space="preserve"><value>Discard changes</value></data>
+  <data name="AdminMgmt_Saving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="AdminMgmt_AccessSuperAdmin" xml:space="preserve"><value>A super admin works with every subject and group; restrictions do not apply.</value></data>
+  <data name="AdminMgmt_AccessSummary" xml:space="preserve"><value>Allowed subjects: {0} of {1} · restricted groups: {2}</value></data>
+  <data name="AdminMgmt_AccessLoadFailed" xml:space="preserve"><value>Could not load the access summary.</value></data>
+  <data name="AdminMgmt_AccessConfigure" xml:space="preserve"><value>Configure access</value></data>
+  <data name="AdminMgmt_DangerSection" xml:space="preserve"><value>Deletion</value></data>
+  <data name="AdminMgmt_DeleteHint" xml:space="preserve"><value>Only an administrator who has not marked submissions or grades can be deleted.</value></data>
+  <data name="AdminMgmt_DeleteButton" xml:space="preserve"><value>Delete administrator</value></data>
+  <data name="AdminMgmt_Required" xml:space="preserve"><value>Required field</value></data>
+  <data name="AdminMgmt_EmailInvalid" xml:space="preserve"><value>Enter a valid email</value></data>
+  <data name="AdminMgmt_PasswordTooShort" xml:space="preserve"><value>At least {0} characters</value></data>
+  <data name="AdminMgmt_LetterHint" xml:space="preserve"><value>Up to 8 characters, shown in result cells</value></data>
+  <data name="AdminMgmt_Preview" xml:space="preserve"><value>Preview</value></data>
+  <data name="AdminMgmt_ColorReset" xml:space="preserve"><value>No color</value></data>
+  <data name="AdminMgmt_CreateHint" xml:space="preserve"><value>The account is ready right away: no email confirmation is needed. Send the password to the administrator yourself.</value></data>
+  <data name="AdminMgmt_GeneratePassword" xml:space="preserve"><value>Generate</value></data>
+  <data name="AdminMgmt_ClearForm" xml:space="preserve"><value>Clear</value></data>
+  <data name="AdminMgmt_Creating" xml:space="preserve"><value>Creating…</value></data>
+  <data name="AdminMgmt_CreateButton" xml:space="preserve"><value>Create administrator</value></data>
+  <data name="AdminMgmt_FixErrors" xml:space="preserve"><value>Check the highlighted fields.</value></data>
+  <data name="AdminMgmt_UnsavedTitle" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="AdminMgmt_UnsavedText" xml:space="preserve"><value>Changes for {0} are not saved. Discard them?</value></data>
+  <data name="Error_AdminCannotDemoteSelf" xml:space="preserve"><value>You cannot remove the super admin role from yourself.</value></data>
+  <data name="Error_AdminLastSuperAdmin" xml:space="preserve"><value>At least one super admin must remain.</value></data>
 
   <!-- ==================== Maintenance (extra) ==================== -->
   <data name="Maintenance_Intro" xml:space="preserve"><value>Entity management (create, edit, delete) is on the Management page.</value></data>
@@ -923,4 +963,43 @@
   <data name="QueueDetails_LateRuleSaved" xml:space="preserve"><value>Late threshold saved</value></data>
   <data name="QueueDetails_LateRuleOff" xml:space="preserve"><value>Lateness is no longer tracked</value></data>
   <data name="StudentQueues_LateHint" xml:space="preserve"><value>You joined {0} min after the start: late students wait after those on time.</value></data>
+  <data name="Results_ColRank" xml:space="preserve"><value>Rank</value></data>
+  <data name="Results_You" xml:space="preserve"><value>You</value></data>
+  <data name="Results_SheetTitle" xml:space="preserve"><value>Gradebook</value></data>
+  <data name="Results_MyRank" xml:space="preserve"><value>Place {0} of {1}</value></data>
+  <data name="Results_JumpToMyRow" xml:space="preserve"><value>Go to my row</value></data>
+  <data name="Results_RowHiddenByFilter" xml:space="preserve"><value>Your row is hidden by the table filter.</value></data>
+  <data name="Results_ResetFilter" xml:space="preserve"><value>Reset filter</value></data>
+  <data name="StudentDashboard_SwitchSubject" xml:space="preserve"><value>Switch subject</value></data>
+  <data name="StudentStrip_DoneOne" xml:space="preserve"><value>{0} of {1} task done</value></data>
+  <data name="StudentStrip_DoneFew" xml:space="preserve"><value>{0} of {1} tasks done</value></data>
+  <data name="StudentStrip_DoneMany" xml:space="preserve"><value>{0} of {1} tasks done</value></data>
+  <data name="StudentStrip_PointsOne" xml:space="preserve"><value>{0} point</value></data>
+  <data name="StudentStrip_PointsFew" xml:space="preserve"><value>{0} points</value></data>
+  <data name="StudentStrip_PointsMany" xml:space="preserve"><value>{0} points</value></data>
+  <data name="StudentStrip_PointsMax" xml:space="preserve"><value>of {0}</value></data>
+  <data name="StudentStrip_OpenRework" xml:space="preserve"><value>Open rework</value></data>
+  <data name="StudentStrip_OpenReworkCount" xml:space="preserve"><value>Open rework · {0}</value></data>
+  <data name="StudentQueues_AheadOne" xml:space="preserve"><value>{0} person ahead of you</value></data>
+  <data name="StudentQueues_AheadFew" xml:space="preserve"><value>{0} people ahead of you</value></data>
+  <data name="StudentQueues_AheadMany" xml:space="preserve"><value>{0} people ahead of you</value></data>
+  <data name="StudentQueues_YouAreNext" xml:space="preserve"><value>You are next</value></data>
+  <data name="StudentQueues_PlaceOf" xml:space="preserve"><value>Place {0} of {1} in the queue</value></data>
+  <data name="StudentQueues_NoArchive" xml:space="preserve"><value>No archived queues you took part in yet.</value></data>
+  <data name="Queue_RegistrationOpen" xml:space="preserve"><value>Registration open</value></data>
+  <data name="Queue_RegistrationClosed" xml:space="preserve"><value>Registration closed</value></data>
+  <data name="Queues_TabCurrent" xml:space="preserve"><value>Current</value></data>
+  <data name="Queues_TabArchive" xml:space="preserve"><value>Archive</value></data>
+  <data name="Queues_ArchiveEmpty" xml:space="preserve"><value>The archive is empty for now.</value></data>
+  <data name="Queue_Archived" xml:space="preserve"><value>Archived</value></data>
+  <data name="Queue_ArchivedOn" xml:space="preserve"><value>Archived · {0}</value></data>
+  <data name="Queue_Past" xml:space="preserve"><value>Past</value></data>
+  <data name="QueueArchive_Action" xml:space="preserve"><value>Finish and archive</value></data>
+  <data name="QueueArchive_ConfirmTitle" xml:space="preserve"><value>Finish the queue?</value></data>
+  <data name="QueueArchive_ConfirmText" xml:space="preserve"><value>The queue leaves the current lists of teachers and students. Its entries stay in the history.</value></data>
+  <data name="QueueArchive_ConfirmWaiting" xml:space="preserve"><value>Still waiting: {0}. The queue ends for them too; all entries stay in the history.</value></data>
+  <data name="QueueArchive_CheckingHint" xml:space="preserve"><value>A review is in progress: finish it to archive the queue.</value></data>
+  <data name="QueueArchive_Done" xml:space="preserve"><value>The queue is finished and moved to the archive.</value></data>
+  <data name="Error_QueueArchived" xml:space="preserve"><value>The queue is archived: you can't join, leave or change it.</value></data>
+  <data name="Error_QueueArchiveChecking" xml:space="preserve"><value>A review is in progress: finish it before archiving the queue.</value></data>
 </root>

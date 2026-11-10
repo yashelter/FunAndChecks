@@ -209,5 +209,80 @@ public class ResultsServiceTests : IDisposable
         await act.Should().ThrowAsync<NotFoundException>();
     }
 
+    [Fact]
+    public async Task Rank_EqualPointsShareAPlace_NextPlaceSkipsTheTiedGroup()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var group = ctx.Group();
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(group, subject);
+        // Баллы 90, 80, 80, 60, 0: задачи по 10, у каждого своё число зачтённых.
+        var tasks = Enumerable.Range(1, 9).Select(i => ctx.Task(subject, maxPoints: 10, name: $"T{i}")).ToList();
+        var students = new[] { ("Alpha", 9), ("Delta", 8), ("Bravo", 8), ("Echo", 6), ("Zulu", 0) }
+            .Select(s => (Student: ctx.Student(group, s.Item1), Accepted: s.Item2)).ToList();
+        await ctx.SaveChangesAsync();
+        foreach (var (student, accepted) in students)
+            foreach (var task in tasks.Take(accepted))
+                ctx.Submissions.Add(new Submission
+                {
+                    StudentId = student.Id, TaskId = task.Id, AdminId = admin.Id,
+                    Status = SubmissionStatus.Accepted, SubmittedAt = DateTime.UtcNow,
+                });
+        await ctx.SaveChangesAsync();
+
+        var rows = (await new ResultsService(ctx, _cache).GetSubjectResultsAsync(subject.Id)).UserResults;
+
+        rows.Select(r => r.TotalPoints).Should().Equal(90, 80, 80, 60, 0);
+        rows.Select(r => r.Rank).Should().Equal(1, 2, 2, 4, 5);
+        // При равных баллах порядок отображения — по ФИО.
+        rows.Select(r => r.LastName).Should().Equal("Alpha", "Bravo", "Delta", "Echo", "Zulu");
+    }
+
+    [Fact]
+    public async Task Rank_CountsOnlyActiveStudentsOfLinkedGroups_AndFollowsOtherStudentsPoints()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        var linked = ctx.Group("Linked");
+        var other = ctx.Group("Other");
+        var subject = ctx.Subject();
+        await ctx.SaveChangesAsync();
+        ctx.LinkGroupSubject(linked, subject);
+        var task = ctx.Task(subject, maxPoints: 10);
+        var me = ctx.Student(linked, "Me");
+        var rival = ctx.Student(linked, "Rival");
+        var inactive = ctx.Student(linked, "Gone");
+        inactive.IsActive = false;
+        var outsider = ctx.Student(other, "Outsider");
+        await ctx.SaveChangesAsync();
+        foreach (var student in new[] { me, inactive, outsider })
+            ctx.Submissions.Add(new Submission
+            {
+                StudentId = student.Id, TaskId = task.Id, AdminId = admin.Id,
+                Status = SubmissionStatus.Accepted, SubmittedAt = DateTime.UtcNow,
+            });
+        await ctx.SaveChangesAsync();
+        var sut = new ResultsService(ctx, _cache);
+
+        var before = (await sut.GetSubjectResultsAsync(subject.Id)).UserResults;
+        before.Should().HaveCount(2);
+        before.Single(r => r.StudentId == me.Id).Rank.Should().Be(1);
+        before.Single(r => r.StudentId == rival.Id).Rank.Should().Be(2);
+
+        // Соперник догнал: после сброса кэша (как делает SubmissionService) место пересчитано в том же снимке.
+        ctx.Submissions.Add(new Submission
+        {
+            StudentId = rival.Id, TaskId = task.Id, AdminId = admin.Id,
+            Status = SubmissionStatus.Accepted, SubmittedAt = DateTime.UtcNow,
+        });
+        await ctx.SaveChangesAsync();
+        _cache.Invalidate(subject.Id);
+
+        var after = (await sut.GetSubjectResultsAsync(subject.Id)).UserResults;
+        after.Select(r => r.Rank).Should().Equal(1, 1);
+    }
+
     public void Dispose() => _db.Dispose();
 }

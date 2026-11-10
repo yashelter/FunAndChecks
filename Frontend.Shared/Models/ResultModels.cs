@@ -18,7 +18,9 @@ public record StudentResultRowDto(
     string? StudentColor,
     string LastName = "",
     string FirstName = "",
-    List<PinnedAchievementBadgeDto>? PinnedAchievements = null);
+    List<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    // Место по Σ в полном снимке предмета; фильтры и сортировка таблицы его не меняют.
+    int Rank = 0);
 
 public record SubjectResultsDto(
     int SubjectId,

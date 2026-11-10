@@ -2,6 +2,7 @@ using FluentAssertions;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using FunAndChecks.Tests.Common;
@@ -136,7 +137,7 @@ public class AdminServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
 
-        await sut.UpdateAsync(admin.Id, new UpdateAdminRequest("New", "Name", "#223344", "N"));
+        await sut.UpdateAsync(Guid.NewGuid(), admin.Id, new UpdateAdminRequest("New", "Name", "#223344", "N"));
 
         var updated = await ctx.Admins.FindAsync(admin.Id);
         updated!.FirstName.Should().Be("New");
@@ -156,9 +157,169 @@ public class AdminServiceTests : IDisposable
 
         var sut = CreateSut(ctx);
 
-        await sut.UpdateAsync(admin.Id, new UpdateAdminRequest("New", "Name", "#223344", "N"));
+        await sut.UpdateAsync(Guid.NewGuid(), admin.Id, new UpdateAdminRequest("New", "Name", "#223344", "N"));
 
         _cache.DidNotReceiveWithAnyArgs().Invalidate(default!);
+    }
+
+    [Fact]
+    public async Task Update_ProfileOnly_DoesNotTouchAccountOrRoles()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+
+        await CreateSut(ctx).UpdateAsync(Guid.NewGuid(), admin.Id, new UpdateAdminRequest("New", "Name", null, null));
+
+        await _identity.DidNotReceiveWithAnyArgs().UpdateAccountAdminAsync(default, default!, default);
+        await _identity.DidNotReceiveWithAnyArgs().SetRoleAsync(default, default!, default, default);
+    }
+
+    [Fact]
+    public async Task Update_NewEmailAndPassword_UpdatesAccount()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+        _identity.GetEmailAsync(admin.Id).Returns("old@example.com");
+
+        await CreateSut(ctx).UpdateAsync(Guid.NewGuid(), admin.Id,
+            new UpdateAdminRequest("A", "B", null, null, " new@example.com ", "secret1"));
+
+        await _identity.Received(1).UpdateAccountAdminAsync(admin.Id, "new@example.com", "secret1");
+    }
+
+    [Fact]
+    public async Task Update_SameEmailWithoutPassword_KeepsAccountUntouched()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+        _identity.GetEmailAsync(admin.Id).Returns("same@example.com");
+
+        await CreateSut(ctx).UpdateAsync(Guid.NewGuid(), admin.Id,
+            new UpdateAdminRequest("A", "B", null, null, "SAME@example.com", ""));
+
+        await _identity.DidNotReceiveWithAnyArgs().UpdateAccountAdminAsync(default, default!, default);
+    }
+
+    [Fact]
+    public async Task Update_OnlyPassword_KeepsCurrentEmail()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+        _identity.GetEmailAsync(admin.Id).Returns("cur@example.com");
+
+        await CreateSut(ctx).UpdateAsync(Guid.NewGuid(), admin.Id,
+            new UpdateAdminRequest("A", "B", null, null, null, "secret1"));
+
+        await _identity.Received(1).UpdateAccountAdminAsync(admin.Id, "cur@example.com", "secret1");
+    }
+
+    [Fact]
+    public async Task Update_GrantSuperAdmin_SetsRole()
+    {
+        await using var ctx = _db.NewContext();
+        var acting = ctx.Admin("X");
+        var admin = ctx.Admin("Y");
+        await ctx.SaveChangesAsync();
+        _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([acting.Id]);
+
+        await CreateSut(ctx).UpdateAsync(acting.Id, admin.Id, new UpdateAdminRequest("A", "B", null, null, IsSuperAdmin: true));
+
+        await _identity.Received(1).SetRoleAsync(admin.Id, Roles.SuperAdmin, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Update_RevokeSuperAdminFromOther_RemovesRole()
+    {
+        await using var ctx = _db.NewContext();
+        var acting = ctx.Admin("X");
+        var admin = ctx.Admin("Y");
+        await ctx.SaveChangesAsync();
+        _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([acting.Id, admin.Id]);
+
+        await CreateSut(ctx).UpdateAsync(acting.Id, admin.Id, new UpdateAdminRequest("A", "B", null, null, IsSuperAdmin: false));
+
+        await _identity.Received(1).SetRoleAsync(admin.Id, Roles.SuperAdmin, false, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Update_UnchangedSuperAdminFlag_DoesNotSetRole()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+        _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([admin.Id]);
+
+        await CreateSut(ctx).UpdateAsync(admin.Id, admin.Id, new UpdateAdminRequest("A", "B", null, null, IsSuperAdmin: true));
+
+        await _identity.DidNotReceiveWithAnyArgs().SetRoleAsync(default, default!, default, default);
+    }
+
+    [Fact]
+    public async Task Update_RevokeOwnSuperAdmin_ThrowsAndKeepsProfile()
+    {
+        Guid adminId;
+        await using (var ctx = _db.NewContext())
+        {
+            var admin = ctx.Admin();
+            var other = ctx.Admin("Z");
+            await ctx.SaveChangesAsync();
+            adminId = admin.Id;
+            _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([admin.Id, other.Id]);
+
+            var act = () => CreateSut(ctx).UpdateAsync(admin.Id, admin.Id,
+                new UpdateAdminRequest("Changed", "B", null, null, IsSuperAdmin: false));
+
+            (await act.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("admin.cannot_demote_self");
+        }
+
+        await _identity.DidNotReceiveWithAnyArgs().SetRoleAsync(default, default!, default, default);
+        await using var check = _db.NewContext();
+        (await check.Admins.FindAsync(adminId))!.FirstName.Should().NotBe("Changed");
+    }
+
+    [Fact]
+    public async Task Update_RevokeLastSuperAdmin_Throws()
+    {
+        await using var ctx = _db.NewContext();
+        var admin = ctx.Admin();
+        await ctx.SaveChangesAsync();
+        _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([admin.Id]);
+
+        var act = () => CreateSut(ctx).UpdateAsync(Guid.NewGuid(), admin.Id,
+            new UpdateAdminRequest("A", "B", null, null, IsSuperAdmin: false));
+
+        (await act.Should().ThrowAsync<ConflictException>()).Which.Code.Should().Be("admin.last_superadmin");
+    }
+
+    [Fact]
+    public async Task GetDetails_ReturnsEmailAndSuperAdminFlag()
+    {
+        await using var ctx = _db.NewContext();
+        var super = ctx.Admin("S");
+        var plain = ctx.Admin("P");
+        await ctx.SaveChangesAsync();
+        _identity.GetEmailsAsync(Arg.Any<IEnumerable<Guid>>())
+            .Returns(new Dictionary<Guid, string?> { [super.Id] = "s@example.com", [plain.Id] = "p@example.com" });
+        _identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, Arg.Any<CancellationToken>()).Returns([super.Id]);
+
+        var details = await CreateSut(ctx).GetDetailsAsync();
+
+        details.Should().ContainSingle(d => d.Id == super.Id && d.Email == "s@example.com" && d.IsSuperAdmin);
+        details.Should().ContainSingle(d => d.Id == plain.Id && d.Email == "p@example.com" && !d.IsSuperAdmin);
+    }
+
+    [Fact]
+    public void UpdateValidator_ChecksOptionalEmailAndPassword()
+    {
+        var validator = new UpdateAdminRequestValidator();
+        validator.Validate(new UpdateAdminRequest("A", "B", null, null, null, "123")).IsValid.Should().BeFalse();
+        validator.Validate(new UpdateAdminRequest("A", "B", null, null, "bad", null)).IsValid.Should().BeFalse();
+        validator.Validate(new UpdateAdminRequest("A", "B", null, null, null, "")).IsValid.Should().BeTrue();
+        validator.Validate(new UpdateAdminRequest("A", "B", null, null, "ok@example.com", "secret1")).IsValid.Should().BeTrue();
     }
 
     public void Dispose() => _db.Dispose();

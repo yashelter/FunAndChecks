@@ -148,7 +148,9 @@
    - колонки задач узкие, при большом числе задач названия в шапке вертикальные. */
 /* Высота области: таблица с полосой сверху, легендой и подвалом помещается в окно, поэтому и в самом низу страницы
    шапка с задачами видна. Колесо у края таблицы не прокручивает страницу. */
-.fc-results-grid { --fc-results-row:37px; --fc-results-name:220px; --fc-results-height:max(360px, calc(100dvh - 210px)); }
+.fc-results-grid { --fc-results-row:37px; --fc-results-name:220px; --fc-results-rank:0px; --fc-results-height:max(360px, calc(100dvh - 210px)); }
+/* Колонка «Место» в кабинетах: закреплена между именем и Σ, поэтому Σ сдвигается на её ширину. */
+.fc-results-grid.fc-results-ranked { --fc-results-rank:64px; }
 /* max-height, а не height: у маленьких предметов под таблицей не остаётся пустого места. */
 .fc-results-grid .mud-table-container { max-height:var(--fc-results-height); overscroll-behavior:contain; }
 .fc-results-grid .mud-table-root { width:auto; min-width:0; }
@@ -165,8 +167,11 @@
 .fc-results-many-tasks .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header { padding-block:8px; }
 .fc-results-many-tasks .fc-results-task-title { display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); max-height:140px; overflow:hidden; text-overflow:ellipsis; line-height:1.25; }
 .fc-results-grid .fc-results-name-column { position:sticky; left:0; z-index:1; width:var(--fc-results-name); min-width:var(--fc-results-name); max-width:var(--fc-results-name); background:var(--mud-palette-surface); }
-.fc-results-grid .fc-results-total-column { position:sticky; left:var(--fc-results-name); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { position:sticky; left:var(--fc-results-name); z-index:1; width:var(--fc-results-rank); min-width:var(--fc-results-rank); max-width:var(--fc-results-rank); padding-inline:4px; text-align:center; font-variant-numeric:tabular-nums; color:var(--mud-palette-text-secondary); background:var(--mud-palette-surface); }
+.fc-results-grid .fc-results-rank-column .column-header { justify-content:center; }
+.fc-results-grid .fc-results-total-column { position:sticky; left:calc(var(--fc-results-name) + var(--fc-results-rank)); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
 .fc-results-grid thead .mud-table-cell.fc-results-name-column,
+.fc-results-grid .mud-table-root thead .mud-table-row > .mud-table-cell.fc-results-rank-column,
 .fc-results-grid thead .mud-table-cell.fc-results-total-column { z-index:3; background:var(--mud-palette-background); }
 .fc-results-name { display:flex; align-items:center; gap:4px; width:100%; min-width:0; overflow:hidden; white-space:nowrap; }
 .fc-results-name .fc-result-name, .fc-results-name .fc-student-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -187,12 +192,31 @@
 /* На телефоне имя уже, чтобы рядом с ним и Σ было видно хотя бы несколько задач (после основного правила — иначе оно перебьёт). */
 @media (max-width:600px) {
     .fc-results-grid { --fc-results-name:140px; }
+    .fc-results-grid.fc-results-ranked { --fc-results-rank:52px; }
     /* В колонке 140px три бейджа оставили бы от имени пару букв. */
     .fc-results-grid .fc-pinned-achievement-badge:nth-child(n+2) { display:none; }
 }
 @media (max-width:760px) { .fc-queue-table .fc-queue-name-cell { min-width:0; } }
 /* Цвета преподавателей у зачтённых: цвет уже в ячейке (--tc), переключатель лишь ставит класс на панель — без перерисовки таблицы. */
 .fc-results-show-teacher .fc-result-cell[style*="--tc"] { background-color:var(--tc); color:#000; border-color:var(--tc); text-shadow:0 0 3px rgba(255,255,255,.7); }
+/* Страница студента: заголовок — название предмета, рядом смена предмета и история. */
+.fc-journal-heading { align-items:center; }
+.fc-journal-heading .mud-typography-h4 { min-width:0; overflow-wrap:anywhere; }
+.fc-journal-heading-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+/* «Ведомость» (пилот на странице студента): чёткая сетка, спокойная шапка, табличные цифры.
+   Цвет — только у своей строки и основного действия; пустые клетки без рамки, видны лишь отметки. */
+.fc-results-journal .fc-results-grid .mud-table-root { --mud-palette-table-hover:color-mix(in srgb, var(--mud-palette-text-primary) 4%, transparent); }
+.fc-results-journal .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell { border-bottom:1px solid var(--mud-palette-table-lines); border-right:1px solid var(--mud-palette-table-lines); }
+.fc-results-journal .fc-results-grid .mud-table-root .mud-table-head .mud-table-row > .mud-table-cell { background:var(--fc-surface-2); color:var(--mud-palette-text-secondary); font-weight:600; border-bottom-color:var(--mud-palette-lines-default); }
+.fc-results-journal .fc-results-grid .fc-results-total-column { font-weight:700; color:var(--mud-palette-text-primary); }
+.fc-results-journal .fc-results-grid .fc-results-rank-column,
+.fc-results-journal .fc-results-grid .fc-results-total-column { font-variant-numeric:tabular-nums; }
+.fc-results-journal .fc-result-cell { width:30px; height:26px; }
+.fc-results-journal .fc-result-cell.empty { background:transparent; border-color:transparent; }
+/* Назначенные цвета преподавателей и студентов: тонкий край, чтобы светлый цвет не терялся на тёмной поверхности. */
+.fc-results-journal .fc-result-cell[style*="background-color"],
+.fc-results-journal .fc-result-name[style*="background-color"],
+.fc-results-journal.fc-results-show-teacher .fc-result-cell[style*="--tc"] { box-shadow:inset 0 0 0 1px color-mix(in srgb, currentColor 25%, transparent); }
 /* Полоса горизонтальной прокрутки над шапкой: закреплена у верха окна (results-scroll.js). */
 .fc-results-scroll-host { position:relative; min-width:0; }
 .fc-results-hscroll { position:sticky; top:0; z-index:5; height:16px; overflow-x:auto; overflow-y:hidden; background:var(--mud-palette-background); border-bottom:1px solid var(--mud-palette-lines-default); scrollbar-color:var(--mud-palette-text-disabled) transparent; }
@@ -959,3 +983,43 @@
 .fc-queue-past-round { opacity:.62; }
 .fc-queue-past-round:hover { opacity:.85; }
 .fc-queue-selfjoin { margin-top:6px; }
+/* Очереди: табло сдачи. Вкладки «Текущие / Архив»; карточка события — крупно дата и время, рядом название
+   и состояние записи; в открытой очереди — табло личной позиции. */
+.fc-queue-tabs { margin-bottom:8px; }
+.fc-queue-tabs > .mud-tabs-tabbar { background:transparent; border-bottom:1px solid var(--mud-palette-lines-default); }
+.fc-queue-tabs .mud-tabs-panels > div > .fc-subsection-title:first-child { margin-top:18px; }
+.fc-queue-tabs .mud-tabs-panels > div > .fc-queue-cards:first-child,
+.fc-queue-tabs .mud-tabs-panels > div > .fc-empty:first-child,
+.fc-queue-tabs .mud-tabs-panels > div > .fc-core-empty:first-child { margin-top:18px; }
+.fc-queue-cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px; }
+.fc-queue-card { display:grid; grid-template-columns:auto minmax(0, 1fr); align-items:center; gap:14px 16px; padding:16px 18px; }
+.fc-queue-card-date { display:flex; flex-direction:column; align-items:center; justify-content:center; width:60px; height:64px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; background:var(--fc-surface-2); line-height:1; }
+.fc-queue-card-day { font-size:25px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--mud-palette-text-primary); }
+.fc-queue-card-month { margin-top:5px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--mud-palette-text-secondary); }
+.fc-queue-card-body { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.fc-queue-card-name { font-size:15px; font-weight:650; overflow-wrap:anywhere; }
+.fc-queue-card-meta { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; font-size:12px; color:var(--mud-palette-text-secondary); }
+.fc-queue-card-time { font-size:19px; font-weight:700; color:var(--mud-palette-text-primary); font-variant-numeric:tabular-nums; }
+.fc-queue-state { width:fit-content; margin-top:2px; padding:2px 9px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; font-size:11px; font-weight:600; color:var(--mud-palette-text-secondary); }
+.fc-queue-card-mine .fc-queue-state { border-color:transparent; background:rgba(var(--mud-palette-primary-rgb),.12); color:var(--mud-palette-primary); }
+.fc-queue-card-open .fc-queue-state { border-color:rgba(var(--mud-palette-success-rgb),.45); color:var(--mud-palette-success); }
+.fc-queue-card-archived .fc-queue-card-date, .fc-queue-card-past .fc-queue-card-date { opacity:.7; }
+.fc-queue-card-actions { grid-column:1 / -1; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.fc-queue-archived-chip { margin:8px 0 0 !important; }
+.fc-queue-board { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px 20px; padding:18px 22px; margin-bottom:14px; border-left:4px solid var(--mud-palette-primary); }
+.fc-queue-board-checking { border-left-color:var(--mud-palette-info); }
+.fc-queue-board-finished { border-left-color:var(--mud-palette-success); }
+.fc-queue-board-skipped { border-left-color:var(--mud-palette-error); }
+.fc-queue-board-main { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.fc-queue-board-headline { font-size:26px; font-weight:700; line-height:1.2; letter-spacing:-.4px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.fc-queue-board-sub { font-size:14px; font-weight:600; color:var(--mud-palette-text-secondary); font-variant-numeric:tabular-nums; }
+.fc-queue-board small { font-size:12px; }
+.fc-queue-board-actions { display:flex; flex-wrap:wrap; gap:10px; }
+@media (max-width:600px) {
+    .fc-queue-cards { grid-template-columns:1fr; }
+    .fc-queue-card { padding:14px; }
+    .fc-queue-card-actions .mud-button-root { flex:1 1 auto; min-height:42px; }
+    .fc-queue-board { padding:16px; }
+    .fc-queue-board-headline { font-size:22px; }
+    .fc-queue-board-actions, .fc-queue-board-actions .mud-button-root { width:100%; min-height:42px; }
+}

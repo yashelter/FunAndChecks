@@ -42,7 +42,8 @@ else
             </MudCard>
 
             <MudTable Class="fc-management-table" Breakpoint="Breakpoint.Sm" Items="_queues" Hover="true" Dense="true"
-                      CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnQueueCommit">
+                      CanCancelEdit="true" EditTrigger="TableEditTrigger.EditButton" RowEditCommit="OnQueueCommit"
+                      RowEditableFunc="@(row => row.ArchivedAt is null)">
                 <HeaderContent>
                     <MudTh>@Loc["Management_ColName"]</MudTh>
                     <MudTh>@Loc["Management_ColDate"]</MudTh>
@@ -50,11 +51,13 @@ else
                     <MudTh></MudTh>
                 </HeaderContent>
                 <RowTemplate>
-                    <MudTd DataLabel="@Loc["Management_ColName"]"><strong>@context.Name</strong></MudTd>
+                    <MudTd DataLabel="@Loc["Management_ColName"]"><strong>@context.Name</strong>
+                        @* Вручную архивированная очередь только для просмотра: правка и самозапись недоступны, удалить можно. *@
+                        @if (context.ArchivedAt is not null) { <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="fc-queue-archived-chip">@Loc["Queue_Archived"]</MudChip> }</MudTd>
                     <MudTd DataLabel="@Loc["Management_ColDate"]">@context.EventDateTime.ToLocalTime().ToString("g")</MudTd>
                     <MudTd DataLabel="@Loc["Management_ColSelfJoin"]">
                         <MudSwitch T="bool" Value="context.AllowSelfJoin" ValueChanged="@(v => SetQueueSelfJoinAsync(context, v))" Color="Color.Primary"
-                                   aria-label="@Loc["Management_ColSelfJoin"]" />
+                                   Disabled="@(context.ArchivedAt is not null)" aria-label="@Loc["Management_ColSelfJoin"]" />
                     </MudTd>
                     <MudTd>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@Loc["Common_Delete"]"

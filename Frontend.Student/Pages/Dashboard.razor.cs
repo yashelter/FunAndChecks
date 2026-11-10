@@ -2,6 +2,7 @@ using Frontend.Shared.Services;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
+using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using MudBlazor;
@@ -72,7 +73,36 @@ public partial class Dashboard : IDisposable
     }
 
     private Guid? _myId;
+    private SubjectResultsView? _view;
     private StudentSubjectResultsDto? _mine;
+
+    /// <summary>Своя строка в том же снимке, что и таблица: место и размер рейтинга обновляются вместе с ней.</summary>
+    private StudentResultRowDto? MyRow => _myId is { } id ? _results?.UserResults.FirstOrDefault(r => r.StudentId == id) : null;
+
+    /// <summary>Очередь из полосы изменили или архивировали: перечитать только свои текущие очереди.</summary>
+    private async Task ReloadQueuesAsync()
+    {
+        try
+        {
+            _queues = await Me.GetMyQueueEventsAsync(ct: _life.Token);
+            StateHasChanged();
+        }
+        catch (ApiException) { /* Следующая загрузка страницы подтянет список. */ }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    /// <summary>«К моей строке»; если строку скрывает фильтр таблицы — предложить его сбросить.</summary>
+    private async Task JumpToMyRowAsync()
+    {
+        if (_view is null || _myId is not { } id) return;
+        if (await _view.ScrollToStudentAsync(id) != ResultsRowJump.HiddenByFilter) return;
+        Snackbar.Add(Loc["Results_RowHiddenByFilter"], Severity.Info, config =>
+        {
+            config.Action = Loc["Results_ResetFilter"];
+            config.OnClick = async _ => { if (_view is not null) await _view.ScrollToStudentAsync(id, clearFilters: true); };
+        });
+    }
     private List<QueueEventDto> _queues = [];
     private CancellationTokenSource? _refresh;
     private readonly CancellationTokenSource _life = new();

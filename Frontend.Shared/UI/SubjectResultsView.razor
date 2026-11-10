@@ -10,9 +10,9 @@
 {
     <ResultsColorSubscription SubjectId="Results.SubjectId" OnColorsUpdated="UpdateStudentColors" OnResultUpdated="OnResultUpdated" />
     <div class="fc-results-average fc-muted">@Loc["Results_AveragePoints"]: <strong>@AveragePoints</strong></div>
-    <section class="fc-panel fc-results-panel @(_showAcceptedTeacherColors ? "fc-results-show-teacher" : null)">
+    <section class="fc-panel fc-results-panel @PanelClass @(_showAcceptedTeacherColors ? "fc-results-show-teacher" : null)">
     <div class="fc-panel-heading">
-        <h3>@Results.SubjectName</h3>
+        <h3>@(Heading ?? Results.SubjectName)</h3>
         <span class="fc-muted">@Frontend.Shared.Community.CommunityText.Students(Results.UserResults.Count)</span>
         <MudSwitch T="bool" @bind-Value="_showAcceptedTeacherColors" Color="Color.Primary" Label="@Loc["Results_ShowAcceptedTeacherColors"]" Class="fc-results-teacher-colors" />
     </div>
@@ -24,15 +24,21 @@
     <div class="fc-results-hscroll" aria-hidden="true"><div></div></div>
     @* @key: другой набор колонок — новая таблица, иначе новая колонка встала бы в конец, после оценок. *@
     <MudDataGrid @key="ResultsColumns.Key(Results)" @ref="_grid" T="StudentResultRowDto" Items="@_rows" Dense="true" Breakpoint="Breakpoint.None"
-                 Filterable="true" Hover="true" Class="@ResultsColumns.GridClass(Results)"
+                 Filterable="true" Hover="true" Class="@ResultsColumns.GridClass(Results, ShowRank)"
                  Virtualize="true" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" FixedHeader="true"
                  RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
         <Columns>
             <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-name-column" HeaderClass="fc-results-name-column">
                 <CellTemplate>
-                    <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" BasePath="/student" /></span>
+                    @* «Вы» — в закреплённой ячейке имени: метка видна и при прокрутке задач вбок. *@
+                    <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink>@if (context.Item.StudentId == HighlightStudentId) {<span class="fc-results-you">@_you</span>}<Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" BasePath="/student" /></span>
                 </CellTemplate>
             </TemplateColumn>
+            @if (ShowRank)
+            {
+                @* Место считается на сервере по полному снимку: фильтр и сортировка таблицы его не меняют. *@
+                <PropertyColumn Property="x => x.Rank" Title="@_rankTitle" Filterable="false" CellClass="fc-results-rank-column" HeaderClass="fc-results-rank-column" />
+            }
             @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
             <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-total-column fc-results-number fc-score" HeaderClass="fc-results-total-column">
                 <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
@@ -86,6 +92,12 @@
     /// <summary>Строка текущего студента — подсвечена, её ячейки ведут к истории.</summary>
     [Parameter] public Guid? HighlightStudentId { get; set; }
     [Parameter] public EventCallback<ResultUpdateDto> OnResultUpdated { get; set; }
+    /// <summary>Колонка «Место» — в кабинетах; публичная таблица /results показывается без неё.</summary>
+    [Parameter] public bool ShowRank { get; set; }
+    /// <summary>Заголовок панели; по умолчанию — название предмета.</summary>
+    [Parameter] public string? Heading { get; set; }
+    /// <summary>Дополнительный класс панели (например, вид «ведомость» на странице студента).</summary>
+    [Parameter] public string? PanelClass { get; set; }
     private MudDataGrid<StudentResultRowDto>? _grid;
     private ElementReference _host;
     private SubjectResultsDto? _parameterResults;
@@ -98,8 +110,9 @@
     // Версия таблицы для RenderGate: растёт, когда сменились данные, подсветка или язык.
     private int _gridVersion;
     private Guid? _shownHighlight;
+    private bool? _shownRank;
     private string? _shownCulture;
-    private string _accepted = "", _rejected = "", _notSubmitted = "";
+    private string _accepted = "", _rejected = "", _notSubmitted = "", _you = "", _rankTitle = "";
 
     protected override async Task OnInitializedAsync() => await ProfileReturn.InitializeAsync();
     protected override void OnParametersSet()
@@ -115,6 +128,11 @@
             _shownHighlight = HighlightStudentId;
             _gridVersion++;
         }
+        if (_shownRank != ShowRank)
+        {
+            _shownRank = ShowRank;
+            _gridVersion++;
+        }
         var culture = System.Globalization.CultureInfo.CurrentUICulture.Name;
         if (_shownCulture != culture)
         {
@@ -122,6 +140,8 @@
             _accepted = Loc["Task_StatusAccepted"];
             _rejected = Loc["Task_StatusRejected"];
             _notSubmitted = Loc["Task_StatusNotSubmitted"];
+            _you = Loc["Results_You"];
+            _rankTitle = Loc["Results_ColRank"];
             _gridVersion++;
         }
         if (Results is not null)
@@ -151,6 +171,30 @@
         }
     }
     private Task RememberResultsAsync() => ProfileReturn.CaptureAsync(StateKey, _grid, _profileViewInstance);
+
+    /// <summary>
+    /// Прокрутить таблицу к строке студента. Строки виртуализированы, поэтому позиция считается по порядку
+    /// видимых строк (фильтр + сортировка), а не ищется в DOM. clearFilters — сначала сбросить фильтры таблицы.
+    /// </summary>
+    public async Task<ResultsRowJump> ScrollToStudentAsync(Guid studentId, bool clearFilters = false)
+    {
+        if (_grid is null || !_rows.Any(r => r.StudentId == studentId))
+            return ResultsRowJump.Missing;
+        if (clearFilters && _grid.FilterDefinitions.Count > 0)
+        {
+            await _grid.ClearFiltersAsync();
+            // Таблица за RenderGate: без новой версии сброс фильтра не дошёл бы до экрана.
+            _gridVersion++;
+            StateHasChanged();
+            await Task.Yield();
+        }
+        var index = ResultsRowLocator.VisibleIndex(_grid, studentId);
+        if (index < 0)
+            return ResultsRowJump.HiddenByFilter;
+        try { await JS.InvokeVoidAsync("resultsScroll.scrollToRow", _host, index, ResultsColumns.RowHeight); }
+        catch (JSException) { }
+        return ResultsRowJump.Shown;
+    }
     private string AveragePoints => Results?.UserResults is { Count: > 0 } rows
         ? rows.Average(row => row.TotalPoints).ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)
         : "—";

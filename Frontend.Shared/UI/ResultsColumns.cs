@@ -17,6 +17,8 @@ public static class ResultsColumns
     public static string Key(SubjectResultsDto results) =>
         $"{results.SubjectId}:{string.Join(',', results.TaskHeaders.Select(t => t.TaskId))}|{string.Join(',', results.GradeColumns.Select(c => c.ComponentId))}";
 
-    public static string GridClass(SubjectResultsDto results) =>
-        results.TaskHeaders.Count > ManyTasks ? "fc-results-grid fc-results-many-tasks" : "fc-results-grid";
+    /// <param name="ranked">Есть закреплённая колонка «Место»: класс сдвигает закреплённую Σ на её ширину.</param>
+    public static string GridClass(SubjectResultsDto results, bool ranked = false) =>
+        (results.TaskHeaders.Count > ManyTasks ? "fc-results-grid fc-results-many-tasks" : "fc-results-grid")
+        + (ranked ? " fc-results-ranked" : "");
 }

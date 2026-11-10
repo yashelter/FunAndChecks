@@ -153,6 +153,10 @@
 .fc-interaction-dialog .fc-task-card.fc-task-focused{box-shadow:0 0 0 2px var(--mud-palette-primary)}
 @media(max-width:600px){.fc-queue-next>.mud-button-root{width:100%}}
 .fc-admin-queues-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+/* Шапка очереди: «Завершить и архивировать» и признак живого обновления; подсказка, пока идёт проверка. */
+.fc-queue-heading-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px}
+.fc-queue-archive-hint{flex-basis:100%;text-align:right;font-size:12px}
+@media(max-width:600px){.fc-queue-heading-actions{justify-content:flex-start}.fc-queue-heading-actions .mud-button-root{min-height:42px}.fc-queue-archive-hint{text-align:left}}
 .fc-queue-create-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 /* Группы задач в окне проверки: свёрнуты по умолчанию. */
 .fc-task-group{border:1px solid var(--mud-palette-lines-default);border-radius:9px;overflow:hidden}

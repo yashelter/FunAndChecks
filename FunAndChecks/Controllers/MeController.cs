@@ -48,10 +48,15 @@ public class MeController(
     public async Task<ActionResult<GroupDto>> GetMyGroup(CancellationToken cancellationToken) =>
         Ok(await studentService.GetMyGroupAsync(User.GetUserId(), cancellationToken));
 
-    /// <summary>Активные события очереди, на которые записан текущий студент.</summary>
+    /// <summary>
+    /// Очереди, где записан текущий студент: scope=current (по умолчанию), archive или all.
+    /// Старый includePast=true без scope по-прежнему означает «все».
+    /// </summary>
     [HttpGet("queue-events")]
-    public async Task<ActionResult<List<QueueEventDto>>> GetMyQueueEvents([FromQuery] bool includePast, CancellationToken cancellationToken) =>
-        Ok(await queueService.GetMyEventsAsync(User.GetUserId(), includePast, cancellationToken));
+    public async Task<ActionResult<List<QueueEventDto>>> GetMyQueueEvents(
+        [FromQuery] bool includePast, [FromQuery] QueueListScope? scope, CancellationToken cancellationToken) =>
+        Ok(await queueService.GetMyEventsAsync(User.GetUserId(),
+            scope ?? (includePast ? QueueListScope.All : QueueListScope.Current), cancellationToken));
 
     /// <summary>События очереди, доступные текущему студенту (по умолчанию — активные).</summary>
     [HttpGet("available-queue-events")]

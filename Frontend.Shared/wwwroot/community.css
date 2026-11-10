@@ -225,18 +225,25 @@ a.fc-user-chip-name:hover{color:var(--mud-palette-primary)}
 @media(max-width:900px){.fc-forum-layout{grid-template-columns:1fr}.fc-forum-sections{flex-direction:row;overflow-x:auto;padding:6px}.fc-forum-sections button{flex-shrink:0}}
 @media(max-width:600px){.fc-topic-list li{padding:12px 14px}.fc-post{padding:12px 14px}.fc-survey-grid{grid-template-columns:1fr}.fc-bars li{grid-template-columns:1fr 70px}.fc-bar-label{grid-column:1/-1}.fc-topic-header{padding:16px}.fc-topic-header h1{font-size:19px}.fc-composer-actions small{flex-basis:100%}.fc-survey-question{padding:14px}.fc-bell-panel{position:fixed;right:16px;left:16px;top:60px;width:auto}}
 
-/* Студент: «где вы сейчас», своё место в очереди, своя строка в таблице. */
-.fc-student-status{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,1.4fr) minmax(0,1.2fr);gap:20px;padding:18px 20px;margin-bottom:18px}
-.fc-student-status h3{font-size:12px;font-weight:650;text-transform:uppercase;letter-spacing:.4px;color:var(--mud-palette-text-secondary);margin:0 0 8px}
-.fc-student-status-numbers{display:flex;flex-direction:column;gap:12px}
-.fc-student-status-numbers span{display:block;font-size:12px;color:var(--mud-palette-text-secondary)}
-.fc-student-status-numbers strong{font-size:22px;font-weight:650}
-.fc-student-status-numbers .fc-progress-bar{margin-top:6px}
-.fc-student-status-rework ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.fc-student-status-rework a,.fc-student-status-queue a{display:flex;flex-direction:column;gap:2px;color:var(--mud-palette-text-primary);padding:6px 8px;border-radius:7px;border:1px solid var(--mud-palette-lines-default)}
-.fc-student-status-rework a:hover,.fc-student-status-queue a:hover{border-color:var(--mud-palette-primary)}
-.fc-student-status-rework a span,.fc-student-status-queue a span{font-size:12px;color:var(--mud-palette-text-secondary);overflow-wrap:anywhere}
-.fc-student-status-queue p a{display:inline;border:0;padding:0;color:var(--mud-palette-primary)}
+/* Студент: полоса личного прогресса над ведомостью, своё место в очереди, своя строка в таблице. */
+.fc-student-strip{display:flex;align-items:center;flex-wrap:wrap;gap:12px 22px;padding:12px 18px;margin-bottom:16px}
+.fc-strip-progress{display:flex;flex-direction:column;gap:6px;min-width:170px}
+.fc-strip-progress strong,.fc-strip-metric strong{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fc-strip-progress .fc-progress-bar{height:6px}
+.fc-strip-metric{display:flex;align-items:baseline;gap:6px;padding-left:22px;border-left:1px solid var(--mud-palette-lines-default)}
+.fc-strip-metric small{font-size:12px;color:var(--mud-palette-text-secondary);white-space:nowrap}
+.fc-strip-rank{align-items:center}
+.fc-strip-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-left:auto;min-width:0}
+.fc-strip-queue{display:flex;align-items:center;gap:10px;padding:6px 10px;border:1px solid var(--mud-palette-lines-default);border-radius:8px;color:var(--mud-palette-text-primary);text-decoration:none;min-width:0}
+.fc-strip-queue:hover{border-color:var(--mud-palette-primary)}
+.fc-strip-queue>span:first-of-type{display:flex;flex-direction:column;min-width:0}
+.fc-strip-queue small{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mud-palette-text-secondary)}
+.fc-strip-queue strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.fc-strip-queue time{font-size:12px;color:var(--mud-palette-text-secondary);font-variant-numeric:tabular-nums}
+.fc-strip-queue .fc-queue-place-chip{margin-top:0;flex-shrink:0}
+.fc-strip-find{font-size:13px;color:var(--mud-palette-primary)}
+.fc-strip-rework-item{display:flex;flex-direction:column;gap:2px;max-width:320px;white-space:normal}
+.fc-strip-rework-item small{font-size:12px;color:var(--mud-palette-text-secondary);overflow-wrap:anywhere}
 .fc-queue-place-chip{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:10px;background:rgba(var(--mud-palette-primary-rgb),.1);color:var(--mud-palette-primary)!important;font-size:11px;font-weight:600;width:fit-content}
 .fc-queue-me{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;margin-bottom:14px;border-left:3px solid var(--mud-palette-primary)}
 .fc-queue-me>div{display:flex;flex-direction:column;gap:4px}
@@ -245,12 +252,18 @@ a.fc-user-chip-name:hover{color:var(--mud-palette-primary)}
 .fc-queue-place{width:36px;text-align:center;color:var(--mud-palette-text-secondary);font-variant-numeric:tabular-nums}
 .fc-queue-me-row td{box-shadow:inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.08)}
 .fc-queue-me-row td:first-child{box-shadow:inset 3px 0 0 var(--mud-palette-primary),inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.08)}
-.fc-results-me td{box-shadow:inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.08)}
-.fc-results-me td:first-child{box-shadow:inset 3px 0 0 var(--mud-palette-primary),inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.08)}
+.fc-results-me td{box-shadow:inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.1)}
+.fc-results-me td:first-child{box-shadow:inset 3px 0 0 var(--mud-palette-primary),inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.1)}
+/* Своя строка: закреплённые ячейки (имя, место, Σ) непрозрачны и подкрашены сильнее — подсветка видна и при прокрутке вбок. */
+.fc-results-me td.fc-results-name-column,.fc-results-me td.fc-results-rank-column,.fc-results-me td.fc-results-total-column{background:color-mix(in srgb,var(--mud-palette-primary) 12%,var(--mud-palette-surface))!important;font-weight:600}
+.fc-results-me td.fc-results-rank-column{color:var(--mud-palette-primary)!important}
+/* Метка «Вы» у ФИО: в одну строку с именем, не сжимается — высота строки остаётся ResultsColumns.RowHeight. */
+.fc-results-you{flex-shrink:0;display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:var(--mud-palette-primary);color:var(--mud-palette-primary-text);font-size:11px;font-weight:700;line-height:1;letter-spacing:.02em}
 a.fc-result-cell{text-decoration:none;cursor:pointer}
 .fc-task-last-comment{margin:6px 0 0;font-size:13px;color:var(--mud-palette-warning-darken, var(--mud-palette-text-secondary));overflow-wrap:anywhere}
 .fc-task-card.fc-task-focused{box-shadow:0 0 0 2px var(--mud-palette-primary)}
-@media(max-width:900px){.fc-student-status{grid-template-columns:1fr}}
+@media(max-width:900px){.fc-strip-actions{margin-left:0;width:100%}}
+@media(max-width:600px){.fc-student-strip{padding:12px 14px;gap:10px 16px}.fc-strip-progress{flex-basis:100%}.fc-strip-metric{padding-left:0;border-left:0}.fc-strip-actions .mud-button-root,.fc-strip-queue{min-height:42px}.fc-strip-queue{width:100%}.fc-strip-queue strong{max-width:none}}
 
 /* Плашка опроса: напоминание без перекрытия страницы. */
 .fc-survey-banner{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;margin-bottom:14px;border:1px solid rgba(var(--mud-palette-primary-rgb),.4);border-radius:10px;background:var(--mud-palette-surface);box-shadow:0 6px 18px #0204101a;font-size:13px}

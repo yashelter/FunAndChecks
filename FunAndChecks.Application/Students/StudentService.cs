@@ -27,9 +27,6 @@ public class StudentService(
     /// <summary>Защитный предел глобального поиска (фактически все похожие).</summary>
     private const int SearchLimit = 500;
 
-    /// <summary>Окно, в котором событие очереди считается актуальным для студента.</summary>
-    private static readonly TimeSpan UpcomingEventGracePeriod = TimeSpan.FromDays(1);
-
     public async Task<StudentDto> GetAsync(Guid studentId, CancellationToken cancellationToken = default)
     {
         var student = await db.Students
@@ -217,12 +214,11 @@ public class StudentService(
         if (groupId == null)
             return [];
 
-        var threshold = DateTime.UtcNow - UpcomingEventGracePeriod;
         return await db.QueueEvents
-            .Where(qe => includePast || qe.EventDateTime > threshold)
+            .InScope(includePast ? QueueListScope.All : QueueListScope.Current, DateTime.UtcNow)
             .Where(qe => qe.Participants.Any(p => p.StudentId == studentId))
             .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
+            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin, null, null, null, null, qe.ArchivedAt))
             .ToListAsync(cancellationToken);
     }
 
@@ -232,12 +228,12 @@ public class StudentService(
         if (groupId == null)
             return [];
 
-        var threshold = DateTime.UtcNow - UpcomingEventGracePeriod;
+        // Без includePast — только текущие (QueueVisibility): вручную архивированные сюда не попадают.
         return await db.QueueEvents
-            .Where(qe => includePast || qe.EventDateTime > threshold)
+            .InScope(includePast ? QueueListScope.All : QueueListScope.Current, DateTime.UtcNow)
             .Where(qe => qe.Subject.GroupSubjects.Any(gs => gs.GroupId == groupId))
             .OrderBy(qe => qe.EventDateTime)
-            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin))
+            .Select(qe => new QueueEventDto(qe.Id, qe.Name, qe.EventDateTime, qe.AllowSelfJoin, null, null, null, null, qe.ArchivedAt))
             .ToListAsync(cancellationToken);
     }
 
