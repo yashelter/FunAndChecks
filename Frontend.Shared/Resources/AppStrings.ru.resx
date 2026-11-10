@@ -1011,4 +1011,7 @@
   <data name="QueueArchive_Done" xml:space="preserve"><value>Очередь завершена и перенесена в архив.</value></data>
   <data name="Error_QueueArchived" xml:space="preserve"><value>Очередь в архиве: записаться, выйти или изменить её нельзя.</value></data>
   <data name="Error_QueueArchiveChecking" xml:space="preserve"><value>Идёт проверка: завершите её, прежде чем архивировать очередь.</value></data>
+  <data name="Results_Search" xml:space="preserve"><value>Поиск по ФИО</value></data>
+  <data name="Results_AllGroups" xml:space="preserve"><value>Все группы</value></data>
+  <data name="Results_NothingFound" xml:space="preserve"><value>Никого не найдено</value></data>
 </root>

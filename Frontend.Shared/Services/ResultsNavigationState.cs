@@ -1,8 +1,7 @@
 using System.Security.Claims;
-using Frontend.Shared.Models;
+using Frontend.Shared.UI;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
-using MudBlazor;
 
 namespace Frontend.Shared.Services;
 
@@ -34,36 +33,30 @@ public sealed class ResultsNavigationState(AuthenticationStateProvider auth, IJS
         if (!_pages.TryGetValue(page, out var state) || state.SubjectId != subjectId)
             _pages[page] = new Snapshot { SubjectId = subjectId };
     }
-    public async Task CaptureAsync(string page, MudDataGrid<StudentResultRowDto>? grid, Guid viewInstance)
+    /// <summary>Запомнить поиск, фильтр, сортировку и прокрутку таблицы перед переходом в профиль.</summary>
+    public async Task CaptureAsync(string page, ResultsViewState view, Guid viewInstance)
     {
-        if (grid is null || !_pages.TryGetValue(page, out var state)) return;
-        state.Filters = grid.FilterDefinitions.Select(filter => new SavedFilter(
-            filter.Column is null ? -1 : grid.RenderedColumns.IndexOf(filter.Column), filter.Operator, filter.Value)).Where(f => f.Column >= 0).ToList();
-        state.Sorts = grid.SortDefinitions.Values.OrderBy(s => s.Index).Select(sort => new SavedSort(
-            grid.RenderedColumns.FindIndex(c => c.PropertyName == sort.SortBy), sort)).Where(s => s.Column >= 0).ToList();
+        if (!_pages.TryGetValue(page, out var state)) return;
+        state.View = view;
         ReturnUrl = page;
         state.SourceInstance = viewInstance;
         state.RestorePending = true;
         try { await js.InvokeVoidAsync("profileResultNavigation.capture", page); } catch (JSException) { }
     }
     /// <summary>
-    /// Возвращает фильтры, сортировку и прокрутку таблицы после возврата из профиля. true — состояние применено:
-    /// таблица, которая перерисовывается только при смене данных, должна перерисоваться, чтобы показать новый порядок строк.
+    /// Состояние таблицы после возврата из профиля — один раз и только новому экземпляру таблицы.
+    /// null — возвращать нечего. Таблица применяет его, перерисовывается и затем зовёт <see cref="RestoreScrollAsync"/>.
     /// </summary>
-    public async Task<bool> RestoreAsync(string page, MudDataGrid<StudentResultRowDto>? grid, Guid viewInstance)
+    public ResultsViewState? TakeRestore(string page, Guid viewInstance)
     {
-        if (grid is null || !_pages.TryGetValue(page, out var state) || !state.RestorePending || state.SourceInstance == viewInstance || grid.RenderedColumns.Count == 0) return false;
+        if (!_pages.TryGetValue(page, out var state) || !state.RestorePending || state.SourceInstance == viewInstance) return null;
         state.RestorePending = false;
-        foreach (var filter in state.Filters.Where(f => f.Column < grid.RenderedColumns.Count))
-            await grid.AddFilterAsync(new FilterDefinition<StudentResultRowDto> {
-                Column = grid.RenderedColumns[filter.Column], Operator = filter.Operator, Value = filter.Value });
-        if (state.Filters.Count > 0) await grid.CloseFilterAsync();
-        foreach (var sort in state.Sorts.Where(s => s.Column < grid.RenderedColumns.Count))
-            await grid.ExtendSortAsync(grid.RenderedColumns[sort.Column].PropertyName,
-                sort.Definition.Descending ? SortDirection.Descending : SortDirection.Ascending,
-                sort.Definition.SortFunc, sort.Definition.Comparer);
+        return state.View;
+    }
+    /// <summary>Вернуть прокрутку страницы и таблицы — когда строки в восстановленном порядке уже отрисованы.</summary>
+    public async Task RestoreScrollAsync(string page)
+    {
         try { await js.InvokeVoidAsync("profileResultNavigation.restore", page); } catch (JSException) { }
-        return true;
     }
     public void Dispose() { if (_subscribed) auth.AuthenticationStateChanged -= Changed; }
     private sealed class Snapshot
@@ -71,9 +64,6 @@ public sealed class ResultsNavigationState(AuthenticationStateProvider auth, IJS
         public int SubjectId { get; init; }
         public bool RestorePending { get; set; }
         public Guid SourceInstance { get; set; }
-        public List<SavedFilter> Filters { get; set; } = [];
-        public List<SavedSort> Sorts { get; set; } = [];
+        public ResultsViewState View { get; set; } = ResultsViewState.Default;
     }
-    private record SavedFilter(int Column, string? Operator, object? Value);
-    private record SavedSort(int Column, SortDefinition<StudentResultRowDto> Definition);
 }

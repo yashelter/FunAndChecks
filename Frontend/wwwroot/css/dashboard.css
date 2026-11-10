@@ -45,11 +45,6 @@ label.mud-switch.mud-disabled { opacity:.45; }
 .fc-brand small { display:block; color:var(--fc-muted); font-size:9px; letter-spacing:.15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:146px; margin-top:3px; }
 .fc-brand-mark { display:inline-flex; width:34px; height:34px; flex-shrink:0; align-items:center; justify-content:center; border:1px solid var(--fc-accent); border-radius:9px; color:var(--fc-accent); background:color-mix(in srgb,var(--fc-accent) 10%,var(--fc-surface)); }
 .fc-brand-mark .mud-icon-root { width:22px; height:22px; }
-/* Базовый знак: галочка в клетке ведомости (линейки сверху и снизу). Сезонные знаки тоже .fc-brand-mark — правило только для базового. */
-.fc-brand-mark-check svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-linecap:round; stroke-linejoin:round; }
-.fc-brand-mark-check .fc-brand-mark-rule { stroke-width:1.3; opacity:.45; }
-.fc-brand-mark-check .fc-brand-mark-tick { stroke-width:2.6; }
-.fc-auth-topbar .fc-brand-mark-check svg { width:20px; height:20px; }
 .fc-workspace { display:flex; align-items:center; gap:10px; border:1px solid var(--fc-line); background:var(--fc-surface); border-radius:8px; padding:12px; margin:30px 8px 19px; }
 .fc-workspace>.mud-icon-root { color:var(--fc-accent); }
 .fc-workspace strong { display:block; font-size:12px; font-weight:550; }

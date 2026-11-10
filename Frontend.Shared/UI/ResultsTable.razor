@@ -1,0 +1,102 @@
+@namespace Frontend.Shared.UI
+@using Frontend.Shared.Models
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@* Таблица результатов — общая для студента, публичной страницы и преподавателя. Рассчитана на 100+ студентов × 100+ задач:
+   - обычная <table> вместо MudDataGrid: строки виртуализированы, каждая строка — компонент ResultsRow, который при
+     прокрутке не перерисовывается (у MudDataGrid каждый шаг прокрутки заново рендерил все видимые ячейки);
+   - сама таблица рендерится только при смене данных, поиска или сортировки (ShouldRender);
+   - клик по ячейке и подсказки делегированы в results-scroll.js — у ячеек нет своих обработчиков;
+   - классы mud-table-* сохранены: на них держатся закреплённая шапка, стили и results-scroll.js. *@
+@if (_layout is not null)
+{
+    <div class="fc-results-tools">
+        <MudTextField T="string" Value="@_view.Search" ValueChanged="OnSearchChanged" Immediate="true" DebounceInterval="200" Clearable="true"
+                      Placeholder="@Loc["Results_Search"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="fc-results-search" />
+        @if (_groups.Count > 1)
+        {
+            <MudSelect T="string" Value="@_view.Group" ValueChanged="OnGroupChanged" Clearable="true" Placeholder="@Loc["Results_AllGroups"]"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-results-group-filter">
+                @foreach (var group in _groups)
+                {
+                    <MudSelectItem T="string" Value="@group">@group</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        @if (_view.HasFilter)
+        {
+            <span class="fc-results-found fc-muted" role="status">@_visible.Count / @_rows.Count</span>
+        }
+    </div>
+    <div class="fc-results-scroll-host" @ref="_host">
+        @* Вторая полоса горизонтальной прокрутки — над шапкой, закреплена у верха окна (results-scroll.js). *@
+        <div class="fc-results-hscroll" aria-hidden="true"><div></div></div>
+        <div class="mud-table mud-table-dense mud-table-hover mud-table-sticky-header @ResultsColumns.GridClass(Results, ShowRank)">
+            <div class="mud-table-container">
+                <table class="mud-table-root">
+                    <thead class="mud-table-head">
+                        <tr class="mud-table-row">
+                            @if (ShowRank)
+                            {
+                                @* Место считается на сервере по полному снимку: фильтр и сортировка таблицы его не меняют. Первая колонка, закреплена. *@
+                                <th scope="col" class="mud-table-cell fc-results-rank-column" aria-sort="@AriaSort(ResultsViewState.SortRank)">
+                                    <button type="button" class="@SortClass(ResultsViewState.SortRank)" title="@_rankTitle" aria-label="@_rankTitle" @onclick="() => ToggleSort(ResultsViewState.SortRank)">#</button>
+                                </th>
+                            }
+                            <th scope="col" class="mud-table-cell fc-results-name-column" aria-sort="@AriaSort(ResultsViewState.SortName)">
+                                <button type="button" class="@SortClass(ResultsViewState.SortName)" @onclick="() => ToggleSort(ResultsViewState.SortName)">@Loc["Results_ColName"]</button>
+                            </th>
+                            @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
+                            <th scope="col" class="mud-table-cell fc-results-total-column" aria-sort="@AriaSort(ResultsViewState.SortTotal)">
+                                <button type="button" class="@SortClass(ResultsViewState.SortTotal)" title="@_totalTitle" aria-label="@_totalTitle" @onclick="() => ToggleSort(ResultsViewState.SortTotal)">Σ</button>
+                            </th>
+                            <th scope="col" class="mud-table-cell fc-results-group-column" aria-sort="@AriaSort(ResultsViewState.SortGroup)">
+                                <button type="button" class="@SortClass(ResultsViewState.SortGroup)" @onclick="() => ToggleSort(ResultsViewState.SortGroup)">@Loc["Results_ColGroup"]</button>
+                            </th>
+                            @foreach (var column in _layout.Leading)
+                            {
+                                @ExtraHeader(column)
+                            }
+                            @foreach (var task in _layout.Tasks)
+                            {
+                                @* data-t: по нему results-scroll.js узнаёт задачу кликнутой ячейки (у самих ячеек атрибутов нет). *@
+                                <th scope="col" class="mud-table-cell fc-results-task-header" data-t="@task.TaskId"><span class="fc-results-task-title" title="@task.TaskName">@task.TaskName</span></th>
+                            }
+                            @foreach (var column in _layout.Grades)
+                            {
+                                <th scope="col" class="mud-table-cell fc-results-number">@column.Name</th>
+                            }
+                            @foreach (var column in _layout.Trailing)
+                            {
+                                @ExtraHeader(column)
+                            }
+                        </tr>
+                    </thead>
+                    <tbody class="mud-table-body">
+                        <Virtualize Items="_visible" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" SpacerElement="tr" Context="row">
+                            <ItemContent>
+                                <ResultsRow @key="row.StudentId" Row="row" Layout="_layout" />
+                            </ItemContent>
+                            <EmptyContent>
+                                <tr class="mud-table-row"><td class="mud-table-cell fc-results-empty" colspan="@_layout.ColumnCount">@Loc["Results_NothingFound"]</td></tr>
+                            </EmptyContent>
+                        </Virtualize>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private RenderFragment ExtraHeader(ResultsExtraColumn column) => @<th scope="col" class="mud-table-cell @column.CellClass" aria-sort="@(column.SortKey is null ? null : AriaSort(column.Key))">
+        @if (column.SortKey is not null)
+        {
+            <button type="button" class="@SortClass(column.Key)" @onclick="() => ToggleSort(column.Key)">@column.Title</button>
+        }
+        else
+        {
+            @column.Title
+        }
+    </th>;
+}

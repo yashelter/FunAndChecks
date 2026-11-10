@@ -44,6 +44,21 @@ public static class ResultsColumns
     public static string RowClass(StudentResultRowDto row) =>
         IsRanked(row.Rank, row.TotalPoints) && row.Rank <= PodiumRanks ? $"fc-results-podium fc-results-podium-{row.Rank}" : string.Empty;
 
+    /// <summary>
+    /// Имя для узкого экрана: «Фамилия И. О.». Первое слово целиком, остальные — инициалами;
+    /// полное имя остаётся в подсказке и в профиле.
+    /// </summary>
+    public static string ShortName(string fullName)
+    {
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length <= 1)
+            return fullName.Trim();
+        var short_ = new System.Text.StringBuilder(parts[0]);
+        for (var i = 1; i < parts.Length; i++)
+            short_.Append(' ').Append(char.ToUpper(parts[i][0], System.Globalization.CultureInfo.CurrentCulture)).Append('.');
+        return short_.ToString();
+    }
+
     /// <summary>Сколько студентов делят каждое место (при равных Σ место общее).</summary>
     public static Dictionary<int, int> RankCounts(IEnumerable<StudentResultRowDto> rows) =>
         rows.GroupBy(r => r.Rank).ToDictionary(g => g.Key, g => g.Count());

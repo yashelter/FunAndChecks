@@ -161,15 +161,29 @@
 .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header,
 .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-column,
 .fc-results-grid .mud-table-root .mud-table-row > td.mud-table-cell.fc-results-number { min-width:0; width:1%; padding-inline:6px; text-align:center; }
-.fc-results-grid .fc-results-task-header .column-header { padding-inline:0; justify-content:center; }
+/* Шапка: сортировка — клик по названию колонки, стрелка показывает направление. */
+.fc-results-sort { display:inline-flex; align-items:center; gap:4px; padding:0; border:0; background:none; color:inherit; font:inherit; cursor:pointer; white-space:nowrap; }
+.fc-results-sort::after { content:""; width:0; height:0; border-inline:4px solid transparent; }
+.fc-results-sort.asc::after { border-bottom:5px solid currentColor; }
+.fc-results-sort.desc::after { border-top:5px solid currentColor; }
+.fc-results-sort.asc, .fc-results-sort.desc { color:var(--mud-palette-text-primary); }
+.fc-results-sort:hover { color:var(--mud-palette-text-primary); }
+.fc-results-sort:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:3px; border-radius:4px; }
+/* Поиск по ФИО и фильтр по группе над таблицей. */
+.fc-results-tools { display:flex; align-items:center; flex-wrap:wrap; gap:10px 12px; padding:12px 22px; border-top:1px solid var(--mud-palette-lines-default); }
+.fc-results-tools > .mud-input-control { margin:0; }
+.fc-results-tools .fc-results-search { flex:0 1 300px; }
+.fc-results-tools .fc-results-group-filter { flex:0 1 200px; }
+.fc-results-found { font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-empty { text-align:center; color:var(--mud-palette-text-secondary); }
+/* Короткое имя и Σ внутри ячейки имени — только на телефоне (см. блок max-width:600px ниже). */
+.fc-name-short, .fc-results-sum { display:none; }
 .fc-results-task-title { white-space:nowrap; }
 .fc-results-many-tasks .mud-table-head .mud-table-cell { vertical-align:bottom; }
 .fc-results-many-tasks .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header { padding-block:8px; }
 .fc-results-many-tasks .fc-results-task-title { display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); max-height:140px; overflow:hidden; text-overflow:ellipsis; line-height:1.25; }
 .fc-results-grid .fc-results-name-column { position:sticky; left:var(--fc-results-rank); z-index:1; width:var(--fc-results-name); min-width:var(--fc-results-name); max-width:var(--fc-results-name); background:var(--mud-palette-surface); }
 .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { position:sticky; left:0; z-index:1; width:var(--fc-results-rank); min-width:var(--fc-results-rank); max-width:var(--fc-results-rank); padding-inline:4px; text-align:center; font-variant-numeric:tabular-nums; color:var(--mud-palette-text-secondary); background:var(--mud-palette-surface); }
-.fc-results-grid .fc-results-rank-column .column-header { justify-content:center; }
-.fc-results-grid .fc-results-rank-column .column-header .sortable-column-header { padding-inline:0; }
 .fc-results-grid .fc-results-total-column { position:sticky; left:calc(var(--fc-results-name) + var(--fc-results-rank)); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
 .fc-results-grid thead .mud-table-cell.fc-results-name-column,
 .fc-results-grid .mud-table-root thead .mud-table-row > .mud-table-cell.fc-results-rank-column,
@@ -223,13 +237,6 @@
 .fc-pinned-achievement-badge:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:2px; }
 .fc-pinned-achievement-image.fc-profile-media { width:18px; height:18px; min-width:18px; font-size:10px; border-radius:50%; }
 .fc-pinned-achievement-image.fc-profile-media img, .fc-pinned-achievement-image.fc-profile-media video { width:100%; height:100%; object-fit:cover; border-radius:50%; }
-/* На телефоне имя уже, чтобы рядом с ним и Σ было видно хотя бы несколько задач (после основного правила — иначе оно перебьёт). */
-@media (max-width:600px) {
-    .fc-results-grid { --fc-results-name:140px; }
-    .fc-results-grid.fc-results-ranked { --fc-results-rank:40px; }
-    /* В колонке 140px три бейджа оставили бы от имени пару букв. */
-    .fc-results-grid .fc-pinned-achievement-badge:nth-child(n+2) { display:none; }
-}
 @media (max-width:760px) { .fc-queue-table .fc-queue-name-cell { min-width:0; } }
 /* Цвета преподавателей у зачтённых: цвет уже в ячейке (--tc), переключатель лишь ставит класс на панель — без перерисовки таблицы. */
 .fc-results-show-teacher .fc-result-cell[style*="--tc"] { background-color:var(--tc); color:#000; border-color:var(--tc); text-shadow:0 0 3px rgba(255,255,255,.7); }
@@ -256,6 +263,32 @@
 .fc-results-hscroll { position:sticky; top:0; z-index:5; height:16px; overflow-x:auto; overflow-y:hidden; background:var(--mud-palette-background); border-bottom:1px solid var(--mud-palette-lines-default); scrollbar-color:var(--mud-palette-text-disabled) transparent; }
 .fc-results-hscroll[hidden] { display:none; }
 .fc-results-hscroll > div { height:1px; }
+/* На сенсорном экране полоса прокрутки не видна и за неё не взяться — вторая полоса только отнимала бы высоту. */
+@media (pointer:coarse) { .fc-results-hscroll { display:none; } }
+/* Телефон: закреплены только место и короткое имя (~150 px вместо ~250), остальная ширина — задачам.
+   Σ переезжает в ячейку имени, группа — в фильтр над таблицей, ячейки задач уже. Блок стоит после всех правил
+   таблицы (в том числе «ведомости»), иначе они его перебьют. */
+@media (max-width:600px) {
+    .fc-results-grid { --fc-results-name:122px; --fc-results-height:max(360px, calc(100dvh - 150px)); }
+    .fc-results-grid.fc-results-ranked { --fc-results-rank:30px; }
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-total-column,
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-group-column { display:none; }
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-name-column { padding-inline:6px; border-right:1px solid var(--mud-palette-lines-default); }
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { padding-inline:2px; }
+    .fc-results-grid .fc-rank { min-width:22px; height:22px; padding:0 3px; font-size:11px; }
+    .fc-results-grid .fc-name-full, .fc-results-grid .fc-results-you, .fc-results-grid .fc-pinned-achievement-badges { display:none; }
+    .fc-results-grid .fc-name-short { display:inline; }
+    .fc-results-grid .fc-results-name .fc-result-name { padding-inline:3px; }
+    .fc-results-grid .fc-results-sum { display:inline; margin-left:auto; flex-shrink:0; font-weight:700; font-variant-numeric:tabular-nums; }
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header,
+    .fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-column,
+    .fc-results-grid .mud-table-root .mud-table-row > td.mud-table-cell.fc-results-number { padding-inline:3px; }
+    .fc-results-panel .fc-results-grid .fc-result-cell { width:26px; height:26px; font-size:13px; }
+    /* Вертикальные названия задач короче: шапка не съедает четверть экрана. */
+    .fc-results-many-tasks .fc-results-task-title { max-height:96px; }
+    .fc-results-tools { padding:10px 12px; }
+    .fc-results-tools .fc-results-search, .fc-results-tools .fc-results-group-filter { flex:1 1 140px; }
+}
 
 /* Halloween — тыквенная кнопка записи в очередь и тыква вместо значка.
    Показываются, пока сезонная тема HalloweenTheme активна и не выключена пользователем. */

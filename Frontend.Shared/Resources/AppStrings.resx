@@ -1009,4 +1009,7 @@
   <data name="QueueArchive_Done" xml:space="preserve"><value>The queue is finished and moved to the archive.</value></data>
   <data name="Error_QueueArchived" xml:space="preserve"><value>The queue is archived: you can't join, leave or change it.</value></data>
   <data name="Error_QueueArchiveChecking" xml:space="preserve"><value>A review is in progress: finish it before archiving the queue.</value></data>
+  <data name="Results_Search" xml:space="preserve"><value>Search by name</value></data>
+  <data name="Results_AllGroups" xml:space="preserve"><value>All groups</value></data>
+  <data name="Results_NothingFound" xml:space="preserve"><value>No students found</value></data>
 </root>

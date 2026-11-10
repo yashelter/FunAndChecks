@@ -14,7 +14,7 @@
         const preference = (() => { try { return localStorage.getItem('fc-theme'); } catch { return null; } })();
         document.documentElement.dataset.theme = preference === 'light' ? 'light' : 'dark';
         const uiStyles = [
-            'css/app.css', 'css/dashboard.css?v=journal-2', 'Frontend.styles.css?v=color-wheel-1', '_content/Frontend.Shared/dashboard-content.css?v=17',
+            'css/app.css', 'css/dashboard.css?v=journal-3', 'Frontend.styles.css?v=color-wheel-1', '_content/Frontend.Shared/dashboard-content.css?v=18',
             '_content/Frontend.Shared/profiles.css?v=badges-1', '_content/Frontend.Shared/profile-navigation.css', '_content/Frontend.Shared/community.css?v=11',
             '_content/Frontend.Admin/admin-dashboard.css?v=ux-10', '_content/Frontend.Admin/management-dashboard.css?v=ux-9'
         ];
@@ -111,7 +111,7 @@
     <script src="js/dashboard-appearance.js"></script>
     <script src="js/snackbar-swipe.js"></script>
     <script src="_content/Frontend.Shared/profile-navigation.js"></script>
-    <script src="_content/Frontend.Shared/results-scroll.js?v=2"></script>
+    <script src="_content/Frontend.Shared/results-scroll.js?v=3"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js" autostart="false"></script>
     <script>Blazor.start({ applicationCulture: window.culturePreference.get() });</script>

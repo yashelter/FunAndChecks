@@ -11,6 +11,10 @@ const adminCss = read('Frontend.Admin/wwwroot/admin-dashboard.css');
 const columns = read('Frontend.Shared/UI/ResultsColumns.cs');
 const adminGrid = read('Frontend.Admin/UI/AdminResultsGrid.razor') + read('Frontend.Admin/UI/AdminResultsGrid.razor.cs');
 const sharedGrid = read('Frontend.Shared/UI/SubjectResultsView.razor');
+// Общая таблица: разметка с шапкой и виртуализацией, её код и компонент строки.
+const table = read('Frontend.Shared/UI/ResultsTable.razor');
+const tableCode = read('Frontend.Shared/UI/ResultsTable.razor.cs');
+const row = read('Frontend.Shared/UI/ResultsRow.razor');
 const index = read('Frontend/wwwroot/index.html');
 const scrollJs = read('Frontend.Shared/wwwroot/results-scroll.js');
 
@@ -23,53 +27,77 @@ test('virtualized row height in CSS matches ResultsColumns.RowHeight', () => {
     assert.match(css, /\.mud-table-body \.mud-table-row > \.mud-table-cell \{[^}]*height:var\(--fc-results-row\)/);
 });
 
-test('both results grids are virtualized with a fixed header and their own scroll area', () => {
+test('both cabinets use the one lightweight table instead of MudDataGrid', () => {
     for (const [name, grid] of [['admin', adminGrid], ['shared', sharedGrid]]) {
-        assert.match(grid, /Virtualize="true"/, `${name} grid must be virtualized`);
-        assert.match(grid, /ItemSize="ResultsColumns\.RowHeight"/, `${name} grid must use the shared row height`);
-        assert.match(grid, /FixedHeader="true"/, `${name} grid needs a fixed header`);
-        assert.match(grid, /class="fc-results-hscroll"/, `${name} grid needs the top scrollbar`);
-        assert.match(grid, /resultsScroll\.attach/, `${name} grid must attach the top scrollbar`);
-        assert.match(grid, /resultsScroll\.detach/, `${name} grid must detach the top scrollbar`);
-        assert.match(grid, /CellClass="fc-results-name-column"/);
-        assert.match(grid, /fc-results-total-column/);
+        assert.match(grid, /<ResultsTable /, `${name} results must be shown by ResultsTable`);
+        assert.doesNotMatch(grid, /<MudDataGrid/, `${name} results must not go back to MudDataGrid`);
     }
+    assert.doesNotMatch(table + row, /<MudDataGrid|<TemplateColumn|<PropertyColumn/);
+});
+
+test('the table is virtualized with a fixed header and its own scroll area', () => {
+    assert.match(table, /<Virtualize Items="_visible" ItemSize="ResultsColumns\.RowHeight"[^>]*SpacerElement="tr"/);
+    assert.match(table, /mud-table-sticky-header/, 'the header stays pinned through the MudBlazor sticky-header rule');
+    assert.match(table, /class="mud-table-container"/, 'results-scroll.js and profile-navigation.js find the scroll area by this class');
+    assert.match(table, /class="fc-results-hscroll"/, 'the table needs the top scrollbar');
+    assert.match(tableCode, /resultsScroll\.attach/);
+    assert.match(tableCode, /resultsScroll\.detach/);
+    assert.match(row, /class="mud-table-cell fc-results-name-column"/);
+    assert.match(row, /fc-results-total-column/);
     // Своя область прокрутки: высота ограничена сверху, маленькая таблица не растягивается на весь экран.
     assert.match(css, /\.fc-results-grid \.mud-table-container \{[^}]*max-height:var\(--fc-results-height\)/);
 });
 
+test('scrolling re-renders only rows whose data changed', () => {
+    // Virtualize на каждом шаге прокрутки обходит все видимые строки: без этой проверки рендерились бы тысячи ячеек.
+    assert.match(row, /ShouldRender\(\) => !ReferenceEquals\(_shownRow, Row\) \|\| !ReferenceEquals\(_shownLayout, Layout\)/);
+    assert.match(table, /<ResultsRow @key="row\.StudentId" Row="row" Layout="_layout" \/>/);
+    assert.match(tableCode, /protected override bool ShouldRender\(\) => _dirty;/);
+});
+
+test('task cells carry no handlers or tooltips of their own', () => {
+    // Единственный обработчик строки — ссылка на профиль; клик по ячейке и подсказки делегированы в results-scroll.js.
+    assert.deepEqual(row.match(/@onclick="[^"]*"/g), ['@onclick="OpenProfileAsync"']);
+    const cells = row.slice(row.indexOf('@foreach (var task in Layout.Tasks)'), row.indexOf('@foreach (var column in Layout.Grades)'));
+    assert.doesNotMatch(cells, /title=|aria-label=|data-/);
+    assert.match(table, /class="mud-table-cell fc-results-task-header" data-t="@task\.TaskId"/);
+    assert.match(row, /<tr class="@RowClass\(\)" data-s="@Row\.StudentId">/);
+    assert.match(tableCode, /\[JSInvokable\]\s*public Task OnCellClickFromJs\(string studentId, int taskId\)/);
+});
+
 test('name and total stay pinned when scrolling sideways', () => {
-    // Правило с position:sticky: у колонок есть и другие правила (например, размер шрифта на телефоне).
+    // Правило с position:sticky: у колонок есть и другие правила (например, отступы на телефоне).
     const rule = selector => [...css.matchAll(new RegExp(`${selector.replace(/[.]/g, '\\.')} \\{([^}]*)\\}`, 'g'))]
         .map(m => m[1]).find(body => /position:sticky/.test(body));
     const name = rule('.fc-results-grid .fc-results-name-column');
     const total = rule('.fc-results-grid .fc-results-total-column');
     assert.ok(name && total, 'sticky rules for the name and Σ columns are missing');
-    assert.match(name, /position:sticky; left:0/);
+    // «Место» — первая закреплённая колонка точной ширины, имя и Σ сдвинуты на неё.
+    assert.match(name, /position:sticky; left:var\(--fc-results-rank\)/);
     assert.match(name, /width:var\(--fc-results-name\)/);
     assert.match(total, /position:sticky; left:calc\(var\(--fc-results-name\) \+ var\(--fc-results-rank\)\)/,
-        'Σ sits right after the fixed-width name and rank columns');
-    // «Место» закреплено между именем и Σ и имеет точную ширину — иначе Σ наехала бы на него при прокрутке.
+        'Σ sits right after the fixed-width rank and name columns');
     const rank = rule('.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column');
     assert.ok(rank, 'sticky rule for the rank column is missing');
-    assert.match(rank, /position:sticky; left:var\(--fc-results-name\)/);
+    assert.match(rank, /position:sticky; left:0/);
     assert.match(rank, /width:var\(--fc-results-rank\); min-width:var\(--fc-results-rank\); max-width:var\(--fc-results-rank\)/);
-    // Без колонки (публичная таблица) ширина нулевая и Σ стоит сразу после имени.
+    // Без колонки (публичная таблица) ширина нулевая и имя стоит у края.
     assert.match(css, /\.fc-results-grid \{[^}]*--fc-results-rank:0px/);
     assert.match(css, /\.fc-results-grid\.fc-results-ranked \{ --fc-results-rank:\d+px; \}/);
 });
 
 test('rank column is in both cabinets, the public table keeps its columns', () => {
-    assert.match(adminGrid, /Property="x => x\.Rank"[^>]*CellClass="fc-results-rank-column"/);
-    assert.match(adminGrid, /GridClass\(Results, ranked: true\)/);
-    assert.match(sharedGrid, /@if \(ShowRank\)\s*\{[\s\S]*?Property="x => x\.Rank"/);
-    assert.match(sharedGrid, /GridClass\(Results, ShowRank\)/);
+    assert.match(adminGrid, /<ResultsTable [^>]*ShowRank="true"/);
+    assert.match(sharedGrid, /<ResultsTable [^>]*ShowRank="ShowRank"/);
+    assert.match(table, /@if \(ShowRank\)\s*\{[\s\S]*?class="mud-table-cell fc-results-rank-column"/);
+    assert.match(row, /@if \(Layout\.ShowRank\)\s*\{\s*<td class="mud-table-cell fc-results-rank-column">/);
+    assert.match(table, /GridClass\(Results, ShowRank\)/);
     assert.match(read('Frontend.Student/Pages/Dashboard.razor'), /ShowRank="true"/);
     assert.doesNotMatch(read('Frontend/Pages/PublicResults.razor'), /ShowRank/);
 });
 
 test('own row gets a "you" label inside the pinned name cell', () => {
-    assert.match(sharedGrid, /context\.Item\.StudentId == HighlightStudentId\) \{<span class="fc-results-you">/);
+    assert.match(row, /@if \(IsMe\)\s*\{\s*<span class="fc-results-you">/);
     const community = read('Frontend.Shared/wwwroot/community.css');
     assert.match(community, /\.fc-results-you\{flex-shrink:0;/);
     assert.match(community, /\.fc-results-me td\.fc-results-name-column,[^{]*\{background:color-mix/);
@@ -78,15 +106,31 @@ test('own row gets a "you" label inside the pinned name cell', () => {
 test('many tasks get vertical, truncated headers', () => {
     assert.match(columns, /fc-results-many-tasks/);
     assert.match(css, /\.fc-results-many-tasks \.fc-results-task-title \{[^}]*writing-mode:vertical-rl/);
-    for (const grid of [adminGrid, sharedGrid])
-        assert.match(grid, /<span class="fc-results-task-title" title="@task\.TaskName">/, 'full task name stays in the tooltip');
+    assert.match(table, /<span class="fc-results-task-title" title="@task\.TaskName">/, 'full task name stays in the tooltip');
 });
 
 test('teacher colors toggle by a class, without re-rendering the grid', () => {
     assert.match(css, /\.fc-results-show-teacher \.fc-result-cell\[style\*="--tc"\]/);
-    for (const grid of [read('Frontend.Admin/UI/AdminResultsGrid.razor.cs'), sharedGrid])
-        assert.match(grid, /--tc:\{cell\.AdminColor\}/);
-    assert.doesNotMatch(read('Frontend.Admin/UI/AdminResultsGrid.razor.cs'), /ShowTeacherColors/);
+    assert.equal(row.match(/--tc:\{cell\.AdminColor\}/g).length, 2, 'both the student and the teacher cell keep the color in --tc');
+    assert.doesNotMatch(adminGrid + tableCode, /ShowTeacherColors/);
+});
+
+test('on a phone only the rank and a short name stay pinned', () => {
+    // Блок телефона для таблицы — тот @media, в котором включается короткое имя (в файле есть и другие).
+    const phoneStart = css.lastIndexOf('@media (max-width:600px)', css.indexOf('.fc-results-grid .fc-name-short { display:inline'));
+    assert.ok(phoneStart >= 0, 'the phone block of the results table is missing');
+    const phone = css.slice(phoneStart, css.indexOf('\n}', phoneStart));
+    const px = name => Number(phone.match(new RegExp(`--fc-results-${name}:(\\d+)px`))[1]);
+    assert.ok(px('name') + px('rank') <= 160, 'the pinned block must leave most of a 360px screen to the tasks');
+    assert.match(phone, /\.mud-table-cell\.fc-results-total-column,\s*[^{]*\.mud-table-cell\.fc-results-group-column \{ display:none; \}/);
+    assert.match(phone, /\.fc-results-grid \.fc-name-short \{ display:inline; \}/);
+    assert.match(phone, /\.fc-results-grid \.fc-results-sum \{ display:inline;/);
+    // Вне телефона короткое имя и Σ в ячейке имени скрыты.
+    assert.match(css, /\.fc-name-short, \.fc-results-sum \{ display:none; \}/);
+    assert.match(row, /<span class="fc-name-short">@ResultsColumns\.ShortName\(Row\.FullName\)<\/span>/);
+    assert.match(row, /<span class="fc-results-sum" aria-hidden="true">@Row\.TotalPoints<\/span>/);
+    // Блок телефона стоит после правил «ведомости», иначе её размер ячейки его перебьёт.
+    assert.ok(phoneStart > css.indexOf('.fc-results-journal .fc-result-cell {'));
 });
 
 test('the results panel does not clip sticky elements into its own scroll box', () => {
@@ -95,10 +139,10 @@ test('the results panel does not clip sticky elements into its own scroll box', 
 });
 
 test('changed stylesheets and the new script are referenced with fresh versions', () => {
-    assert.ok(Number(index.match(/dashboard-content\.css\?v=(\d+)/)[1]) >= 16);
+    assert.ok(Number(index.match(/dashboard-content\.css\?v=(\d+)/)[1]) >= 18);
     assert.ok(Number(index.match(/community\.css\?v=(\d+)/)[1]) >= 11);
     assert.ok(Number(index.match(/admin-dashboard\.css\?v=ux-(\d+)/)[1]) >= 9);
-    assert.match(index, /_content\/Frontend\.Shared\/results-scroll\.js/);
+    assert.ok(Number(index.match(/_content\/Frontend\.Shared\/results-scroll\.js\?v=(\d+)/)[1]) >= 3);
 });
 
 // --- results-scroll.js в маленьком фейковом DOM ---
@@ -161,9 +205,12 @@ test('attach is idempotent and detach removes the listeners', () => {
     api.attach(host);
     api.attach(host);
     assert.equal(bar.listenerCount('scroll'), 1, 'repeated attach must not add listeners');
+    assert.equal(table.listenerCount('click'), 1, 'repeated attach must not add a second click handler');
     api.detach(host);
     assert.equal(bar.listenerCount('scroll'), 0);
     assert.equal(table.listenerCount('scroll'), 0);
+    for (const type of ['click', 'pointerover', 'focusin'])
+        assert.equal(table.listenerCount(type), 0, `${type} listener must be removed`);
     assert.ok(observers.every(o => o.disconnected));
 });
 
@@ -191,4 +238,65 @@ test('scrollToRow scrolls a virtualized table by row index, then centers and foc
     await flush();
     assert.equal(table.scrollTop, 100 * 37 - (437 - 40 - 37) / 2);
     assert.equal(link.focused?.preventScroll, true, "focus must not scroll the page again");
+});
+
+// --- Делегированный клик и подсказки ячеек ---
+
+function cellTable() {
+    const listeners = {};
+    const head = { dataset: { t: '42' }, textContent: 'Лаба 1', querySelector: s => s === '.fc-results-task-title' ? { title: 'Лабораторная 1' } : null };
+    const tr = { dataset: { s: 'student-1' }, querySelector: s => s === '.fc-results-name' ? { title: 'Иванов Иван' } : null };
+    const td = { cellIndex: 4, parentElement: tr };
+    const mark = (classes, text) => {
+        const attrs = {};
+        const el = { title: '', textContent: text, attrs, classList: { contains: c => classes.includes(c) },
+            setAttribute(k, v) { attrs[k] = v; }, closest: s => s === '.fc-result-cell' ? el : s === 'td' ? td : null };
+        return el;
+    };
+    const table = {
+        scrollLeft: 0, scrollWidth: 2000, clientWidth: 500,
+        addEventListener(type, fn) { (listeners[type] ??= []).push(fn); },
+        removeEventListener(type, fn) { listeners[type] = (listeners[type] ?? []).filter(f => f !== fn); },
+        fire(type, target) { for (const fn of listeners[type] ?? []) fn({ target }); },
+        querySelector: s => s === 'thead tr' ? { cells: { 4: head } } : null,
+    };
+    const bar = element({ clientWidth: 500, firstElementChild: element() });
+    const host = { querySelector: s => s === '.fc-results-hscroll' ? bar : s === '.mud-table-container' ? table : null };
+    const window = {};
+    vm.runInNewContext(scrollJs, { window, ResizeObserver: undefined });
+    return { api: window.resultsScroll, host, table, mark };
+}
+
+test('one delegated click on the table opens the student on the clicked task', () => {
+    const { api, host, table, mark } = cellTable();
+    const calls = [];
+    const dotnet = { invokeMethodAsync: (...args) => calls.push(args) };
+    api.attach(host, { dotnet, accepted: 'Зачтено', rejected: 'На доработке', none: 'Не сдано', action: 'Открыть' });
+
+    table.fire('click', mark(['fc-result-cell', 'fc-result-accepted'], '+'));
+    assert.deepEqual(calls, [['OnCellClickFromJs', 'student-1', 42]]);
+    // Клик мимо ячейки задачи (имя, шапка, пустое место) ничего не открывает.
+    table.fire('click', { closest: () => null });
+    assert.equal(calls.length, 1);
+
+    api.detach(host);
+    table.fire('click', mark(['fc-result-cell'], ''));
+    assert.equal(calls.length, 1, 'detach removes the click listener');
+});
+
+test('the student table has no click target, cells are described on hover and focus', () => {
+    const { api, host, table, mark } = cellTable();
+    api.attach(host, { dotnet: null, accepted: 'Зачтено', rejected: 'На доработке', none: 'Не сдано', action: null });
+    const cell = mark(['fc-result-cell', 'rejected'], 'Д');
+    table.fire('click', cell); // без dotnet клик не падает и никуда не идёт
+    table.fire('pointerover', cell);
+    assert.equal(cell.title, 'На доработке');
+    assert.equal(cell.attrs['aria-label'], 'Лабораторная 1: На доработке Д');
+
+    // Повторный attach той же таблицы меняет тексты (смена языка), не добавляя обработчиков.
+    api.attach(host, { dotnet: {}, accepted: 'Accepted', rejected: 'Rework', none: 'Not submitted', action: 'Open student' });
+    const teacherCell = mark(['fc-result-cell', 'fc-result-unsubmitted'], '');
+    table.fire('focusin', teacherCell);
+    assert.equal(teacherCell.title, 'Open student');
+    assert.equal(teacherCell.attrs['aria-label'], 'Иванов Иван, Лабораторная 1: Not submitted. Open student');
 });

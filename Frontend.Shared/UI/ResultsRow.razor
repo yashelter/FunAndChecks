@@ -1,0 +1,183 @@
+@namespace Frontend.Shared.UI
+@using Frontend.Shared.Models
+@* Строка таблицы результатов. Отдельный компонент ради ShouldRender: при прокрутке Virtualize заново обходит
+   все видимые строки, но рендерится только та, у которой сменились данные или раскладка колонок.
+   У ячеек задач нет ни обработчиков, ни подсказок: клик и title делегированы в results-scroll.js. *@
+<tr class="@RowClass()" data-s="@Row.StudentId">
+    @if (Layout.ShowRank)
+    {
+        <td class="mud-table-cell fc-results-rank-column">
+            @if (Row.Rank > 0)
+            {
+                var rankTitle = Layout.RankTitle(Row.Rank);
+                <span class="@ResultsColumns.RankClass(Row.Rank, Row.TotalPoints)" title="@rankTitle" aria-label="@rankTitle">@Row.Rank</span>
+            }
+        </td>
+    }
+    <td class="mud-table-cell fc-results-name-column">
+        @* «Вы» и Σ для телефона — в закреплённой ячейке имени: видны и при прокрутке задач вбок. *@
+        <span class="fc-results-name" title="@Row.FullName">
+            @if (Layout.ProfileUrl(Row.StudentId) is { } profileUrl)
+            {
+                <a class="@NameClass" style="@NameStyle()" href="@profileUrl" @onclick="OpenProfileAsync" @onclick:preventDefault="true"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></a>
+            }
+            else
+            {
+                <span class="@NameClass" style="@NameStyle()"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></span>
+            }
+            @if (IsMe)
+            {
+                <span class="fc-results-you">@Layout.YouLabel</span>
+            }
+            <span class="fc-results-sum" aria-hidden="true">@Row.TotalPoints</span>
+            @if (Row.PinnedAchievements is { Count: > 0 } pinned)
+            {
+                <Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="pinned" />
+            }
+        </span>
+    </td>
+    <td class="@TotalClass">@Row.TotalPoints</td>
+    <td class="mud-table-cell fc-results-group-column">@Row.GroupName</td>
+    @foreach (var column in Layout.Leading)
+    {
+        <td class="mud-table-cell @column.CellClass">@ExtraCell(column.Cell(Row))</td>
+    }
+    @foreach (var task in Layout.Tasks)
+    {
+        Row.Results.TryGetValue(task.TaskId, out var cell);
+        <td class="@TaskCellClass">
+            @if (Layout.Interactive)
+            {
+                <button type="button" class="@TeacherClass(cell)" style="@TeacherStyle(cell)">@TeacherText(cell)</button>
+            }
+            else if (IsMe)
+            {
+                @* Свою ячейку можно открыть: история и комментарии преподавателя по задаче. *@
+                <a href="@($"/student/logs?task={task.TaskId}")" class="@StudentClass(cell)" style="@StudentStyle(cell)">@StudentText(cell)</a>
+            }
+            else
+            {
+                <span class="@StudentClass(cell)" style="@StudentStyle(cell)">@StudentText(cell)</span>
+            }
+        </td>
+    }
+    @foreach (var column in Layout.Grades)
+    {
+        <td class="mud-table-cell fc-results-number">
+            @if (Row.Grades.TryGetValue(column.ComponentId, out var points))
+            {
+                <span class="@ScoreClass">@points <span class="fc-muted">/ @column.MaxPoints</span></span>
+            }
+        </td>
+    }
+    @foreach (var column in Layout.Trailing)
+    {
+        <td class="mud-table-cell @column.CellClass">@ExtraCell(column.Cell(Row))</td>
+    }
+</tr>
+
+@code {
+    [Parameter, EditorRequired] public StudentResultRowDto Row { get; set; } = null!;
+    [Parameter, EditorRequired] public ResultsTableLayout Layout { get; set; } = null!;
+
+    private StudentResultRowDto? _shownRow;
+    private ResultsTableLayout? _shownLayout;
+
+    protected override bool ShouldRender() => !ReferenceEquals(_shownRow, Row) || !ReferenceEquals(_shownLayout, Layout);
+
+    protected override void OnAfterRender(bool firstRender) => (_shownRow, _shownLayout) = (Row, Layout);
+
+    private bool IsMe => Row.StudentId == Layout.HighlightStudentId;
+    private string NameClass => Layout.Interactive ? "fc-profile-link fc-student-name" : "fc-profile-link fc-result-name";
+    private string ScoreClass => Layout.Interactive ? "fc-core-score" : "fc-score";
+    private string TotalClass => Layout.Interactive
+        ? "mud-table-cell fc-results-total-column fc-core-score"
+        : "mud-table-cell fc-results-total-column fc-results-number fc-score";
+    private string TaskCellClass => Layout.Interactive
+        ? "mud-table-cell fc-results-task-column"
+        : "mud-table-cell fc-results-number fc-results-task-column";
+
+    private Task OpenProfileAsync() => Layout.OpenProfile(Row.StudentId);
+
+    private string RowClass()
+    {
+        var podium = Layout.ShowRank ? ResultsColumns.RowClass(Row) : string.Empty;
+        return (IsMe, podium.Length > 0) switch
+        {
+            (true, true) => $"mud-table-row fc-results-me {podium}",
+            (true, false) => "mud-table-row fc-results-me",
+            (false, true) => $"mud-table-row {podium}",
+            _ => "mud-table-row",
+        };
+    }
+
+    private string? NameStyle()
+    {
+        if (string.IsNullOrEmpty(Row.StudentColor))
+            return null;
+        var colors = $"background-color:{Row.StudentColor};color:{ColorUtils.ContrastText(Row.StudentColor)};";
+        return Layout.Interactive ? colors + "padding:2px 8px;border-radius:6px;" : colors;
+    }
+
+    private static RenderFragment ExtraCell(ResultsExtraCell cell) => @<text>
+        @if (cell.Href is not null)
+        {
+            <a class="mud-typography mud-link mud-primary-text mud-link-underline-hover" href="@cell.Href" title="@cell.Title">@cell.Text</a>
+        }
+        else if (cell.Text is not null)
+        {
+            <span title="@cell.Title">@cell.Text</span>
+        }
+        @if (cell.Note is not null)
+        {
+            <span class="fc-results-attendance-unmarked fc-muted">@cell.Note</span>
+        }
+    </text>;
+
+    // --- Ячейка задачи в общей таблице (студент, публичная страница) ---
+
+    private static string StudentText(ResultCellDto? cell) =>
+        cell?.Status == SubmissionStatus.Accepted ? "+" : string.IsNullOrWhiteSpace(cell?.DisplayValue) ? "—" : cell.DisplayValue;
+
+    private static string StudentClass(ResultCellDto? cell) => cell?.Status switch
+    {
+        SubmissionStatus.Accepted => "fc-result-cell accepted",
+        SubmissionStatus.Rejected => "fc-result-cell rejected",
+        _ => "fc-result-cell empty",
+    };
+
+    private static string? StudentStyle(ResultCellDto? cell)
+    {
+        if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
+            return null;
+        // Цвет преподавателя у зачтённой — всегда в переменной; показывает его класс fc-results-show-teacher у панели.
+        if (cell.Status == SubmissionStatus.Accepted)
+            return $"--tc:{cell.AdminColor};";
+        if (cell.Status != SubmissionStatus.Rejected)
+            return null;
+        return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};border-color:{cell.AdminColor};";
+    }
+
+    // --- Ячейка задачи в таблице преподавателя ---
+
+    private static string TeacherText(ResultCellDto? cell) =>
+        cell?.Status == SubmissionStatus.Accepted ? "+" : cell?.DisplayValue ?? string.Empty;
+
+    private static string TeacherClass(ResultCellDto? cell) => cell?.Status switch
+    {
+        SubmissionStatus.Accepted => "fc-result-cell fc-result-history-button fc-result-accepted",
+        SubmissionStatus.Rejected => "fc-result-cell fc-result-history-button fc-result-rework",
+        _ => "fc-result-cell fc-result-history-button fc-result-unsubmitted",
+    };
+
+    private static string? TeacherStyle(ResultCellDto? cell)
+    {
+        if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
+            return null;
+        // Цвет преподавателя у зачтённой — всегда в переменной; показывает его класс fc-results-show-teacher на странице.
+        if (cell.Status == SubmissionStatus.Accepted)
+            return $"--tc:{cell.AdminColor};";
+        // Буква и цвет преподавателя несут информацию независимо от акцента темы.
+        return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};";
+    }
+}
