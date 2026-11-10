@@ -353,8 +353,12 @@
   <data name="AdminMgmt_Created" xml:space="preserve"><value>Administrator created.</value></data>
   <data name="AdminMgmt_Deleted" xml:space="preserve"><value>Administrator deleted.</value></data>
   <data name="AdminMgmt_Eyebrow" xml:space="preserve"><value>Team</value></data>
-  <data name="AdminMgmt_TabList" xml:space="preserve"><value>Administrators · {0}</value></data>
-  <data name="AdminMgmt_TabCreate" xml:space="preserve"><value>New administrator</value></data>
+  <data name="AdminMgmt_ListCount" xml:space="preserve"><value>Administrators · {0}</value></data>
+  <data name="AdminMgmt_NewAdmin" xml:space="preserve"><value>New administrator</value></data>
+  <data name="AdminMgmt_CancelCreateTitle" xml:space="preserve"><value>Discard the new administrator?</value></data>
+  <data name="AdminMgmt_CancelCreateText" xml:space="preserve"><value>The entered data will not be saved.</value></data>
+  <data name="AdminMgmt_CancelCreateConfirm" xml:space="preserve"><value>Discard</value></data>
+  <data name="AdminMgmt_CloseDialog" xml:space="preserve"><value>Close</value></data>
   <data name="AdminMgmt_LoadFailed" xml:space="preserve"><value>Could not load administrators.</value></data>
   <data name="AdminMgmt_Retry" xml:space="preserve"><value>Retry</value></data>
   <data name="AdminMgmt_SearchLabel" xml:space="preserve"><value>Search by name or email</value></data>
@@ -388,9 +392,11 @@
   <data name="AdminMgmt_LetterHint" xml:space="preserve"><value>Up to 8 characters, shown in result cells</value></data>
   <data name="AdminMgmt_Preview" xml:space="preserve"><value>Preview</value></data>
   <data name="AdminMgmt_ColorReset" xml:space="preserve"><value>No color</value></data>
+  <data name="AdminMgmt_WheelLabel" xml:space="preserve"><value>Hue and saturation</value></data>
+  <data name="AdminMgmt_BrightnessLabel" xml:space="preserve"><value>Brightness</value></data>
+  <data name="AdminMgmt_QuickColors" xml:space="preserve"><value>Quick colors</value></data>
   <data name="AdminMgmt_CreateHint" xml:space="preserve"><value>The account is ready right away: no email confirmation is needed. Send the password to the administrator yourself.</value></data>
   <data name="AdminMgmt_GeneratePassword" xml:space="preserve"><value>Generate</value></data>
-  <data name="AdminMgmt_ClearForm" xml:space="preserve"><value>Clear</value></data>
   <data name="AdminMgmt_Creating" xml:space="preserve"><value>Creating…</value></data>
   <data name="AdminMgmt_CreateButton" xml:space="preserve"><value>Create administrator</value></data>
   <data name="AdminMgmt_FixErrors" xml:space="preserve"><value>Check the highlighted fields.</value></data>
@@ -967,6 +973,7 @@
   <data name="Results_You" xml:space="preserve"><value>You</value></data>
   <data name="Results_SheetTitle" xml:space="preserve"><value>Gradebook</value></data>
   <data name="Results_MyRank" xml:space="preserve"><value>Place {0} of {1}</value></data>
+  <data name="Results_RankShared" xml:space="preserve"><value>Shared place {0} of {1}</value></data>
   <data name="Results_JumpToMyRow" xml:space="preserve"><value>Go to my row</value></data>
   <data name="Results_RowHiddenByFilter" xml:space="preserve"><value>Your row is hidden by the table filter.</value></data>
   <data name="Results_ResetFilter" xml:space="preserve"><value>Reset filter</value></data>

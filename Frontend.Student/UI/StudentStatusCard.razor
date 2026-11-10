@@ -13,6 +13,8 @@
     @if (Rank is int rank && RankTotal > 0)
     {
         <div class="fc-strip-metric fc-strip-rank">
+            @* Тот же бейдж, что в колонке «#» таблицы; текст рядом уже называет место — подсказка не нужна. *@
+            <RankBadge Rank="rank" Points="Results.TotalPointsEarned" />
             <strong>@Loc["Results_MyRank", rank, RankTotal]</strong>
             <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.MyLocation"
                        OnClick="OnJumpToRow" Class="fc-strip-jump">@Loc["Results_JumpToMyRow"]</MudButton>

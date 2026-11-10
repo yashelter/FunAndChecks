@@ -10,8 +10,8 @@
 <div class="fc-auth-shell">
     <SeasonalDecorations />
     <header class="fc-auth-topbar"><a class="fc-brand" href="/"><BrandMark /><strong>FunAndChecks</strong></a>
-        <div class="fc-topbar-actions"><LangSwitcher /><MudIconButton Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
-            <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="() => _settingsOpen = true" aria-label="@Text("Акцентный цвет", "Accent color")" />
+        <div class="fc-topbar-actions"><MudIconButton Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
+            <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="() => _settingsOpen = true" aria-label="@Text("Язык и вид интерфейса", "Language and appearance")" title="@Text("Язык и вид интерфейса", "Language and appearance")" />
         </div>
     </header>
     <main class="fc-auth-main"><div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">@Body</div></main>

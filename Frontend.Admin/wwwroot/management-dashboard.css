@@ -20,7 +20,6 @@
 .fc-management-table .mud-table-cell { padding: 17px 14px; font-size: 13px; overflow-wrap: anywhere; }
 .fc-management-table .mud-table-head .mud-table-cell { color: var(--mud-palette-text-secondary); font-weight: 600; font-size: 11px; letter-spacing: .035em; }
 .fc-admin-management .mud-paper, .fc-maintenance .mud-card { border: 1px solid var(--mud-palette-lines-default); box-shadow: none; border-radius: 12px; }
-.fc-admin-management .mud-tabs-panels { padding-top: 18px; }
 .fc-admin-layout { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .fc-admin-list-panel { padding: 12px; position: sticky; top: 90px; max-height: calc(100vh - 120px); display: flex; flex-direction: column; }
 .fc-admin-search { flex: none; margin-bottom: 8px; }
@@ -63,7 +62,11 @@
 .fc-admin-save-bar.dirty { background: rgba(var(--mud-palette-primary-rgb), .07); }
 .fc-admin-save-bar.dirty > span { color: var(--mud-palette-primary); font-weight: 600; }
 .fc-admin-create .fc-admin-save-bar { border-bottom: 0; }
-.fc-admin-create { max-width: 900px; }
+.fc-admin-list-head { padding: 2px 4px 10px; }
+.fc-admin-create-dialog-title { display: flex; align-items: center; gap: 10px; }
+.fc-admin-create-dialog-title .mud-typography { flex: 1 1 auto; min-width: 0; }
+.fc-admin-create-dialog .mud-dialog-title { border-bottom: 1px solid var(--mud-palette-lines-default); }
+.mud-dialog .mud-dialog-content.fc-admin-create-dialog-content { padding: 0; }
 .fc-admin-access { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .fc-admin-danger { background: rgba(var(--mud-palette-error-rgb), .04); }
 .fc-maintenance { max-width: 840px; }

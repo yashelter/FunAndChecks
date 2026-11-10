@@ -7,10 +7,14 @@
            Width="360px" Elevation="0" Class="fc-settings-drawer" OverlayAutoClose="true">
     <MudFocusTrap>
         <div class="fc-settings-header">
-            <div><h2>@Text("Внешний вид", "Appearance")</h2><p>@Text("Настройте рабочее пространство под себя", "Make this workspace yours")</p></div>
+            <div><h2>@Text("Интерфейс", "Interface")</h2><p>@Text("Язык и вид рабочего пространства", "Language and look of the workspace")</p></div>
             <MudIconButton Icon="@Icons.Material.Outlined.Close" OnClick="CloseAsync" aria-label="@Text("Закрыть настройки", "Close settings")" />
         </div>
         <div class="fc-settings-body">
+            <section>
+                <h3>@Text("Язык интерфейса", "Interface language")</h3>
+                <LangSwitcher />
+            </section>
             <section>
                 <h3>@Text("Цветовая тема", "Color theme")</h3>
                 <div class="fc-theme-options">

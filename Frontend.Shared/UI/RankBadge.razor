@@ -1,0 +1,28 @@
+@namespace Frontend.Shared.UI
+@* Место студента в рейтинге предмета: круглый бейдж. Места 1–7 — градация цвета, у первого корона (dashboard-content.css).
+   Без баллов место не выделяется — серое число. *@
+@inject IStringLocalizer<AppStrings> Loc
+
+@if (Rank > 0)
+{
+    @if (Total > 0)
+    {
+        <span class="@ResultsColumns.RankClass(Rank, Points)" title="@Title" aria-label="@Title">@Rank</span>
+    }
+    else
+    {
+        <span class="@ResultsColumns.RankClass(Rank, Points)" aria-hidden="true">@Rank</span>
+    }
+}
+
+@code {
+    [Parameter] public int Rank { get; set; }
+    /// <summary>Σ студента: без баллов место не выделяется.</summary>
+    [Parameter] public int Points { get; set; }
+    /// <summary>Размер рейтинга для подсказки; 0 — без подсказки (место уже написано рядом текстом).</summary>
+    [Parameter] public int Total { get; set; }
+    /// <summary>Сколько студентов делят это место.</summary>
+    [Parameter] public int SharedWith { get; set; } = 1;
+
+    private string Title => Loc[SharedWith > 1 ? "Results_RankShared" : "Results_MyRank", Rank, Total];
+}

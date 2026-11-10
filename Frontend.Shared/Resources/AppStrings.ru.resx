@@ -353,8 +353,12 @@
   <data name="AdminMgmt_Created" xml:space="preserve"><value>Администратор создан.</value></data>
   <data name="AdminMgmt_Deleted" xml:space="preserve"><value>Администратор удалён.</value></data>
   <data name="AdminMgmt_Eyebrow" xml:space="preserve"><value>Команда</value></data>
-  <data name="AdminMgmt_TabList" xml:space="preserve"><value>Администраторы · {0}</value></data>
-  <data name="AdminMgmt_TabCreate" xml:space="preserve"><value>Новый администратор</value></data>
+  <data name="AdminMgmt_ListCount" xml:space="preserve"><value>Администраторы · {0}</value></data>
+  <data name="AdminMgmt_NewAdmin" xml:space="preserve"><value>Новый администратор</value></data>
+  <data name="AdminMgmt_CancelCreateTitle" xml:space="preserve"><value>Не создавать администратора?</value></data>
+  <data name="AdminMgmt_CancelCreateText" xml:space="preserve"><value>Введённые данные не сохранятся.</value></data>
+  <data name="AdminMgmt_CancelCreateConfirm" xml:space="preserve"><value>Не создавать</value></data>
+  <data name="AdminMgmt_CloseDialog" xml:space="preserve"><value>Закрыть</value></data>
   <data name="AdminMgmt_LoadFailed" xml:space="preserve"><value>Не удалось загрузить администраторов.</value></data>
   <data name="AdminMgmt_Retry" xml:space="preserve"><value>Повторить</value></data>
   <data name="AdminMgmt_SearchLabel" xml:space="preserve"><value>Поиск по имени или email</value></data>
@@ -388,9 +392,11 @@
   <data name="AdminMgmt_LetterHint" xml:space="preserve"><value>До 8 символов, видна в ячейках результатов</value></data>
   <data name="AdminMgmt_Preview" xml:space="preserve"><value>Так это будет выглядеть</value></data>
   <data name="AdminMgmt_ColorReset" xml:space="preserve"><value>Без цвета</value></data>
+  <data name="AdminMgmt_WheelLabel" xml:space="preserve"><value>Оттенок и насыщенность</value></data>
+  <data name="AdminMgmt_BrightnessLabel" xml:space="preserve"><value>Яркость</value></data>
+  <data name="AdminMgmt_QuickColors" xml:space="preserve"><value>Быстрые цвета</value></data>
   <data name="AdminMgmt_CreateHint" xml:space="preserve"><value>Учётная запись сразу готова к работе: подтверждать почту не нужно. Передайте пароль администратору сами.</value></data>
   <data name="AdminMgmt_GeneratePassword" xml:space="preserve"><value>Сгенерировать</value></data>
-  <data name="AdminMgmt_ClearForm" xml:space="preserve"><value>Очистить</value></data>
   <data name="AdminMgmt_Creating" xml:space="preserve"><value>Создание…</value></data>
   <data name="AdminMgmt_CreateButton" xml:space="preserve"><value>Создать администратора</value></data>
   <data name="AdminMgmt_FixErrors" xml:space="preserve"><value>Проверьте выделенные поля.</value></data>
@@ -969,6 +975,7 @@
   <data name="Results_You" xml:space="preserve"><value>Вы</value></data>
   <data name="Results_SheetTitle" xml:space="preserve"><value>Ведомость</value></data>
   <data name="Results_MyRank" xml:space="preserve"><value>{0}-е место из {1}</value></data>
+  <data name="Results_RankShared" xml:space="preserve"><value>Делит {0}-е место из {1}</value></data>
   <data name="Results_JumpToMyRow" xml:space="preserve"><value>К моей строке</value></data>
   <data name="Results_RowHiddenByFilter" xml:space="preserve"><value>Вашу строку скрывает фильтр таблицы.</value></data>
   <data name="Results_ResetFilter" xml:space="preserve"><value>Сбросить фильтр</value></data>

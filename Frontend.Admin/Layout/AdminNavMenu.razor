@@ -1,42 +1,48 @@
 @inject IStringLocalizer<AppStrings> Loc
 
+@* Меню преподавателя: «Учёба» открыта всегда, «Сообщество» и «Администрирование» сворачиваются (AdminNavSection).
+   Компактный вид и анимации — admin-dashboard.css (.fc-shell-admin). *@
 <MudNavMenu>
     <div class="fc-nav-label" role="presentation">@CommunityText.T("Учёба", "Teaching")</div>
-    <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+    <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.TableChart">
         @Loc["AdminNav_Results"]
     </MudNavLink>
-    <MudNavLink Href="/admin/management" Icon="@Icons.Material.Filled.LibraryBooks">
+    <MudNavLink Href="/admin/management" Icon="@Icons.Material.Outlined.LibraryBooks">
         @Loc["AdminNav_Management"]
     </MudNavLink>
-    <MudNavLink Href="/admin/queues" Icon="@Icons.Material.Filled.Groups">
+    <MudNavLink Href="/admin/queues" Icon="@Icons.Material.Outlined.FormatListNumbered">
         @Loc["AdminNav_Queues"]
     </MudNavLink>
-    <MudNavLink Href="/admin/grading" Icon="@Icons.Material.Filled.School">
+    <MudNavLink Href="/admin/grading" Icon="@Icons.Material.Outlined.Grading">
         @Loc["AdminNav_Grading"]
     </MudNavLink>
-    <MudNavLink Href="/admin/attendance" Icon="@Icons.Material.Filled.FactCheck">
+    <MudNavLink Href="/admin/attendance" Icon="@Icons.Material.Outlined.EventAvailable">
         @Loc["Nav_Attendance"]
     </MudNavLink>
-    <div class="fc-nav-label" role="presentation">@CommunityText.T("Сообщество", "Community")</div>
-    <MudNavLink Href="/admin/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
-        @CommunityText.T("Достижения", "Achievements")
-    </MudNavLink>
-    <MudNavLink Href="/admin/forum" Icon="@Icons.Material.Outlined.Forum">
-        <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
-    </MudNavLink>
-    <MudNavLink Href="/admin/surveys" Icon="@Icons.Material.Outlined.Poll">
-        @CommunityText.T("Опросы", "Surveys")
-    </MudNavLink>
+    <AdminNavSection Key="community" Title="@CommunityText.T("Сообщество", "Community")" Icon="@Icons.Material.Outlined.Groups"
+                     Paths="@(["/admin/achievements", "/admin/forum", "/admin/surveys"])">
+        <MudNavLink Href="/admin/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
+            @CommunityText.T("Достижения", "Achievements")
+        </MudNavLink>
+        <MudNavLink Href="/admin/forum" Icon="@Icons.Material.Outlined.Forum">
+            <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
+        </MudNavLink>
+        <MudNavLink Href="/admin/surveys" Icon="@Icons.Material.Outlined.Poll">
+            @CommunityText.T("Опросы", "Surveys")
+        </MudNavLink>
+    </AdminNavSection>
     <AuthorizeView Roles="@Roles.SuperAdmin">
-        <div class="fc-nav-label" role="presentation">@CommunityText.T("Администрирование", "Administration")</div>
-        <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Filled.AdminPanelSettings">
-            @Loc["AdminNav_Admins"]
-        </MudNavLink>
-        <MudNavLink Href="/admin/maintenance" Icon="@Icons.Material.Filled.Warning">
-            @Loc["AdminNav_Maintenance"]
-        </MudNavLink>
-        <MudNavLink Href="/metrics" Icon="@Icons.Material.Filled.Analytics">
-            @Loc["Monitoring_Title"]
-        </MudNavLink>
+        <AdminNavSection Key="administration" Title="@CommunityText.T("Администрирование", "Administration")" Icon="@Icons.Material.Outlined.Security"
+                         Paths="@(["/admin/admins", "/admin/maintenance", "/metrics"])">
+            <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Outlined.AdminPanelSettings">
+                @Loc["AdminNav_Admins"]
+            </MudNavLink>
+            <MudNavLink Href="/admin/maintenance" Icon="@Icons.Material.Outlined.Construction">
+                @Loc["AdminNav_Maintenance"]
+            </MudNavLink>
+            <MudNavLink Href="/metrics" Icon="@Icons.Material.Outlined.MonitorHeart">
+                @Loc["Monitoring_Title"]
+            </MudNavLink>
+        </AdminNavSection>
     </AuthorizeView>
 </MudNavMenu>

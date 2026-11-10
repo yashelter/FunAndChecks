@@ -16,7 +16,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 <a class="fc-skip-link" href="@ContentAnchor">@Text("Перейти к содержимому", "Skip to content")</a>
-<div class="fc-shell @(Public ? "fc-shell-public" : "")">
+<div class="fc-shell @(Public ? "fc-shell-public" : IsAdmin ? "fc-shell-admin" : "")">
     @if (!Public)
     {
         @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
@@ -48,8 +48,8 @@
             {
                 <div class="fc-breadcrumb"><a href="@(IsAdmin ? "/admin" : "/student")">@(IsAdmin ? Text("Рабочее пространство", "Workspace") : Text("Кабинет студента", "Student workspace"))</a><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" /><strong>@PageName</strong></div>
             }
-            <div class="fc-topbar-actions">@if (!Public) { <NotificationBell IsAdmin="IsAdmin" /> }<LangSwitcher /><MudIconButton Class="fc-theme-button" Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
-                <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="OpenSettings" aria-label="@Text("Цвет и вид интерфейса", "Colour and appearance")" title="@Text("Цвет и вид интерфейса", "Colour and appearance")" />
+            <div class="fc-topbar-actions">@if (!Public) { <NotificationBell IsAdmin="IsAdmin" /> }<MudIconButton Class="fc-theme-button" Icon="@(Appearance.IsDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)" OnClick="Appearance.ToggleThemeAsync" aria-label="@Text("Переключить тему", "Toggle theme")" />
+                <MudIconButton Icon="@Icons.Material.Outlined.Palette" Color="Color.Primary" OnClick="OpenSettings" aria-label="@Text("Язык и вид интерфейса", "Language and appearance")" title="@Text("Язык и вид интерфейса", "Language and appearance")" />
             </div>
         </header>
         <main id="workspace-content" class="fc-main" tabindex="-1"><div @oninput="Dirty.MarkDirty" @onchange="Dirty.MarkDirty">

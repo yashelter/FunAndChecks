@@ -21,4 +21,30 @@ public static class ResultsColumns
     public static string GridClass(SubjectResultsDto results, bool ranked = false) =>
         (results.TaskHeaders.Count > ManyTasks ? "fc-results-grid fc-results-many-tasks" : "fc-results-grid")
         + (ranked ? " fc-results-ranked" : "");
+
+    /// <summary>Места 1…N выделены цветом (градация от 1 к N); у первого — корона.</summary>
+    public const int HighlightedRanks = 7;
+
+    /// <summary>Строки первых мест подсвечены целиком.</summary>
+    public const int PodiumRanks = 3;
+
+    /// <summary>
+    /// Место выделяется, только если у студента есть баллы: в новом предмете у всех Σ = 0 и общее 1-е место,
+    /// корона у всех сразу ничего бы не значила.
+    /// </summary>
+    public static bool IsRanked(int rank, int points) => rank > 0 && points > 0;
+
+    /// <summary>Класс бейджа места: fc-rank-1…7, затем fc-rank-rest; без баллов — fc-rank-none.</summary>
+    public static string RankClass(int rank, int points) =>
+        !IsRanked(rank, points) ? "fc-rank fc-rank-none"
+        : rank <= HighlightedRanks ? $"fc-rank fc-rank-{rank}"
+        : "fc-rank fc-rank-rest";
+
+    /// <summary>Класс строки для подсветки первых мест (пусто для остальных).</summary>
+    public static string RowClass(StudentResultRowDto row) =>
+        IsRanked(row.Rank, row.TotalPoints) && row.Rank <= PodiumRanks ? $"fc-results-podium fc-results-podium-{row.Rank}" : string.Empty;
+
+    /// <summary>Сколько студентов делят каждое место (при равных Σ место общее).</summary>
+    public static Dictionary<int, int> RankCounts(IEnumerable<StudentResultRowDto> rows) =>
+        rows.GroupBy(r => r.Rank).ToDictionary(g => g.Key, g => g.Count());
 }

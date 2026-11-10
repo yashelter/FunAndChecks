@@ -4,8 +4,10 @@
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<AppStrings> Loc
 @inject UnsavedChangesTracker Dirty
+@inject ConfirmService Confirm
 
-<MudPaper Outlined="true" Class="fc-admin-editor fc-admin-create">
+@* Форма создания админа; показывается в AdminCreateDialog. *@
+<div class="fc-admin-create">
     <section class="fc-admin-section">
         <div class="fc-admin-section-head">
             <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_ProfileSection"]</MudText>
@@ -46,16 +48,18 @@
     </section>
 
     <div class="fc-admin-save-bar">
-        <MudButton Variant="Variant.Text" OnClick="Reset" Disabled="@(_saving || !HasInput)">@Loc["AdminMgmt_ClearForm"]</MudButton>
+        <MudButton Variant="Variant.Text" OnClick="RequestCancelAsync" Disabled="_saving">@Loc["Common_Cancel"]</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="CreateAsync" Disabled="_saving">
             @(_saving ? Loc["AdminMgmt_Creating"] : Loc["AdminMgmt_CreateButton"])
         </MudButton>
     </div>
-</MudPaper>
+</div>
 
 @code {
     /// <summary>Id созданного админа — страница переключается на список и выбирает его.</summary>
     [Parameter] public EventCallback<Guid> OnCreated { get; set; }
+    /// <summary>Пользователь отказался от создания (после подтверждения, если форма заполнена).</summary>
+    [Parameter] public EventCallback OnCancel { get; set; }
 
     private string _firstName = string.Empty;
     private string _lastName = string.Empty;
@@ -92,6 +96,17 @@
     {
         _password = AdminFormRules.GeneratePassword();
         _showPassword = true;
+    }
+
+    /// <summary>Закрыть форму: заполненную — только после подтверждения. Вызывается и крестиком диалога.</summary>
+    public async Task RequestCancelAsync()
+    {
+        if (_saving)
+            return;
+        if (HasInput && !await Confirm.ConfirmAsync(Loc["AdminMgmt_CancelCreateTitle"], Loc["AdminMgmt_CancelCreateText"], Loc["AdminMgmt_CancelCreateConfirm"]))
+            return;
+        Reset();
+        await OnCancel.InvokeAsync();
     }
 
     private void Reset()

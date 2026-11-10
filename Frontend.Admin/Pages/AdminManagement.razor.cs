@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Frontend.Admin.Dialogs;
 using Frontend.Admin.UI;
 using Frontend.Shared.Api;
 using Frontend.Shared.Models;
@@ -14,15 +15,14 @@ using MudBlazor;
 namespace Frontend.Admin.Pages;
 
 /// <summary>
-/// Администраторы: вкладка списка (поиск + панель выбранного, выбор хранится в ?id=)
-/// и отдельная вкладка создания.
+/// Администраторы: список с поиском и панель выбранного (выбор хранится в ?id=).
+/// Создание — редкое действие, оно в диалоге по кнопке в заголовке.
 /// </summary>
 public partial class AdminManagement
 {
-    private const int ListTab = 0;
-
     [Inject] private AdminsApi Admins { get; set; } = null!;
     [Inject] private ConfirmService Confirm { get; set; } = null!;
+    [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private NavigationManager Navigation { get; set; } = null!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
@@ -35,7 +35,6 @@ public partial class AdminManagement
     private string? _search;
     private Guid? _selectedId;
     private Guid? _currentUserId;
-    private int _activeTab = ListTab;
     private AdminEditorPanel? _editor;
 
     private AdminDetailsDto? SelectedAdmin => _admins.FirstOrDefault(a => a.Id == _selectedId);
@@ -129,11 +128,20 @@ public partial class AdminManagement
         Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("id", (Guid?)null), replace: true);
     }
 
+    private async Task OpenCreateAsync()
+    {
+        var dialog = await DialogService.ShowAsync<AdminCreateDialog>(string.Empty,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: Guid id })
+            await OnAdminCreatedAsync(id);
+    }
+
     private async Task OnAdminCreatedAsync(Guid id)
     {
         await LoadAsync();
         _search = null;
-        _activeTab = ListTab;
+        StateHasChanged();
         if (await ConfirmDiscardAsync())
             Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("id", id), replace: true);
     }

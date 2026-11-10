@@ -6,18 +6,22 @@
 @inject AuthenticationStateProvider AuthState
 @inject MeApi Me
 
-<MudButtonGroup Variant="Variant.Text" Color="Color.Inherit" Size="Size.Small">
-    <MudButton OnClick="@(() => ChangeAsync("en-US"))"
-               Style="@ActiveStyle("en-US")">EN</MudButton>
-    <MudButton OnClick="@(() => ChangeAsync("ru-RU"))"
-               Style="@ActiveStyle("ru-RU")">RU</MudButton>
-</MudButtonGroup>
+@* Выбор языка — секция панели «Интерфейс» (AppearanceSettings). Названия языков пишутся на самих языках. *@
+<div class="fc-language-options" role="group" aria-label="Language / Язык">
+    @foreach (var (culture, langCode, name) in Languages)
+    {
+        var active = CultureSvc.CurrentCulture == culture;
+        <button type="button" class="fc-language-option @(active ? "active" : "")" aria-pressed="@(active ? "true" : "false")" lang="@langCode"
+                @onclick="@(() => ChangeAsync(culture))">
+            <span class="fc-language-code" aria-hidden="true">@langCode.ToUpperInvariant()</span>@name
+            @if (active) { <MudIcon Icon="@Icons.Material.Outlined.Check" Size="Size.Small" Class="fc-language-check" /> }
+        </button>
+    }
+</div>
 
 @code {
-    private string ActiveStyle(string culture) =>
-        CultureSvc.CurrentCulture == culture
-            ? "font-weight:700;text-decoration:underline;"
-            : string.Empty;
+    private static readonly (string Culture, string Code, string Name)[] Languages =
+        [("ru-RU", "ru", "Русский"), ("en-US", "en", "English")];
 
     private async Task ChangeAsync(string culture)
     {

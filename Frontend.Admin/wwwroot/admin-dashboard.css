@@ -185,3 +185,52 @@
 .fc-interaction-footer{gap:4px}
 .fc-interaction-footer>.mud-button-root:not(.fc-interaction-close):not(.fc-color-apply){font-size:11.5px;padding:8px 2px}
 }
+
+/* Меню преподавателя (.fc-shell-admin из WorkspaceShell): уже и компактнее, разделы «Сообщество» и «Администрирование»
+   сворачиваются (AdminNavSection), у пунктов — полоска активного, плавный фон и сдвиг иконки. Меню студента не меняется. */
+.fc-shell-admin { grid-template-columns:216px minmax(0,1fr); }
+.fc-shell-admin .fc-sidebar { padding:22px 10px 12px; }
+.fc-shell-admin .fc-sidebar .fc-brand { padding:0 8px; }
+.fc-shell-admin .fc-brand small { max-width:132px; }
+.fc-shell-admin .fc-workspace { padding:9px 10px; margin:20px 4px 10px; }
+.fc-shell-admin .fc-nav-label { padding:12px 10px 5px; font-size:10px; }
+.fc-shell-admin .fc-navigation .mud-nav-link { position:relative; display:flex; align-items:center; gap:2px; margin:1px 0; padding:7px 10px; min-height:36px; border-radius:8px; font-size:13px; font-weight:500;
+    transition:background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease; }
+.fc-shell-admin .fc-navigation .mud-nav-link-icon { font-size:18px; width:18px; height:18px; transition:transform .18s ease; }
+.fc-shell-admin .fc-navigation .mud-nav-link:hover .mud-nav-link-icon { transform:translateX(2px); }
+.fc-shell-admin .fc-navigation .mud-nav-link:active { transform:scale(.98); }
+/* Полоска слева у активного пункта вырастает из центра. */
+.fc-shell-admin .fc-navigation .mud-nav-link::before { content:""; position:absolute; left:-1px; top:7px; bottom:7px; width:3px; border-radius:0 3px 3px 0; background:var(--fc-accent); transform:scaleY(0); transition:transform .2s ease; }
+.fc-shell-admin .fc-navigation .mud-nav-link.active::before { transform:scaleY(1); }
+.fc-shell-admin .fc-navigation .mud-nav-link.active { font-weight:650; }
+.fc-shell-admin .fc-navigation .mud-nav-link.active .mud-nav-link-icon { transform:none; }
+
+.fc-nav-section { margin-top:6px; }
+.fc-nav-section-head { display:flex; align-items:center; gap:10px; width:100%; min-height:34px; padding:6px 10px; border:0; border-radius:8px; background:none; cursor:pointer;
+    color:var(--fc-muted); font:inherit; font-size:12px; font-weight:600; text-align:left; transition:background-color .15s ease, color .15s ease; }
+.fc-nav-section-head:hover { color:var(--fc-text); background:var(--fc-surface-2); }
+.fc-nav-section-head:focus-visible { outline:2px solid var(--fc-accent); outline-offset:-2px; }
+.fc-nav-section-icon { font-size:18px; width:18px; height:18px; }
+.fc-nav-section-title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fc-nav-section-chevron { transform:rotate(0deg); }
+.fc-nav-section.is-collapsed .fc-nav-section-chevron { transform:rotate(-90deg); }
+/* Раскрытие высотой по содержимому: grid 0fr ↔ 1fr, пункты проявляются. */
+.fc-nav-section-body { display:grid; grid-template-rows:1fr; }
+.fc-nav-section.is-collapsed .fc-nav-section-body { grid-template-rows:0fr; }
+.fc-nav-section-inner { min-height:0; overflow:hidden; padding-left:8px; opacity:1; }
+.fc-nav-section.is-collapsed .fc-nav-section-inner { opacity:0; }
+.fc-nav-section.is-ready .fc-nav-section-body { transition:grid-template-rows .22s ease; }
+.fc-nav-section.is-ready .fc-nav-section-inner { transition:opacity .18s ease; }
+.fc-nav-section.is-ready .fc-nav-section-chevron { transition:transform .2s ease; }
+/* Свёрнутый раздел с непрочитанным (бейдж форума внутри) — точка у заголовка. */
+.fc-nav-section-dot { display:none; width:7px; height:7px; border-radius:50%; background:var(--mud-palette-primary); flex-shrink:0; }
+.fc-nav-section.is-collapsed:has(.fc-nav-badge) .fc-nav-section-dot { display:inline-block; }
+@media(max-width:959.98px) {
+    .fc-shell-admin { grid-template-columns:minmax(0,1fr); }
+    .fc-shell-admin .fc-sidebar { width:216px; }
+}
+@media(prefers-reduced-motion:reduce) {
+    .fc-shell-admin .fc-navigation .mud-nav-link, .fc-shell-admin .fc-navigation .mud-nav-link::before, .fc-shell-admin .fc-navigation .mud-nav-link-icon,
+    .fc-nav-section.is-ready .fc-nav-section-body, .fc-nav-section.is-ready .fc-nav-section-inner, .fc-nav-section.is-ready .fc-nav-section-chevron { transition:none; }
+    .fc-shell-admin .fc-navigation .mud-nav-link:hover .mud-nav-link-icon { transform:none; }
+}

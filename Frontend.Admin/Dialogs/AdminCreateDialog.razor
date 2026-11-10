@@ -1,0 +1,26 @@
+@using Frontend.Admin.UI
+@inject IStringLocalizer<AppStrings> Loc
+
+@* Создание администратора. Крестик и «Отмена» идут через одну проверку в форме: заполненную форму закрываем только после подтверждения.
+   Результат — Id созданного админа. *@
+<MudDialog Class="fc-admin-create-dialog" ContentClass="fc-admin-create-dialog-content">
+    <TitleContent>
+        <div class="fc-admin-create-dialog-title">
+            <MudIcon Icon="@Icons.Material.Outlined.PersonAdd" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">@Loc["AdminMgmt_NewAdmin"]</MudText>
+            <MudIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small" OnClick="CloseAsync" aria-label="@Loc["AdminMgmt_CloseDialog"]" />
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <AdminCreateForm @ref="_form" OnCreated="OnCreated" OnCancel="Cancel" />
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    private AdminCreateForm? _form;
+
+    private Task CloseAsync() => _form?.RequestCancelAsync() ?? Task.CompletedTask;
+    private void Cancel() => MudDialog.Cancel();
+    private void OnCreated(Guid id) => MudDialog.Close(DialogResult.Ok(id));
+}

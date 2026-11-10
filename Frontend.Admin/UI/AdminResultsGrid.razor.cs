@@ -40,7 +40,10 @@ public partial class AdminResultsGrid : IAsyncDisposable
     private bool _dirty = true;
 
     // Тексты, общие для всех ячеек: считаются один раз, а не в каждой из тысяч ячеек.
-    private string _cellAction = "", _accepted = "", _rejected = "", _notSubmitted = "", _selfClaimed = "", _byTeacher = "";
+    private string _cellAction = "", _accepted = "", _rejected = "", _notSubmitted = "", _selfClaimed = "", _byTeacher = "", _rankTitle = "";
+
+    // Сколько студентов делят каждое место — для подсказки «делит 3-е место».
+    private Dictionary<int, int> _rankCounts = [];
 
     /// <summary>
     /// MudDataGrid регистрирует колонки в порядке создания: колонка, появившаяся при живом обновлении
@@ -65,7 +68,10 @@ public partial class AdminResultsGrid : IAsyncDisposable
             _notSubmitted = Loc["Task_StatusNotSubmitted"];
             _selfClaimed = Loc["Variants_SelfClaimed"];
             _byTeacher = Loc["Variants_ByTeacher"];
+            _rankTitle = Loc["Results_ColRank"];
         }
+        if (!ReferenceEquals(_shownResults, Results))
+            _rankCounts = ResultsColumns.RankCounts(Results.UserResults);
         (_shownResults, _shownVariants, _shownAttendance, _shownCulture) = (Results, Variants, Attendance, culture);
         _dirty = true;
     }

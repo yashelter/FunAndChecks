@@ -26,19 +26,22 @@
     <MudDataGrid @key="ResultsColumns.Key(Results)" @ref="_grid" T="StudentResultRowDto" Items="@_rows" Dense="true" Breakpoint="Breakpoint.None"
                  Filterable="true" Hover="true" Class="@ResultsColumns.GridClass(Results, ShowRank)"
                  Virtualize="true" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" FixedHeader="true"
-                 RowClassFunc="@((row, _) => row.StudentId == HighlightStudentId ? "fc-results-me" : string.Empty)">
+                 RowClassFunc="@RowClass">
         <Columns>
+            @if (ShowRank)
+            {
+                @* Место считается на сервере по полному снимку: фильтр и сортировка таблицы его не меняют. Первая колонка, закреплена. *@
+                <TemplateColumn Title="#" SortBy="@(x => x.Rank)" Filterable="false" CellClass="fc-results-rank-column" HeaderClass="fc-results-rank-column">
+                    <HeaderTemplate><abbr title="@_rankTitle" aria-label="@_rankTitle" style="text-decoration:none">#</abbr></HeaderTemplate>
+                    <CellTemplate><RankBadge Rank="context.Item.Rank" Points="context.Item.TotalPoints" Total="_rows.Count" SharedWith="@_rankCounts.GetValueOrDefault(context.Item.Rank, 1)" /></CellTemplate>
+                </TemplateColumn>
+            }
             <TemplateColumn Title="@Loc["Results_ColName"]" SortBy="@(x => x.FullName)" CellClass="fc-results-name-column" HeaderClass="fc-results-name-column">
                 <CellTemplate>
                     @* «Вы» — в закреплённой ячейке имени: метка видна и при прокрутке задач вбок. *@
                     <span class="fc-results-name" title="@context.Item.FullName"><ProfileLink UserId="context.Item.StudentId" Class="fc-result-name" Style="@FioStyle(context.Item.StudentColor)" BeforeNavigate="RememberResultsAsync">@context.Item.FullName</ProfileLink>@if (context.Item.StudentId == HighlightStudentId) {<span class="fc-results-you">@_you</span>}<Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="context.Item.PinnedAchievements" BasePath="/student" /></span>
                 </CellTemplate>
             </TemplateColumn>
-            @if (ShowRank)
-            {
-                @* Место считается на сервере по полному снимку: фильтр и сортировка таблицы его не меняют. *@
-                <PropertyColumn Property="x => x.Rank" Title="@_rankTitle" Filterable="false" CellClass="fc-results-rank-column" HeaderClass="fc-results-rank-column" />
-            }
             @* Σ рядом с именем и тоже закреплена: при большом числе задач последняя колонка уходит за край. *@
             <PropertyColumn Property="x => x.TotalPoints" Title="Σ" CellClass="fc-results-total-column fc-results-number fc-score" HeaderClass="fc-results-total-column">
                 <HeaderTemplate><abbr title="@Loc["Dashboard_TotalPoints"]" aria-label="@Loc["Dashboard_TotalPoints"]" style="text-decoration:none">Σ</abbr></HeaderTemplate>
@@ -102,6 +105,8 @@
     private ElementReference _host;
     private SubjectResultsDto? _parameterResults;
     private List<StudentResultRowDto> _rows = [];
+    // Сколько студентов делят каждое место — для подсказки «делит 3-е место».
+    private Dictionary<int, int> _rankCounts = [];
     private bool _showAcceptedTeacherColors;
     private readonly Guid _profileViewInstance = Guid.NewGuid();
     private string StateKey => new Uri(Nav.Uri).AbsolutePath;
@@ -121,6 +126,7 @@
         {
             _parameterResults = Results;
             _rows = Results?.UserResults ?? [];
+            _rankCounts = ResultsColumns.RankCounts(_rows);
             _gridVersion++;
         }
         if (_shownHighlight != HighlightStudentId)
@@ -169,6 +175,11 @@
             _scrollAttachedKey = key;
             try { await JS.InvokeVoidAsync("resultsScroll.attach", _host); } catch (JSException) { }
         }
+    }
+    private string RowClass(StudentResultRowDto row, int _)
+    {
+        var podium = ShowRank ? ResultsColumns.RowClass(row) : string.Empty;
+        return row.StudentId == HighlightStudentId ? $"fc-results-me {podium}".TrimEnd() : podium;
     }
     private Task RememberResultsAsync() => ProfileReturn.CaptureAsync(StateKey, _grid, _profileViewInstance);
 

@@ -149,8 +149,8 @@
 /* Высота области: таблица с полосой сверху, легендой и подвалом помещается в окно, поэтому и в самом низу страницы
    шапка с задачами видна. Колесо у края таблицы не прокручивает страницу. */
 .fc-results-grid { --fc-results-row:37px; --fc-results-name:220px; --fc-results-rank:0px; --fc-results-height:max(360px, calc(100dvh - 210px)); }
-/* Колонка «Место» в кабинетах: закреплена между именем и Σ, поэтому Σ сдвигается на её ширину. */
-.fc-results-grid.fc-results-ranked { --fc-results-rank:64px; }
+/* Колонка «Место» в кабинетах: первая слева и закреплена, поэтому имя и Σ сдвигаются на её ширину. */
+.fc-results-grid.fc-results-ranked { --fc-results-rank:44px; }
 /* max-height, а не height: у маленьких предметов под таблицей не остаётся пустого места. */
 .fc-results-grid .mud-table-container { max-height:var(--fc-results-height); overscroll-behavior:contain; }
 .fc-results-grid .mud-table-root { width:auto; min-width:0; }
@@ -166,13 +166,47 @@
 .fc-results-many-tasks .mud-table-head .mud-table-cell { vertical-align:bottom; }
 .fc-results-many-tasks .mud-table-root .mud-table-row > .mud-table-cell.fc-results-task-header { padding-block:8px; }
 .fc-results-many-tasks .fc-results-task-title { display:inline-block; writing-mode:vertical-rl; transform:rotate(180deg); max-height:140px; overflow:hidden; text-overflow:ellipsis; line-height:1.25; }
-.fc-results-grid .fc-results-name-column { position:sticky; left:0; z-index:1; width:var(--fc-results-name); min-width:var(--fc-results-name); max-width:var(--fc-results-name); background:var(--mud-palette-surface); }
-.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { position:sticky; left:var(--fc-results-name); z-index:1; width:var(--fc-results-rank); min-width:var(--fc-results-rank); max-width:var(--fc-results-rank); padding-inline:4px; text-align:center; font-variant-numeric:tabular-nums; color:var(--mud-palette-text-secondary); background:var(--mud-palette-surface); }
+.fc-results-grid .fc-results-name-column { position:sticky; left:var(--fc-results-rank); z-index:1; width:var(--fc-results-name); min-width:var(--fc-results-name); max-width:var(--fc-results-name); background:var(--mud-palette-surface); }
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { position:sticky; left:0; z-index:1; width:var(--fc-results-rank); min-width:var(--fc-results-rank); max-width:var(--fc-results-rank); padding-inline:4px; text-align:center; font-variant-numeric:tabular-nums; color:var(--mud-palette-text-secondary); background:var(--mud-palette-surface); }
 .fc-results-grid .fc-results-rank-column .column-header { justify-content:center; }
+.fc-results-grid .fc-results-rank-column .column-header .sortable-column-header { padding-inline:0; }
 .fc-results-grid .fc-results-total-column { position:sticky; left:calc(var(--fc-results-name) + var(--fc-results-rank)); z-index:1; min-width:56px; text-align:center; background:var(--mud-palette-surface); border-right:1px solid var(--mud-palette-lines-default); }
 .fc-results-grid thead .mud-table-cell.fc-results-name-column,
 .fc-results-grid .mud-table-root thead .mud-table-row > .mud-table-cell.fc-results-rank-column,
 .fc-results-grid thead .mud-table-cell.fc-results-total-column { z-index:3; background:var(--mud-palette-background); }
+/* Место в рейтинге (RankBadge): места 1–7 — градация от золота к индиго, у первого корона; с 8-го — акцентный бейдж,
+   без баллов — серое число. Цвета не зависят от акцента темы, чтобы текст на заливке всегда читался. */
+:root {
+    --fc-rank-c1:#f2b705; --fc-rank-c2:#f59e0b; --fc-rank-c3:#f97316; --fc-rank-c4:#dc3b4b;
+    --fc-rank-c5:#c92a6d; --fc-rank-c6:#8e44c8; --fc-rank-c7:#5b5bd6;
+}
+.fc-rank { position:relative; display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; box-sizing:border-box;
+    border-radius:999px; font-size:12px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; white-space:nowrap;
+    background:var(--fc-rank-bg, transparent); color:var(--fc-rank-fg, inherit); }
+.fc-rank-1 { --fc-rank-bg:var(--fc-rank-c1); --fc-rank-fg:#2a1f00; background:linear-gradient(135deg, #ffe27a, var(--fc-rank-c1) 55%, #d39a00); }
+.fc-rank-2 { --fc-rank-bg:var(--fc-rank-c2); --fc-rank-fg:#2a1a00; }
+.fc-rank-3 { --fc-rank-bg:var(--fc-rank-c3); --fc-rank-fg:#2a1200; }
+.fc-rank-4 { --fc-rank-bg:var(--fc-rank-c4); --fc-rank-fg:#fff; }
+.fc-rank-5 { --fc-rank-bg:var(--fc-rank-c5); --fc-rank-fg:#fff; }
+.fc-rank-6 { --fc-rank-bg:var(--fc-rank-c6); --fc-rank-fg:#fff; }
+.fc-rank-7 { --fc-rank-bg:var(--fc-rank-c7); --fc-rank-fg:#fff; }
+.fc-rank-1, .fc-rank-2, .fc-rank-3 { box-shadow:0 0 0 2px color-mix(in srgb, var(--fc-rank-bg) 30%, transparent); }
+/* Корона — наискосок над левым краем бейджа, не закрывает цифру. */
+.fc-rank-1::before { content:""; position:absolute; top:-7px; left:-5px; width:14px; height:11px; transform:rotate(-24deg); pointer-events:none;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2.5 16.5 1.5 4.5l6 4.5L12 1.5 16.5 9l6-4.5-1 12z' fill='%23ffd43b' stroke='%238a5a00' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain; }
+.fc-rank-rest { --fc-rank-bg:color-mix(in srgb, var(--mud-palette-primary) 14%, transparent); --fc-rank-fg:var(--mud-palette-primary); }
+.fc-rank-none { font-weight:500; color:var(--mud-palette-text-secondary); }
+/* Ячейка места не обрезает корону. */
+.fc-results-grid .mud-table-root .mud-table-row > .mud-table-cell.fc-results-rank-column { overflow:visible; }
+/* Строки первых трёх мест: закреплённые ячейки (место, имя, Σ) окрашены в цвет места, слева полоска.
+   Своя строка (fc-results-me, community.css) важнее по фону. */
+.fc-results-podium-1 { --fc-podium:var(--fc-rank-c1); }
+.fc-results-podium-2 { --fc-podium:var(--fc-rank-c2); }
+.fc-results-podium-3 { --fc-podium:var(--fc-rank-c3); }
+.fc-results-grid .mud-table-root .mud-table-row.fc-results-podium > .mud-table-cell.fc-results-rank-column,
+.fc-results-grid .mud-table-root .mud-table-row.fc-results-podium > .mud-table-cell.fc-results-name-column,
+.fc-results-grid .mud-table-root .mud-table-row.fc-results-podium > .mud-table-cell.fc-results-total-column { background:color-mix(in srgb, var(--fc-podium) 13%, var(--mud-palette-surface)); }
+.fc-results-grid .mud-table-root .mud-table-row.fc-results-podium > .mud-table-cell.fc-results-rank-column { box-shadow:inset 3px 0 0 var(--fc-podium); }
 .fc-results-name { display:flex; align-items:center; gap:4px; width:100%; min-width:0; overflow:hidden; white-space:nowrap; }
 .fc-results-name .fc-result-name, .fc-results-name .fc-student-name { min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .fc-results-name .fc-pinned-achievement-badges { margin-left:auto; flex-shrink:0; }
@@ -192,7 +226,7 @@
 /* На телефоне имя уже, чтобы рядом с ним и Σ было видно хотя бы несколько задач (после основного правила — иначе оно перебьёт). */
 @media (max-width:600px) {
     .fc-results-grid { --fc-results-name:140px; }
-    .fc-results-grid.fc-results-ranked { --fc-results-rank:52px; }
+    .fc-results-grid.fc-results-ranked { --fc-results-rank:40px; }
     /* В колонке 140px три бейджа оставили бы от имени пару букв. */
     .fc-results-grid .fc-pinned-achievement-badge:nth-child(n+2) { display:none; }
 }

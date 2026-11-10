@@ -1,5 +1,4 @@
 @namespace Frontend.Admin.UI
-@using MudBlazor.Utilities
 @inject IStringLocalizer<AppStrings> Loc
 
 @* Буква-метка и цвет админа с живым предпросмотром; общий для создания и редактирования. *@
@@ -21,8 +20,8 @@
             <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.FormatColorReset"
                        Disabled="@(Disabled || Color is null)" OnClick="@(() => SetColorAsync(null))">@Loc["AdminMgmt_ColorReset"]</MudButton>
         </div>
-        <StudentColorPicker Value="_pickerColor" ValueChanged="OnPickerChanged" Disabled="Disabled"
-                            HueLabel="@Loc["Dialog_ColorHue"]" SpectrumLabel="@Loc["Dialog_ColorSaturationBrightness"]" />
+        <ColorWheelPicker Value="@Color" ValueChanged="SetColorAsync" Disabled="Disabled"
+                          WheelLabel="@Loc["AdminMgmt_WheelLabel"]" ValueLabel="@Loc["AdminMgmt_BrightnessLabel"]" PresetsLabel="@Loc["AdminMgmt_QuickColors"]" />
     </div>
 </div>
 
@@ -34,38 +33,7 @@
     [Parameter] public string? PreviewName { get; set; }
     [Parameter] public bool Disabled { get; set; }
 
-    private MudColor? _pickerColor;
-    private string? _pickerHex;
-
-    protected override void OnParametersSet()
-    {
-        // Пикер хранит своё состояние; пересоздаём значение только когда цвет пришёл снаружи.
-        if (string.Equals(Color, _pickerHex, StringComparison.OrdinalIgnoreCase))
-            return;
-        _pickerHex = Color;
-        _pickerColor = TryParse(Color);
-    }
-
     private Task SetLetterAsync(string? value) => LetterChanged.InvokeAsync(value);
 
-    private Task OnPickerChanged(MudColor color)
-    {
-        _pickerColor = color;
-        _pickerHex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-        return ColorChanged.InvokeAsync(_pickerHex);
-    }
-
-    private Task SetColorAsync(string? hex)
-    {
-        _pickerHex = hex;
-        _pickerColor = TryParse(hex);
-        return ColorChanged.InvokeAsync(hex);
-    }
-
-    private static MudColor? TryParse(string? hex)
-    {
-        if (string.IsNullOrWhiteSpace(hex)) return null;
-        try { return new MudColor(hex); }
-        catch (Exception) { return null; }
-    }
+    private Task SetColorAsync(string? hex) => ColorChanged.InvokeAsync(hex);
 }
