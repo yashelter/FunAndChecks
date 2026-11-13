@@ -35,8 +35,8 @@
 .fc-reviewer>.mud-icon-root{color:var(--mud-palette-info)}
 .fc-reviewer strong{font-size:12px;font-weight:600}
 .fc-reviewer small{display:block;color:var(--mud-palette-text-secondary);font-size:11px;margin-top:3px}
-.fc-queue-filters,.fc-grading-filters{margin-bottom:22px}
-.fc-queue-filters>.mud-input-control,.fc-grading-filters>.mud-input-control{flex:1 1 240px;max-width:400px}
+.fc-queue-filters{margin-bottom:22px}
+.fc-queue-filters>.mud-input-control{flex:1 1 240px;max-width:400px}
 .fc-queue-participants{overflow:hidden}
 .fc-queue-person{display:grid;grid-template-columns:minmax(150px,1.2fr) 76px minmax(140px,1fr) auto;align-items:center;gap:22px;padding:20px 22px;border-bottom:1px solid var(--mud-palette-lines-default);border-left:3px solid transparent;min-width:0}
 .fc-queue-person:last-child{border-bottom:0}
@@ -55,11 +55,57 @@
 .fc-queue-person-score span{font-size:10px;color:var(--mud-palette-text-secondary)}
 .fc-queue-person-status{min-width:0}
 .fc-queue-person-status .mud-chip-content{white-space:normal;line-height:1.6}
-.fc-grading-row{display:flex;align-items:center;gap:22px;justify-content:space-between;padding:19px 22px;border-bottom:1px solid var(--mud-palette-lines-default)}
-.fc-grading-row:last-child{border-bottom:0}
-.fc-grading-identity{min-width:0;flex:1}
-.fc-grading-identity>.mud-typography-caption{display:block;margin-top:5px;overflow-wrap:anywhere}
-.fc-grading-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.fc-page-heading.fc-grading-heading{align-items:center;gap:12px;margin-bottom:16px}
+.fc-grading-tabs{display:flex;gap:3px;padding:3px;background:var(--fc-surface);border:1px solid var(--fc-line);border-radius:9px}
+.fc-grading-tabs a{padding:5px 12px;border-radius:6px;color:var(--mud-palette-text-secondary);font-size:13px}
+.fc-grading-tabs a[aria-current="page"],.fc-grading-tabs a:hover{background:rgba(var(--mud-palette-primary-rgb),.1);color:var(--mud-palette-primary)}
+.fc-grading-panel{container-type:inline-size}
+.fc-grading-toolbar{display:flex;flex-wrap:wrap;gap:8px 12px;padding:12px 16px}
+.fc-grading-toolbar>.mud-input-control,.fc-grading-toolbar>.mud-select{flex:1 1 210px;min-width:0;margin:0}
+.fc-grading-toolbar>.mud-select{max-width:330px}
+.fc-grading-filters,.fc-grading-options{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.fc-grading-filters{gap:6px 14px;padding:0 16px 12px}
+.fc-grading-filters button{padding:4px 10px;border:1px solid var(--fc-line);border-radius:20px;font-size:12px;color:var(--mud-palette-text-secondary)}
+.fc-grading-filters button[aria-pressed="true"],.fc-grading-filters button:hover{color:var(--mud-palette-primary);border-color:var(--mud-palette-primary);background:rgba(var(--mud-palette-primary-rgb),.08)}
+.fc-grading-sort{display:inline-flex;gap:5px;align-items:baseline;text-align:left;color:inherit;font:inherit}
+.fc-grading-sort:not(:disabled):hover{color:var(--mud-palette-primary)}
+.fc-grading-sort:disabled>span{display:none}
+.fc-grading-tabs a:focus-visible,.fc-grading-filters button:focus-visible,.fc-grading-sort:focus-visible{outline:2px solid var(--mud-palette-primary);outline-offset:2px}
+.fc-grading-table{border-collapse:collapse;width:100%;table-layout:fixed}
+.fc-grading-table th,.fc-grading-table td{padding:6px 14px;text-align:left;vertical-align:middle;overflow-wrap:anywhere}
+.fc-grading-table thead{background:var(--mud-palette-background);border-block:1px solid var(--fc-line)}
+.fc-grading-table th{font-size:12px;font-weight:600;color:var(--mud-palette-text-secondary)}
+.fc-grading-table td{height:48px;font-size:13px;border-bottom:1px solid var(--fc-line)}
+.fc-grading-table tr:hover td{background:rgba(var(--mud-palette-primary-rgb),.04)}
+.fc-grading-table .fc-grading-group{width:16%;color:var(--mud-palette-text-secondary)}
+.fc-grading-table th:nth-child(3){width:23%}
+.fc-grading-action-col{width:174px}
+.fc-grading-accounts .fc-grading-action-col{width:60px}
+.fc-grading-email,.fc-grading-mobile-group{display:block;font-size:11px;color:var(--mud-palette-text-secondary)}
+.fc-grading-account-name{font-weight:600}
+.fc-grading-mobile-group{display:none}
+.fc-grading-progress{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fc-grading-progress .mud-progress-linear{max-width:110px;border-radius:8px}
+.fc-grading-rework,.fc-grading-restricted{font-size:11px;color:var(--mud-palette-warning)}
+.fc-grading-restricted{display:inline-flex;gap:4px;align-items:center}
+.fc-grading-restricted .mud-icon-root{flex:none;width:16px;height:16px}
+.fc-grading-status{display:inline-flex;align-items:baseline;gap:7px;font-size:12px}
+.fc-grading-status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.fc-grading-actions{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.fc-grading-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;padding:8px 14px;font-size:12px;color:var(--mud-palette-text-secondary)}
+@container (max-width:620px){
+    .fc-grading-table .fc-grading-group,.fc-grading-progress .mud-progress-linear{display:none}
+    .fc-grading-mobile-group{display:block}
+    .fc-grading-table th,.fc-grading-table td{padding-inline:8px}
+    .fc-grading-action-col{width:112px}
+    .fc-grading-accounts .fc-grading-action-col{width:60px}
+    .fc-grading-actions{flex-wrap:wrap}
+    .fc-grading-status{gap:4px}
+}
+@media(pointer:coarse){
+    .fc-grading-actions .mud-button-root,.fc-grading-actions .mud-icon-button,.fc-grading-filters button{min-height:44px}
+    .fc-grading-actions .mud-icon-button{min-width:44px}
+}
 .fc-interaction-dialog .mud-dialog-content{padding-top:8px}
 .fc-interaction-title .mud-typography-caption{display:block;margin-top:4px}
 .fc-interaction-tabs .mud-tabs-panels{padding-top:20px}
@@ -106,14 +152,11 @@
 .fc-admin-queue-event{padding:18px}
 .fc-reviewers{padding:17px}
 .fc-reviewer-list{gap:14px}
-.fc-queue-filters>.mud-input-control,.fc-grading-filters>.mud-input-control{max-width:none;flex-basis:100%}
+.fc-queue-filters>.mud-input-control{max-width:none;flex-basis:100%}
 .fc-queue-person{grid-template-columns:minmax(0,1fr) 56px;padding:18px 15px;gap:12px}
 .fc-queue-person-status,.fc-queue-person-action{grid-column:1/-1}
 .fc-queue-person-status .mud-chip{margin:0}
 .fc-queue-person-action .mud-button-root{width:100%;min-height:44px}
-.fc-grading-row{align-items:flex-start;flex-wrap:wrap;padding:17px}
-.fc-grading-actions{width:100%;justify-content:flex-end}
-.fc-grading-actions>.mud-button-root{flex:1;min-height:44px}
 .fc-interaction-dialog .mud-dialog-content{padding:12px 15px}
 .fc-interaction-dialog .mud-dialog-title{padding:18px 15px 12px}
 .fc-interaction-dialog .fc-task-card{padding:14px}
@@ -240,5 +283,18 @@
 .fc-fx-preview-site { position:relative; height:170px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; overflow:hidden; display:grid; place-items:center; font-size:12px; color:var(--mud-palette-text-secondary); }
 /* В предпросмотре слой сайта живёт внутри рамки, а не поверх всей страницы. */
 .fc-fx-preview-site .fc-fx-site { position:absolute; z-index:0; contain:none; }
+/* Инструкция по оформлению (Pages/AchievementGuide): как соглашение, плюс панель копирования сверху. */
+.fc-guide-card { margin-top:12px; }
+.fc-guide-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:20px 40px; border-bottom:1px solid var(--mud-palette-lines-default); }
+.fc-guide-toolbar .fc-muted { font-size:13px; max-width:70ch; }
+.fc-guide-content { padding-top:28px; max-width:100ch; }
+.fc-guide-content table { width:100%; border-collapse:collapse; margin:12px 0 20px; font-size:13px; line-height:1.5; display:block; overflow-x:auto; }
+.fc-guide-content th, .fc-guide-content td { padding:6px 10px; border:1px solid var(--mud-palette-lines-default); text-align:left; vertical-align:top; }
+.fc-guide-content th { background:var(--mud-palette-background); font-weight:600; }
+.fc-guide-content pre { padding:14px; border-radius:8px; background:var(--mud-palette-background); overflow-x:auto; font-size:12px; line-height:1.55; }
+.fc-guide-content code { font-family:ui-monospace,Consolas,monospace; font-size:.92em; }
+.fc-guide-content h2 { margin:28px 0 10px; font-size:19px; font-weight:650; }
+.fc-guide-content h3 { margin:20px 0 8px; font-size:15px; font-weight:650; }
+@media (max-width:600px) { .fc-guide-toolbar { padding:16px 20px; } }
 @media (max-width:1100px) { .fc-fx-editor { grid-template-columns:1fr; } .fc-fx-editor-preview { position:static; max-height:none; } }
 @media (max-width:600px) { .fc-fx-grid { grid-template-columns:1fr; } .fc-fx-slot { flex-wrap:wrap; } }

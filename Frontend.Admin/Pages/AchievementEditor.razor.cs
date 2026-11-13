@@ -5,6 +5,8 @@ using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.JSInterop;
+using System.Text.Json;
 using MudBlazor;
 
 namespace Frontend.Admin.Pages;
@@ -14,7 +16,7 @@ namespace Frontend.Admin.Pages;
 /// CSS для предпросмотра собирает сервер (тот же компилятор, что и при сохранении), поэтому
 /// «работает в предпросмотре» значит «сохранится и будет выглядеть так же».
 /// </summary>
-public partial class AchievementEditor : IDisposable
+public partial class AchievementEditor : IAsyncDisposable
 {
     private const int PreviewDelayMs = 400;
 
@@ -25,6 +27,11 @@ public partial class AchievementEditor : IDisposable
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private ConfirmService Confirm { get; set; } = null!;
     [Inject] private DashboardAppearanceService Appearance { get; set; } = null!;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+    private IJSObjectReference? _community;
+    private bool _importing;
+    private string _importText = "";
+    private string? _importError;
 
     private readonly CancellationTokenSource _life = new();
     private CancellationTokenSource? _previewDelay;
@@ -49,6 +56,46 @@ public partial class AchievementEditor : IDisposable
     private static string CssPlaceholder => "name { text-shadow: 0 0 8px gold; }\navatar::after { content: \"\"; position: absolute; inset: -18%; background: image(frame) center/contain no-repeat; }";
 
     private MediaDto? Slot(string slot) => _media.GetValueOrDefault(slot);
+    private string GuideUrl => "/admin/achievements/guide?returnUrl=" + Uri.EscapeDataString("/" + Nav.ToBaseRelativePath(Nav.Uri));
+
+    private AchievementDraft CurrentDraft() => new(_name, _description, _activeByDefault, _effects,
+        string.IsNullOrWhiteSpace(_css) ? null : _css);
+
+    private async Task CopyJsonAsync()
+    {
+        _community ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        var copied = await _community.InvokeAsync<bool>("copyText", CurrentDraft().ToJson());
+        Snackbar.Add(copied ? ProfileText.T("JSON скопирован", "JSON copied") : ProfileText.T("Браузер не дал скопировать", "The browser blocked copying"),
+            copied ? Severity.Success : Severity.Warning);
+    }
+
+    private void OpenImport() { _importText = ""; _importError = null; _importing = true; }
+
+    /// <summary>Заполняет поля из JSON (формат docs/achievement-effects.md). Значения проверяет сервер — в предпросмотре и при сохранении.</summary>
+    private void ApplyImport()
+    {
+        AchievementDraft draft;
+        try { draft = AchievementDraft.Parse(_importText); }
+        catch (JsonException ex)
+        {
+            _importError = ex.LineNumber is long line
+                ? ProfileText.T($"JSON не разобран (строка {line + 1}): {ex.Message}", $"Could not read the JSON (line {line + 1}): {ex.Message}")
+                : ProfileText.T($"JSON не разобран: {ex.Message}", $"Could not read the JSON: {ex.Message}");
+            return;
+        }
+        _importing = false;
+        Set(() => Apply(draft));
+        Snackbar.Add(ProfileText.T("Поля заполнены. Проверьте предпросмотр и сохраните.", "Fields filled in. Check the preview and save."), Severity.Success);
+    }
+
+    private void Apply(AchievementDraft draft)
+    {
+        if (draft.Name is { } name) _name = name.Length > 100 ? name[..100] : name;
+        if (draft.Description is { } description) _description = description;
+        if (draft.ActiveByDefault is { } byDefault) _activeByDefault = byDefault;
+        if (draft.Effects is { } effects) _effects = Normalize(effects);
+        if (draft.CustomCss is { } css) _css = css;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -195,10 +242,12 @@ public partial class AchievementEditor : IDisposable
             context.PreventNavigation();
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _previewDelay?.Cancel();
         _life.Cancel();
         _life.Dispose();
+        try { if (_community is not null) await _community.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
     }
 }

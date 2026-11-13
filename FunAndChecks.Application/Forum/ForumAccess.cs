@@ -2,6 +2,7 @@ using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
+using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Application.Forum;
@@ -15,6 +16,9 @@ public record ForumViewer(Guid UserId, string FullName, bool IsAdmin, bool IsSup
     public bool CanSee(int? subjectId) => subjectId is null || SubjectIds.Contains(subjectId.Value);
 
     public bool CanModerate(int? subjectId) => IsAdmin && CanSee(subjectId);
+
+    /// <summary>Модерируют только темы разделов; в личных чатах и «Избранном» каждый управляет своими сообщениями.</summary>
+    public bool CanModerate(ForumTopic topic) => topic.Kind == ForumTopicKind.Section && CanModerate(topic.SubjectId);
 }
 
 public interface IForumAccess
@@ -26,6 +30,9 @@ public interface IForumAccess
 
     /// <summary>Все учебные аккаунты, которым видна тема с этим предметом.</summary>
     Task<IReadOnlySet<Guid>> AudienceAsync(int? subjectId, CancellationToken ct = default);
+
+    /// <summary>Кому виден чат: аудитория раздела или участники личного чата.</summary>
+    Task<IReadOnlySet<Guid>> AudienceAsync(ForumTopic topic, CancellationToken ct = default);
 }
 
 public class ForumAccess(IApplicationDbContext db, IIdentityService identity) : IForumAccess
@@ -53,10 +60,17 @@ public class ForumAccess(IApplicationDbContext db, IIdentityService identity) : 
     public async Task<ForumTopic> RequireTopicAsync(ForumViewer viewer, int topicId, CancellationToken ct = default)
     {
         var topic = await db.ForumTopics.SingleOrDefaultAsync(t => t.Id == topicId && !t.IsDeleted, ct);
-        if (topic is null || !viewer.CanSee(topic.SubjectId))
-            throw new NotFoundException("Topic not found.", "forum.topic_not_found");
-        return topic;
+        var visible = topic is not null && (topic.Kind == ForumTopicKind.Section
+            ? viewer.CanSee(topic.SubjectId)
+            : await db.ForumTopicMembers.AnyAsync(m => m.TopicId == topicId && m.UserId == viewer.UserId, ct));
+        if (!visible) throw new NotFoundException("Topic not found.", "forum.topic_not_found");
+        return topic!;
     }
+
+    public async Task<IReadOnlySet<Guid>> AudienceAsync(ForumTopic topic, CancellationToken ct = default) =>
+        topic.Kind == ForumTopicKind.Section
+            ? await AudienceAsync(topic.SubjectId, ct)
+            : (await db.ForumTopicMembers.Where(m => m.TopicId == topic.Id).Select(m => m.UserId).ToListAsync(ct)).ToHashSet();
 
     public async Task<IReadOnlySet<Guid>> AudienceAsync(int? subjectId, CancellationToken ct = default)
     {

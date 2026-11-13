@@ -95,10 +95,12 @@
         {
             var path = new Uri(Nav.Uri).AbsolutePath;
             if (path.Contains("/student-accounts")) return Text("Управление аккаунтами", "Manage accounts");
+            if (path.Contains("/achievements/guide")) return Text("Инструкция по оформлению", "Styling guide");
             if (path.Contains("/achievements/")) return Text("Редактор достижения", "Achievement editor");
             if (path.Contains("/achievements")) return Text("Достижения", "Achievements");
             if (path.Contains("/profile")) return Text("Личный кабинет", "Profile");
-            if (path.Contains("/forum")) return Text("Форум", "Forum");
+            if (path.Contains("/forum/stickers")) return Text("Реакции и стикеры", "Reactions and stickers");
+            if (path.Contains("/forum")) return Text("Чаты", "Chats");
             if (path.Contains("/surveys")) return Text("Опросы", "Surveys");
             if (path.Contains("/variants")) return Text("Варианты", "Variants");
             if (path.StartsWith("/metrics", StringComparison.Ordinal)) return Loc["Monitoring_Title"];

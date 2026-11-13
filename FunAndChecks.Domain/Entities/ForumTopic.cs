@@ -1,9 +1,14 @@
+using FunAndChecks.Domain.Enums;
+
 namespace FunAndChecks.Domain.Entities;
 
-/// <summary>Тема форума. Без предмета — раздел «Общее», видимый всем.</summary>
+/// <summary>Чат. Тема раздела без предмета — «Общее», видимое всем; личный чат и «Избранное» видят только участники.</summary>
 public class ForumTopic
 {
     public int Id { get; set; }
+    public ForumTopicKind Kind { get; set; }
+    /// <summary>Уникальный ключ личного чата («direct:меньший-id:больший-id») или «Избранного» («saved:id»).</summary>
+    public string? DirectKey { get; set; }
     public int? SubjectId { get; set; }
     public Subject? Subject { get; set; }
     public required string Title { get; set; }
@@ -21,5 +26,6 @@ public class ForumTopic
     public DateTime? DeletedAtUtc { get; set; }
     public Guid? DeletedById { get; set; }
 
+    public ICollection<ForumTopicMember> Members { get; set; } = new List<ForumTopicMember>();
     public ICollection<ForumPost> Posts { get; set; } = new List<ForumPost>();
 }

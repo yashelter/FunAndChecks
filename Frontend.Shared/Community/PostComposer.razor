@@ -4,7 +4,71 @@
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
 @inject ISnackbar Snackbar
 
-@* Редактор сообщения: Markdown с предпросмотром, файлы (кнопка, вставка из буфера, перетаскивание), упоминания. *@
+@* Редактор сообщения: Markdown с предпросмотром, файлы (кнопка, вставка из буфера, перетаскивание), упоминания.
+   В режиме Chat — строка ввода мессенджера: скрепка, растущее поле, эмодзи и стикеры, круглая кнопка отправки. *@
+@if (Chat)
+{
+<div class="fc-composer chat" @ref="_zone">
+    @if (ReplyTo is not null)
+    {
+        <div class="fc-chat-replybar">
+            <MudIcon Icon="@Icons.Material.Outlined.Reply" Size="Size.Small" />
+            <span class="fc-chat-replybar-text"><strong>@CommunityText.T($"В ответ {ReplyTo.AuthorName}", $"Reply to {ReplyTo.AuthorName}")</strong>
+                <span>@(string.IsNullOrWhiteSpace(ReplyTo.Excerpt) ? CommunityText.T("Вложение", "Attachment") : ForumMarkdown.ToPlainText(ReplyTo.Excerpt))</span></span>
+            <button type="button" class="fc-chat-icon" @onclick="CancelReply" aria-label="@CommunityText.T("Не отвечать", "Cancel reply")">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" /></button>
+        </div>
+    }
+    @if (_mentionsOpen)
+    {
+        <div class="fc-composer-mentions">
+            <input @ref="_mentionInput" class="fc-input" placeholder="@CommunityText.T("Кого упомянуть? Начните вводить фамилию", "Who to mention? Start typing a name")"
+                   aria-label="@CommunityText.T("Поиск человека для упоминания", "Find someone to mention")"
+                   @bind="_mentionQuery" @bind:event="oninput" @bind:after="SearchMentionsAsync" @onkeydown="MentionKeyDownAsync" />
+            @if (_mentionQuery.Trim().Length >= 2 && _candidates.Count == 0) { <small class="fc-muted">@CommunityText.T("Никого не нашли", "Nobody found")</small> }
+            @foreach (var user in _candidates)
+            {
+                <button type="button" @onclick="() => InsertMentionAsync(user)"><UserChip UserId="user.UserId" Name="@user.FullName" Link="false" Compact="true"
+                    Subtitle="@(user.IsAdmin ? CommunityText.T("Преподаватель", "Teacher") : user.GroupName)" /></button>
+            }
+        </div>
+    }
+    @if (_files.Count > 0 || _uploading > 0)
+    {
+        <ul class="fc-composer-files">
+            @foreach (var file in _files)
+            {
+                <li><MudIcon Icon="@(file.IsImage ? Icons.Material.Outlined.Image : Icons.Material.Outlined.Description)" Size="Size.Small" />
+                    <span>@file.FileName</span><small>@CommunityText.Size(file.SizeBytes)</small>
+                    <button type="button" class="fc-icon-link" @onclick="() => RemoveAsync(file)" aria-label="@CommunityText.T("Убрать файл", "Remove file")">×</button></li>
+            }
+            @if (_uploading > 0) { <li><MudProgressCircular Indeterminate="true" Size="Size.Small" /><span>@CommunityText.T("Загружаем…", "Uploading…")</span></li> }
+        </ul>
+    }
+    @if (_pickerOpen)
+    {
+        <StickerPicker StickersEnabled="StickerChosen.HasDelegate" Emoji="InsertEmojiAsync" Sticker="ChooseStickerAsync" Close="() => _pickerOpen = false" />
+    }
+    <div class="fc-chat-inputrow">
+        <button type="button" class="fc-chat-icon" @onclick="PickFilesAsync" disabled="@(_files.Count >= MaxFiles)"
+                aria-label="@CommunityText.T("Прикрепить файл", "Attach a file")" title="@CommunityText.T("Прикрепить файл", "Attach a file")">
+            <MudIcon Icon="@Icons.Material.Outlined.AttachFile" /></button>
+        <div class="fc-chat-field">
+            <textarea @ref="_textarea" rows="1" maxlength="10000" @bind="_body" @bind:event="oninput" @bind:after="ScheduleDraftSave"
+                      placeholder="@Placeholder" aria-label="@CommunityText.T("Текст сообщения", "Message")"></textarea>
+            <button type="button" class="fc-chat-icon @(_pickerOpen ? "active" : "")" @onclick="() => _pickerOpen = !_pickerOpen" aria-expanded="@(_pickerOpen ? "true" : "false")"
+                    aria-label="@CommunityText.T("Эмодзи и стикеры", "Emoji and stickers")" title="@CommunityText.T("Эмодзи и стикеры", "Emoji and stickers")">
+                <MudIcon Icon="@Icons.Material.Outlined.EmojiEmotions" /></button>
+        </div>
+        <button type="button" class="fc-chat-send" @onclick="SubmitAsync" disabled="@(_busy || _uploading > 0 || (string.IsNullOrWhiteSpace(_body) && _files.Count == 0))"
+                aria-label="@SubmitLabel" title="@CommunityText.T("Отправить (Enter). Новая строка — Shift+Enter", "Send (Enter). New line — Shift+Enter")">
+            <MudIcon Icon="@Icons.Material.Filled.Send" /></button>
+    </div>
+    <InputFile @ref="_input" OnChange="UploadAsync" multiple class="fc-hidden-input" />
+</div>
+}
+else
+{
 <div class="fc-composer @(Compact ? "compact" : "")" @ref="_zone">
     @if (ReplyTo is not null)
     {
@@ -69,6 +133,7 @@
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync" Disabled="@(_busy || _uploading > 0 || (string.IsNullOrWhiteSpace(_body) && _files.Count == 0))">@SubmitLabel</MudButton>
     </div>
 </div>
+}
 
 @code {
     private const int MaxFiles = 5;
@@ -82,6 +147,10 @@
     [Parameter] public string SubmitLabel { get; set; } = CommunityText.T("Отправить", "Send");
     [Parameter] public string Placeholder { get; set; } = CommunityText.T("Напишите сообщение…", "Write a message…");
     [Parameter] public bool Compact { get; set; }
+    /// <summary>Строка ввода мессенджера: Enter отправляет, панель эмодзи и стикеров.</summary>
+    [Parameter] public bool Chat { get; set; }
+    /// <summary>Выбран стикер — он уходит отдельным сообщением.</summary>
+    [Parameter] public EventCallback<ForumStickerDto> StickerChosen { get; set; }
     [Parameter] public EventCallback Cancel { get; set; }
     /// <summary>Ключ черновика в браузере (тема, правка сообщения, новая тема). null — без черновика.</summary>
     [Parameter] public string? DraftKey { get; set; }
@@ -99,7 +168,7 @@
     private string _body = "";
     private List<AttachmentDto> _files = [];
     private readonly HashSet<Guid> _initialIds = [];
-    private bool _preview, _busy, _mentionsOpen, _bound;
+    private bool _preview, _busy, _mentionsOpen, _bound, _pickerOpen;
     private int _uploading;
     private string _mentionQuery = "";
     private List<ForumMentionCandidateDto> _candidates = [];
@@ -122,7 +191,7 @@
             _bound = true;
         }
         // Поле пересоздаётся после предпросмотра — JS сам не вешает обработчики дважды.
-        if (!_preview) await _module.InvokeVoidAsync("bindShortcuts", _textarea, _self);
+        if (!_preview) await _module.InvokeVoidAsync("bindShortcuts", _textarea, _self, Chat);
         if (!_draftLoaded)
         {
             _draftLoaded = true;
@@ -228,6 +297,25 @@
         _body = await _module.InvokeAsync<string?>("wrapSelection", _textarea, before, after) ?? _body;
     }
 
+    private async Task InsertEmojiAsync(string emoji)
+    {
+        _body = _module is null ? _body + emoji : await _module.InvokeAsync<string?>("insertAtCursor", _textarea, emoji) ?? _body + emoji;
+        if (_module is not null) await _module.InvokeVoidAsync("resizeInput", _textarea);
+        ScheduleDraftSave();
+    }
+
+    private async Task ChooseStickerAsync(ForumStickerDto sticker)
+    {
+        _pickerOpen = false;
+        await StickerChosen.InvokeAsync(sticker);
+    }
+
+    /// <summary>Поставить курсор в поле — после выбора «Ответить» в меню сообщения.</summary>
+    public async Task FocusAsync()
+    {
+        if (_module is not null) await _module.InvokeVoidAsync("focusElement", _textarea);
+    }
+
     private void ToggleMentions() { _mentionsOpen = !_mentionsOpen; _candidates = []; _mentionQuery = ""; }
 
     private async Task SearchMentionsAsync()
@@ -267,6 +355,12 @@
                 _preview = false;
                 _draftSave?.Cancel();
                 if (_draftKey is not null && _module is not null) await _module.InvokeVoidAsync("saveDraft", _draftKey, "");
+                if (Chat && _module is not null)
+                {
+                    StateHasChanged();
+                    await Task.Yield();
+                    await _module.InvokeVoidAsync("resizeInput", _textarea);
+                }
             }
         }
         finally { _busy = false; }

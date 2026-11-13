@@ -59,7 +59,7 @@ public class IdentityService(
     }
 
     public async Task<UserAccountPageDto> GetNonAdminAccountsAsync(Guid actingAdminId, string? query,
-        int page, int pageSize, CancellationToken cancellationToken = default)
+        int page, int pageSize, UserAccountStatus? status = null, CancellationToken cancellationToken = default)
     {
         await EnsureSuperAdminAsync(actingAdminId, cancellationToken);
         if (page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
@@ -85,6 +85,16 @@ public class IdentityService(
             accounts = accounts.Where(a => (a.Email != null && a.Email.ToLower().Contains(term)) ||
                 ((a.LastName ?? "") + " " + (a.FirstName ?? "")).ToLower().Contains(term) ||
                 ((a.FirstName ?? "") + " " + (a.LastName ?? "")).ToLower().Contains(term));
+
+        accounts = status switch
+        {
+            null => accounts,
+            UserAccountStatus.Active => accounts.Where(a => a.EmailConfirmed && a.HasStudentProfile && a.IsActive),
+            UserAccountStatus.PendingEmail => accounts.Where(a => !a.EmailConfirmed),
+            UserAccountStatus.NoProfile => accounts.Where(a => a.EmailConfirmed && !a.HasStudentProfile),
+            UserAccountStatus.Inactive => accounts.Where(a => a.EmailConfirmed && a.HasStudentProfile && !a.IsActive),
+            _ => throw new FluentValidation.ValidationException("Unknown account status.")
+        };
 
         var total = await accounts.CountAsync(cancellationToken);
         var items = await accounts.OrderBy(a => a.LastName).ThenBy(a => a.FirstName).ThenBy(a => a.Email).ThenBy(a => a.Id)

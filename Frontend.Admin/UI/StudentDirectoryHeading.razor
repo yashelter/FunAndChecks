@@ -1,0 +1,17 @@
+@inject IStringLocalizer<AppStrings> Loc
+
+<div class="fc-page-heading fc-grading-heading">
+    <MudText Typo="Typo.h4" HtmlTag="h1">@Loc["Grading_Title"]</MudText>
+    <AuthorizeView Roles="@Roles.SuperAdmin">
+        <Authorized>
+            <nav class="fc-grading-tabs" aria-label="@Loc["Grading_Title"]">
+                <a href="/admin/grading" aria-current="@(Accounts ? null : "page")">@Loc["Dashboard_Students"]</a>
+                <a href="/admin/student-accounts" aria-current="@(Accounts ? "page" : null)">@Loc["Grading_Accounts"]</a>
+            </nav>
+        </Authorized>
+    </AuthorizeView>
+</div>
+
+@code {
+    [Parameter] public bool Accounts { get; set; }
+}

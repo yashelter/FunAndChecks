@@ -18,6 +18,10 @@ public class ForumPost
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAtUtc { get; set; }
     public Guid? DeletedById { get; set; }
+    /// <summary>Сообщение-стикер: без текста и файлов.</summary>
+    public int? StickerId { get; set; }
+    /// <summary>Пересланное сообщение (например, в «Избранное»): текст скопирован, файлы показываются из оригинала.</summary>
+    public long? ForwardedFromPostId { get; set; }
 
     public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
     public ICollection<ForumReaction> Reactions { get; set; } = new List<ForumReaction>();

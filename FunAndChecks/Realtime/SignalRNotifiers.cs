@@ -65,4 +65,10 @@ public class ForumNotifier(IHubContext<ForumHub> hubContext) : IForumNotifier
 {
     public Task TopicChangedAsync(ForumTopicEventDto update, CancellationToken cancellationToken = default) =>
         hubContext.Clients.Group(ForumHub.GroupName(update.TopicId)).SendAsync("TopicChanged", update, cancellationToken);
+
+    // Без данных в событии: клиент сам перечитывает список, поэтому разослать всем подсказку о теме раздела безопасно.
+    public Task ChatsChangedAsync(IReadOnlyCollection<Guid>? userIds, CancellationToken cancellationToken = default) =>
+        userIds is null
+            ? hubContext.Clients.All.SendAsync("ChatsChanged", cancellationToken)
+            : hubContext.Clients.Users(userIds.Select(id => id.ToString()).ToList()).SendAsync("ChatsChanged", cancellationToken);
 }

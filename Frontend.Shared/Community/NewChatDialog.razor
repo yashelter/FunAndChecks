@@ -1,0 +1,129 @@
+@inject ForumApi Api
+@inject ISnackbar Snackbar
+
+@* Новый чат: личный (поиск человека) или тема в разделе предмета — вторая вкладка только у преподавателей раздела. *@
+<Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Новый чат", "New chat")" Close="Close" Busy="_busy">
+    <ChildContent>
+        @if (Sections.Count > 0)
+        {
+            <div class="fc-segmented" role="tablist">
+                <button type="button" role="tab" aria-selected="@(_topic ? "false" : "true")" class="@(_topic ? "" : "selected")" @onclick="() => _topic = false">@CommunityText.T("Личный чат", "Private chat")</button>
+                <button type="button" role="tab" aria-selected="@(_topic ? "true" : "false")" class="@(_topic ? "selected" : "")" @onclick="() => _topic = true">@CommunityText.T("Тема в разделе", "Topic in a section")</button>
+            </div>
+        }
+        @if (!_topic)
+        {
+            <label class="fc-chats-search fc-newchat-search">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" />
+                <input type="search" @bind="_query" @bind:event="oninput" @bind:after="SearchAsync" aria-label="@CommunityText.T("Поиск человека", "Find a person")"
+                       placeholder="@(IsAdmin ? CommunityText.T("Фамилия, имя или группа", "Name or group") : CommunityText.T("Имя или группа", "Name or group"))" />
+            </label>
+            <div class="fc-newchat-people">
+                @if (_loading) { <div class="fc-chats-note"><MudProgressCircular Indeterminate="true" Size="Size.Small" /></div> }
+                else if (_people.Count == 0)
+                {
+                    <p class="fc-chats-note">@(IsAdmin && (_query?.Trim().Length ?? 0) < 2
+                        ? CommunityText.T("Начните вводить имя — от двух букв.", "Start typing a name — at least two letters.")
+                        : CommunityText.T("Никого не нашли.", "Nobody found."))</p>
+                }
+                else
+                {
+                    @foreach (var group in _people.GroupBy(p => p.IsAdmin).OrderByDescending(g => g.Key))
+                    {
+                        <div class="fc-newchat-group">@(group.Key ? CommunityText.T("Преподаватели", "Teachers") : CommunityText.T("Студенты", "Students"))</div>
+                        @foreach (var person in group)
+                        {
+                            <button type="button" class="fc-chats-row" @onclick="() => OpenAsync(person)" disabled="@_busy">
+                                <UserAvatar UserId="person.UserId" Name="@person.FullName" Class="fc-chat-avatar-img fc-newchat-avatar" />
+                                <span class="fc-chats-row-main">
+                                    <span class="fc-chats-row-top"><strong>@person.FullName</strong></span>
+                                    <span class="fc-chats-row-bottom"><span class="fc-chats-preview">@(person.IsAdmin ? CommunityText.T("Преподаватель", "Teacher") : person.GroupName)</span></span>
+                                </span>
+                            </button>
+                        }
+                    }
+                }
+            </div>
+            @if (!IsAdmin)
+            {
+                <p class="fc-muted fc-newchat-hint">@CommunityText.T("Написать можно преподавателям своих предметов и одногруппникам.", "You can write to your teachers and groupmates.")</p>
+            }
+        }
+        else
+        {
+            <MudSelect T="string" @bind-Value="_section" Label="@CommunityText.T("Раздел", "Section")" Variant="Variant.Outlined"
+                       Placeholder="@CommunityText.T("Выберите раздел", "Choose a section")">
+                @foreach (var section in Sections) { <MudSelectItem Value="@(section.SubjectId?.ToString() ?? "general")">@(section.SubjectName ?? CommunityText.T("Общее", "General"))</MudSelectItem> }
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_title" Label="@CommunityText.T("Название", "Title")" MaxLength="200" Variant="Variant.Outlined" Class="mt-3" Immediate="true" />
+            <div class="fc-forum-flags">
+                <MudCheckBox T="bool" @bind-Value="_announcement" Label="@CommunityText.T("Канал объявлений (пишут только преподаватели)", "Announcement channel (only teachers write)")" />
+                <MudCheckBox T="bool" @bind-Value="_pinned" Label="@CommunityText.T("Закрепить вверху списка", "Pin to the top")" />
+            </div>
+            <PostComposer BasePath="@(IsAdmin ? "/admin" : "/student")" DraftKey="fc-draft:new-topic" SubmitLabel="@CommunityText.T("Создать", "Create")" Submit="CreateAsync"
+                          Placeholder="@CommunityText.T("Первое сообщение…", "The first message…")" />
+        }
+    </ChildContent>
+</Frontend.Shared.Profiles.ProfileDialog>
+
+@code {
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public List<ForumSectionDto> Sections { get; set; } = [];
+    [Parameter] public EventCallback Close { get; set; }
+    [Parameter] public EventCallback<int> Opened { get; set; }
+    private List<ForumMentionCandidateDto> _people = [];
+    private string? _query, _title, _section;
+    private bool _topic, _busy, _loading, _announcement, _pinned;
+    private CancellationTokenSource? _search;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Sections.Count == 1) _section = Sections[0].SubjectId?.ToString() ?? "general";
+        if (!IsAdmin) await LoadAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _search?.Cancel();
+        var token = (_search = new CancellationTokenSource()).Token;
+        try { await Task.Delay(250, token); } catch (TaskCanceledException) { return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (IsAdmin && (_query?.Trim().Length ?? 0) < 2) { _people = []; return; }
+        _loading = true;
+        try { _people = await Api.ContactsAsync(_query); }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _loading = false; }
+    }
+
+    private async Task OpenAsync(ForumMentionCandidateDto person)
+    {
+        _busy = true;
+        try { await Opened.InvokeAsync((await Api.OpenDirectAsync(person.UserId)).Topic.Id); }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task<bool> CreateAsync(string body, List<Guid> files)
+    {
+        if (_section is null) { Snackbar.Add(CommunityText.T("Выберите раздел", "Choose a section"), Severity.Warning); return false; }
+        if (string.IsNullOrWhiteSpace(_title) || _title.Trim().Length < 3)
+        {
+            Snackbar.Add(CommunityText.T("Название — от трёх символов", "The title needs at least three characters"), Severity.Warning);
+            return false;
+        }
+        _busy = true;
+        try
+        {
+            var subjectId = _section == "general" ? (int?)null : int.Parse(_section);
+            var topic = await Api.CreateTopicAsync(new(subjectId, _title, body, files, _announcement, _pinned));
+            await Opened.InvokeAsync(topic.Topic.Id);
+            return true;
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); return false; }
+        finally { _busy = false; }
+    }
+}

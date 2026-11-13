@@ -1,0 +1,17 @@
+@* Значок реакции: своя картинка, эмодзи или (если набор ещё не загрузился) нейтральная точка. *@
+@if (Reaction?.ImageUrl is { } url)
+{
+    <img class="fc-reaction-img" src="@url" alt="@Reaction.Name" />
+}
+else if (Reaction?.Emoji is { } emoji)
+{
+    <span class="fc-reaction-emoji" aria-label="@Reaction.Name">@emoji</span>
+}
+else
+{
+    <span class="fc-reaction-emoji" aria-label="@(Reaction?.Name ?? "")">@(Reaction?.Name is { Length: > 0 } name ? name[..1] : "•")</span>
+}
+
+@code {
+    [Parameter] public ForumReactionTypeDto? Reaction { get; set; }
+}

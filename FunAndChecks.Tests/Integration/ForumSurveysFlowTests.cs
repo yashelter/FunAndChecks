@@ -31,6 +31,8 @@ namespace FunAndChecks.Tests.Integration;
 [Collection("Integration")]
 public class ForumSurveysFlowTests : IDisposable
 {
+    /// <summary>«🎉» из начального набора реакций.</summary>
+    private const int PartyReaction = 4;
     private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
     private readonly FlowFactory _factory = new();
 
@@ -108,10 +110,10 @@ public class ForumSurveysFlowTests : IDisposable
         pinned.PinnedPosts.Should().ContainSingle(p => p.Id == post.Id);
         pinned.Permissions.IsSubscribed.Should().BeTrue();
 
-        (await student.PutAsync($"/api/forum/posts/{post.Id}/reactions/{ForumReactionKind.Party}", null)).EnsureSuccessStatusCode();
-        var reactions = (await (await admin.PutAsync($"/api/forum/posts/{post.Id}/reactions/{ForumReactionKind.Party}", null))
+        (await student.PutAsync($"/api/forum/posts/{post.Id}/reactions/{PartyReaction}", null)).EnsureSuccessStatusCode();
+        var reactions = (await (await admin.PutAsync($"/api/forum/posts/{post.Id}/reactions/{PartyReaction}", null))
             .Content.ReadFromJsonAsync<List<ForumReactionSummaryDto>>())!;
-        reactions.Should().ContainSingle().Which.Should().Be(new ForumReactionSummaryDto(ForumReactionKind.Party, 2, true));
+        reactions.Should().ContainSingle().Which.Should().Be(new ForumReactionSummaryDto(PartyReaction, 2, true));
 
         (await student.PostAsJsonAsync($"/api/forum/posts/{post.Id}/report", new ReportForumPostRequest("spam"))).EnsureSuccessStatusCode();
         var reports = (await admin.GetFromJsonAsync<ForumReportPageDto>("/api/admin/forum/reports"))!;

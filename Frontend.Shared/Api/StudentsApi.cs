@@ -25,8 +25,9 @@ public class StudentsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : Ap
     public Task UpdateAccountAsync(Guid studentId, UpdateStudentAccountRequest request, CancellationToken ct = default) =>
         PutAsync($"api/students/{studentId}/account", request, ct);
 
-    public Task<UserAccountPageDto> GetAccountsAsync(string? query, int page = 1, int pageSize = 25, CancellationToken ct = default) =>
-        GetAsync<UserAccountPageDto>($"api/students/accounts?query={Uri.EscapeDataString(query ?? string.Empty)}&page={page}&pageSize={pageSize}", ct);
+    public Task<UserAccountPageDto> GetAccountsAsync(string? query, int page = 1, int pageSize = 25,
+        string? status = null, CancellationToken ct = default) =>
+        GetAsync<UserAccountPageDto>($"api/students/accounts?query={Uri.EscapeDataString(query ?? string.Empty)}&page={page}&pageSize={pageSize}&status={Uri.EscapeDataString(status ?? string.Empty)}", ct);
 
     public Task DeleteAccountAsync(Guid userId, CancellationToken ct = default) =>
         DeleteAsync($"api/students/accounts/{userId}", ct);

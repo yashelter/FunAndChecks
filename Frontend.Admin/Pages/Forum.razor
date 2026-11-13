@@ -1,4 +1,10 @@
 @page "/admin/forum"
+@page "/admin/forum/{TopicId:int}"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
-<ForumHome IsAdmin="true" />
+@* Один компонент на оба адреса: при переходе между чатами список слева не перезагружается. *@
+<ChatsView IsAdmin="true" TopicId="TopicId" PostId="PostId" />
+@code {
+    [Parameter] public int? TopicId { get; set; }
+    [SupplyParameterFromQuery(Name = "post")] public long? PostId { get; set; }
+}

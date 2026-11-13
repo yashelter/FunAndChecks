@@ -4,6 +4,7 @@ using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Profiles;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
+using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -51,8 +52,12 @@ public class ForumModerationService(
         ProfileValidation.Page(page, pageSize);
         var viewer = await RequireAdminAsync(adminId, ct);
         var subjects = viewer.SubjectIds.ToList();
+        // Жалобы из личных чатов разбирает только супер-админ: переписку не видят все преподаватели.
+        var super = viewer.IsSuperAdmin;
         var reports = db.ForumReports.AsNoTracking().Where(r => r.ResolvedAtUtc == null && !r.Post.Topic.IsDeleted &&
-            (r.Post.Topic.SubjectId == null || subjects.Contains(r.Post.Topic.SubjectId.Value)));
+            (r.Post.Topic.Kind == ForumTopicKind.Section
+                ? r.Post.Topic.SubjectId == null || subjects.Contains(r.Post.Topic.SubjectId.Value)
+                : super));
         var total = await reports.CountAsync(ct);
         var entries = await reports.OrderBy(r => r.CreatedAtUtc).ThenBy(r => r.Id).Skip((page - 1) * pageSize).Take(pageSize)
             .Select(r => new
@@ -78,7 +83,8 @@ public class ForumModerationService(
             var report = await db.ForumReports.Include(r => r.Post).ThenInclude(p => p.Topic)
                 .SingleOrDefaultAsync(r => r.Id == reportId, token)
                 ?? throw new NotFoundException("Report not found.", "forum.report_not_found");
-            if (report.Post.Topic.IsDeleted || !viewer.CanModerate(report.Post.Topic.SubjectId))
+            var topic = report.Post.Topic;
+            if (topic.IsDeleted || !(topic.Kind == ForumTopicKind.Section ? viewer.CanModerate(topic) : viewer.IsSuperAdmin))
                 throw new NotFoundException("Report not found.", "forum.report_not_found");
             var now = DateTime.UtcNow;
             // Закрываем все открытые жалобы на это сообщение разом.

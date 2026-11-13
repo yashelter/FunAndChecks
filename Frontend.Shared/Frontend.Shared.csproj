@@ -27,6 +27,8 @@
     <ItemGroup>
         <!-- Пользовательское соглашение лежит в licence/ в корне репозитория; страница /privacy-policy читает его по имени agreement.md. -->
         <EmbeddedResource Include="..\licence\agreement.md" LogicalName="agreement.md" />
+        <!-- Правила оформления достижений: страница /admin/achievements/guide и кнопки копирования/скачивания. -->
+        <EmbeddedResource Include="..\docs\achievement-effects.md" LogicalName="achievement-effects.md" />
     </ItemGroup>
 
 </Project>

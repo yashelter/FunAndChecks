@@ -56,14 +56,21 @@ public static class CommunityText
         _ => T($"{bytes / 1024d / 1024d:0.#} МБ", $"{bytes / 1024d / 1024d:0.#} MB"),
     };
 
-    public static string Reaction(ForumReactionKind kind) => kind switch
+    /// <summary>Ошибка API форума по её коду — по-человечески; незнакомый код показывает текст сервера.</summary>
+    public static string Error(Frontend.Shared.Api.ApiException ex) => ex.Code switch
     {
-        ForumReactionKind.Like => "👍",
-        ForumReactionKind.Heart => "❤️",
-        ForumReactionKind.Laugh => "😂",
-        ForumReactionKind.Party => "🎉",
-        ForumReactionKind.Thinking => "🤔",
-        _ => "👀",
+        "forum.direct_not_allowed" => T("Этому человеку нельзя написать первым: студенты пишут преподавателям своих предметов и одногруппникам.",
+            "You cannot start a chat with this person: students write to their teachers and groupmates."),
+        "forum.saved_admins_only" => T("«Избранное» есть только у преподавателей.", "Saved messages are for teachers."),
+        "forum.reaction_disabled" => T("Эта реакция выключена.", "This reaction is turned off."),
+        "forum.sticker_not_found" => T("Стикер больше недоступен.", "This sticker is no longer available."),
+        "forum.post_deleted" => T("Сообщение уже удалено.", "The message was deleted."),
+        "forum.topic_closed" => T("Чат закрыт для новых сообщений.", "This chat is closed to new messages."),
+        "forum.announcement" => T("В объявлениях пишут только преподаватели.", "Only teachers write in announcements."),
+        "forum.banned" => T("Сейчас вы не можете писать в чатах.", "You cannot write in chats right now."),
+        "forum.topic_not_found" => T("Чат не найден или недоступен.", "The chat was not found or is not available."),
+        "forum.super_admin_required" => T("Это может только супер-админ.", "Only a super admin can do this."),
+        _ => ex.Message,
     };
 
     public static string Notification(NotificationDto n) => n.Type switch
@@ -74,15 +81,16 @@ public static class CommunityText
         NotificationType.ForumAnnouncement => T($"Новое объявление: «{n.Subject}»", $"New announcement: “{n.Subject}”"),
         NotificationType.SurveyAvailable => T($"Доступен опрос «{n.Subject}»", $"A new survey is available: “{n.Subject}”"),
         NotificationType.VariantAssigned => T($"Преподаватель выдал вам вариант — {n.Subject}", $"A teacher assigned you a variant — {n.Subject}"),
+        NotificationType.DirectMessage => T($"Новое личное сообщение от {n.Subject}", $"New direct message from {n.Subject}"),
         _ => n.Subject,
     };
 
     /// <summary>Код ошибки сервера для заблокированного ответа — в человеческий текст.</summary>
     public static string ReplyBlocked(string? code, DateTime? bannedUntil) => code switch
     {
-        "forum.topic_closed" => T("Тема закрыта — новые сообщения не принимаются.", "This topic is closed to new messages."),
-        "forum.announcement" => T("Это объявление — отвечать могут только преподаватели.", "This is an announcement; only teachers can reply."),
-        "forum.banned" => T($"Вы не можете писать на форуме до {bannedUntil?.ToLocalTime():g}.", $"You cannot post until {bannedUntil?.ToLocalTime():g}."),
+        "forum.topic_closed" => T("Чат закрыт — новые сообщения не принимаются.", "This chat is closed to new messages."),
+        "forum.announcement" => T("Это объявления — писать могут только преподаватели.", "These are announcements; only teachers can write."),
+        "forum.banned" => T($"Вы не можете писать в чатах до {bannedUntil?.ToLocalTime():g}.", $"You cannot write until {bannedUntil?.ToLocalTime():g}."),
         _ => T("Ответить нельзя.", "You cannot reply."),
     };
 }

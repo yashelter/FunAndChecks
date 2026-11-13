@@ -336,7 +336,7 @@
   <data name="StudentQueues_RegistrationNowClosed" xml:space="preserve"><value>Registration for {0} is now closed — you can no longer join the queue.</value></data>
 
   <!-- ==================== Student Grading (extra) ==================== -->
-  <data name="Grading_SearchLabel" xml:space="preserve"><value>Search student by last name</value></data>
+  <data name="Grading_SearchLabel" xml:space="preserve"><value>Search by name or email</value></data>
   <data name="Grading_SelectSubjectHint" xml:space="preserve"><value>Select a subject to see students and grade them.</value></data>
   <data name="Grading_NoStudents" xml:space="preserve"><value>No students found.</value></data>
   <data name="Grading_SelectSubjectFirst" xml:space="preserve"><value>Select a subject first.</value></data>
@@ -616,6 +616,21 @@
   <data name="Dashboard_AttendanceUnmarked" xml:space="preserve"><value>Not marked: {0}</value></data>
   <data name="Dashboard_TotalPoints" xml:space="preserve"><value>Total</value></data>
   <data name="Grading_ManageAccounts" xml:space="preserve"><value>Manage accounts</value></data>
+  <data name="Grading_Accounts" xml:space="preserve"><value>Accounts</value></data>
+  <data name="Grading_AcceptedTasks" xml:space="preserve"><value>Accepted tasks</value></data>
+  <data name="Grading_Actions" xml:space="preserve"><value>Actions</value></data>
+  <data name="Grading_ReworkFilter" xml:space="preserve"><value>Needs rework · {0}</value></data>
+  <data name="Grading_ReworkCount" xml:space="preserve"><value>{0} to rework</value></data>
+  <data name="Grading_Found" xml:space="preserve"><value>Found: {0}</value></data>
+  <data name="Grading_AccountStatus" xml:space="preserve"><value>Account status</value></data>
+  <data name="Grading_AllAccounts" xml:space="preserve"><value>All accounts</value></data>
+  <data name="Grading_AccountActive" xml:space="preserve"><value>Active</value></data>
+  <data name="Grading_AccountPending" xml:space="preserve"><value>Email unconfirmed</value></data>
+  <data name="Grading_AccountNoProfile" xml:space="preserve"><value>No student profile</value></data>
+  <data name="Grading_AccountInactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Grading_LoadingAccounts" xml:space="preserve"><value>Loading accounts</value></data>
+  <data name="Grading_NoAccounts" xml:space="preserve"><value>No users found</value></data>
+  <data name="Grading_AccountRange" xml:space="preserve"><value>{0}–{1} of {2}</value></data>
   <data name="Grading_Progress" xml:space="preserve"><value>accepted {0}/{1}</value></data>
   <data name="Grading_ProgressWithRework" xml:space="preserve"><value>accepted {0}/{1}, rework {2}</value></data>
   <data name="Attendance_RollCallTitle" xml:space="preserve"><value>Roll call · attendance</value></data>

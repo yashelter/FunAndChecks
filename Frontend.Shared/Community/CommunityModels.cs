@@ -2,31 +2,41 @@ namespace Frontend.Shared.Community;
 
 // Контракты форума, опросов и уведомлений. Значения перечислений совпадают с бэкендом.
 
-public enum NotificationType { AchievementGranted = 0, ForumReply = 1, ForumMention = 2, ForumAnnouncement = 3, SurveyAvailable = 4, VariantAssigned = 5 }
+public enum NotificationType { AchievementGranted = 0, ForumReply = 1, ForumMention = 2, ForumAnnouncement = 3, SurveyAvailable = 4, VariantAssigned = 5, DirectMessage = 6 }
 
 public record NotificationDto(long Id, NotificationType Type, string Subject, string? ActorName, string? Link, DateTime CreatedAtUtc, bool IsRead);
 public record NotificationPageDto(List<NotificationDto> Items, int TotalCount, int UnreadCount, int Page, int PageSize);
 
-public enum ForumReactionKind { Like = 0, Heart = 1, Laugh = 2, Party = 3, Thinking = 4, Eyes = 5 }
+/// <summary>Вид чата: тема раздела, личный чат двоих, «Избранное» преподавателя.</summary>
+public enum ForumTopicKind { Section = 0, Direct = 1, Saved = 2 }
 
 public record AttachmentDto(Guid Id, string FileName, string ContentType, long SizeBytes, bool IsImage, string Url);
 public record ForumUserDto(Guid? UserId, string Name, bool IsAdmin);
 public record ForumSectionDto(int? SubjectId, string? SubjectName, int TopicCount, int UnreadTopicCount, bool CanCreateTopics);
 public record ForumTopicSummaryDto(int Id, int? SubjectId, string? SubjectName, string Title, ForumUserDto Author,
-    DateTime CreatedAtUtc, DateTime LastActivityAtUtc, int PostCount, int UnreadCount, bool IsPinned, bool IsClosed, bool IsAnnouncement);
+    DateTime CreatedAtUtc, DateTime LastActivityAtUtc, int PostCount, int UnreadCount, bool IsPinned, bool IsClosed, bool IsAnnouncement,
+    ForumTopicKind Kind = ForumTopicKind.Section, ForumUserDto? Peer = null, ForumLastPostDto? LastPost = null);
+public record ForumLastPostDto(long Id, string AuthorName, Guid? AuthorId, string Text, bool IsSticker, bool HasFiles, DateTime CreatedAtUtc);
+public record ForumFoldersDto(int PersonalCount, int PersonalUnreadCount, List<ForumSectionDto> Sections, bool CanHaveSaved, int? SavedTopicId);
+public record ForumReactionTypeDto(int Id, string Name, string? Emoji, string? ImageUrl, int SortOrder, bool IsEnabled);
+public record ForumStickerDto(int Id, string Name, string Url);
+public record ForumStickerPackDto(int Id, string Name, bool IsPublished, int SortOrder, List<ForumStickerDto> Stickers);
+public record ForumForwardDto(long PostId, int TopicId, ForumTopicKind TopicKind, string TopicTitle, string AuthorName, Guid? AuthorId);
 public record ForumTopicPageDto(List<ForumTopicSummaryDto> Items, int TotalCount, int Page, int PageSize);
 public record ForumPermissionsDto(bool CanReply, bool CanModerate, bool IsSubscribed, string? ReplyBlockedCode, DateTime? BannedUntilUtc);
 public record ForumTopicDto(ForumTopicSummaryDto Topic, List<ForumPostDto> PinnedPosts, ForumPermissionsDto Permissions, long LastReadPostId);
-public record ForumReactionSummaryDto(ForumReactionKind Kind, int Count, bool Mine);
+public record ForumReactionSummaryDto(int ReactionId, int Count, bool Mine);
 public record ForumQuoteDto(long Id, string AuthorName, string Excerpt, bool IsDeleted, Guid? AuthorId = null);
 public record ForumPostDto(long Id, int TopicId, ForumUserDto Author, string Body, ForumQuoteDto? ReplyTo, DateTime CreatedAtUtc,
     DateTime? EditedAtUtc, bool IsPinned, bool IsDeleted, List<AttachmentDto> Attachments, List<ForumReactionSummaryDto> Reactions,
-    bool CanEdit, bool CanDelete);
+    bool CanEdit, bool CanDelete, ForumStickerDto? Sticker = null, ForumForwardDto? ForwardedFrom = null);
 public record ForumPostPageDto(List<ForumPostDto> Items, int TotalCount, int Page, int PageSize);
 public record CreateForumTopicRequest(int? SubjectId, string Title, string Body, List<Guid> AttachmentIds, bool IsAnnouncement, bool IsPinned);
 public record UpdateForumTopicRequest(string? Title = null, bool? IsClosed = null, bool? IsPinned = null, bool? IsAnnouncement = null,
     bool ChangeSubject = false, int? SubjectId = null);
-public record CreateForumPostRequest(string Body, long? ReplyToPostId, List<Guid> AttachmentIds);
+public record CreateForumPostRequest(string? Body, long? ReplyToPostId, List<Guid> AttachmentIds, int? StickerId = null);
+public record SaveForumReactionRequest(string Name, string? Emoji, bool IsEnabled = true);
+public record SaveForumStickerPackRequest(string Name, bool IsPublished);
 public record UpdateForumPostRequest(string Body, List<Guid> AttachmentIds);
 public record ForumReportDto(int Id, long PostId, int TopicId, string TopicTitle, string PostExcerpt, bool PostDeleted,
     ForumUserDto PostAuthor, string ReporterName, string Reason, DateTime CreatedAtUtc);

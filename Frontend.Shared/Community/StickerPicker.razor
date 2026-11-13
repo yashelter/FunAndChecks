@@ -1,0 +1,79 @@
+@inject ForumCatalog Catalog
+
+@* Панель над полем ввода: вкладки «Стикеры» и «Эмодзи», внизу — переключатель наборов, как в мессенджерах. *@
+<div class="fc-picker" role="dialog" aria-label="@CommunityText.T("Эмодзи и стикеры", "Emoji and stickers")" @onkeydown="KeyDown">
+    <div class="fc-picker-tabs" role="tablist">
+        @if (StickersEnabled)
+        {
+            <button type="button" role="tab" aria-selected="@(_stickers ? "true" : "false")" class="@(_stickers ? "selected" : "")" @onclick="() => _stickers = true">
+                @CommunityText.T("Стикеры", "Stickers")</button>
+        }
+        <button type="button" role="tab" aria-selected="@(_stickers ? "false" : "true")" class="@(_stickers ? "" : "selected")" @onclick="() => _stickers = false">
+            @CommunityText.T("Эмодзи", "Emoji")</button>
+        <button type="button" class="fc-chat-icon" @onclick="Close" aria-label="@CommunityText.T("Закрыть", "Close")"><MudIcon Icon="@Icons.Material.Outlined.Close" Size="Size.Small" /></button>
+    </div>
+    @if (_stickers && StickersEnabled)
+    {
+        @if (_packs is null) { <div class="fc-picker-empty"><MudProgressCircular Indeterminate="true" Size="Size.Small" /></div> }
+        else if (_packs.Count == 0)
+        {
+            <div class="fc-picker-empty">@CommunityText.T("Наборов стикеров пока нет.", "No sticker packs yet.")</div>
+        }
+        else
+        {
+            var pack = _packs.FirstOrDefault(p => p.Id == _packId) ?? _packs[0];
+            <div class="fc-picker-title">@pack.Name</div>
+            <div class="fc-picker-stickers">
+                @foreach (var sticker in pack.Stickers)
+                {
+                    <button type="button" @onclick="() => Sticker.InvokeAsync(sticker)" aria-label="@CommunityText.T($"Стикер «{sticker.Name}»", $"Sticker “{sticker.Name}”")" title="@sticker.Name">
+                        <img src="@sticker.Url" alt="" loading="lazy" /></button>
+                }
+                @if (pack.Stickers.Count == 0) { <span class="fc-muted">@CommunityText.T("В наборе пусто.", "The pack is empty.")</span> }
+            </div>
+            @if (_packs.Count > 1)
+            {
+                <div class="fc-picker-packs" role="tablist" aria-label="@CommunityText.T("Наборы стикеров", "Sticker packs")">
+                    @foreach (var item in _packs)
+                    {
+                        <button type="button" role="tab" aria-selected="@(item.Id == pack.Id ? "true" : "false")" class="@(item.Id == pack.Id ? "selected" : "")"
+                                @onclick="() => _packId = item.Id" aria-label="@item.Name" title="@item.Name">
+                            @if (item.Stickers.Count > 0) { <img src="@item.Stickers[0].Url" alt="" loading="lazy" /> } else { <span>@item.Name[..1]</span> }
+                        </button>
+                    }
+                </div>
+            }
+        }
+    }
+    else
+    {
+        <div class="fc-picker-emoji">
+            @foreach (var emoji in ForumCatalog.Emoji)
+            {
+                <button type="button" @onclick="() => Emoji.InvokeAsync(emoji)" aria-label="@emoji">@emoji</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public bool StickersEnabled { get; set; } = true;
+    [Parameter] public EventCallback<string> Emoji { get; set; }
+    [Parameter] public EventCallback<ForumStickerDto> Sticker { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+    private IReadOnlyList<ForumStickerPackDto>? _packs;
+    private int _packId;
+    private bool _stickers = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stickers = StickersEnabled;
+        if (StickersEnabled) _packs = await Catalog.StickersAsync();
+        if (_packs is { Count: 0 }) _stickers = false;
+    }
+
+    private async Task KeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") await Close.InvokeAsync();
+    }
+}

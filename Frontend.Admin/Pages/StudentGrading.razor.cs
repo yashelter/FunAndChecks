@@ -33,22 +33,65 @@ public partial class StudentGrading
     private HashSet<int> _groups = [];
     private string _query = "";
     private bool _loading;
+    private bool _reworkOnly;
+    private bool _sortByProgress;
+    private bool _descending;
+
+    private int ReworkStudentCount => _students.Count(student => _progress.GetValueOrDefault(student.Id).Rework > 0);
 
     private List<StudentDetailsDto> Visible
     {
         get
         {
             IEnumerable<StudentDetailsDto> items = _students;
-            if (_groups.Count > 0) items = items.Where(s => s.GroupId is int group && _groups.Contains(group));
-            var query = _query.Trim();
+            if (_groups.Count > 0)
+            {
+                items = items.Where(s => s.GroupId is int group && _groups.Contains(group));
+            }
+            if (_reworkOnly && _taskCount > 0)
+            {
+                items = items.Where(s => _progress.GetValueOrDefault(s.Id).Rework > 0);
+            }
+            string query = _query?.Trim() ?? string.Empty;
             // Имя ищем в обоих порядках: в списке «Фамилия Имя», а набирают часто «Имя Фамилия».
             if (query.Length > 0)
+            {
                 items = items.Where(s => $"{s.LastName} {s.FirstName}".Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
                                          $"{s.FirstName} {s.LastName}".Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
                                          (s.Email?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            if (_sortByProgress && _taskCount > 0)
+            {
+                return (_descending
+                    ? items.OrderByDescending(s => _progress.GetValueOrDefault(s.Id).Accepted)
+                    : items.OrderBy(s => _progress.GetValueOrDefault(s.Id).Accepted)).ToList();
+            }
+            if (!_sortByProgress && _descending)
+            {
+                items = items.Reverse();
+            }
             return items.ToList();
         }
     }
+
+    private bool IsSortedBy(bool progress) => progress == (_sortByProgress && _taskCount > 0);
+
+    private void SortBy(bool progress)
+    {
+        _descending = IsSortedBy(progress) ? !_descending : progress;
+        _sortByProgress = progress;
+    }
+
+    private string? SortState(bool progress) => IsSortedBy(progress)
+        ? (_descending && (!_sortByProgress || progress) ? "descending" : "ascending")
+        : null;
+
+    private string SortArrow(bool progress) => SortState(progress) switch
+    {
+        "ascending" => "↑",
+        "descending" => "↓",
+        _ => "↕"
+    };
 
     /// <summary>Группы студентов предмета с числом студентов — для фильтра.</summary>
     private List<(int Id, string Name, int Count)> StudentGroups => _students.Where(s => s.GroupId.HasValue)
@@ -56,21 +99,34 @@ public partial class StudentGrading
         .Select(g => (g.Key, g.First().GroupName ?? "—", g.Count()))
         .OrderBy(g => g.Item2, StringComparer.CurrentCultureIgnoreCase).ToList();
 
-    private string GroupsText(IReadOnlyList<string> _) => _groups.Count == 0
-        ? Loc["AttendanceJournal_AllGroups"]
-        : string.Join(", ", StudentGroups.Where(g => _groups.Contains(g.Id)).Select(g => g.Name));
-
     private string GroupsKey => $"fc-grading-groups:{_subjectId}";
 
-    private async Task OnGroupsChangedAsync(IEnumerable<int>? groups)
+    private async Task SelectGroupAsync(int? groupId, CancellationToken cancellationToken = default)
     {
-        _groups = [.. groups ?? []];
+        if (groupId is not int id)
+        {
+            _groups.Clear();
+        }
+        else if (!_groups.Add(id))
+        {
+            _groups.Remove(id);
+        }
+
         try
         {
-            if (_groups.Count == 0) await JS.InvokeVoidAsync("localStorage.removeItem", GroupsKey);
-            else await JS.InvokeVoidAsync("localStorage.setItem", GroupsKey, JsonSerializer.Serialize(_groups));
+            if (_groups.Count == 0)
+            {
+                await JS.InvokeVoidAsync("localStorage.removeItem", cancellationToken, GroupsKey);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("localStorage.setItem", cancellationToken, GroupsKey, JsonSerializer.Serialize(_groups));
+            }
         }
-        catch (JSException) { /* Выбор останется до перезагрузки страницы. */ }
+        catch (JSException)
+        {
+            // The in-memory selection still applies when storage is unavailable.
+        }
     }
 
     /// <summary>Восстанавливает выбор групп для предмета, отбрасывая группы, которых в нём больше нет.</summary>
@@ -102,6 +158,7 @@ public partial class StudentGrading
 
     private async Task OnSubjectChangedAsync()
     {
+        _reworkOnly = false;
         await CurrentSubject.SetAsync(_subjectId);
         await LoadStudentsAsync();
     }
@@ -186,15 +243,6 @@ public partial class StudentGrading
 
     private bool IsGroupRestricted(StudentDetailsDto student) =>
         student.GroupId is int groupId && _restrictedGroups.Contains(groupId);
-
-    private string ProgressText(StudentDetailsDto student)
-    {
-        if (_taskCount == 0) return string.Empty;
-        var (accepted, rework) = _progress.GetValueOrDefault(student.Id);
-        return rework > 0
-            ? Loc["Grading_ProgressWithRework", accepted, _taskCount, rework]
-            : Loc["Grading_Progress", accepted, _taskCount];
-    }
 
     private void UpdateStudentColor(StudentColorUpdateDto update) =>
         _students = _students.Select(student => student.Id == update.StudentId

@@ -416,6 +416,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EditedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long?>("ForwardedFromPostId")
+                        .HasColumnType("bigint");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
@@ -431,6 +434,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<long?>("ReplyToPostId")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("StickerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("TopicId")
                         .HasColumnType("integer");
 
@@ -438,9 +444,13 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeletedById");
 
+                    b.HasIndex("ForwardedFromPostId");
+
                     b.HasIndex("PinnedById");
 
                     b.HasIndex("ReplyToPostId");
+
+                    b.HasIndex("StickerId");
 
                     b.HasIndex("AuthorId", "IsDeleted");
 
@@ -457,14 +467,110 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
-                    b.Property<int>("Kind")
+                    b.Property<int>("ReactionTypeId")
                         .HasColumnType("integer");
 
-                    b.HasKey("PostId", "UserId", "Kind");
+                    b.HasKey("PostId", "UserId", "ReactionTypeId");
+
+                    b.HasIndex("ReactionTypeId");
 
                     b.HasIndex("UserId");
 
                     b.ToTable("ForumReactions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReactionType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Emoji")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ImageContentType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<byte[]>("ImageData")
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("ImageVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ForumReactionTypes", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Emoji = "👍",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Нравится",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Emoji = "❤️",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Сердце",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Emoji = "😂",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Смешно",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Emoji = "🎉",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Праздник",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Emoji = "🤔",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Думаю",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Emoji = "👀",
+                            ImageVersion = 0,
+                            IsEnabled = true,
+                            Name = "Смотрю",
+                            SortOrder = 6
+                        });
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReport", b =>
@@ -513,6 +619,77 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("ForumReports", (string)null);
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSticker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("PackId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PackId", "SortOrder");
+
+                    b.ToTable("ForumStickers", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumStickerPack", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ForumStickerPacks", (string)null);
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSubscription", b =>
                 {
                     b.Property<int>("TopicId")
@@ -553,6 +730,10 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("DeletedById")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("DirectKey")
+                        .HasMaxLength(90)
+                        .HasColumnType("character varying(90)");
+
                     b.Property<bool>("IsAnnouncement")
                         .HasColumnType("boolean");
 
@@ -564,6 +745,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsPinned")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("LastActivityAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -585,9 +769,27 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeletedById");
 
+                    b.HasIndex("DirectKey")
+                        .IsUnique();
+
                     b.HasIndex("SubjectId", "IsDeleted", "IsPinned", "LastActivityAtUtc");
 
                     b.ToTable("ForumTopics", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicMember", b =>
+                {
+                    b.Property<int>("TopicId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TopicId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ForumTopicMembers", (string)null);
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicRead", b =>
@@ -1899,6 +2101,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DeletedById")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumPost", null)
+                        .WithMany()
+                        .HasForeignKey("ForwardedFromPostId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("PinnedById")
@@ -1907,6 +2114,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.HasOne("FunAndChecks.Domain.Entities.ForumPost", null)
                         .WithMany()
                         .HasForeignKey("ReplyToPostId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumSticker", null)
+                        .WithMany()
+                        .HasForeignKey("StickerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("FunAndChecks.Domain.Entities.ForumTopic", "Topic")
@@ -1926,6 +2138,12 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumReactionType", "ReactionType")
+                        .WithMany()
+                        .HasForeignKey("ReactionTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1933,6 +2151,8 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Post");
+
+                    b.Navigation("ReactionType");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumReport", b =>
@@ -1954,6 +2174,17 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSticker", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumStickerPack", "Pack")
+                        .WithMany("Stickers")
+                        .HasForeignKey("PackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pack");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumSubscription", b =>
@@ -1989,6 +2220,23 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Subject");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicMember", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.ForumTopic", "Topic")
+                        .WithMany("Members")
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Topic");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopicRead", b =>
@@ -2467,8 +2715,15 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Reactions");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumStickerPack", b =>
+                {
+                    b.Navigation("Stickers");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ForumTopic", b =>
                 {
+                    b.Navigation("Members");
+
                     b.Navigation("Posts");
                 });
 

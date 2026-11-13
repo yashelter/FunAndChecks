@@ -19,6 +19,9 @@ else
             : ProfileText.T("Только просмотр: изменять достижения может супер-администратор.", "View only: achievements are edited by a super administrator."))</MudText>
     </div><div class="fc-profile-heading-actions">
         @if (_dirty) { <span class="fc-fx-unsaved">@ProfileText.T("Есть несохранённые изменения", "Unsaved changes")</span> }
+        <MudButton Href="@GuideUrl" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.MenuBook">@ProfileText.T("Инструкция", "Guide")</MudButton>
+        <MudButton OnClick="CopyJsonAsync" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ContentCopy">@ProfileText.T("Скопировать JSON", "Copy JSON")</MudButton>
+        <PermissionGate Allowed="_superAdmin" Reason="@SuperOnly" Context="denied"><MudButton OnClick="OpenImport" Disabled="denied" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ContentPaste">@ProfileText.T("Вставить JSON", "Paste JSON")</MudButton></PermissionGate>
         <PermissionGate Allowed="_superAdmin" Reason="@SuperOnly" Context="denied"><MudButton OnClick="SaveAsync" Disabled="@(denied || _busy || string.IsNullOrWhiteSpace(_name))" Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Save">@(Id is null ? ProfileText.T("Создать", "Create") : ProfileText.T("Сохранить", "Save"))</MudButton></PermissionGate>
     </div></div>
     @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert> }
@@ -141,6 +144,7 @@ else
                         <tr><td><code>@@media</code></td><td><code>(prefers-reduced-motion: reduce)</code>, <code>(max-width: 600px)</code>, <code>(min-width: …)</code></td></tr>
                     </table>
                     <p class="fc-profile-hint">@ProfileText.T("Нельзя: url(), !important, кавычки вне content, вложенные правила, чужие селекторы.", "Not allowed: url(), !important, quotes outside content, nested rules, foreign selectors.")</p>
+                    <p class="fc-profile-hint"><a class="fc-profile-inline-link" href="@GuideUrl">@ProfileText.T("Полная инструкция с примерами →", "Full guide with examples →")</a></p>
                 </details>
             </section>
         </div>
@@ -187,6 +191,21 @@ else
             </section>
         </aside>
     </div>
+}
+@if (_importing && _superAdmin)
+{
+    <ProfileDialog Title="@ProfileText.T("Вставить JSON", "Paste JSON")" Close="() => _importing = false">
+        <ChildContent>
+            <p class="fc-profile-hint">@ProfileText.T("Вставьте ответ модели целиком — блок ```json найдётся сам. Поля, которых нет в JSON, не изменятся. Картинки загружаются отдельно.",
+                "Paste the model's whole answer — the ```json block is found automatically. Fields missing from the JSON stay as they are. Pictures are uploaded separately.")</p>
+            <textarea class="fc-fx-code" @bind="_importText" @bind:event="oninput" rows="14" spellcheck="false" aria-label="JSON"></textarea>
+            @if (_importError is not null) { <MudAlert Severity="Severity.Error" Class="mt-2">@_importError</MudAlert> }
+        </ChildContent>
+        <Actions>
+            <MudButton OnClick="() => _importing = false">@ProfileText.T("Отмена", "Cancel")</MudButton>
+            <MudButton OnClick="ApplyImport" Disabled="@string.IsNullOrWhiteSpace(_importText)" Variant="Variant.Filled" Color="Color.Primary">@ProfileText.T("Заполнить", "Fill in")</MudButton>
+        </Actions>
+    </ProfileDialog>
 }
 @if (_slotEditing is not null && _superAdmin && Id is not null)
 {

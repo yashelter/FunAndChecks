@@ -22,8 +22,9 @@ public class StudentsController(
     [HttpGet("accounts")]
     [Authorize(Roles = Roles.SuperAdmin)]
     public async Task<ActionResult<UserAccountPageDto>> Accounts([FromQuery] string? query,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken cancellationToken = default) =>
-        Ok(await userAccountService.GetAsync(User.GetUserId(), query, page, pageSize, cancellationToken));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] UserAccountStatus? status = null,
+        CancellationToken cancellationToken = default) =>
+        Ok(await userAccountService.GetAsync(User.GetUserId(), query, page, pageSize, status, cancellationToken));
 
     /// <summary>Удалить учётную запись без административных прав и связанные данные студента.</summary>
     [HttpDelete("accounts/{userId:guid}")]

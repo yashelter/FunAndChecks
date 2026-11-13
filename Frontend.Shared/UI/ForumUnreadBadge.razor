@@ -4,7 +4,7 @@
 @inject CommunityRealtime Realtime
 @inject NavigationManager Nav
 
-@if (_count > 0) { <span class="fc-nav-badge" aria-label="@CommunityText.T($"непрочитанных тем: {_count}", $"{_count} unread topics")">@(_count > 99 ? "99+" : _count)</span> }
+@if (_count > 0) { <span class="fc-nav-badge" aria-label="@CommunityText.T($"непрочитанных чатов: {_count}", $"{_count} unread chats")">@(_count > 99 ? "99+" : _count)</span> }
 
 @code {
     private int _count;
@@ -27,7 +27,8 @@
 
     private void Received(NotificationDto notification)
     {
-        if (notification.Type is NotificationType.ForumReply or NotificationType.ForumMention or NotificationType.ForumAnnouncement) Refresh();
+        if (notification.Type is NotificationType.ForumReply or NotificationType.ForumMention or NotificationType.ForumAnnouncement
+            or NotificationType.DirectMessage) Refresh();
     }
 
     private void Moved(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)

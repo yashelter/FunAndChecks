@@ -1,0 +1,289 @@
+@inject ForumApi Api
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject ConfirmService Confirm
+
+@* Сообщение-пузырь. Свои — справа, чужие — слева с аватаром у последнего сообщения серии.
+   Действия появляются при наведении (на сенсорных экранах видны всегда): реакция, ответ, меню. *@
+<div id="post-@Post.Id" tabindex="-1" class="fc-msg @(Mine ? "mine" : "") @(ShowAuthor ? "first" : "") @(Post.Sticker is not null && !Post.IsDeleted ? "sticker" : "")">
+    @if (!Mine && AvatarColumn)
+    {
+        <span class="fc-msg-avatar">@if (ShowAvatar) { if (Post.Author.UserId is Guid authorId) { <ProfileLink UserId="authorId"><UserAvatar UserId="authorId" Name="@Post.Author.Name" Class="fc-msg-avatar-img" /></ProfileLink> } else { <UserAvatar Name="@Post.Author.Name" Class="fc-msg-avatar-img" /> } }</span>
+    }
+    <div class="fc-msg-column">
+        <div class="fc-bubble @(Post.IsPinned ? "pinned" : "")">
+            @if (ShowAuthor && !Mine)
+            {
+                <div class="fc-msg-author fc-c@(ColorIndex(Post.Author.UserId, Post.Author.Name))">
+                    @if (Post.Author.UserId is Guid id) { <ProfileLink UserId="id">@Post.Author.Name</ProfileLink> } else { <span>@Post.Author.Name</span> }
+                    @if (Post.Author.IsAdmin) { <span class="fc-msg-role">@CommunityText.T("преподаватель", "teacher")</span> }
+                </div>
+            }
+            @if (!Post.IsDeleted && Post.ForwardedFrom is { } forward)
+            {
+                <a class="fc-msg-forward" href="@($"{BasePath}/forum/{forward.TopicId}?post={forward.PostId}")">
+                    <MudIcon Icon="@Icons.Material.Outlined.Shortcut" Size="Size.Small" />
+                    <span>@ForwardLabel(forward)</span></a>
+            }
+            @if (!Post.IsDeleted && Post.ReplyTo is { } quote)
+            {
+                <button type="button" class="fc-msg-quote fc-c@(ColorIndex(quote.AuthorId, quote.AuthorName))" @onclick="() => JumpTo.InvokeAsync(quote.Id)"
+                        aria-label="@CommunityText.T($"Ответ на сообщение {quote.AuthorName}", $"Reply to {quote.AuthorName}")">
+                    <strong>@quote.AuthorName</strong>
+                    <span>@(quote.IsDeleted ? CommunityText.T("сообщение удалено", "message deleted") : string.IsNullOrWhiteSpace(quote.Excerpt) ? CommunityText.T("Вложение или стикер", "Attachment or sticker") : ForumMarkdown.ToPlainText(quote.Excerpt))</span>
+                </button>
+            }
+            @if (Post.IsDeleted)
+            {
+                <p class="fc-msg-removed"><MudIcon Icon="@Icons.Material.Outlined.Block" Size="Size.Small" />@CommunityText.T("Сообщение удалено", "Message deleted")</p>
+            }
+            else if (_editing)
+            {
+                <PostComposer TopicId="Post.TopicId" BasePath="@BasePath" InitialBody="@Post.Body" InitialFiles="Post.Attachments" Compact="true"
+                              SubmitLabel="@CommunityText.T("Сохранить", "Save")" Cancel="() => _editing = false" Submit="SaveAsync" />
+            }
+            else
+            {
+                @if (Post.Sticker is { } sticker)
+                {
+                    <img class="fc-msg-sticker" src="@sticker.Url" alt="@CommunityText.T($"Стикер «{sticker.Name}»", $"Sticker “{sticker.Name}”")" loading="lazy" />
+                }
+                @if (Post.Attachments.Any(a => a.IsImage))
+                {
+                    <div class="fc-msg-images @(Post.Attachments.Count(a => a.IsImage) > 1 ? "grid" : "")">
+                        @foreach (var image in Post.Attachments.Where(a => a.IsImage))
+                        {
+                            <button type="button" @onclick="() => _lightbox = image" aria-label="@CommunityText.T($"Открыть {image.FileName}", $"Open {image.FileName}")">
+                                <img src="@image.Url" alt="@image.FileName" loading="lazy" /></button>
+                        }
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Post.Body)) { <MarkdownView Text="@Post.Body" BasePath="@BasePath" Class="fc-msg-text" /> }
+                @foreach (var file in Post.Attachments.Where(a => !a.IsImage))
+                {
+                    <a class="fc-msg-file" href="@file.Url" download="@file.FileName">
+                        <span class="fc-msg-file-icon"><MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" /></span>
+                        <span><strong>@file.FileName</strong><small>@CommunityText.Size(file.SizeBytes)</small></span></a>
+                }
+            }
+            <span class="fc-msg-meta">
+                @if (Post.IsPinned) { <MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" aria-label="@CommunityText.T("Закреплено", "Pinned")" /> }
+                @if (Post.EditedAtUtc is not null && !Post.IsDeleted) { <span>@CommunityText.T("изм.", "edited")</span> }
+                <time datetime="@Post.CreatedAtUtc.ToString("o")" title="@Post.CreatedAtUtc.ToLocalTime().ToString("g")">@Post.CreatedAtUtc.ToLocalTime().ToString("HH:mm")</time>
+            </span>
+        </div>
+        @if (!Post.IsDeleted && Post.Reactions.Count > 0)
+        {
+            <div class="fc-msg-reactions">
+                @foreach (var reaction in Post.Reactions)
+                {
+                    var type = Reactions.FirstOrDefault(r => r.Id == reaction.ReactionId);
+                    <button type="button" class="fc-reaction @(reaction.Mine ? "mine" : "")" aria-pressed="@(reaction.Mine ? "true" : "false")"
+                            disabled="@(type is { IsEnabled: false } && !reaction.Mine)" title="@type?.Name"
+                            @onclick="() => ReactAsync(reaction.ReactionId, !reaction.Mine)">
+                        <ReactionGlyph Reaction="type" /><span>@reaction.Count</span></button>
+                }
+            </div>
+        }
+    </div>
+    @if (!Post.IsDeleted && !_editing)
+    {
+        <div class="fc-msg-actions">
+            <span class="fc-msg-react">
+                <button type="button" class="fc-chat-icon" @ref="_reactButton" @onclick="TogglePickerAsync" aria-expanded="@(_picker ? "true" : "false")"
+                        aria-label="@CommunityText.T("Поставить реакцию", "Add a reaction")" title="@CommunityText.T("Реакция", "Reaction")">
+                    <MudIcon Icon="@Icons.Material.Outlined.AddReaction" Size="Size.Small" /></button>
+                @if (_picker)
+                {
+                    <span class="fc-reaction-options @(_pickerDown ? "down" : "")" role="group" aria-label="@CommunityText.T("Реакции", "Reactions")" @onkeydown="PickerKeyDown">
+                        @foreach (var type in Reactions.Where(r => r.IsEnabled))
+                        {
+                            <button type="button" @onclick="() => ReactAsync(type.Id, true)" aria-label="@type.Name" title="@type.Name"><ReactionGlyph Reaction="type" /></button>
+                        }
+                    </span>
+                }
+            </span>
+            @if (CanReply)
+            {
+                <button type="button" class="fc-chat-icon" @onclick="() => Reply.InvokeAsync(Post)" aria-label="@CommunityText.T("Ответить", "Reply")" title="@CommunityText.T("Ответить", "Reply")">
+                    <MudIcon Icon="@Icons.Material.Outlined.Reply" Size="Size.Small" /></button>
+            }
+            <MudMenu Icon="@Icons.Material.Outlined.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomCenter" TransformOrigin="Origin.TopCenter"
+                     aria-label="@CommunityText.T("Действия с сообщением", "Message actions")" Class="fc-msg-menu">
+                @if (CanReply) { <MudMenuItem OnClick="() => Reply.InvokeAsync(Post)" Icon="@Icons.Material.Outlined.Reply">@CommunityText.T("Ответить", "Reply")</MudMenuItem> }
+                @if (IsAdmin && TopicKind != ForumTopicKind.Saved) { <MudMenuItem OnClick="SaveToFavoritesAsync" Icon="@Icons.Material.Outlined.BookmarkAdd">@CommunityText.T("В избранное", "Save to Saved")</MudMenuItem> }
+                @if (!Mine && TopicKind != ForumTopicKind.Direct && Post.Author.UserId is Guid author) { <MudMenuItem OnClick="() => WriteTo.InvokeAsync(author)" Icon="@Icons.Material.Outlined.Chat">@CommunityText.T("Написать лично", "Message privately")</MudMenuItem> }
+                <MudMenuItem OnClick="CopyLinkAsync" Icon="@Icons.Material.Outlined.Link">@CommunityText.T("Ссылка на сообщение", "Copy link")</MudMenuItem>
+                @if (Post.CanEdit) { <MudMenuItem OnClick="() => _editing = true" Icon="@Icons.Material.Outlined.Edit">@CommunityText.T("Изменить", "Edit")</MudMenuItem> }
+                @if (CanModerate) { <MudMenuItem OnClick="TogglePinAsync" Icon="@Icons.Material.Outlined.PushPin">@(Post.IsPinned ? CommunityText.T("Открепить", "Unpin") : CommunityText.T("Закрепить", "Pin"))</MudMenuItem> }
+                @if (!Mine && TopicKind != ForumTopicKind.Saved) { <MudMenuItem OnClick="() => _reporting = true" Icon="@Icons.Material.Outlined.Flag">@CommunityText.T("Пожаловаться", "Report")</MudMenuItem> }
+                @if (CanModerate && !Mine && Post.Author.UserId is not null) { <MudMenuItem OnClick="() => _banning = true" Icon="@Icons.Material.Outlined.Block">@CommunityText.T("Ограничить автора", "Restrict author")</MudMenuItem> }
+                @if (Post.CanDelete) { <MudMenuItem OnClick="DeleteAsync" Icon="@Icons.Material.Outlined.Delete" Class="fc-danger">@CommunityText.T("Удалить", "Delete")</MudMenuItem> }
+            </MudMenu>
+        </div>
+    }
+</div>
+
+@if (_lightbox is not null)
+{
+    <ForumLightbox Image="_lightbox" Close="() => _lightbox = null" />
+}
+@if (_reporting)
+{
+    <Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Жалоба на сообщение", "Report message")" Close="() => _reporting = false" Busy="_busy">
+        <ChildContent>
+            <MudTextField T="string" @bind-Value="_reason" Label="@CommunityText.T("Что не так?", "What is wrong?")" Lines="3" MaxLength="500" Variant="Variant.Outlined" Immediate="true" />
+            <p class="fc-muted">@(TopicKind == ForumTopicKind.Direct
+                ? CommunityText.T("Жалобу на личную переписку увидит только супер-админ.", "Only a super admin will see a report from a private chat.")
+                : CommunityText.T("Жалобу увидят преподаватели этого раздела.", "Teachers of this section will see the report."))</p>
+        </ChildContent>
+        <Actions><MudButton OnClick="() => _reporting = false">@CommunityText.T("Отмена", "Cancel")</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" OnClick="ReportAsync">@CommunityText.T("Отправить", "Send")</MudButton></Actions>
+    </Frontend.Shared.Profiles.ProfileDialog>
+}
+@if (_banning)
+{
+    <Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T($"Ограничить: {Post.Author.Name}", $"Restrict {Post.Author.Name}")" Close="() => _banning = false" Busy="_busy">
+        <ChildContent>
+            <p class="fc-muted">@CommunityText.T("Пользователь сможет читать чаты, но не писать.", "The user can still read chats but not write.")</p>
+            <MudSelect T="int" @bind-Value="_banDays" Label="@CommunityText.T("Срок", "Duration")" Variant="Variant.Outlined">
+                @foreach (var days in new[] { 1, 3, 7, 30 }) { <MudSelectItem Value="days">@CommunityText.Days(days)</MudSelectItem> }
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_reason" Label="@CommunityText.T("Причина", "Reason")" MaxLength="500" Variant="Variant.Outlined" Class="mt-3" Immediate="true" />
+        </ChildContent>
+        <Actions><MudButton OnClick="() => _banning = false">@CommunityText.T("Отмена", "Cancel")</MudButton>
+            <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="_busy" OnClick="BanAsync">@CommunityText.T("Ограничить", "Restrict")</MudButton></Actions>
+    </Frontend.Shared.Profiles.ProfileDialog>
+}
+
+@code {
+    [Parameter, EditorRequired] public ForumPostDto Post { get; set; } = default!;
+    [Parameter] public Guid ViewerId { get; set; }
+    [Parameter] public bool IsAdmin { get; set; }
+    [Parameter] public bool CanModerate { get; set; }
+    [Parameter] public bool CanReply { get; set; }
+    [Parameter] public ForumTopicKind TopicKind { get; set; }
+    [Parameter] public string BasePath { get; set; } = "/student";
+    /// <summary>Первое сообщение серии одного автора — показать имя.</summary>
+    [Parameter] public bool ShowAuthor { get; set; } = true;
+    /// <summary>Последнее сообщение серии — показать аватар.</summary>
+    [Parameter] public bool ShowAvatar { get; set; } = true;
+    /// <summary>Колонка под аватары: в личном чате и «Избранном» не нужна.</summary>
+    [Parameter] public bool AvatarColumn { get; set; } = true;
+    [Parameter] public IReadOnlyList<ForumReactionTypeDto> Reactions { get; set; } = [];
+    [Parameter] public EventCallback<ForumPostDto> Reply { get; set; }
+    [Parameter] public EventCallback<long> JumpTo { get; set; }
+    [Parameter] public EventCallback<Guid> WriteTo { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    private bool _editing, _picker, _pickerDown, _reporting, _banning, _busy;
+    private ElementReference _reactButton;
+    private AttachmentDto? _lightbox;
+    private string? _reason;
+    private int _banDays = 1;
+    private bool Mine => Post.Author.UserId == ViewerId;
+
+    /// <summary>Цвет имени по человеку — одинаковый во всех чатах.</summary>
+    public static int ColorIndex(Guid? userId, string name)
+    {
+        var key = userId?.ToString() ?? name;
+        var hash = 0;
+        foreach (var c in key) hash = unchecked(hash * 31 + c);
+        return Math.Abs(hash % 7);
+    }
+
+    private static string ForwardLabel(ForumForwardDto forward) => forward.TopicKind switch
+    {
+        ForumTopicKind.Section => CommunityText.T($"Переслано из «{forward.TopicTitle}» · {forward.AuthorName}", $"Forwarded from “{forward.TopicTitle}” · {forward.AuthorName}"),
+        _ => CommunityText.T($"Переслано из личного чата · {forward.AuthorName}", $"Forwarded from a private chat · {forward.AuthorName}"),
+    };
+
+    private async Task TogglePickerAsync()
+    {
+        _picker = !_picker;
+        if (!_picker) return;
+        try
+        {
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+            // У верхнего края ленты панель вверх не помещается — открываем её вниз.
+            _pickerDown = await module.InvokeAsync<double>("spaceAbove", _reactButton) < 110;
+        }
+        catch (JSException) { _pickerDown = false; }
+    }
+
+    private void PickerKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") _picker = false;
+    }
+
+    private async Task<bool> SaveAsync(string body, List<Guid> files)
+    {
+        try
+        {
+            Post = await Api.UpdatePostAsync(Post.Id, new(body, files));
+            _editing = false;
+            return true;
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); return false; }
+    }
+
+    private async Task ReactAsync(int reactionId, bool active)
+    {
+        _picker = false;
+        // Повторный выбор уже поставленной реакции снимает её — как в мессенджерах.
+        if (active && Post.Reactions.Any(r => r.ReactionId == reactionId && r.Mine)) active = false;
+        try { Post = Post with { Reactions = await Api.ReactAsync(Post.Id, reactionId, active) }; }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+    }
+
+    private async Task SaveToFavoritesAsync()
+    {
+        try
+        {
+            await Api.ForwardAsync(Post.Id, null, true);
+            Snackbar.Add(CommunityText.T("Сохранено в «Избранном»", "Saved"), Severity.Success);
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+    }
+
+    private async Task TogglePinAsync()
+    {
+        try { await Api.PinAsync(Post.Id, !Post.IsPinned); await Changed.InvokeAsync(); }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!await Confirm.ConfirmAsync(CommunityText.T("Удалить сообщение?", "Delete the message?"), CommunityText.T("Это нельзя отменить.", "This cannot be undone."))) return;
+        try { await Api.DeletePostAsync(Post.Id); await Changed.InvokeAsync(); }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        var url = Nav.ToAbsoluteUri($"{BasePath}/forum/{Post.TopicId}?post={Post.Id}").ToString();
+        await using var module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        if (await module.InvokeAsync<bool>("copyText", url)) Snackbar.Add(CommunityText.T("Ссылка скопирована", "Link copied"), Severity.Success);
+    }
+
+    private async Task ReportAsync()
+    {
+        _busy = true;
+        try { await Api.ReportAsync(Post.Id, _reason!); _reporting = false; _reason = null; Snackbar.Add(CommunityText.T("Жалоба отправлена", "Report sent"), Severity.Success); }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private async Task BanAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Api.BanAsync(Post.Author.UserId!.Value, DateTime.UtcNow.AddDays(_banDays), _reason);
+            _banning = false; _reason = null;
+            Snackbar.Add(CommunityText.T("Автор не сможет писать до окончания срока", "The author cannot post until the restriction ends"), Severity.Success);
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _busy = false; }
+    }
+}

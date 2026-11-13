@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IForumAccess, ForumAccess>();
         services.AddScoped<IForumService, ForumService>();
         services.AddScoped<IForumModerationService, ForumModerationService>();
+        services.AddScoped<IForumCatalogService, ForumCatalogService>();
         services.AddScoped<ISurveyService, SurveyService>();
         services.AddScoped<ISurveyAdminService, SurveyAdminService>();
 

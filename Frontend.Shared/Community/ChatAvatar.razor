@@ -1,0 +1,38 @@
+@* Аватар чата: собеседник, закладка «Избранного», рупор канала объявлений или цветные инициалы темы. *@
+<span class="fc-chat-avatar @Class @(Topic.Kind == ForumTopicKind.Direct ? "" : $"fc-bg{ColorIndex}")" aria-hidden="true">
+    @switch (Topic.Kind)
+    {
+        case ForumTopicKind.Saved:
+            <MudIcon Icon="@Icons.Material.Filled.Bookmark" />
+            break;
+        case ForumTopicKind.Direct:
+            <UserAvatar UserId="Topic.Peer?.UserId" Name="@TitleOf(Topic)" Class="fc-chat-avatar-img" />
+            break;
+        default:
+            if (Topic.IsAnnouncement) { <MudIcon Icon="@Icons.Material.Outlined.Campaign" /> }
+            else { <span>@Initials(Topic.Title)</span> }
+            break;
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public ForumTopicSummaryDto Topic { get; set; } = default!;
+    [Parameter] public string? Class { get; set; }
+
+    private int ColorIndex => Topic.Kind == ForumTopicKind.Saved ? 0 : ChatMessage.ColorIndex(null, Topic.Title);
+
+    public static string TitleOf(ForumTopicSummaryDto topic) => topic.Kind switch
+    {
+        ForumTopicKind.Saved => CommunityText.T("Избранное", "Saved"),
+        ForumTopicKind.Direct => string.IsNullOrWhiteSpace(topic.Title) ? CommunityText.T("Удалённый аккаунт", "Deleted account") : topic.Title,
+        _ => topic.Title,
+    };
+
+    private static string Initials(string title)
+    {
+        var words = title.Split([' ', '-', '—', '.', ','], StringSplitOptions.RemoveEmptyEntries);
+        var letters = words.Take(2).Select(w => char.ToUpperInvariant(w[0]));
+        var result = string.Concat(letters);
+        return result.Length == 0 ? "#" : result;
+    }
+}

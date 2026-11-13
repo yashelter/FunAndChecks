@@ -10,8 +10,8 @@ public class UserAccountService(IApplicationDbContext db, IIdentityService ident
     IResultsCacheService cache, IQueueNotifier queueNotifier, ILogger<UserAccountService> logger) : IUserAccountService
 {
     public Task<UserAccountPageDto> GetAsync(Guid actingAdminId, string? query, int page, int pageSize,
-        CancellationToken cancellationToken = default) =>
-        identity.GetNonAdminAccountsAsync(actingAdminId, query, page, pageSize, cancellationToken);
+        UserAccountStatus? status = null, CancellationToken cancellationToken = default) =>
+        identity.GetNonAdminAccountsAsync(actingAdminId, query, page, pageSize, status, cancellationToken);
 
     public async Task DeleteAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default)
     {

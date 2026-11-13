@@ -1,0 +1,257 @@
+@page "/admin/forum/stickers"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@inject ForumApi Api
+@inject ForumCatalog Catalog
+@inject ISnackbar Snackbar
+@inject ConfirmService Confirm
+
+<PageTitle>@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</PageTitle>
+<div class="fc-page-heading"><div>
+    <MudText Typo="Typo.h4">@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</MudText>
+    <MudText Class="fc-muted">@CommunityText.T("Наборы видят все пользователи чатов. Менять их может только супер-админ.", "Everyone in chats sees these sets. Only a super admin can change them.")</MudText>
+</div>
+    <div class="fc-profile-heading-actions"><MudButton Href="/admin/forum" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ArrowBack">@CommunityText.T("К чатам", "Back to chats")</MudButton></div>
+</div>
+
+<div class="fc-catalog">
+    <section class="fc-panel fc-catalog-reactions" aria-labelledby="reactions-title">
+        <div class="fc-catalog-head">
+            <h2 id="reactions-title">@CommunityText.T("Реакции", "Reactions")</h2>
+        </div>
+        <p class="fc-muted">@CommunityText.T("Порядок здесь — порядок в панели реакций. Выключенная реакция пропадает из панели, но поставленные остаются; удаление стирает и их.",
+            "This order is the order in the picker. A turned-off reaction leaves the picker but keeps existing marks; deleting removes them too.")</p>
+        <div class="fc-catalog-add">
+            <input class="fc-input fc-catalog-emoji" @bind="_newEmoji" maxlength="16" placeholder="🔥" aria-label="@CommunityText.T("Эмодзи", "Emoji")" />
+            <input class="fc-input" @bind="_newName" maxlength="40" placeholder="@CommunityText.T("Название, например «Огонь»", "Name, e.g. “Fire”")" aria-label="@CommunityText.T("Название", "Name")" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddReactionAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_newName))">@CommunityText.T("Добавить", "Add")</MudButton>
+        </div>
+        <p class="fc-muted fc-catalog-note">@CommunityText.T("Без эмодзи реакция показывается картинкой — загрузите её кнопкой с изображением (WebP, GIF, PNG, JPEG до 256 КБ).",
+            "Without an emoji the reaction shows a picture — upload it with the image button (WebP, GIF, PNG, JPEG up to 256 KB).")</p>
+        @if (_reactions is null) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+        else
+        {
+            <ul class="fc-catalog-list">
+                @for (var i = 0; i < _reactions.Count; i++)
+                {
+                    var index = i;
+                    var reaction = _reactions[i];
+                    <li class="@(reaction.IsEnabled ? "" : "off")">
+                        <span class="fc-catalog-order">
+                            <button type="button" class="fc-chat-icon" disabled="@(index == 0 || _busy)" @onclick="() => MoveReactionAsync(index, -1)" aria-label="@CommunityText.T("Выше", "Up")"><MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" /></button>
+                            <button type="button" class="fc-chat-icon" disabled="@(index == _reactions.Count - 1 || _busy)" @onclick="() => MoveReactionAsync(index, 1)" aria-label="@CommunityText.T("Ниже", "Down")"><MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" /></button>
+                        </span>
+                        <span class="fc-catalog-glyph"><ReactionGlyph Reaction="reaction" /></span>
+                        <span class="fc-catalog-name"><strong>@reaction.Name</strong><small>@(reaction.ImageUrl is not null ? CommunityText.T("Своя картинка", "Custom picture") : CommunityText.T("Эмодзи", "Emoji"))</small></span>
+                        <MudSwitch T="bool" Value="reaction.IsEnabled" ValueChanged="value => ToggleReactionAsync(reaction, value)" Color="Color.Primary" Disabled="_busy"
+                                   aria-label="@CommunityText.T("Включена", "Enabled")" />
+                        <label class="fc-chat-icon" title="@CommunityText.T("Загрузить картинку", "Upload a picture")">
+                            <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" />
+                            <InputFile class="fc-hidden-input" accept="image/webp,image/gif,image/png,image/jpeg" OnChange="args => UploadReactionImageAsync(reaction, args)" />
+                        </label>
+                        @if (reaction.ImageUrl is not null && reaction.Emoji is not null)
+                        {
+                            <button type="button" class="fc-chat-icon" @onclick="() => RemoveReactionImageAsync(reaction)" title="@CommunityText.T("Убрать картинку", "Remove picture")"
+                                    aria-label="@CommunityText.T("Убрать картинку", "Remove picture")"><MudIcon Icon="@Icons.Material.Outlined.HideImage" Size="Size.Small" /></button>
+                        }
+                        <button type="button" class="fc-chat-icon fc-danger" @onclick="() => DeleteReactionAsync(reaction)" title="@CommunityText.T("Удалить", "Delete")"
+                                aria-label="@CommunityText.T("Удалить", "Delete")"><MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" /></button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section class="fc-panel fc-catalog-packs" aria-labelledby="stickers-title">
+        <div class="fc-catalog-packlist">
+            <h2 id="stickers-title">@CommunityText.T("Наборы стикеров", "Sticker packs")</h2>
+            @foreach (var pack in _packs ?? [])
+            {
+                <button type="button" class="fc-catalog-pack @(pack.Id == _selected?.Id ? "selected" : "")" @onclick="() => Select(pack)">
+                    @if (pack.Stickers.Count > 0) { <img src="@pack.Stickers[0].Url" alt="" /> } else { <span class="fc-catalog-pack-empty"><MudIcon Icon="@Icons.Material.Outlined.EmojiEmotions" Size="Size.Small" /></span> }
+                    <span><strong>@pack.Name</strong><small class="@(pack.IsPublished ? "" : "draft")">@CommunityText.Plural(pack.Stickers.Count, "стикер", "стикера", "стикеров", "sticker", "stickers") · @(pack.IsPublished ? CommunityText.T("опубликован", "published") : CommunityText.T("черновик", "draft"))</small></span>
+                </button>
+            }
+            <div class="fc-catalog-newpack">
+                <input class="fc-input" @bind="_newPack" maxlength="60" placeholder="@CommunityText.T("Название набора", "Pack name")" aria-label="@CommunityText.T("Название нового набора", "New pack name")" />
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Add" OnClick="AddPackAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_newPack))">@CommunityText.T("Новый набор", "New pack")</MudButton>
+            </div>
+        </div>
+        <div class="fc-catalog-editor">
+            @if (_selected is null)
+            {
+                <p class="fc-muted">@CommunityText.T("Создайте набор или выберите его слева.", "Create a pack or pick one on the left.")</p>
+            }
+            else
+            {
+                <div class="fc-catalog-packform">
+                    <MudTextField T="string" @bind-Value="_packName" Label="@CommunityText.T("Название набора", "Pack name")" MaxLength="60" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <MudSwitch T="bool" @bind-Value="_packPublished" Color="Color.Primary" Label="@CommunityText.T("Опубликован", "Published")" />
+                </div>
+                <div class="fc-catalog-stickers">
+                    @for (var i = 0; i < _selected.Stickers.Count; i++)
+                    {
+                        var index = i;
+                        var sticker = _selected.Stickers[i];
+                        <figure>
+                            <img src="@sticker.Url" alt="@sticker.Name" loading="lazy" />
+                            <figcaption>@sticker.Name</figcaption>
+                            <span class="fc-catalog-sticker-actions">
+                                <button type="button" class="fc-chat-icon" disabled="@(index == 0 || _busy)" @onclick="() => MoveStickerAsync(index, -1)" aria-label="@CommunityText.T("Раньше", "Earlier")"><MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" Size="Size.Small" /></button>
+                                <button type="button" class="fc-chat-icon fc-danger" disabled="_busy" @onclick="() => DeleteStickerAsync(sticker)" aria-label="@CommunityText.T("Удалить стикер", "Delete sticker")"><MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" /></button>
+                                <button type="button" class="fc-chat-icon" disabled="@(index == _selected.Stickers.Count - 1 || _busy)" @onclick="() => MoveStickerAsync(index, 1)" aria-label="@CommunityText.T("Позже", "Later")"><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" /></button>
+                            </span>
+                        </figure>
+                    }
+                    <label class="fc-catalog-upload @(_uploading > 0 ? "busy" : "")">
+                        @if (_uploading > 0) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> } else { <MudIcon Icon="@Icons.Material.Outlined.Upload" /> }
+                        <span>@CommunityText.T("Загрузить", "Upload")</span>
+                        <InputFile class="fc-hidden-input" multiple accept="image/webp,image/gif,image/png,image/jpeg" OnChange="UploadStickersAsync" />
+                    </label>
+                </div>
+                <p class="fc-muted fc-catalog-note">@CommunityText.T("WebP, GIF, PNG или JPEG до 1 МБ; анимация в GIF и WebP сохраняется. Подпись — имя файла. Можно выбрать сразу несколько файлов. Удалённый стикер остаётся в уже отправленных сообщениях.",
+                    "WebP, GIF, PNG or JPEG up to 1 MB; GIF and WebP animation is kept. The caption is the file name. You can pick several files at once. A deleted sticker stays in messages already sent.")</p>
+                <div class="fc-catalog-actions">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DeletePackAsync" Disabled="_busy">@CommunityText.T("Удалить набор", "Delete pack")</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePackAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_packName))">@CommunityText.T("Сохранить", "Save")</MudButton>
+                </div>
+            }
+        </div>
+    </section>
+</div>
+
+@code {
+    private const long MaxSticker = 1024 * 1024;
+    private const long MaxReactionImage = 256 * 1024;
+    private List<ForumReactionTypeDto>? _reactions;
+    private List<ForumStickerPackDto>? _packs;
+    private ForumStickerPackDto? _selected;
+    private string? _newEmoji, _newName, _newPack, _packName;
+    private bool _packPublished, _busy;
+    private int _uploading;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _reactions = await Api.ReactionTypesAsync();
+            _packs = await Api.AllStickerPacksAsync();
+            if (_selected is not null) Select(_packs.FirstOrDefault(p => p.Id == _selected.Id) ?? _packs.FirstOrDefault(), keepForm: true);
+            else if (_packs.Count > 0) Select(_packs[0]);
+            Catalog.Invalidate();
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+    }
+
+    private void Select(ForumStickerPackDto? pack, bool keepForm = false)
+    {
+        var same = pack?.Id == _selected?.Id;
+        _selected = pack;
+        if (pack is not null && !(keepForm && same)) { _packName = pack.Name; _packPublished = pack.IsPublished; }
+    }
+
+    private async Task RunAsync(Func<Task> action, string? done = null)
+    {
+        _busy = true;
+        try
+        {
+            await action();
+            await LoadAsync();
+            if (done is not null) Snackbar.Add(done, Severity.Success);
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private Task AddReactionAsync() => RunAsync(async () =>
+    {
+        await Api.CreateReactionAsync(new(_newName!.Trim(), string.IsNullOrWhiteSpace(_newEmoji) ? null : _newEmoji.Trim()));
+        _newName = _newEmoji = null;
+    });
+
+    private Task ToggleReactionAsync(ForumReactionTypeDto reaction, bool enabled) =>
+        RunAsync(() => Api.UpdateReactionAsync(reaction.Id, new(reaction.Name, reaction.Emoji, enabled)));
+
+    private Task MoveReactionAsync(int index, int delta) => RunAsync(async () =>
+    {
+        var ids = _reactions!.Select(r => r.Id).ToList();
+        (ids[index], ids[index + delta]) = (ids[index + delta], ids[index]);
+        await Api.ReorderReactionsAsync(ids);
+    });
+
+    private Task UploadReactionImageAsync(ForumReactionTypeDto reaction, InputFileChangeEventArgs args) => RunAsync(async () =>
+    {
+        var file = args.File;
+        if (file.Size > MaxReactionImage) { Snackbar.Add(CommunityText.T("Картинка реакции — до 256 КБ.", "A reaction picture must be at most 256 KB."), Severity.Warning); return; }
+        await using var stream = file.OpenReadStream(MaxReactionImage);
+        await Api.SetReactionImageAsync(reaction.Id, stream, file.Name, file.ContentType);
+    });
+
+    private Task RemoveReactionImageAsync(ForumReactionTypeDto reaction) => RunAsync(() => Api.RemoveReactionImageAsync(reaction.Id));
+
+    private async Task DeleteReactionAsync(ForumReactionTypeDto reaction)
+    {
+        if (!await Confirm.ConfirmAsync(CommunityText.T($"Удалить реакцию «{reaction.Name}»?", $"Delete the “{reaction.Name}” reaction?"),
+                CommunityText.T("Все поставленные ею отметки тоже пропадут. Чтобы их сохранить, реакцию лучше выключить.",
+                    "All marks made with it disappear too. To keep them, turn the reaction off instead."))) return;
+        await RunAsync(() => Api.DeleteReactionAsync(reaction.Id));
+    }
+
+    private async Task AddPackAsync()
+    {
+        _busy = true;
+        try
+        {
+            var pack = await Api.CreateStickerPackAsync(new(_newPack!.Trim(), false));
+            _newPack = null;
+            _selected = pack;
+            _packName = pack.Name;
+            _packPublished = false;
+            await LoadAsync();
+        }
+        catch (ApiException ex) { Snackbar.Add(CommunityText.Error(ex), Severity.Error); }
+        finally { _busy = false; }
+    }
+
+    private Task SavePackAsync() =>
+        RunAsync(() => Api.UpdateStickerPackAsync(_selected!.Id, new(_packName!.Trim(), _packPublished)), CommunityText.T("Набор сохранён", "Pack saved"));
+
+    private async Task DeletePackAsync()
+    {
+        if (_selected is null || !await Confirm.ConfirmDeleteAsync(_selected.Name)) return;
+        var id = _selected.Id;
+        _selected = null;
+        await RunAsync(() => Api.DeleteStickerPackAsync(id));
+    }
+
+    private async Task UploadStickersAsync(InputFileChangeEventArgs args)
+    {
+        if (_selected is null) return;
+        foreach (var file in args.GetMultipleFiles(Math.Max(1, args.FileCount)))
+        {
+            if (file.Size > MaxSticker) { Snackbar.Add(CommunityText.T($"«{file.Name}» больше 1 МБ.", $"“{file.Name}” is larger than 1 MB."), Severity.Warning); continue; }
+            _uploading++;
+            StateHasChanged();
+            try
+            {
+                await using var stream = file.OpenReadStream(MaxSticker);
+                await Api.AddStickerAsync(_selected.Id, stream, file.Name, file.ContentType);
+            }
+            catch (ApiException ex) { Snackbar.Add($"{file.Name}: {CommunityText.Error(ex)}", Severity.Error); }
+            catch (IOException) { Snackbar.Add(CommunityText.T("Не удалось прочитать файл.", "Could not read the file."), Severity.Error); }
+            finally { _uploading--; }
+        }
+        await LoadAsync();
+    }
+
+    private Task MoveStickerAsync(int index, int delta) => RunAsync(async () =>
+    {
+        var ids = _selected!.Stickers.Select(s => s.Id).ToList();
+        (ids[index], ids[index + delta]) = (ids[index + delta], ids[index]);
+        await Api.ReorderStickersAsync(_selected.Id, ids);
+    });
+
+    private Task DeleteStickerAsync(ForumStickerDto sticker) => RunAsync(() => Api.DeleteStickerAsync(sticker.Id));
+}

@@ -48,4 +48,7 @@ public interface IUserNotifier
 public interface IForumNotifier
 {
     Task TopicChangedAsync(ForumTopicEventDto update, CancellationToken cancellationToken = default);
+
+    /// <summary>Подсказка перечитать список чатов: null — всем на форуме (тема раздела), иначе только участникам.</summary>
+    Task ChatsChangedAsync(IReadOnlyCollection<Guid>? userIds, CancellationToken cancellationToken = default);
 }

@@ -29,8 +29,10 @@ public class CreateForumPostRequestValidator : AbstractValidator<CreateForumPost
     public CreateForumPostRequestValidator()
     {
         RuleFor(r => r.Body).MaximumLength(ForumValidation.MaxBody);
-        RuleFor(r => r).Must(r => !string.IsNullOrWhiteSpace(r.Body) || r.AttachmentIds is { Count: > 0 })
+        RuleFor(r => r).Must(r => !string.IsNullOrWhiteSpace(r.Body) || r.AttachmentIds is { Count: > 0 } || r.StickerId is not null)
             .WithErrorCode("forum_post_empty").WithMessage("Write a message or attach a file.");
+        RuleFor(r => r).Must(r => r.StickerId is null || (string.IsNullOrWhiteSpace(r.Body) && r.AttachmentIds is not { Count: > 0 }))
+            .WithErrorCode("forum_sticker_alone").WithMessage("A sticker is sent on its own, without text or files.");
         RuleFor(r => r.AttachmentIds).Must(ForumValidation.ValidAttachments)
             .WithErrorCode("forum_attachments_invalid").WithMessage($"Attach at most {AttachmentContent.MaxPerPost} different files.");
     }

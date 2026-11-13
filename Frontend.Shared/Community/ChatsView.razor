@@ -1,0 +1,108 @@
+@* Чаты в духе мессенджера: слева список с папками и поиском, справа открытый чат.
+   На телефоне видна одна колонка: список, а при открытом чате — сам чат с кнопкой «назад». *@
+<PageTitle>@CommunityText.T("Чаты", "Chats")</PageTitle>
+<div class="fc-chats @(TopicId is null ? "" : "has-chat")">
+    <aside class="fc-chats-list" aria-label="@CommunityText.T("Список чатов", "Chat list")">
+        <div class="fc-chats-head">
+            <h1>@CommunityText.T("Чаты", "Chats")</h1>
+            @if (IsAdmin)
+            {
+                <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Size="Size.Small"
+                         aria-label="@CommunityText.T("Ещё", "More")">
+                    <MudMenuItem Href="/admin/forum/moderation" Icon="@Icons.Material.Outlined.Flag">@CommunityText.T("Жалобы и ограничения", "Reports and restrictions")</MudMenuItem>
+                    @if (_isSuper) { <MudMenuItem Href="/admin/forum/stickers" Icon="@Icons.Material.Outlined.EmojiEmotions">@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</MudMenuItem> }
+                </MudMenu>
+            }
+            <button type="button" class="fc-chats-new" @onclick="() => _creating = true" aria-label="@CommunityText.T("Новый чат", "New chat")" title="@CommunityText.T("Новый чат", "New chat")">
+                <MudIcon Icon="@Icons.Material.Outlined.EditNote" /></button>
+        </div>
+        <label class="fc-chats-search">
+            <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" />
+            <input type="search" placeholder="@CommunityText.T("Поиск по чатам и сообщениям", "Search chats and messages")" aria-label="@CommunityText.T("Поиск", "Search")"
+                   @bind="_search" @bind:event="oninput" @bind:after="SearchChangedAsync" />
+        </label>
+        @if (_folders is not null && Folders.Count > 1)
+        {
+            <div class="fc-chats-folders" role="tablist" aria-label="@CommunityText.T("Папки", "Folders")">
+                @foreach (var folder in Folders)
+                {
+                    <button type="button" role="tab" aria-selected="@(folder.Key == _folder ? "true" : "false")" class="@(folder.Key == _folder ? "selected" : "")"
+                            @onclick="() => SelectFolderAsync(folder.Key)">
+                        @folder.Name
+                        @if (folder.Unread > 0) { <span class="fc-chats-folder-count">@folder.Unread</span> }
+                    </button>
+                }
+            </div>
+        }
+        <div class="fc-chats-items">
+            @if (_error is not null) { <p class="fc-chats-note">@_error</p> }
+            else if (_page is null) { <div class="fc-chats-note"><MudProgressCircular Indeterminate="true" Size="Size.Small" /></div> }
+            else
+            {
+                @if (ShowSavedShortcut)
+                {
+                    <button type="button" class="fc-chats-row" @onclick="OpenSavedAsync">
+                        <span class="fc-chat-avatar fc-bg0" aria-hidden="true"><MudIcon Icon="@Icons.Material.Filled.Bookmark" /></span>
+                        <span class="fc-chats-row-main">
+                            <span class="fc-chats-row-top"><strong>@CommunityText.T("Избранное", "Saved")</strong></span>
+                            <span class="fc-chats-row-bottom"><span class="fc-chats-preview">@CommunityText.T("Заметки и сохранённые сообщения", "Notes and saved messages")</span></span>
+                        </span>
+                    </button>
+                }
+                @foreach (var chat in _page.Items)
+                {
+                    <a class="fc-chats-row @(chat.Id == TopicId ? "selected" : "") @(chat.UnreadCount > 0 ? "unread" : "")" href="@($"{BasePath}/forum/{chat.Id}")"
+                       aria-current="@(chat.Id == TopicId ? "page" : null)">
+                        <ChatAvatar Topic="chat" />
+                        <span class="fc-chats-row-main">
+                            <span class="fc-chats-row-top">
+                                <strong>@ChatAvatar.TitleOf(chat)</strong>
+                                @if (chat.IsClosed) { <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" aria-label="@CommunityText.T("Закрыт", "Closed")" /> }
+                                <time>@ListTime(chat.LastPost?.CreatedAtUtc ?? chat.LastActivityAtUtc)</time>
+                            </span>
+                            <span class="fc-chats-row-bottom">
+                                <span class="fc-chats-preview">
+                                    @if (_folder == "all" && chat.Kind == ForumTopicKind.Section) { <span class="fc-chats-section">@(chat.SubjectName ?? CommunityText.T("Общее", "General"))</span> }
+                                    @Preview(chat)
+                                </span>
+                                @if (chat.IsPinned || chat.Kind == ForumTopicKind.Saved) { <MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" Class="fc-chats-pin" aria-label="@CommunityText.T("Закреплён", "Pinned")" /> }
+                                @if (chat.UnreadCount > 0) { <span class="fc-chats-unread" aria-label="@CommunityText.T($"непрочитанных: {chat.UnreadCount}", $"{chat.UnreadCount} unread")">@(chat.UnreadCount > 99 ? "99+" : chat.UnreadCount)</span> }
+                            </span>
+                        </span>
+                    </a>
+                }
+                @if (_page.Items.Count == 0 && !ShowSavedShortcut)
+                {
+                    <div class="fc-chats-note">
+                        <MudIcon Icon="@Icons.Material.Outlined.Forum" />
+                        <p>@(string.IsNullOrWhiteSpace(_search) ? CommunityText.T("Здесь пока нет чатов.", "No chats here yet.") : CommunityText.T("Ничего не нашлось.", "Nothing found."))</p>
+                        @if (string.IsNullOrWhiteSpace(_search)) { <button type="button" class="fc-text-button" @onclick="() => _creating = true">@CommunityText.T("Начать чат", "Start a chat")</button> }
+                    </div>
+                }
+                @if (_page.TotalCount > _page.Items.Count)
+                {
+                    <button type="button" class="fc-text-button fc-chats-more" @onclick="MoreAsync">@CommunityText.T("Показать ещё", "Show more")</button>
+                }
+            }
+        </div>
+    </aside>
+    <div class="fc-chat-panel">
+        @if (TopicId is int topicId)
+        {
+            <ChatPane @key="topicId" @ref="_pane" TopicId="topicId" PostId="PostId" IsAdmin="IsAdmin" ViewerId="_viewerId" Live="_live" ListChanged="ScheduleReload" />
+        }
+        else
+        {
+            <div class="fc-chat-placeholder">
+                <MudIcon Icon="@Icons.Material.Outlined.Forum" />
+                <p>@CommunityText.T("Выберите чат слева или начните новый.", "Pick a chat on the left or start a new one.")</p>
+                <button type="button" class="fc-text-button" @onclick="() => _creating = true">@CommunityText.T("Новый чат", "New chat")</button>
+            </div>
+        }
+    </div>
+</div>
+
+@if (_creating)
+{
+    <NewChatDialog IsAdmin="IsAdmin" Sections="CreatableSections" Close="() => _creating = false" Opened="ChatOpened" />
+}

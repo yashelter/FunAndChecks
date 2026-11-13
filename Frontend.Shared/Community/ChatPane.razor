@@ -1,0 +1,151 @@
+@* Открытый чат: шапка, закреплённое сообщение, лента пузырей с разделителями дат и непрочитанного, строка ввода. *@
+<section class="fc-chat" aria-label="@Title">
+    <header class="fc-chat-header">
+        <a class="fc-chat-icon fc-chat-back" href="@($"{BasePath}/forum")" aria-label="@CommunityText.T("К списку чатов", "Back to chats")">
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" /></a>
+        @if (_topic is not null)
+        {
+            <ChatAvatar Topic="_topic.Topic" />
+            <div class="fc-chat-title">
+                @if (_renaming)
+                {
+                    <div class="fc-chat-rename">
+                        <input class="fc-input" @bind="_title" @bind:event="oninput" maxlength="200" aria-label="@CommunityText.T("Название", "Title")" />
+                        <button type="button" class="fc-text-button" @onclick="RenameAsync">@CommunityText.T("Сохранить", "Save")</button>
+                        <button type="button" class="fc-text-button" @onclick="() => _renaming = false">@CommunityText.T("Отмена", "Cancel")</button>
+                    </div>
+                }
+                else
+                {
+                    <h2>@Title @if (_topic.Topic.IsClosed) { <MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" aria-label="@CommunityText.T("Закрыт", "Closed")" /> }</h2>
+                    <small>@Subtitle @if (!Live) { <span class="fc-chat-offline" title="@CommunityText.T("Новые сообщения появятся после обновления", "New messages appear after a refresh")">· @CommunityText.T("без живых обновлений", "offline")</span> }</small>
+                }
+            </div>
+            <div class="fc-chat-header-actions">
+                @if (_topic.Topic.Kind == ForumTopicKind.Section)
+                {
+                    <button type="button" class="fc-chat-icon" @onclick="ToggleSubscriptionAsync"
+                            aria-label="@(_topic.Permissions.IsSubscribed ? CommunityText.T("Не присылать уведомления", "Mute notifications") : CommunityText.T("Присылать уведомления", "Notify me"))"
+                            title="@(_topic.Permissions.IsSubscribed ? CommunityText.T("Уведомления включены", "Notifications on") : CommunityText.T("Уведомления выключены", "Notifications off"))">
+                        <MudIcon Icon="@(_topic.Permissions.IsSubscribed ? Icons.Material.Outlined.NotificationsActive : Icons.Material.Outlined.NotificationsOff)" /></button>
+                }
+                @if (_topic.Topic.Kind == ForumTopicKind.Direct && _topic.Topic.Peer?.UserId is Guid peer)
+                {
+                    <ProfileLink UserId="peer" Class="fc-chat-icon"><MudIcon Icon="@Icons.Material.Outlined.Person" /></ProfileLink>
+                }
+                @if (_topic.Permissions.CanModerate)
+                {
+                    var summary = _topic.Topic;
+                    <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" aria-label="@CommunityText.T("Управление чатом", "Manage chat")">
+                        <MudMenuItem OnClick="() => UpdateAsync(new(IsPinned: !summary.IsPinned))" Icon="@Icons.Material.Outlined.PushPin">@(summary.IsPinned ? CommunityText.T("Открепить в списке", "Unpin in the list") : CommunityText.T("Закрепить в списке", "Pin in the list"))</MudMenuItem>
+                        <MudMenuItem OnClick="() => UpdateAsync(new(IsClosed: !summary.IsClosed))" Icon="@Icons.Material.Outlined.Lock">@(summary.IsClosed ? CommunityText.T("Открыть чат", "Reopen chat") : CommunityText.T("Закрыть чат", "Close chat"))</MudMenuItem>
+                        <MudMenuItem OnClick="() => UpdateAsync(new(IsAnnouncement: !summary.IsAnnouncement))" Icon="@Icons.Material.Outlined.Campaign">@(summary.IsAnnouncement ? CommunityText.T("Разрешить писать всем", "Let everyone write") : CommunityText.T("Сделать каналом объявлений", "Make an announcement channel"))</MudMenuItem>
+                        <MudMenuItem OnClick="StartRename" Icon="@Icons.Material.Outlined.Edit">@CommunityText.T("Переименовать", "Rename")</MudMenuItem>
+                        <MudMenuItem OnClick="OpenMoveAsync" Icon="@Icons.Material.Outlined.DriveFileMove">@CommunityText.T("Перенести в раздел…", "Move to section…")</MudMenuItem>
+                        <MudMenuItem OnClick="DeleteTopicAsync" Icon="@Icons.Material.Outlined.Delete" Class="fc-danger">@CommunityText.T("Удалить чат", "Delete chat")</MudMenuItem>
+                    </MudMenu>
+                }
+            </div>
+        }
+    </header>
+
+    @if (_topic is { PinnedPosts.Count: > 0 })
+    {
+        var index = Math.Clamp(_pinIndex, 0, _topic.PinnedPosts.Count - 1);
+        var pinned = _topic.PinnedPosts[index];
+        <button type="button" class="fc-chat-pinned" @onclick="NextPinnedAsync">
+            <span class="fc-chat-pinned-bars" aria-hidden="true">@for (var i = 0; i < Math.Min(_topic.PinnedPosts.Count, 4); i++) { <i class="@(i == index % 4 ? "on" : "")"></i> }</span>
+            <span class="fc-chat-pinned-text">
+                <strong>@(_topic.PinnedPosts.Count > 1 ? CommunityText.T($"Закреплённое сообщение #{index + 1}", $"Pinned message #{index + 1}") : CommunityText.T("Закреплённое сообщение", "Pinned message"))</strong>
+                <span>@Excerpt(pinned)</span>
+            </span>
+            <MudIcon Icon="@Icons.Material.Outlined.PushPin" Size="Size.Small" />
+        </button>
+    }
+
+    <div class="fc-chat-feed" @ref="_feed">
+        @if (_error is not null)
+        {
+            <div class="fc-chat-empty"><MudIcon Icon="@Icons.Material.Outlined.SearchOff" /><p>@_error</p><a href="@($"{BasePath}/forum")">@CommunityText.T("К списку чатов", "Back to chats")</a></div>
+        }
+        else if (_topic is null || _items is null)
+        {
+            <div class="fc-chat-empty"><MudProgressCircular Indeterminate="true" /></div>
+        }
+        else
+        {
+            @if (_firstPage > 1) { <div class="fc-chat-more"><button type="button" class="fc-text-button" @onclick="LoadOlderAsync">@CommunityText.T("Показать предыдущие", "Show earlier")</button></div> }
+            @if (_items.Count == 0)
+            {
+                <div class="fc-chat-empty">
+                    <MudIcon Icon="@(_topic.Topic.Kind == ForumTopicKind.Saved ? Icons.Material.Outlined.Bookmarks : Icons.Material.Outlined.Forum)" />
+                    <p>@(_topic.Topic.Kind switch
+                    {
+                        ForumTopicKind.Saved => CommunityText.T("Пишите сюда заметки и сохраняйте сообщения из чатов через меню «В избранное». Их видите только вы.",
+                            "Write notes here and save messages from chats with “Save to Saved”. Only you can see them."),
+                        ForumTopicKind.Direct => CommunityText.T("Сообщений пока нет. Собеседник увидит чат после вашего первого сообщения.",
+                            "No messages yet. The other person will see the chat after your first message."),
+                        _ => CommunityText.T("Сообщений пока нет.", "No messages yet."),
+                    })</p>
+                </div>
+            }
+            @for (var i = 0; i < _items.Count; i++)
+            {
+                var post = _items[i];
+                var previous = i > 0 ? _items[i - 1] : null;
+                var next = i + 1 < _items.Count ? _items[i + 1] : null;
+                var newDay = previous is null || previous.CreatedAtUtc.ToLocalTime().Date != post.CreatedAtUtc.ToLocalTime().Date;
+                var unreadStart = post.Id == UnreadAnchor;
+                if (newDay) { <div class="fc-chat-day"><span>@DayLabel(post.CreatedAtUtc)</span></div> }
+                if (unreadStart) { <div class="fc-chat-unread" id="fc-unread"><span>@CommunityText.T("Новые сообщения", "New messages")</span></div> }
+                <ChatMessage @key="@($"{post.Id}-{post.EditedAtUtc?.Ticks}-{post.IsDeleted}-{post.IsPinned}-{string.Join(',', post.Reactions.Select(r => $"{r.ReactionId}:{r.Count}:{r.Mine}"))}")"
+                             Post="post" ViewerId="ViewerId" IsAdmin="IsAdmin" TopicKind="_topic.Topic.Kind"
+                             CanModerate="_topic.Permissions.CanModerate" CanReply="_topic.Permissions.CanReply" BasePath="@BasePath"
+                             ShowAuthor="@(_topic.Topic.Kind == ForumTopicKind.Section && (newDay || unreadStart || !SameSeries(previous, post)))" ShowAvatar="@(!SameSeries(post, next) || NewDay(post, next))"
+                             AvatarColumn="@(_topic.Topic.Kind == ForumTopicKind.Section)" Reactions="_reactions"
+                             Reply="StartReply" JumpTo="JumpToAsync" WriteTo="WriteToAsync" Changed="RefreshAsync" />
+            }
+            @if (_lastPage < PageCount) { <div class="fc-chat-more"><button type="button" class="fc-text-button" @onclick="LoadNewerAsync">@CommunityText.T("Показать следующие", "Show later")</button></div> }
+        }
+    </div>
+
+    @if (_newPosts)
+    {
+        <button type="button" class="fc-chat-jump" @onclick="ToLatestAsync" aria-label="@CommunityText.T("К новым сообщениям", "To new messages")">
+            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" /><span class="fc-nav-badge">@CommunityText.T("новые", "new")</span></button>
+    }
+
+    @if (_topic is not null)
+    {
+        <footer class="fc-chat-footer">
+            @if (_topic.Permissions.CanReply)
+            {
+                <PostComposer @ref="_composer" Chat="true" TopicId="TopicId" BasePath="@BasePath" DraftKey="@($"fc-draft:reply:{TopicId}")"
+                              ReplyTo="_replyTo" ReplyCancelled="() => _replyTo = null" Submit="SendAsync" StickerChosen="SendStickerAsync"
+                              Placeholder="@(_topic.Topic.Kind == ForumTopicKind.Saved ? CommunityText.T("Заметка для себя…", "A note to self…") : CommunityText.T("Сообщение…", "Message…"))"
+                              SubmitLabel="@CommunityText.T("Отправить", "Send")" />
+            }
+            else
+            {
+                <div class="fc-chat-blocked"><MudIcon Icon="@Icons.Material.Outlined.Lock" Size="Size.Small" />@CommunityText.ReplyBlocked(_topic.Permissions.ReplyBlockedCode, _topic.Permissions.BannedUntilUtc)</div>
+            }
+        </footer>
+    }
+</section>
+
+@if (_moving)
+{
+    <Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Перенести чат", "Move chat")" Close="() => _moving = false">
+        <ChildContent>
+            <MudSelect T="string" @bind-Value="_moveTarget" Label="@CommunityText.T("Раздел", "Section")" Variant="Variant.Outlined">
+                @foreach (var section in _sections.Where(s => s.CanCreateTopics))
+                {
+                    <MudSelectItem Value="@(section.SubjectId?.ToString() ?? "general")">@(section.SubjectName ?? CommunityText.T("Общее", "General"))</MudSelectItem>
+                }
+            </MudSelect>
+            <p class="fc-muted mt-3">@CommunityText.T("Чат увидят все, у кого есть доступ к новому разделу.", "Everyone with access to the new section will see the chat.")</p>
+        </ChildContent>
+        <Actions><MudButton OnClick="() => _moving = false">@CommunityText.T("Отмена", "Cancel")</MudButton>
+            <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="MoveAsync">@CommunityText.T("Перенести", "Move")</MudButton></Actions>
+    </Frontend.Shared.Profiles.ProfileDialog>
+}

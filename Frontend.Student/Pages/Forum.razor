@@ -1,4 +1,10 @@
 @page "/student/forum"
+@page "/student/forum/{TopicId:int}"
 @layout StudentLayout
 @attribute [Authorize]
-<ForumHome IsAdmin="false" />
+@* Один компонент на оба адреса: при переходе между чатами список слева не перезагружается. *@
+<ChatsView IsAdmin="false" TopicId="TopicId" PostId="PostId" />
+@code {
+    [Parameter] public int? TopicId { get; set; }
+    [SupplyParameterFromQuery(Name = "post")] public long? PostId { get; set; }
+}

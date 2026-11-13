@@ -1,7 +1,6 @@
 using FunAndChecks.Application.Forum;
 using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
-using FunAndChecks.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -16,6 +15,25 @@ public class ForumController(IForumService forum, IForumModerationService modera
     public async Task<ActionResult<IReadOnlyList<ForumSectionDto>>> Sections(CancellationToken ct) =>
         Ok(await forum.GetSectionsAsync(User.GetUserId(), ct));
 
+    [HttpGet("api/forum/folders")]
+    public async Task<ActionResult<ForumFoldersDto>> Folders(CancellationToken ct) =>
+        Ok(await forum.GetFoldersAsync(User.GetUserId(), ct));
+
+    /// <summary>Открыть (или создать) личный чат с человеком.</summary>
+    [HttpPost("api/forum/direct")]
+    [EnableRateLimiting(RateLimitPolicies.ForumWrite)]
+    public async Task<ActionResult<ForumTopicDto>> OpenDirect(OpenDirectChatRequest request, CancellationToken ct) =>
+        Ok(await forum.OpenDirectAsync(User.GetUserId(), request, ct));
+
+    /// <summary>«Избранное» преподавателя; создаётся при первом обращении.</summary>
+    [HttpPost("api/forum/saved")]
+    public async Task<ActionResult<ForumTopicDto>> OpenSaved(CancellationToken ct) =>
+        Ok(await forum.OpenSavedAsync(User.GetUserId(), ct));
+
+    [HttpGet("api/forum/contacts")]
+    public async Task<ActionResult<IReadOnlyList<ForumMentionCandidateDto>>> Contacts([FromQuery] string? query, CancellationToken ct) =>
+        Ok(await forum.GetContactsAsync(User.GetUserId(), query, ct));
+
     [HttpGet("api/forum/unread")]
     public async Task<ActionResult<ForumUnreadDto>> Unread(CancellationToken ct) =>
         Ok(await forum.GetUnreadAsync(User.GetUserId(), ct));
@@ -23,8 +41,9 @@ public class ForumController(IForumService forum, IForumModerationService modera
     /// <summary>Темы: subjectId — раздел предмета, general=true — «Общее», без параметров — все видимые.</summary>
     [HttpGet("api/forum/topics")]
     public async Task<ActionResult<ForumTopicPageDto>> Topics([FromQuery] int? subjectId, [FromQuery] bool general = false,
-        [FromQuery] string? search = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default) =>
-        Ok(await forum.GetTopicsAsync(User.GetUserId(), subjectId, general, search, page, pageSize, ct));
+        [FromQuery] string? search = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] bool personal = false,
+        CancellationToken ct = default) =>
+        Ok(await forum.GetTopicsAsync(User.GetUserId(), subjectId, general, search, page, pageSize, personal, ct));
 
     [HttpPost("api/forum/topics")]
     [EnableRateLimiting(RateLimitPolicies.ForumWrite)]
@@ -112,13 +131,18 @@ public class ForumController(IForumService forum, IForumModerationService modera
         return NoContent();
     }
 
-    [HttpPut("api/forum/posts/{postId:long}/reactions/{kind}")]
-    public async Task<ActionResult<IReadOnlyList<ForumReactionSummaryDto>>> React(long postId, ForumReactionKind kind, CancellationToken ct) =>
-        Ok(await forum.SetReactionAsync(User.GetUserId(), postId, kind, true, ct));
+    [HttpPut("api/forum/posts/{postId:long}/reactions/{reactionId:int}")]
+    public async Task<ActionResult<IReadOnlyList<ForumReactionSummaryDto>>> React(long postId, int reactionId, CancellationToken ct) =>
+        Ok(await forum.SetReactionAsync(User.GetUserId(), postId, reactionId, true, ct));
 
-    [HttpDelete("api/forum/posts/{postId:long}/reactions/{kind}")]
-    public async Task<ActionResult<IReadOnlyList<ForumReactionSummaryDto>>> Unreact(long postId, ForumReactionKind kind, CancellationToken ct) =>
-        Ok(await forum.SetReactionAsync(User.GetUserId(), postId, kind, false, ct));
+    [HttpDelete("api/forum/posts/{postId:long}/reactions/{reactionId:int}")]
+    public async Task<ActionResult<IReadOnlyList<ForumReactionSummaryDto>>> Unreact(long postId, int reactionId, CancellationToken ct) =>
+        Ok(await forum.SetReactionAsync(User.GetUserId(), postId, reactionId, false, ct));
+
+    [HttpPost("api/forum/posts/{postId:long}/forward")]
+    [EnableRateLimiting(RateLimitPolicies.ForumWrite)]
+    public async Task<ActionResult<ForumPostDto>> Forward(long postId, ForwardForumPostRequest request, CancellationToken ct) =>
+        Ok(await forum.ForwardPostAsync(User.GetUserId(), postId, request, ct));
 
     [HttpPost("api/forum/posts/{postId:long}/report")]
     [EnableRateLimiting(RateLimitPolicies.ForumWrite)]

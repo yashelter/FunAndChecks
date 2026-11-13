@@ -91,7 +91,8 @@ public interface IIdentityService
 
     /// <summary>Страничный поиск всех учётных записей без роли и профиля администратора; только для супер-админа.</summary>
     Task<FunAndChecks.Application.Students.UserAccountPageDto> GetNonAdminAccountsAsync(
-        Guid actingAdminId, string? query, int page, int pageSize, CancellationToken cancellationToken = default);
+        Guid actingAdminId, string? query, int page, int pageSize,
+        FunAndChecks.Application.Students.UserAccountStatus? status = null, CancellationToken cancellationToken = default);
 
     /// <summary>Атомарно удаляет учётную запись, не принадлежащую администратору; только для супер-админа.</summary>
     Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default);

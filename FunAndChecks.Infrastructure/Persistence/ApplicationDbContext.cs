@@ -111,6 +111,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ForumSubscription> ForumSubscriptions => Set<ForumSubscription>();
     public DbSet<ForumReport> ForumReports => Set<ForumReport>();
     public DbSet<ForumBan> ForumBans => Set<ForumBan>();
+    public DbSet<ForumTopicMember> ForumTopicMembers => Set<ForumTopicMember>();
+    public DbSet<ForumReactionType> ForumReactionTypes => Set<ForumReactionType>();
+    public DbSet<ForumStickerPack> ForumStickerPacks => Set<ForumStickerPack>();
+    public DbSet<ForumSticker> ForumStickers => Set<ForumSticker>();
     public DbSet<Survey> Surveys => Set<Survey>();
     public DbSet<SurveyTargetGroup> SurveyTargetGroups => Set<SurveyTargetGroup>();
     public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();

@@ -44,12 +44,23 @@ export function bindComposer(zone, input) {
  * Горячие клавиши поля сообщения: Ctrl/Cmd+Enter — отправить, Ctrl/Cmd+B/I — жирный/курсив,
  * Esc — отменить правку, «@» в начале слова — выбрать, кого упомянуть.
  */
-export function bindShortcuts(textarea, dotnet) {
+export function bindShortcuts(textarea, dotnet, enterSends) {
     if (!textarea || textarea.dataset.fcShortcuts) return;
     textarea.dataset.fcShortcuts = '1';
+    if (enterSends) {
+        // Поле чата растёт вместе с текстом до нескольких строк, дальше прокручивается.
+        const grow = () => { textarea.style.height = 'auto'; textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px'; };
+        textarea.addEventListener('input', grow);
+        textarea.fcGrow = grow;
+        grow();
+    }
     textarea.addEventListener('keydown', event => {
         const mod = event.ctrlKey || event.metaKey;
         if (mod && event.key === 'Enter') { event.preventDefault(); dotnet.invokeMethodAsync('SubmitFromKeyboard'); return; }
+        // В чате Enter отправляет, Shift+Enter — новая строка; на телефоне Enter остаётся переводом строки.
+        if (enterSends && event.key === 'Enter' && !event.shiftKey && !event.isComposing && !matchMedia('(hover: none)').matches) {
+            event.preventDefault(); dotnet.invokeMethodAsync('SubmitFromKeyboard'); return;
+        }
         if (mod && (event.key === 'b' || event.key === 'B')) { event.preventDefault(); wrapAndNotify(textarea, '**', '**', dotnet); return; }
         if (mod && (event.key === 'i' || event.key === 'I')) { event.preventDefault(); wrapAndNotify(textarea, '_', '_', dotnet); return; }
         if (event.key === 'Escape') { dotnet.invokeMethodAsync('CancelFromKeyboard'); return; }
@@ -149,4 +160,51 @@ export function scrollToElement(id) {
 
 export async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+/** Пересчитать высоту поля чата после программной смены текста (очистка после отправки). */
+export function resizeInput(textarea) { textarea?.fcGrow?.(); }
+
+// Лента чата: новые сообщения снизу, при подгрузке старых позиция не прыгает.
+export function scrollToBottom(element) {
+    if (element) element.scrollTop = element.scrollHeight;
+}
+
+export function isNearBottom(element) {
+    return !element || element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+}
+
+export function scrollState(element) {
+    return element ? [element.scrollHeight, element.scrollTop] : [0, 0];
+}
+
+export function restoreScroll(element, height, top) {
+    if (element) element.scrollTop = top + (element.scrollHeight - height);
+}
+
+/** Сообщает .NET, когда ленту докрутили до верха или низа — подгрузить соседнюю страницу. */
+export function watchFeed(element, dotnet) {
+    if (!element || element.fcWatch) return;
+    let busy = false;
+    element.fcWatch = async () => {
+        if (busy) return;
+        const atTop = element.scrollTop < 60;
+        const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 60;
+        if (!atTop && !atBottom) return;
+        busy = true;
+        try { await dotnet.invokeMethodAsync('FeedEdge', atTop); } catch { /* компонент закрыт */ }
+        busy = false;
+    };
+    element.addEventListener('scroll', element.fcWatch, { passive: true });
+}
+
+export function unwatchFeed(element) {
+    if (element?.fcWatch) { element.removeEventListener('scroll', element.fcWatch); element.fcWatch = null; }
+}
+
+/** Сколько места над элементом внутри ленты чата — открыть панель реакций вверх или вниз. */
+export function spaceAbove(element) {
+    if (!element) return 1000;
+    const feed = element.closest('.fc-chat-feed');
+    return element.getBoundingClientRect().top - (feed ? feed.getBoundingClientRect().top : 0);
 }

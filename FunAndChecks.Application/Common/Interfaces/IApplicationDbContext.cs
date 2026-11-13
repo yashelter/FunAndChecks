@@ -41,6 +41,10 @@ public interface IApplicationDbContext
     DbSet<ForumSubscription> ForumSubscriptions { get; }
     DbSet<ForumReport> ForumReports { get; }
     DbSet<ForumBan> ForumBans { get; }
+    DbSet<ForumTopicMember> ForumTopicMembers { get; }
+    DbSet<ForumReactionType> ForumReactionTypes { get; }
+    DbSet<ForumStickerPack> ForumStickerPacks { get; }
+    DbSet<ForumSticker> ForumStickers { get; }
     DbSet<Survey> Surveys { get; }
     DbSet<SurveyTargetGroup> SurveyTargetGroups { get; }
     DbSet<SurveyQuestion> SurveyQuestions { get; }

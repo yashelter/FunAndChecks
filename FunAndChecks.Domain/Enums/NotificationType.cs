@@ -8,4 +8,5 @@ public enum NotificationType
     ForumAnnouncement = 3,
     SurveyAvailable = 4,
     VariantAssigned = 5,
+    DirectMessage = 6,
 }

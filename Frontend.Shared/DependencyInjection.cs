@@ -53,7 +53,7 @@ public static class DependencyInjection
         services.AddScoped<ProfileMediaCache>();
         services.AddScoped<AvatarDirectory>();
         services.AddScoped<CommunityRealtime>();
-        services.AddScoped<ForumListState>();
+        services.AddScoped<ForumCatalog>();
 
         services.AddAuthorizationCore();
         services.AddScoped<JwtAuthenticationStateProvider>();

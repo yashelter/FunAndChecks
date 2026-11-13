@@ -1,0 +1,61 @@
+@page "/admin/achievements/guide"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+@using Frontend.Shared.Profiles
+@using System.Text
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject FileDownloader Downloader
+
+@* Правила оформления достижений (docs/achievement-effects.md) — для человека и для модели:
+   сверху скопировать целиком, снизу скачать файлом. *@
+<PageTitle>@ProfileText.T("Инструкция по оформлению", "Achievement styling guide")</PageTitle>
+<a class="fc-profile-back" href="@ReturnPath">← @ProfileText.T("Назад", "Back")</a>
+<section class="fc-legal-card fc-guide-card">
+    <div class="fc-guide-toolbar">
+        <span class="fc-muted">@ProfileText.T("Отдайте этот текст модели вместе с описанием — она вернёт JSON для кнопки «Вставить JSON» в редакторе.",
+            "Give this text to a model with a description: it will answer with JSON for the editor's “Paste JSON” button.")</span>
+        <MudButton OnClick="CopyAsync" Disabled="@(_text.Length == 0)" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.ContentCopy">@ProfileText.T("Скопировать", "Copy")</MudButton>
+    </div>
+    <div class="fc-legal-body">
+        @if (_text.Length == 0) { <MudAlert Severity="Severity.Warning">@ProfileText.T("Инструкция не найдена в сборке.", "The guide is missing from the build.")</MudAlert> }
+        else { <div class="fc-legal-content fc-guide-content">@((MarkupString)ForumMarkdown.ToHtml(_text, "/admin"))</div> }
+        <div class="fc-legal-actions">
+            <MudButton OnClick="DownloadAsync" Disabled="@(_text.Length == 0)" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Download">@ProfileText.T("Скачать .md", "Download .md")</MudButton>
+            <MudButton OnClick="CopyAsync" Disabled="@(_text.Length == 0)" Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.ContentCopy">@ProfileText.T("Скопировать", "Copy")</MudButton>
+        </div>
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    private string _text = "";
+    private IJSObjectReference? _community;
+
+    // Только свои пути: открытый редирект по ?returnUrl= не нужен.
+    private string ReturnPath => ReturnUrl is { Length: > 0 } value && value.StartsWith('/') && !value.StartsWith("//") && !value.Contains('\\')
+        ? value : "/admin/achievements";
+
+    protected override async Task OnInitializedAsync() => _text = await AchievementGuideText.LoadAsync();
+
+    private async Task CopyAsync()
+    {
+        _community ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/Frontend.Shared/community.js");
+        var copied = await _community.InvokeAsync<bool>("copyText", _text);
+        Snackbar.Add(copied ? ProfileText.T("Инструкция скопирована", "Guide copied") : ProfileText.T("Браузер не дал скопировать — скачайте файл", "The browser blocked copying — download the file"),
+            copied ? Severity.Success : Severity.Warning);
+    }
+
+    private async Task DownloadAsync()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(_text));
+        await Downloader.DownloadAsync(AchievementGuideText.FileName, stream);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { if (_community is not null) await _community.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}
