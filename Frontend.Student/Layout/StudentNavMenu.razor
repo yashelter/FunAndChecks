@@ -1,30 +1,34 @@
 @inject IStringLocalizer<AppStrings> Loc
 
+@* Меню студента устроено как у преподавателя: «Учёба» открыта всегда, «Сообщество» сворачивается (NavSection),
+   иконки контурные. Вид меню — dashboard.css. *@
 <MudNavMenu>
     <div class="fc-nav-label" role="presentation">@CommunityText.T("Учёба", "Study")</div>
-    <MudNavLink Href="/student" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+    <MudNavLink Href="/student" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.TableChart">
         @Loc["StudentNav_Results"]
     </MudNavLink>
-    <MudNavLink Href="/student/queues" Icon="@Icons.Material.Filled.Groups">
+    <MudNavLink Href="/student/queues" Icon="@Icons.Material.Outlined.FormatListNumbered">
         @Loc["StudentNav_Queues"]
     </MudNavLink>
-    <MudNavLink Href="/student/logs" Icon="@Icons.Material.Filled.History">
+    <MudNavLink Href="/student/logs" Icon="@Icons.Material.Outlined.History">
         @Loc["StudentNav_History"]
     </MudNavLink>
-    <MudNavLink Href="/student/attendance" Icon="@Icons.Material.Filled.FactCheck">
+    <MudNavLink Href="/student/attendance" Icon="@Icons.Material.Outlined.EventAvailable">
         @Loc["Nav_Attendance"]
     </MudNavLink>
-    <MudNavLink Href="/student/variants" Icon="@Icons.Material.Filled.Tag">
+    <MudNavLink Href="/student/variants" Icon="@Icons.Material.Outlined.Tag">
         @Loc["Nav_Variants"]
     </MudNavLink>
-    <div class="fc-nav-label" role="presentation">@CommunityText.T("Сообщество", "Community")</div>
-    <MudNavLink Href="/student/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
-        @CommunityText.T("Достижения", "Achievements")
-    </MudNavLink>
-    <MudNavLink Href="/student/forum" Icon="@Icons.Material.Outlined.Forum">
-        <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
-    </MudNavLink>
-    <MudNavLink Href="/student/surveys" Icon="@Icons.Material.Outlined.Poll">
-        <span class="fc-nav-with-badge">@CommunityText.T("Опросы", "Surveys")<SurveyPendingBadge /></span>
-    </MudNavLink>
+    <NavSection Key="student-community" Title="@CommunityText.T("Сообщество", "Community")" Icon="@Icons.Material.Outlined.Groups"
+                Paths="@(["/student/achievements", "/student/forum", "/student/surveys"])">
+        <MudNavLink Href="/student/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
+            @CommunityText.T("Достижения", "Achievements")
+        </MudNavLink>
+        <MudNavLink Href="/student/forum" Icon="@Icons.Material.Outlined.Forum">
+            <span class="fc-nav-with-badge">@CommunityText.T("Форум", "Forum")<ForumUnreadBadge /></span>
+        </MudNavLink>
+        <MudNavLink Href="/student/surveys" Icon="@Icons.Material.Outlined.Poll">
+            <span class="fc-nav-with-badge">@CommunityText.T("Опросы", "Surveys")<SurveyPendingBadge /></span>
+        </MudNavLink>
+    </NavSection>
 </MudNavMenu>

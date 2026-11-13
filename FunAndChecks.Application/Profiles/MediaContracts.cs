@@ -29,5 +29,11 @@ public interface IProfileMediaProcessor
         CancellationToken cancellationToken = default);
     Task<IProfileMediaRenderLease> RenderAsync(Guid userId, Guid sessionId, MediaRenderRequest request,
         int outputSize, CancellationToken cancellationToken = default);
+    /// <summary>Renders a crop of another shape, e.g. a wide profile banner. Square sizes go to the method above.</summary>
+    Task<IProfileMediaRenderLease> RenderAsync(Guid userId, Guid sessionId, MediaRenderRequest request,
+        int outputWidth, int outputHeight, CancellationToken cancellationToken = default) =>
+        outputWidth == outputHeight
+            ? RenderAsync(userId, sessionId, request, outputWidth, cancellationToken)
+            : throw new NotSupportedException("This media processor renders square pictures only.");
     Task CancelAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
 }

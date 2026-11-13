@@ -563,7 +563,7 @@
   <data name="Maintenance_BackupNotFound" xml:space="preserve"><value>Этого бэкапа больше нет на сервере. Обновите список.</value></data>
   <data name="Maintenance_BackupInvalidName" xml:space="preserve"><value>Недопустимое имя файла бэкапа.</value></data>
   <data name="ProfileError_ProfileNotFound" xml:space="preserve"><value>Профиль недоступен.</value></data>
-  <data name="ProfileError_PinsInvalid" xml:space="preserve"><value>Выберите до трёх собственных действующих наград.</value></data>
+  <data name="ProfileError_ActiveAwardInvalid" xml:space="preserve"><value>Выберите одну из своих действующих наград.</value></data>
   <data name="ProfileError_UrlInvalid" xml:space="preserve"><value>Укажите HTTPS-ссылку; для GitHub используйте github.com.</value></data>
   <data name="ProfileError_Archived" xml:space="preserve"><value>Это достижение находится в архиве и недоступно для выдачи.</value></data>
   <data name="ProfileError_AlreadyAwarded" xml:space="preserve"><value>У пользователя уже есть это достижение.</value></data>

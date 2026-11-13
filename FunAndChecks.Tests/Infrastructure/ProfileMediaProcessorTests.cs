@@ -57,6 +57,26 @@ public sealed class ProfileMediaProcessorTests : IDisposable
     }
 
     [FfmpegFact]
+    public async Task Banner_IsRenderedWide_OnlyFromACropOfItsShape()
+    {
+        var source = await Fixture("wide.png", ["-f", "lavfi", "-i", "color=blue:s=800x400", "-frames:v", "1"]);
+        var session = await Prepare(source, "image/png");
+        // The profile banner is 4:1: the full width and the middle half of an 800x400 source.
+        var banner = new MediaRenderRequest(0, .25, 1, .5, 0, 0, 0, "Still");
+        await using (var render = await _processor.RenderAsync(_actor, session.Id, banner, 1600, 400))
+        {
+            render.Media.Width.Should().Be(1600);
+            render.Media.Height.Should().Be(400);
+            render.Media.ContentType.Should().Be("image/webp");
+        }
+        // A square selection would have to be stretched, and sizes outside the list are not rendered at all.
+        Func<Task> square = async () => await _processor.RenderAsync(_actor, session.Id, new MediaRenderRequest(0, 0, .5, 1, 0, 0, 0, "Still"), 1600, 400);
+        (await square.Should().ThrowAsync<ValidationException>()).Which.Message.Should().Contain("shape");
+        Func<Task> odd = async () => await _processor.RenderAsync(_actor, session.Id, banner, 4000, 1000);
+        await odd.Should().ThrowAsync<ValidationException>();
+    }
+
+    [FfmpegFact]
     public async Task JpegExifOrientation_IsAppliedBeforeCropDimensions()
     {
         var jpeg = await Fixture("image.jpg", ["-f", "lavfi", "-i", "color=red:s=80x40", "-frames:v", "1"]);

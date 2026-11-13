@@ -255,7 +255,7 @@ a.fc-user-chip-name:hover{color:var(--mud-palette-primary)}
 .fc-results-me td{box-shadow:inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.1)}
 .fc-results-me td:first-child{box-shadow:inset 3px 0 0 var(--mud-palette-primary),inset 0 0 0 9999px rgba(var(--mud-palette-primary-rgb),.1)}
 /* Своя строка: закреплённые ячейки (имя, место, Σ) непрозрачны и подкрашены сильнее — подсветка видна и при прокрутке вбок. */
-.fc-results-me td.fc-results-name-column,.fc-results-me td.fc-results-rank-column,.fc-results-me td.fc-results-total-column{background:color-mix(in srgb,var(--mud-palette-primary) 12%,var(--mud-palette-surface))!important;font-weight:600}
+.fc-results-me td.fc-results-name-column,.fc-results-me td.fc-results-rank-column,.fc-results-me td.fc-results-total-column{background-color:color-mix(in srgb,var(--mud-palette-primary) 12%,var(--mud-palette-surface))!important;font-weight:600}
 .fc-results-me td.fc-results-rank-column{color:var(--mud-palette-primary)!important}
 /* Метка «Вы» у ФИО: в одну строку с именем, не сжимается — высота строки остаётся ResultsColumns.RowHeight. */
 .fc-results-you{flex-shrink:0;display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:9px;background:var(--mud-palette-primary);color:var(--mud-palette-primary-text);font-size:11px;font-weight:700;line-height:1;letter-spacing:.02em}

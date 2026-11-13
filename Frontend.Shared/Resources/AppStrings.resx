@@ -563,7 +563,7 @@
   <data name="Maintenance_BackupNotFound" xml:space="preserve"><value>This backup no longer exists on the server. Refresh the list.</value></data>
   <data name="Maintenance_BackupInvalidName" xml:space="preserve"><value>Invalid backup file name.</value></data>
   <data name="ProfileError_ProfileNotFound" xml:space="preserve"><value>This profile is unavailable.</value></data>
-  <data name="ProfileError_PinsInvalid" xml:space="preserve"><value>Choose up to three of your current awards.</value></data>
+  <data name="ProfileError_ActiveAwardInvalid" xml:space="preserve"><value>Choose one of your current awards.</value></data>
   <data name="ProfileError_UrlInvalid" xml:space="preserve"><value>Use an HTTPS link; GitHub links must use github.com.</value></data>
   <data name="ProfileError_Archived" xml:space="preserve"><value>This achievement is archived and cannot be granted.</value></data>
   <data name="ProfileError_AlreadyAwarded" xml:space="preserve"><value>This user already has this achievement.</value></data>

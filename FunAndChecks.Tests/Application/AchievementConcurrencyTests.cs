@@ -44,7 +44,7 @@ public class AchievementConcurrencyTests : IDisposable
     }
 
     [Fact]
-    public async Task ConcurrentPinAndRevoke_CannotLeaveARevokedAwardPinned()
+    public async Task ConcurrentChoiceAndRevoke_CannotLeaveARevokedAwardActive()
     {
         var seed = await SeedAsync();
         int awardId;
@@ -57,9 +57,9 @@ public class AchievementConcurrencyTests : IDisposable
             try
             {
                 await new ProfileService(db, _identity, _media, new UpdateProfileRequestValidator())
-                    .UpdateAsync(seed.StudentId, new UpdateProfileRequest("", null, null, [awardId]));
+                    .SetActiveAwardAsync(seed.StudentId, awardId);
             }
-            catch (ConflictException ex) { ex.Code.Should().Be("profile.pins_invalid"); }
+            catch (ConflictException ex) { ex.Code.Should().Be("profile.active_award_invalid"); }
             return true;
         });
         var revoke = Concurrent(async db =>
@@ -71,7 +71,7 @@ public class AchievementConcurrencyTests : IDisposable
         await Task.WhenAll(pin, revoke);
         await using var verify = Context();
         (await verify.AchievementAwards.SingleAsync()).RevokedAtUtc.Should().NotBeNull();
-        (await verify.PinnedAchievements.AnyAsync()).Should().BeFalse();
+        (await verify.UserProfiles.AllAsync(p => p.ActiveAwardId == null)).Should().BeTrue();
     }
 
     private Task<T> Concurrent<T>(Func<ApplicationDbContext, Task<T>> action) => Task.Factory.StartNew(async () =>

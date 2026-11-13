@@ -32,7 +32,6 @@ public interface IApplicationDbContext
     DbSet<ProfileMediaAsset> ProfileMediaAssets { get; }
     DbSet<AchievementDefinition> AchievementDefinitions { get; }
     DbSet<AchievementAward> AchievementAwards { get; }
-    DbSet<PinnedAchievement> PinnedAchievements { get; }
     DbSet<Attachment> Attachments { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<ForumTopic> ForumTopics { get; }

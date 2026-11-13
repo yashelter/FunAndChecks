@@ -49,7 +49,7 @@ public record QueueParticipantDto(
     Guid? CheckingByAdminId = null,
     int EntryId = 0,
     int Round = 1,
-    List<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    ActiveAchievementDto? ActiveAchievement = null,
     int? LateMinutes = null,
     bool LateExcused = false)
 {

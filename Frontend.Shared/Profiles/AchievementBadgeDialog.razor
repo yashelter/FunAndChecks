@@ -32,7 +32,7 @@
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
-    [Parameter] public PinnedAchievementBadgeDto? Achievement { get; set; }
+    [Parameter] public ActiveAchievementDto? Achievement { get; set; }
 
     private AchievementDefinitionDto? _achievement;
     private bool _loading = true;

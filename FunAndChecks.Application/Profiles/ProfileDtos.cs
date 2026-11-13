@@ -5,21 +5,41 @@ public record MediaAssetDto(Guid Id, string ContentType, int Width, int Height,
 
 public record UserProfileDto(Guid UserId, string FullName, string? GroupName, bool IsAdmin,
     string AboutMe, string? GitHubUrl, string? PortfolioUrl, MediaAssetDto? Avatar,
-    IReadOnlyList<AchievementAwardDto> Awards);
+    IReadOnlyList<AchievementAwardDto> Awards, ActiveAchievementDto? ActiveAchievement = null);
 
-public record UpdateProfileRequest(string? AboutMe, string? GitHubUrl, string? PortfolioUrl,
-    IReadOnlyList<int>? PinnedAwardIds);
+public record UpdateProfileRequest(string? AboutMe, string? GitHubUrl, string? PortfolioUrl);
+
+/// <param name="AwardId">Null clears the choice: an award marked "active by default" takes over, if there is one.</param>
+public record SetActiveAwardRequest(int? AwardId);
 
 public record UpdateAvatarRequest(Guid MediaSessionId, MediaRenderRequest Media);
 
 public record AchievementAwardDto(int Id, int AchievementId, string Name, string Description,
     MediaAssetDto? Image, DateTime GrantedAtUtc, Guid? IssuedByUserId, string IssuedByName,
-    int? PinPosition, bool CanRevoke);
+    bool IsActive, bool CanRevoke);
 
-public record PinnedAchievementBadgeDto(int AwardId, int AchievementId, string Name, MediaAssetDto? Image, int Position);
+/// <summary>
+/// The one achievement a user wears. <see cref="AchievementId"/> is also the <c>data-fx</c> value
+/// that the effects stylesheet (<c>api/achievements/effects.css</c>) is keyed by.
+/// </summary>
+public record ActiveAchievementDto(int AwardId, int AchievementId, string Name, MediaAssetDto? Image);
+
+/// <summary>How a user looks in lists: avatar and the achievement whose effects apply.</summary>
+public record UserLookDto(MediaAssetDto? Avatar, int? Fx);
+
+/// <summary>Everything the editor page needs. <see cref="Media"/> is keyed by slot name in lower case.</summary>
+public record AchievementEditDto(AchievementDto Achievement, IReadOnlyDictionary<string, MediaAssetDto> Media);
+
+public record EffectPreviewRequest(AchievementEffects? Effects, string? CustomCss, int? AchievementId = null);
+
+/// <summary>CSS for <c>[data-fx="preview"]</c>, or the reasons it cannot be built.</summary>
+public record EffectPreviewDto(string Css, IReadOnlyList<EffectCssError> Errors);
+
+public record SetAchievementMediaRequest(Guid MediaSessionId, MediaRenderRequest Media);
 
 public record AchievementDto(int Id, string Name, string Description, MediaAssetDto? Image,
-    bool IsArchived, int RecipientCount, DateTime CreatedAtUtc);
+    bool IsArchived, int RecipientCount, DateTime CreatedAtUtc, bool ActiveByDefault = false,
+    AchievementEffects? Effects = null, string? CustomCss = null);
 
 public record AchievementPageDto(IReadOnlyList<AchievementDto> Items, int TotalCount, int Page, int PageSize);
 
@@ -34,7 +54,8 @@ public record AchievementRecipientAccountPageDto(IReadOnlyList<AchievementRecipi
     int TotalCount, int Page, int PageSize);
 
 public record UpsertAchievementRequest(string? Name, string? Description, Guid? MediaSessionId = null,
-    MediaRenderRequest? Media = null, bool RemoveImage = false);
+    MediaRenderRequest? Media = null, bool RemoveImage = false, bool ActiveByDefault = false,
+    AchievementEffects? Effects = null, string? CustomCss = null);
 
 public record ArchiveAchievementRequest(bool Archived);
 public record GrantAchievementRequest(Guid UserId);

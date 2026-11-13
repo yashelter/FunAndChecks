@@ -109,9 +109,9 @@ public class QueueService(
         // Баллы (сумма MaxPoints принятых задач предмета) считаем в памяти —
         // так избегаем непереводимого Distinct().Sum() и лишних подзапросов.
         var studentIds = entries.Select(e => e.StudentId).ToList();
-        var pinnedAchievements = profiles is null
-            ? new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>()
-            : await profiles.GetPinnedAchievementsAsync(studentIds, cancellationToken);
+        var activeAchievements = profiles is null
+            ? new Dictionary<Guid, ActiveAchievementDto>()
+            : await profiles.GetActiveAchievementsAsync(studentIds, cancellationToken);
         var allSubmissions = await db.Submissions
             .Where(s => studentIds.Contains(s.StudentId)
                         && s.Task.SubjectId == queueEvent.SubjectId)
@@ -150,7 +150,7 @@ public class QueueService(
                 e.CheckingByAdminId,
                 e.Id,
                 e.Round,
-                pinnedAchievements.GetValueOrDefault(e.StudentId),
+                activeAchievements.GetValueOrDefault(e.StudentId),
                 QueueLateness.LateMinutes(queueEvent.EventDateTime, queueEvent.LateAfterMinutes, e.Round, e.JoinedAt),
                 e.LateExcused))
             .ToList();

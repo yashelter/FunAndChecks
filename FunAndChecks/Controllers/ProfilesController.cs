@@ -25,10 +25,14 @@ public class ProfilesController(IProfileService profiles) : ControllerBase
     public async Task<ActionResult<ProfileStatsDto>> Stats(Guid userId, CancellationToken ct) =>
         Ok(await profiles.GetStatsAsync(User.GetUserId(), userId, ct));
 
-    /// <summary>Аватары для списков: ?ids=a&amp;ids=b. В ответе только пользователи с аватаром.</summary>
-    [HttpGet("api/profiles/avatars")]
-    public async Task<ActionResult<IReadOnlyDictionary<Guid, MediaAssetDto>>> Avatars([FromQuery] Guid[] ids, CancellationToken ct) =>
-        Ok(await profiles.GetAvatarsAsync(ids, ct));
+    /// <summary>Аватар и активное достижение для списков: ?ids=a&amp;ids=b. В ответе только те, у кого есть хоть что-то.</summary>
+    [HttpGet("api/profiles/looks")]
+    public async Task<ActionResult<IReadOnlyDictionary<Guid, UserLookDto>>> Looks([FromQuery] Guid[] ids, CancellationToken ct) =>
+        Ok(await profiles.GetLooksAsync(ids, ct));
+
+    [HttpPut("api/me/profile/active-award")]
+    public async Task<ActionResult<UserProfileDto>> SetActiveAward(SetActiveAwardRequest request, CancellationToken ct) =>
+        Ok(await profiles.SetActiveAwardAsync(User.GetUserId(), request.AwardId, ct));
 
     [HttpPut("api/me/profile")]
     public async Task<ActionResult<UserProfileDto>> Update(UpdateProfileRequest request, CancellationToken ct) =>

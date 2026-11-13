@@ -18,9 +18,23 @@ window.dashboardAppearance = {
             const candidate = decodeURIComponent(cookie?.slice('fc-accent='.length) || '');
             if (/^#[0-9a-f]{6}$/i.test(candidate)) accent = candidate;
         } catch { }
-        return { isDarkMode: theme !== 'light', isCompact: density === 'compact', accent, disabledSeasons };
+        let effectsOff = false;
+        try { effectsOff = localStorage.getItem('fc-fx') === 'off'; } catch { }
+        return { isDarkMode: theme !== 'light', isCompact: density === 'compact', accent, disabledSeasons, effectsOff };
     },
-    apply(isDark, compact, accent, visibleAccent, foreground, disabledSeasons, save) {
+    // Оформление активных достижений — отдельная таблица стилей; выключатель просто отключает её.
+    setEffects(off) {
+        document.documentElement.toggleAttribute('data-fx-off', !!off);
+        const sheet = document.getElementById('fc-fx');
+        if (sheet) sheet.disabled = !!off;
+    },
+    // После правки достижения: забрать свежую таблицу стилей без перезагрузки страницы.
+    reloadEffects() {
+        const sheet = document.getElementById('fc-fx');
+        if (sheet) sheet.href = '/api/achievements/effects.css?t=' + Date.now();
+    },
+    apply(isDark, compact, accent, visibleAccent, foreground, disabledSeasons, save, effectsOff) {
+        this.setEffects(effectsOff);
         document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
         document.documentElement.dataset.density = compact ? 'compact' : 'comfortable';
         document.documentElement.style.setProperty('--fc-accent', visibleAccent);
@@ -31,6 +45,7 @@ window.dashboardAppearance = {
                 localStorage.setItem('fc-theme', isDark ? 'dark' : 'light');
                 localStorage.setItem('fc-density', compact ? 'compact' : 'comfortable');
                 localStorage.setItem('fc-seasons-off', JSON.stringify(Array.isArray(disabledSeasons) ? disabledSeasons : []));
+                localStorage.setItem('fc-fx', effectsOff ? 'off' : 'on');
             } catch { }
             if (/^#[0-9a-f]{6}$/i.test(accent)) {
                 document.cookie = `fc-accent=${encodeURIComponent(accent)}; Max-Age=31536000; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;

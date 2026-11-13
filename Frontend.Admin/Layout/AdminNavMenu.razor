@@ -1,7 +1,7 @@
 @inject IStringLocalizer<AppStrings> Loc
 
-@* Меню преподавателя: «Учёба» открыта всегда, «Сообщество» и «Администрирование» сворачиваются (AdminNavSection).
-   Компактный вид и анимации — admin-dashboard.css (.fc-shell-admin). *@
+@* Меню преподавателя: «Учёба» открыта всегда, «Сообщество» и «Администрирование» сворачиваются (NavSection).
+   Вид меню общий со студентом — dashboard.css. *@
 <MudNavMenu>
     <div class="fc-nav-label" role="presentation">@CommunityText.T("Учёба", "Teaching")</div>
     <MudNavLink Href="/admin" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.TableChart">
@@ -19,7 +19,7 @@
     <MudNavLink Href="/admin/attendance" Icon="@Icons.Material.Outlined.EventAvailable">
         @Loc["Nav_Attendance"]
     </MudNavLink>
-    <AdminNavSection Key="community" Title="@CommunityText.T("Сообщество", "Community")" Icon="@Icons.Material.Outlined.Groups"
+    <NavSection Key="community" Title="@CommunityText.T("Сообщество", "Community")" Icon="@Icons.Material.Outlined.Groups"
                      Paths="@(["/admin/achievements", "/admin/forum", "/admin/surveys"])">
         <MudNavLink Href="/admin/achievements" Icon="@Icons.Material.Outlined.EmojiEvents">
             @CommunityText.T("Достижения", "Achievements")
@@ -30,9 +30,9 @@
         <MudNavLink Href="/admin/surveys" Icon="@Icons.Material.Outlined.Poll">
             @CommunityText.T("Опросы", "Surveys")
         </MudNavLink>
-    </AdminNavSection>
+    </NavSection>
     <AuthorizeView Roles="@Roles.SuperAdmin">
-        <AdminNavSection Key="administration" Title="@CommunityText.T("Администрирование", "Administration")" Icon="@Icons.Material.Outlined.Security"
+        <NavSection Key="administration" Title="@CommunityText.T("Администрирование", "Administration")" Icon="@Icons.Material.Outlined.Security"
                          Paths="@(["/admin/admins", "/admin/maintenance", "/metrics"])">
             <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Outlined.AdminPanelSettings">
                 @Loc["AdminNav_Admins"]
@@ -43,6 +43,6 @@
             <MudNavLink Href="/metrics" Icon="@Icons.Material.Outlined.MonitorHeart">
                 @Loc["Monitoring_Title"]
             </MudNavLink>
-        </AdminNavSection>
+        </NavSection>
     </AuthorizeView>
 </MudNavMenu>

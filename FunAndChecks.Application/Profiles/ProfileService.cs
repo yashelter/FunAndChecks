@@ -14,67 +14,60 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
 {
     internal const int MaxAvatarBatch = 100;
 
-    public async Task<IReadOnlyDictionary<Guid, MediaAssetDto>> GetAvatarsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
+    public async Task<IReadOnlyDictionary<Guid, UserLookDto>> GetLooksAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
     {
         var ids = userIds.Distinct().ToList();
-        if (ids.Count > MaxAvatarBatch) throw new ValidationException($"Request at most {MaxAvatarBatch} avatars at once.");
-        if (ids.Count == 0) return new Dictionary<Guid, MediaAssetDto>();
+        if (ids.Count > MaxAvatarBatch) throw new ValidationException($"Request at most {MaxAvatarBatch} users at once.");
+        if (ids.Count == 0) return new Dictionary<Guid, UserLookDto>();
         var visible = await identity.GetProfileAccountsAsync(ids, ct);
         var allowed = visible.Keys.ToList();
-        return await db.ProfileMediaAssets.AsNoTracking()
+        var avatars = await db.ProfileMediaAssets.AsNoTracking()
             .Where(a => a.UserProfileId.HasValue && allowed.Contains(a.UserProfileId.Value))
             .Select(a => new { UserId = a.UserProfileId!.Value, Media = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height,
                 a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0) })
             .ToDictionaryAsync(a => a.UserId, a => a.Media, ct);
+        var active = await GetActiveAchievementsAsync(allowed, ct);
+        return allowed.Where(id => avatars.ContainsKey(id) || active.ContainsKey(id))
+            .ToDictionary(id => id, id => new UserLookDto(avatars.GetValueOrDefault(id), active.GetValueOrDefault(id)?.AchievementId));
     }
 
-    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>> GetPinnedAchievementsAsync(
+    public async Task<IReadOnlyDictionary<Guid, ActiveAchievementDto>> GetActiveAchievementsAsync(
         IReadOnlyCollection<Guid> userIds, CancellationToken ct = default)
     {
         var ids = userIds.Distinct().ToList();
-        if (ids.Count == 0)
-            return new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>();
+        if (ids.Count == 0) return new Dictionary<Guid, ActiveAchievementDto>();
 
-        var pins = await db.PinnedAchievements.AsNoTracking()
-            .Where(p => ids.Contains(p.UserId))
-            .Join(db.AchievementAwards.AsNoTracking().Where(a => a.RevokedAtUtc == null),
-                pin => pin.AchievementAwardId,
-                award => award.Id,
-                (pin, award) => new
-                {
-                    pin.UserId,
-                    pin.Position,
-                    AwardId = award.Id,
-                    award.AchievementId,
-                    award.Achievement.Name
-                })
-            .OrderBy(x => x.UserId)
-            .ThenBy(x => x.Position)
+        // Only awards that can be active are loaded: the owner's choice and the ones marked "active by default".
+        var candidates = await db.AchievementAwards.AsNoTracking()
+            .Where(a => ids.Contains(a.UserId) && a.RevokedAtUtc == null &&
+                (a.Achievement.ActiveByDefault || db.UserProfiles.Any(p => p.UserId == a.UserId && p.ActiveAwardId == a.Id)))
+            .OrderByDescending(a => a.GrantedAtUtc).ThenByDescending(a => a.Id)
+            .Select(a => new { a.UserId, AwardId = a.Id, a.AchievementId, a.Achievement.Name, a.Achievement.ActiveByDefault })
             .ToListAsync(ct);
+        var choices = await db.UserProfiles.AsNoTracking()
+            .Where(p => ids.Contains(p.UserId) && p.ActiveAwardId != null)
+            .ToDictionaryAsync(p => p.UserId, p => p.ActiveAwardId, ct);
+        var selected = candidates.GroupBy(a => a.UserId)
+            .Select(group => group.FirstOrDefault(a => a.AwardId == choices.GetValueOrDefault(group.Key))
+                ?? group.FirstOrDefault(a => a.ActiveByDefault))
+            .Where(a => a is not null).Select(a => a!).ToList();
 
-        var achievementIds = pins.Select(x => x.AchievementId).Distinct().ToArray();
+        var achievementIds = selected.Select(x => x.AchievementId).Distinct().ToArray();
         var images = achievementIds.Length == 0
             ? new Dictionary<int, MediaAssetDto>()
-            : await db.ProfileMediaAssets.AsNoTracking()
-                .Where(a => a.AchievementDefinitionId.HasValue &&
-                            achievementIds.Contains(a.AchievementDefinitionId.Value))
-                .Select(a => new
-                {
-                    AchievementId = a.AchievementDefinitionId!.Value,
-                    Image = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height,
-                        a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0)
-                })
-                .ToDictionaryAsync(a => a.AchievementId, a => a.Image, ct);
-
-        return pins
-            .GroupBy(x => x.UserId)
-            .ToDictionary(
-                g => g.Key,
-                g => (IReadOnlyList<PinnedAchievementBadgeDto>)g
-                    .Select(x => new PinnedAchievementBadgeDto(x.AwardId, x.AchievementId, x.Name,
-                        images.GetValueOrDefault(x.AchievementId), x.Position))
-                    .ToList());
+            : await BadgeImagesAsync(db, achievementIds, ct);
+        return selected.ToDictionary(x => x.UserId,
+            x => new ActiveAchievementDto(x.AwardId, x.AchievementId, x.Name, images.GetValueOrDefault(x.AchievementId)));
     }
+
+    internal static async Task<Dictionary<int, MediaAssetDto>> BadgeImagesAsync(IApplicationDbContext db,
+        IReadOnlyCollection<int> achievementIds, CancellationToken ct) =>
+        await db.ProfileMediaAssets.AsNoTracking()
+            .Where(a => a.Slot == FunAndChecks.Domain.Enums.AchievementMediaSlot.Badge && a.AchievementDefinitionId.HasValue &&
+                achievementIds.Contains(a.AchievementDefinitionId.Value))
+            .Select(a => new { AchievementId = a.AchievementDefinitionId!.Value,
+                Image = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height, a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0) })
+            .ToDictionaryAsync(a => a.AchievementId, a => a.Image, ct);
 
     public async Task<ProfileStatsDto> GetStatsAsync(Guid viewerId, Guid userId, CancellationToken ct = default)
     {
@@ -127,13 +120,8 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
             .Where(a => a.UserId == userId && a.RevokedAtUtc == null)
             .OrderByDescending(a => a.GrantedAtUtc).ThenByDescending(a => a.Id).ToListAsync(ct);
         var achievementIds = awards.Select(a => a.AchievementId).Distinct().ToArray();
-        var images = await db.ProfileMediaAssets.AsNoTracking().Where(a => a.AchievementDefinitionId.HasValue &&
-                achievementIds.Contains(a.AchievementDefinitionId.Value))
-            .Select(a => new { AchievementId = a.AchievementDefinitionId!.Value,
-                Image = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height, a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0) })
-            .ToDictionaryAsync(a => a.AchievementId, a => a.Image, ct);
-        var pins = await db.PinnedAchievements.AsNoTracking().Where(p => p.UserId == userId)
-            .ToDictionaryAsync(p => p.AchievementAwardId, p => p.Position, ct);
+        var images = await BadgeImagesAsync(db, achievementIds, ct);
+        var active = (await GetActiveAchievementsAsync([userId], ct)).GetValueOrDefault(userId);
         var issuers = await identity.GetProfileAccountsAsync(awards.Where(a => a.IssuedByUserId.HasValue)
             .Select(a => a.IssuedByUserId!.Value), ct);
         var roles = await identity.GetCurrentRolesAsync(viewerId, ct);
@@ -144,39 +132,46 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
             awards.Select(a => new AchievementAwardDto(a.Id, a.AchievementId, a.Achievement.Name,
                 a.Achievement.Description, images.GetValueOrDefault(a.AchievementId), a.GrantedAtUtc,
                 a.IssuedByUserId, a.IssuedByUserId.HasValue && issuers.TryGetValue(a.IssuedByUserId.Value, out var issuer)
-                    ? issuer.FullName : a.IssuedByName, pins.TryGetValue(a.Id, out var position) ? position : null,
-                canManage && (isSuper || a.IssuedByUserId == viewerId))).ToList());
+                    ? issuer.FullName : a.IssuedByName, active?.AwardId == a.Id,
+                canManage && (isSuper || a.IssuedByUserId == viewerId))).ToList(), active);
     }
 
     public async Task<UserProfileDto> UpdateAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct = default)
     {
         await validator.ValidateAndThrowAsync(request, ct);
-        var pinsChanged = false;
         await db.ExecuteSerializableAsync(async token =>
         {
             await RequireAccountAsync(userId, token);
-            var ids = request.PinnedAwardIds?.ToArray() ?? [];
-            if (await db.AchievementAwards.CountAsync(a => ids.Contains(a.Id) && a.UserId == userId && a.RevokedAtUtc == null, token) != ids.Length)
-                throw new ConflictException("Only your current awards can be pinned.", "profile.pins_invalid");
-            var profile = await EnsureProfileAsync(userId, token);
+            UserProfile profile = await EnsureProfileAsync(userId, token);
             profile.AboutMe = request.AboutMe?.Trim() ?? "";
             profile.GitHubUrl = CleanUrl(request.GitHubUrl);
             profile.PortfolioUrl = CleanUrl(request.PortfolioUrl);
             profile.UpdatedAtUtc = DateTime.UtcNow;
-            var previous = await db.PinnedAchievements.Where(p => p.UserId == userId).ToListAsync(token);
-            pinsChanged = !previous.OrderBy(p => p.Position).Select(p => p.AchievementAwardId).SequenceEqual(ids);
-            db.PinnedAchievements.RemoveRange(previous);
-            // Save removal before inserting positions, so reorderings cannot collide with old keys.
-            await db.SaveChangesAsync(token);
-            db.PinnedAchievements.AddRange(ids.Select((id, index) => new PinnedAchievement
-                { UserId = userId, AchievementAwardId = id, Position = index + 1 }));
             await db.SaveChangesAsync(token);
         }, ct);
-        if (pinsChanged) await InvalidateResultsAsync(db, resultsCache, userId, ct);
         return await GetAsync(userId, userId, ct);
     }
 
-    /// <summary>Закреплённые ачивки показываются в кэшированных таблицах результатов предметов группы студента.</summary>
+    public async Task<UserProfileDto> SetActiveAwardAsync(Guid userId, int? awardId, CancellationToken ct = default)
+    {
+        await db.ExecuteSerializableAsync(async token =>
+        {
+            await RequireAccountAsync(userId, token);
+            if (awardId.HasValue && !await db.AchievementAwards.AnyAsync(
+                a => a.Id == awardId && a.UserId == userId && a.RevokedAtUtc == null, token))
+            {
+                throw new ConflictException("Choose one of your current awards.", "profile.active_award_invalid");
+            }
+            UserProfile profile = await EnsureProfileAsync(userId, token);
+            profile.ActiveAwardId = awardId;
+            profile.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(token);
+        }, ct);
+        await InvalidateResultsAsync(db, resultsCache, userId, ct);
+        return await GetAsync(userId, userId, ct);
+    }
+
+    /// <summary>Активное достижение показывается в кэшированных таблицах результатов предметов группы студента.</summary>
     internal static async Task InvalidateResultsAsync(IApplicationDbContext db, IResultsCacheService? cache, Guid userId, CancellationToken ct)
     {
         if (cache is null) return;

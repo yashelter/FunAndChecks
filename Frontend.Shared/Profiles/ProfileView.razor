@@ -20,9 +20,11 @@
 @if (_loading) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
 else if (_profile is not null)
 {
+    @* Оформление активного достижения видят все, кто открыл профиль: data-fx на корне, аватаре и имени. *@
+    <div class="fc-fx-profile" data-fx="@Fx">
     <section class="fc-panel fc-profile-hero">
-        <ProfileMedia Media="_profile.Avatar" Alt="@_profile.FullName" Fallback="@ProfileText.Initials(_profile.FullName)" Class="fc-profile-avatar" />
-        <div class="fc-profile-identity"><div class="fc-profile-identity-name"><h1>@_profile.FullName</h1><PinnedAchievementBadges AwardItems="_profile.Awards" BasePath="@BasePath" /></div><div class="fc-profile-tags"><span>@(_profile.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : ProfileText.T("Студент", "Student"))</span>@if (_profile.GroupName is not null) { <span>@_profile.GroupName</span> }</div></div>
+        <span class="fc-fx-avatar" data-fx="@Fx"><ProfileMedia Media="_profile.Avatar" Alt="@_profile.FullName" Fallback="@ProfileText.Initials(_profile.FullName)" Class="fc-profile-avatar" /></span>
+        <div class="fc-profile-identity"><div class="fc-profile-identity-name"><h1 class="@(Fx is null ? "" : "fc-fx-name")" data-fx="@Fx">@_profile.FullName</h1><ActiveAchievementBadge Achievement="_profile.ActiveAchievement" /></div><div class="fc-profile-tags"><span>@(_profile.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : ProfileText.T("Студент", "Student"))</span>@if (_profile.GroupName is not null) { <span>@_profile.GroupName</span> }</div></div>
         @if (_mine)
         {
             <div class="fc-profile-hero-actions">
@@ -34,13 +36,17 @@ else if (_profile is not null)
     </section>
     <div class="fc-profile-columns">
         <div>
-            <section class="fc-panel fc-profile-section"><div class="fc-profile-section-heading"><h2>@ProfileText.T("Закреплённые достижения", "Pinned achievements")</h2><span>@_profile.Awards.Count(x => x.PinPosition.HasValue) / 3</span></div>
-                @if (!_profile.Awards.Any(x => x.PinPosition.HasValue)) { <p class="fc-profile-empty">@(_mine ? ProfileText.T("Откройте полученную награду, чтобы закрепить её здесь.", "Open an earned achievement to pin it here.") : ProfileText.T("Пока нет закреплённых достижений.", "No pinned achievements yet."))</p> }
-                else { <div class="fc-profile-badge-grid">@foreach (var award in _profile.Awards.Where(x => x.PinPosition.HasValue).OrderBy(x => x.PinPosition)) { <AchievementCard @key="award.Id" Name="@award.Name" Description="@award.Description" Image="award.Image" Pinned="true" Meta="@Date(award.GrantedAtUtc)" Click="() => _award = award" /> }</div> }
+            <section class="fc-panel fc-profile-section"><div class="fc-profile-section-heading"><h2>@ProfileText.T("Активное достижение", "Active achievement")</h2></div>
+                @if (_profile.Awards.FirstOrDefault(x => x.IsActive) is { } activeAward)
+                {
+                    <div class="fc-profile-badge-grid"><AchievementCard Name="@activeAward.Name" Description="@activeAward.Description" Image="activeAward.Image" Active="true" Meta="@Date(activeAward.GrantedAtUtc)" Click="() => _award = activeAward" /></div>
+                    <p class="fc-profile-hint">@ProfileText.T("Его оформление видно на аватаре, в таблице результатов, очередях и на этой странице.", "Its look shows on the avatar, in the results table, in queues and on this page.")</p>
+                }
+                else { <p class="fc-profile-empty">@(_mine ? ProfileText.T("Откройте полученную награду и сделайте её активной — её оформление появится в профиле, таблице и очередях.", "Open an earned achievement and make it active: its look will appear on your profile, in the table and in queues.") : ProfileText.T("Активное достижение не выбрано.", "No active achievement."))</p> }
             </section>
             <section class="fc-panel fc-profile-section"><div class="fc-profile-section-heading"><h2>@ProfileText.T("Все достижения", "All achievements")</h2><span>@_profile.Awards.Count</span></div>
                 @if (_profile.Awards.Count == 0) { <p class="fc-profile-empty">@ProfileText.T("Первые достижения ещё впереди.", "Your first achievements are still ahead.")</p> }
-                else { <div class="fc-profile-badge-grid">@foreach (var award in _profile.Awards.OrderByDescending(x => x.GrantedAtUtc)) { <AchievementCard @key="award.Id" Name="@award.Name" Description="@award.Description" Image="award.Image" Meta="@Date(award.GrantedAtUtc)" Click="() => _award = award" /> }</div> }
+                else { <div class="fc-profile-badge-grid">@foreach (var award in _profile.Awards.OrderByDescending(x => x.GrantedAtUtc)) { <AchievementCard @key="award.Id" Name="@award.Name" Description="@award.Description" Image="award.Image" Active="award.IsActive" Meta="@Date(award.GrantedAtUtc)" Click="() => _award = award" /> }</div> }
             </section>
         </div>
         <div>
@@ -70,6 +76,7 @@ else if (_profile is not null)
             @if (_mine) { <section class="fc-panel fc-profile-section"><h2>@ProfileText.T("Продолжить работу", "Continue learning")</h2><div class="fc-profile-quick-links"><a href="@BasePath">@ProfileText.T("Результаты", "Results") →</a><a href="@(BasePath + "/queues")">@ProfileText.T("Очереди", "Queues") →</a><a href="@(BasePath + "/achievements")">@ProfileText.T("Каталог достижений", "Achievement catalog") →</a><a href="@(BasePath + "/forum")">@ProfileText.T("Форум", "Forum") →</a></div></section> }
         </div>
     </div>
+    </div>
 }
 @if (_edit && !_avatarEditor)
 {
@@ -87,7 +94,7 @@ else if (_profile is not null)
 }
 @if (_account && _mine) { <AccountSettingsDialog Changed="LoadAsync" Close="() => _account = false" /> }
 @if (_avatarEditor) { <MediaEditor Save="SaveAvatarAsync" Close="() => _avatarEditor = false" /> }
-@if (_award is not null) { <AchievementDetail AchievementId="_award.AchievementId" Award="_award" Mine="_mine" IsAdmin="_admin" BasePath="@BasePath" Pin="TogglePinAsync" Changed="RefreshAwardAsync" Close="() => _award = null" /> }
+@if (_award is not null) { <AchievementDetail AchievementId="_award.AchievementId" Award="_award" Mine="_mine" IsAdmin="_admin" BasePath="@BasePath" ToggleActive="ToggleActiveAsync" Changed="RefreshAwardAsync" Close="() => _award = null" /> }
 @if (_grant && _admin && _profile is not null) { <GrantAchievementDialog Recipient="@(new AchievementUserDto(_profile.UserId, _profile.FullName, _profile.GroupName, _profile.IsAdmin))" Changed="GrantDoneAsync" Close="() => _grant = false" /> }
 
 @code {
@@ -147,11 +154,11 @@ else if (_profile is not null)
     private async Task SaveProfileAsync()
     {
         var generation = _routeGeneration; _busy = true; _editError = null;
-        try { var profile = await Api.SaveProfileAsync(new(_about, _github, _portfolio, Pins()), _life.Token); if (generation != _routeGeneration) return; _profile = profile; _edit = false; Dirty.MarkClean(); Snackbar.Add(ProfileText.T("Профиль сохранён", "Profile saved"), Severity.Success); }
+        try { var profile = await Api.SaveProfileAsync(new(_about, _github, _portfolio), _life.Token); if (generation != _routeGeneration) return; _profile = profile; _edit = false; Dirty.MarkClean(); Snackbar.Add(ProfileText.T("Профиль сохранён", "Profile saved"), Severity.Success); }
         catch (ApiException ex) { if (generation == _routeGeneration) _editError = ex.Message; }
         finally { if (generation == _routeGeneration) _busy = false; }
     }
-    private List<int> Pins() => _profile!.Awards.Where(x => x.PinPosition.HasValue).OrderBy(x => x.PinPosition).Select(x => x.Id).ToList();
+    private int? Fx => _profile?.ActiveAchievement?.AchievementId;
     private async Task<bool> SaveAvatarAsync(MediaSelection media)
     {
         var generation = _routeGeneration;
@@ -167,13 +174,19 @@ else if (_profile is not null)
         catch (ApiException ex) { if (generation == _routeGeneration) _editError = ex.Message; }
         finally { if (generation == _routeGeneration) _busy = false; }
     }
-    private async Task TogglePinAsync(AchievementAwardDto award)
+    private async Task ToggleActiveAsync(AchievementAwardDto award)
     {
         if (!_mine || _profile is null) return;
-        var pins = Pins();
-        if (!pins.Remove(award.Id)) { if (pins.Count >= 3) { Snackbar.Add(ProfileText.T("Можно закрепить до трёх достижений", "You can pin up to three achievements"), Severity.Warning); return; } pins.Add(award.Id); }
         var generation = _routeGeneration;
-        try { var profile = await Api.SaveProfileAsync(new(_profile.AboutMe, _profile.GitHubUrl, _profile.PortfolioUrl, pins), _life.Token); if (generation != _routeGeneration) return; _profile = profile; _award = _profile.Awards.FirstOrDefault(x => x.Id == award.Id); }
+        try
+        {
+            var profile = await Api.SetActiveAwardAsync(award.IsActive ? null : award.Id, _life.Token);
+            if (generation != _routeGeneration) return;
+            _profile = profile; _award = _profile.Awards.FirstOrDefault(x => x.Id == award.Id);
+            // «Снять» возвращает к достижению по умолчанию; если это оно и есть, ничего не меняется — объясняем почему.
+            if (award.IsActive && _award?.IsActive == true)
+                Snackbar.Add(ProfileText.T("Это достижение активно по умолчанию. Чтобы сменить оформление, сделайте активным другое.", "This achievement is active by default. Make another one active to change your look."), Severity.Info);
+        }
         catch (ApiException ex) { Snackbar.Add(ex.Message, Severity.Error); }
     }
     private async Task RefreshAwardAsync() { _award = null; await LoadAsync(); }

@@ -9,12 +9,23 @@ namespace Frontend.Shared.Profiles;
 public class ProfileApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
     public event Action? ProfileChanged;
+    public async Task<UserProfileDto> SetActiveAwardAsync(int? awardId, CancellationToken ct = default)
+    {
+        UserProfileDto profile = await PutAsync<UserProfileDto>("api/me/profile/active-award", new { awardId }, ct);
+        ProfileChanged?.Invoke();
+        return profile;
+    }
     public Task<UserProfileDto> MineAsync(CancellationToken ct = default) => GetAsync<UserProfileDto>("api/me/profile", ct);
     public Task<UserProfileDto> GetProfileAsync(Guid userId, CancellationToken ct = default) => GetAsync<UserProfileDto>($"api/profiles/{userId}", ct);
     public Task<ProfileStatsDto> StatsAsync(Guid? userId, CancellationToken ct = default) =>
         GetAsync<ProfileStatsDto>(userId is Guid id ? $"api/profiles/{id}/stats" : "api/me/profile/stats", ct);
-    public Task<Dictionary<Guid, MediaDto>> AvatarsAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
-        GetAsync<Dictionary<Guid, MediaDto>>("api/profiles/avatars?" + string.Join("&", ids.Select(id => $"ids={id}")), ct);
+    public Task<Dictionary<Guid, UserLookDto>> LooksAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
+        GetAsync<Dictionary<Guid, UserLookDto>>("api/profiles/looks?" + string.Join("&", ids.Select(id => $"ids={id}")), ct);
+    public Task<AchievementEditDto> AchievementForEditAsync(int id, CancellationToken ct = default) => GetAsync<AchievementEditDto>($"api/admin/achievements/{id}", ct);
+    public Task<EffectPreviewDto> PreviewEffectsAsync(EffectPreviewRequest request, CancellationToken ct = default) => PostAsync<EffectPreviewDto>("api/admin/achievements/effects/preview", request, ct);
+    public Task<MediaDto> SetAchievementMediaAsync(int id, string slot, MediaSelection selection, CancellationToken ct = default) =>
+        PutAsync<MediaDto>($"api/admin/achievements/{id}/media/{slot}", new { mediaSessionId = selection.SessionId, media = selection.Media }, ct);
+    public Task RemoveAchievementMediaAsync(int id, string slot, CancellationToken ct = default) => DeleteAsync($"api/admin/achievements/{id}/media/{slot}", ct);
     public async Task<UserProfileDto> SaveProfileAsync(UpdateProfileRequest request, CancellationToken ct = default) { var profile = await PutAsync<UserProfileDto>("api/me/profile", request, ct); ProfileChanged?.Invoke(); return profile; }
     public async Task SetAvatarAsync(MediaSelection selection, CancellationToken ct = default) { await PostAsync("api/me/avatar", new { mediaSessionId = selection.SessionId, media = selection.Media }, ct); ProfileChanged?.Invoke(); }
     public async Task RemoveAvatarAsync(CancellationToken ct = default) { await DeleteAsync("api/me/avatar", ct); ProfileChanged?.Invoke(); }

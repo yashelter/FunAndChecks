@@ -186,51 +186,59 @@
 .fc-interaction-footer>.mud-button-root:not(.fc-interaction-close):not(.fc-color-apply){font-size:11.5px;padding:8px 2px}
 }
 
-/* Меню преподавателя (.fc-shell-admin из WorkspaceShell): уже и компактнее, разделы «Сообщество» и «Администрирование»
-   сворачиваются (AdminNavSection), у пунктов — полоска активного, плавный фон и сдвиг иконки. Меню студента не меняется. */
-.fc-shell-admin { grid-template-columns:216px minmax(0,1fr); }
-.fc-shell-admin .fc-sidebar { padding:22px 10px 12px; }
-.fc-shell-admin .fc-sidebar .fc-brand { padding:0 8px; }
-.fc-shell-admin .fc-brand small { max-width:132px; }
-.fc-shell-admin .fc-workspace { padding:9px 10px; margin:20px 4px 10px; }
-.fc-shell-admin .fc-nav-label { padding:12px 10px 5px; font-size:10px; }
-.fc-shell-admin .fc-navigation .mud-nav-link { position:relative; display:flex; align-items:center; gap:2px; margin:1px 0; padding:7px 10px; min-height:36px; border-radius:8px; font-size:13px; font-weight:500;
-    transition:background-color .15s ease, color .15s ease, border-color .15s ease, transform .1s ease; }
-.fc-shell-admin .fc-navigation .mud-nav-link-icon { font-size:18px; width:18px; height:18px; transition:transform .18s ease; }
-.fc-shell-admin .fc-navigation .mud-nav-link:hover .mud-nav-link-icon { transform:translateX(2px); }
-.fc-shell-admin .fc-navigation .mud-nav-link:active { transform:scale(.98); }
-/* Полоска слева у активного пункта вырастает из центра. */
-.fc-shell-admin .fc-navigation .mud-nav-link::before { content:""; position:absolute; left:-1px; top:7px; bottom:7px; width:3px; border-radius:0 3px 3px 0; background:var(--fc-accent); transform:scaleY(0); transition:transform .2s ease; }
-.fc-shell-admin .fc-navigation .mud-nav-link.active::before { transform:scaleY(1); }
-.fc-shell-admin .fc-navigation .mud-nav-link.active { font-weight:650; }
-.fc-shell-admin .fc-navigation .mud-nav-link.active .mud-nav-link-icon { transform:none; }
-
-.fc-nav-section { margin-top:6px; }
-.fc-nav-section-head { display:flex; align-items:center; gap:10px; width:100%; min-height:34px; padding:6px 10px; border:0; border-radius:8px; background:none; cursor:pointer;
-    color:var(--fc-muted); font:inherit; font-size:12px; font-weight:600; text-align:left; transition:background-color .15s ease, color .15s ease; }
-.fc-nav-section-head:hover { color:var(--fc-text); background:var(--fc-surface-2); }
-.fc-nav-section-head:focus-visible { outline:2px solid var(--fc-accent); outline-offset:-2px; }
-.fc-nav-section-icon { font-size:18px; width:18px; height:18px; }
-.fc-nav-section-title { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fc-nav-section-chevron { transform:rotate(0deg); }
-.fc-nav-section.is-collapsed .fc-nav-section-chevron { transform:rotate(-90deg); }
-/* Раскрытие высотой по содержимому: grid 0fr ↔ 1fr, пункты проявляются. */
-.fc-nav-section-body { display:grid; grid-template-rows:1fr; }
-.fc-nav-section.is-collapsed .fc-nav-section-body { grid-template-rows:0fr; }
-.fc-nav-section-inner { min-height:0; overflow:hidden; padding-left:8px; opacity:1; }
-.fc-nav-section.is-collapsed .fc-nav-section-inner { opacity:0; }
-.fc-nav-section.is-ready .fc-nav-section-body { transition:grid-template-rows .22s ease; }
-.fc-nav-section.is-ready .fc-nav-section-inner { transition:opacity .18s ease; }
-.fc-nav-section.is-ready .fc-nav-section-chevron { transition:transform .2s ease; }
-/* Свёрнутый раздел с непрочитанным (бейдж форума внутри) — точка у заголовка. */
-.fc-nav-section-dot { display:none; width:7px; height:7px; border-radius:50%; background:var(--mud-palette-primary); flex-shrink:0; }
-.fc-nav-section.is-collapsed:has(.fc-nav-badge) .fc-nav-section-dot { display:inline-block; }
-@media(max-width:959.98px) {
-    .fc-shell-admin { grid-template-columns:minmax(0,1fr); }
-    .fc-shell-admin .fc-sidebar { width:216px; }
-}
-@media(prefers-reduced-motion:reduce) {
-    .fc-shell-admin .fc-navigation .mud-nav-link, .fc-shell-admin .fc-navigation .mud-nav-link::before, .fc-shell-admin .fc-navigation .mud-nav-link-icon,
-    .fc-nav-section.is-ready .fc-nav-section-body, .fc-nav-section.is-ready .fc-nav-section-inner, .fc-nav-section.is-ready .fc-nav-section-chevron { transition:none; }
-    .fc-shell-admin .fc-navigation .mud-nav-link:hover .mud-nav-link-icon { transform:none; }
-}
+/* ── Редактор достижения (Pages/AchievementEditor): форма слева, закреплённый предпросмотр справа ── */
+.fc-fx-editor { display:grid; grid-template-columns:minmax(0,1fr) minmax(320px,420px); gap:22px; align-items:start; }
+.fc-fx-editor-form { display:grid; gap:18px; min-width:0; }
+.fc-fx-section { padding:22px; display:grid; gap:14px; }
+.fc-fx-section h2, .fc-fx-preview h2 { font-size:16px; font-weight:650; margin:0; }
+.fc-fx-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 20px; align-items:center; }
+.fc-fx-switches { display:flex; gap:18px; flex-wrap:wrap; }
+.fc-fx-unsaved { align-self:center; font-size:12px; color:var(--mud-palette-warning); }
+.fc-fx-color { display:flex; align-items:center; gap:8px; min-width:0; }
+.fc-fx-color-label { flex:1; min-width:0; font-size:13px; color:var(--mud-palette-text-secondary); }
+.fc-fx-color input[type=color] { width:34px; height:30px; padding:0; border:1px solid var(--mud-palette-lines-default); border-radius:6px; background:none; cursor:pointer; }
+.fc-fx-color input[type=color].empty { opacity:.35; }
+.fc-fx-color input[type=text] { width:84px; height:30px; padding:0 8px; border:1px solid var(--mud-palette-lines-default); border-radius:6px; background:var(--mud-palette-background); color:inherit; font:12px/1 ui-monospace,Consolas,monospace; }
+.fc-fx-color input:disabled { cursor:not-allowed; opacity:.6; }
+.fc-fx-color button { width:24px; height:24px; border:0; border-radius:50%; background:none; color:var(--mud-palette-text-secondary); cursor:pointer; font-size:16px; line-height:1; }
+.fc-fx-color button:hover { color:var(--mud-palette-error); }
+.fc-fx-slot { display:flex; gap:14px; align-items:center; padding:12px; border:1px dashed var(--mud-palette-lines-default); border-radius:10px; }
+/* Шахматка под картинкой: у рамок и частиц прозрачный фон, его должно быть видно. */
+.fc-fx-slot-thumb { width:64px; height:64px; flex:none; border-radius:10px; overflow:hidden; display:grid; place-items:center; font-size:11px; color:var(--mud-palette-text-secondary);
+    background:repeating-conic-gradient(color-mix(in srgb,var(--mud-palette-text-primary) 10%,transparent) 0 25%,transparent 0 50%) 0 0/16px 16px; }
+.fc-fx-slot-thumb.wide { width:160px; height:40px; }
+.fc-fx-slot-thumb img { width:100%; height:100%; object-fit:contain; }
+.fc-fx-slot-text { display:grid; gap:4px; min-width:0; }
+.fc-fx-slot-text strong { font-size:13px; }
+.fc-fx-slot-text small { font-size:12px; color:var(--mud-palette-text-secondary); }
+.fc-fx-slot-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+.fc-fx-code { width:100%; min-height:220px; padding:12px; border:1px solid var(--mud-palette-lines-default); border-radius:8px; background:var(--mud-palette-background); color:inherit; font:13px/1.5 ui-monospace,Consolas,monospace; resize:vertical; tab-size:2; }
+.fc-fx-code:focus-visible { outline:2px solid var(--mud-palette-primary); outline-offset:1px; }
+.fc-fx-code:disabled { cursor:not-allowed; opacity:.7; }
+.fc-fx-errors { margin:0; padding:10px 14px 10px 30px; border-radius:8px; background:color-mix(in srgb,var(--mud-palette-error) 12%,transparent); color:var(--mud-palette-error); font-size:13px; display:grid; gap:4px; }
+.fc-fx-help summary { cursor:pointer; font-size:13px; color:var(--mud-palette-primary); }
+.fc-fx-help table { width:100%; margin-top:8px; border-collapse:collapse; font-size:12px; }
+.fc-fx-help td { padding:6px 8px; vertical-align:top; border-top:1px solid var(--mud-palette-lines-default); }
+.fc-fx-help td:first-child { white-space:nowrap; }
+.fc-fx-help code { font-family:ui-monospace,Consolas,monospace; color:var(--mud-palette-primary); }
+.fc-fx-editor-preview { position:sticky; top:16px; max-height:calc(100dvh - 32px); overflow:auto; }
+.fc-fx-preview { padding:20px; display:grid; gap:10px; }
+.fc-fx-preview h3 { margin:10px 0 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--mud-palette-text-secondary); }
+.fc-fx-preview-title { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.fc-fx-preview-avatars { display:flex; align-items:center; gap:28px; padding:20px 14px; }
+.fc-fx-preview-scroll { overflow:auto; }
+.fc-fx-preview-table { width:100%; border-collapse:collapse; font-size:13px; }
+.fc-fx-preview-table td { height:37px; padding:0 10px; white-space:nowrap; border-bottom:1px solid var(--mud-palette-table-lines); background-color:var(--mud-palette-surface); }
+.fc-fx-preview-table .fc-active-achievement-badge { display:inline-flex; cursor:default; }
+.fc-fx-preview-table .fc-active-achievement-badge img { width:18px; height:18px; border-radius:50%; object-fit:cover; }
+.fc-fx-preview-queue { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; }
+.fc-fx-preview-queue small { color:var(--mud-palette-text-secondary); }
+.fc-fx-preview-profile { padding:12px; display:grid; gap:10px; justify-items:start; }
+.fc-fx-preview-profile .fc-profile-hero { width:100%; margin:0; padding:18px; gap:16px; }
+.fc-fx-preview-profile .fc-profile-avatar { width:72px; height:72px; }
+.fc-fx-preview-profile h1 { font-size:20px; }
+.fc-fx-preview-site { position:relative; height:170px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; overflow:hidden; display:grid; place-items:center; font-size:12px; color:var(--mud-palette-text-secondary); }
+/* В предпросмотре слой сайта живёт внутри рамки, а не поверх всей страницы. */
+.fc-fx-preview-site .fc-fx-site { position:absolute; z-index:0; contain:none; }
+@media (max-width:1100px) { .fc-fx-editor { grid-template-columns:1fr; } .fc-fx-editor-preview { position:static; max-height:none; } }
+@media (max-width:600px) { .fc-fx-grid { grid-template-columns:1fr; } .fc-fx-slot { flex-wrap:wrap; } }

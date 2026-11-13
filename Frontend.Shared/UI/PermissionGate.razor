@@ -1,0 +1,26 @@
+@* Действие, на которое может не хватить прав. Без прав оно остаётся на месте, но неактивно:
+   подсказка объясняет почему, курсор — запрещающий. Обёртка нужна, потому что отключённая кнопка
+   не получает событий мыши и сама подсказку не покажет.
+
+   <PermissionGate Allowed="_superAdmin" Context="denied">
+       <MudButton Disabled="denied" OnClick="Save">Сохранить</MudButton>
+   </PermissionGate> *@
+@if (Allowed)
+{
+    @ChildContent(false)
+}
+else
+{
+    <MudTooltip Text="@(Reason ?? DefaultReason)" Placement="Placement.Top">
+        <span class="fc-no-permission" tabindex="0" aria-label="@(Reason ?? DefaultReason)">@ChildContent(true)</span>
+    </MudTooltip>
+}
+
+@code {
+    [Parameter] public bool Allowed { get; set; }
+    /// <summary>Содержимое получает <c>true</c>, когда прав нет и кнопку нужно отключить.</summary>
+    [Parameter, EditorRequired] public RenderFragment<bool> ChildContent { get; set; } = null!;
+    [Parameter] public string? Reason { get; set; }
+    private static string DefaultReason => System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru"
+        ? "Недостаточно прав" : "Not enough permissions";
+}

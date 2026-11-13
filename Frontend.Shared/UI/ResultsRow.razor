@@ -3,7 +3,7 @@
 @* Строка таблицы результатов. Отдельный компонент ради ShouldRender: при прокрутке Virtualize заново обходит
    все видимые строки, но рендерится только та, у которой сменились данные или раскладка колонок.
    У ячеек задач нет ни обработчиков, ни подсказок: клик и title делегированы в results-scroll.js. *@
-<tr class="@RowClass()" data-s="@Row.StudentId">
+<tr class="@RowClass()" data-fx="@Fx" data-s="@Row.StudentId">
     @if (Layout.ShowRank)
     {
         <td class="mud-table-cell fc-results-rank-column">
@@ -19,20 +19,20 @@
         <span class="fc-results-name" title="@Row.FullName">
             @if (Layout.ProfileUrl(Row.StudentId) is { } profileUrl)
             {
-                <a class="@NameClass" style="@NameStyle()" href="@profileUrl" @onclick="OpenProfileAsync" @onclick:preventDefault="true"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></a>
+                <a class="@NameClass @NameFxClass" data-fx="@NameFx" style="@NameStyle()" href="@profileUrl" @onclick="OpenProfileAsync" @onclick:preventDefault="true"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></a>
             }
             else
             {
-                <span class="@NameClass" style="@NameStyle()"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></span>
+                <span class="@NameClass @NameFxClass" data-fx="@NameFx" style="@NameStyle()"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></span>
             }
             @if (IsMe)
             {
                 <span class="fc-results-you">@Layout.YouLabel</span>
             }
             <span class="fc-results-sum" aria-hidden="true">@Row.TotalPoints</span>
-            @if (Row.PinnedAchievements is { Count: > 0 } pinned)
+            @if (Row.ActiveAchievement is { } active)
             {
-                <Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="pinned" />
+                <Frontend.Shared.Profiles.ActiveAchievementBadge Achievement="active" />
             }
         </span>
     </td>
@@ -99,16 +99,24 @@
 
     private Task OpenProfileAsync() => Layout.OpenProfile(Row.StudentId);
 
+    // Активное достижение: по data-fx таблица стилей эффектов (api/achievements/effects.css) оформляет строку и имя.
+    // Это чистый CSS: на высоту строки и на рендер он не влияет.
+    private int? Fx => Row.ActiveAchievement?.AchievementId;
+    // Цвет имени, назначенный преподавателем, важнее эффекта достижения.
+    private int? NameFx => string.IsNullOrEmpty(Row.StudentColor) ? Fx : null;
+    private string NameFxClass => NameFx is null ? "" : "fc-fx-name";
+
     private string RowClass()
     {
         var podium = Layout.ShowRank ? ResultsColumns.RowClass(Row) : string.Empty;
-        return (IsMe, podium.Length > 0) switch
+        var row = (IsMe, podium.Length > 0) switch
         {
             (true, true) => $"mud-table-row fc-results-me {podium}",
             (true, false) => "mud-table-row fc-results-me",
             (false, true) => $"mud-table-row {podium}",
             _ => "mud-table-row",
         };
+        return Fx is null ? row : row + " fc-fx-row";
     }
 
     private string? NameStyle()
@@ -150,9 +158,9 @@
     {
         if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
             return null;
-        // Цвет преподавателя у зачтённой — всегда в переменной; показывает его класс fc-results-show-teacher у панели.
+        // Цвет преподавателя у зачтённой — всегда в переменных (фон и читаемый текст); показывает их класс fc-results-show-teacher у панели.
         if (cell.Status == SubmissionStatus.Accepted)
-            return $"--tc:{cell.AdminColor};";
+            return TeacherColorVars(cell.AdminColor);
         if (cell.Status != SubmissionStatus.Rejected)
             return null;
         return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};border-color:{cell.AdminColor};";
@@ -174,10 +182,14 @@
     {
         if (cell is null || string.IsNullOrWhiteSpace(cell.AdminColor))
             return null;
-        // Цвет преподавателя у зачтённой — всегда в переменной; показывает его класс fc-results-show-teacher на странице.
+        // Цвет преподавателя у зачтённой — всегда в переменных; показывает их класс fc-results-show-teacher на странице.
         if (cell.Status == SubmissionStatus.Accepted)
-            return $"--tc:{cell.AdminColor};";
+            return TeacherColorVars(cell.AdminColor);
         // Буква и цвет преподавателя несут информацию независимо от акцента темы.
         return $"background-color:{cell.AdminColor};color:{ColorUtils.ContrastText(cell.AdminColor)};";
     }
+
+    // --tc — цвет преподавателя, --tf — контрастный к нему цвет текста (чёрный или белый).
+    private static string TeacherColorVars(string color) =>
+        $"--tc:{color};--tf:{ColorUtils.ContrastText(color)};";
 }

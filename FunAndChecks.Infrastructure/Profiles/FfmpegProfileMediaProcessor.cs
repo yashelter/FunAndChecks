@@ -139,9 +139,14 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
         finally { session.Gate.Release(); }
     }
 
+    public Task<IProfileMediaRenderLease> RenderAsync(Guid actorId, Guid sessionId,
+        MediaRenderRequest request, int size, CancellationToken cancellationToken = default) =>
+        RenderAsync(actorId, sessionId, request, size, size, cancellationToken);
+
     public async Task<IProfileMediaRenderLease> RenderAsync(Guid actorId, Guid sessionId,
-        MediaRenderRequest request, int size, CancellationToken cancellationToken = default)
+        MediaRenderRequest request, int outputWidth, int outputHeight, CancellationToken cancellationToken = default)
     {
+        var size = new OutputSize(outputWidth, outputHeight);
         var session = Find(actorId, sessionId);
         await session.Gate.WaitAsync(cancellationToken);
         try
@@ -295,7 +300,7 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
     }
 
     private async Task<ProcessedProfileMedia> RenderCoreAsync(Session session, MediaRenderRequest request,
-        Crop crop, int size, CancellationToken cancellationToken)
+        Crop crop, OutputSize size, CancellationToken cancellationToken)
     {
         var animated = request.Mode == "Animated";
         var mp4 = animated && session.Kind == "Video";
@@ -309,7 +314,7 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
             cancellationToken.ThrowIfCancellationRequested();
             if (File.Exists(output)) File.Delete(output);
             var args = InputArgs(session.SourcePath, animated ? request.StartSeconds : SafeFrameTime(session, request.FrameSeconds));
-            var filter = $"crop={crop.Side}:{crop.Side}:{crop.X}:{crop.Y}:exact=1,scale={size}:{size}:flags=lanczos,setsar=1";
+            var filter = $"crop={crop.Width}:{crop.Height}:{crop.X}:{crop.Y}:exact=1,scale={size.Width}:{size.Height}:flags=lanczos,setsar=1";
             if (animated) filter += $",fps={attempt.Fps}";
             filter += mp4 ? ",format=yuv420p" : ",format=bgra";
             args.AddRange(["-map", "0:v:0", "-vf", filter, "-an", "-map_metadata", "-1"]);
@@ -336,13 +341,13 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
             var posterPath = Path.Combine(session.Directory, "result-poster.webp");
             // Decode the original instead of animated WebP, whose decoder support varies between FFmpeg builds.
             await CreatePosterAsync(session.SourcePath, posterPath,
-                $"crop={crop.Side}:{crop.Side}:{crop.X}:{crop.Y}:exact=1,scale={size}:{size}:flags=lanczos", request.StartSeconds,
+                $"crop={crop.Width}:{crop.Height}:{crop.X}:{crop.Y}:exact=1,scale={size.Width}:{size.Height}:flags=lanczos", request.StartSeconds,
                 cancellationToken);
             poster = await File.ReadAllBytesAsync(posterPath, cancellationToken);
         }
         else poster = data;
         return new ProcessedProfileMedia(data, mp4 ? "video/mp4" : "image/webp", poster, "image/webp",
-            size, size, duration, animated);
+            size.Width, size.Height, duration, animated);
     }
 
     private async Task CreatePosterAsync(string source, string output, string filter, double time,
@@ -483,27 +488,31 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
         return (extension, kind);
     }
 
-    private static Crop ValidateSelection(Session session, MediaRenderRequest request, int size)
+    private static Crop ValidateSelection(Session session, MediaRenderRequest request, OutputSize size)
     {
-        if (size is not (256 or 512) || request.Mode is not ("Still" or "Animated") ||
+        if (!AllowedSizes.Contains(size) || request.Mode is not ("Still" or "Animated") ||
             !new[] { request.X, request.Y, request.Width, request.Height, request.StartSeconds, request.EndSeconds, request.FrameSeconds }
                 .All(double.IsFinite) || request.X < 0 || request.Y < 0 || request.Width <= 0 || request.Height <= 0 ||
             request.X + request.Width > 1.000001 || request.Y + request.Height > 1.000001)
-            throw Invalid("media_invalid_selection", "Choose a square crop within the source.");
+            throw Invalid("media_invalid_selection", "Choose a crop within the source.");
         var width = request.Width * session.Width;
         var height = request.Height * session.Height;
-        var side = (int)Math.Round(Math.Min(width, height));
+        // The crop must have the shape of the result (square, or 4:1 for a banner): nothing is stretched.
+        var ratio = (double)size.Width / size.Height;
+        var cropHeight = (int)Math.Round(Math.Min(height, width / ratio));
+        var cropWidth = size.Width == size.Height ? cropHeight : (int)Math.Round(cropHeight * ratio);
         var x = (int)Math.Round(request.X * session.Width);
         var y = (int)Math.Round(request.Y * session.Height);
-        if (side < 1 || Math.Abs(width - height) > 2 || x + side > session.Width || y + side > session.Height)
-            throw Invalid("media_invalid_selection", "Choose a square crop within the source.");
+        if (cropHeight < 1 || cropWidth < 1 || Math.Abs(width - height * ratio) > 2 * ratio + 2 ||
+            x + cropWidth > session.Width || y + cropHeight > session.Height)
+            throw Invalid("media_invalid_selection", "Choose a crop of the required shape within the source.");
         if (request.Mode == "Animated" && (!session.CanAnimate || request.StartSeconds < 0 ||
                 request.EndSeconds > session.DurationSeconds + 0.000001 || request.EndSeconds <= request.StartSeconds ||
                 request.EndSeconds - request.StartSeconds > 10.000001))
             throw Invalid("media_invalid_selection", "Choose an animation fragment no longer than ten seconds.");
         if (request.FrameSeconds < 0 || request.FrameSeconds > session.DurationSeconds)
             throw Invalid("media_invalid_selection", "The selected frame is outside the source.");
-        return new Crop(x, y, side);
+        return new Crop(x, y, cropWidth, cropHeight);
     }
 
     private Session Find(Guid actor, Guid id)
@@ -560,7 +569,12 @@ public sealed class FfmpegProfileMediaProcessor : IProfileMediaProcessor
     private static string F(double value) => value.ToString("0.######", CultureInfo.InvariantCulture);
     private static ValidationException Invalid(string code, string message) => new([new ValidationFailure("Media", message) { ErrorCode = code }]);
     private sealed class OutputLimitException : Exception;
-    private sealed record Crop(int X, int Y, int Side);
+    private sealed record Crop(int X, int Y, int Width, int Height);
+
+    private readonly record struct OutputSize(int Width, int Height);
+
+    /// <summary>Avatars, achievement pictures and the wide profile banner.</summary>
+    private static readonly OutputSize[] AllowedSizes = [new(256, 256), new(512, 512), new(1600, 400)];
 
     private sealed class Session(Guid id, Guid ownerId, DateTime expiresAt, string root)
     {

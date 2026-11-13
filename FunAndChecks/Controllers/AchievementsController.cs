@@ -10,6 +10,57 @@ namespace FunAndChecks.Controllers;
 [Authorize]
 public class AchievementsController(IAchievementService achievements) : ControllerBase
 {
+    [HttpGet("api/achievements/effects.css")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Effects(CancellationToken ct)
+    {
+        string css = await achievements.GetEffectsStylesheetAsync(ct);
+        string etag = "\"" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(css))) + "\"";
+        Response.Headers.ETag = etag;
+        Response.Headers.CacheControl = "no-cache";
+        if (Request.Headers.IfNoneMatch.Any(value => value == etag))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+        return Content(css, "text/css", System.Text.Encoding.UTF8);
+    }
+
+    [HttpPost("api/admin/achievements/effects/preview")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+    public async Task<ActionResult<EffectPreviewDto>> Preview(EffectPreviewRequest request, CancellationToken ct) =>
+        Ok(await achievements.PreviewEffectsAsync(User.GetUserId(), request, ct));
+
+    /// <summary>Картинки достижений открыты так же, как сами достижения: их показывает публичная таблица результатов.</summary>
+    [HttpGet("api/achievements/media/{mediaId:guid}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Media(Guid mediaId, [FromQuery] bool poster, CancellationToken ct)
+    {
+        var media = await achievements.GetPublicMediaAsync(mediaId, poster, ct);
+        // Заменённая картинка получает новый id, поэтому файл по адресу не меняется никогда.
+        Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(media.Data, media.ContentType, enableRangeProcessing: true);
+    }
+
+    [HttpGet("api/admin/achievements/{id:int}")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+    public async Task<ActionResult<AchievementEditDto>> GetForEdit(int id, CancellationToken ct) =>
+        Ok(await achievements.GetForEditAsync(User.GetUserId(), id, ct));
+
+    [HttpPut("api/admin/achievements/{id:int}/media/{slot}")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    public async Task<ActionResult<MediaAssetDto>> SetMedia(int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot,
+        SetAchievementMediaRequest request, CancellationToken ct) =>
+        Ok(await achievements.SetMediaAsync(User.GetUserId(), id, slot, request, ct));
+
+    [HttpDelete("api/admin/achievements/{id:int}/media/{slot}")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    public async Task<IActionResult> RemoveMedia(int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot, CancellationToken ct)
+    {
+        await achievements.RemoveMediaAsync(User.GetUserId(), id, slot, ct);
+        return NoContent();
+    }
+
     [HttpGet("api/achievements")]
     public async Task<ActionResult<AchievementPageDto>> Get([FromQuery] string? query,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 24, [FromQuery] bool includeArchived = false,

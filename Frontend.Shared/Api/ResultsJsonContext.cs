@@ -12,6 +12,6 @@ namespace Frontend.Shared.Api;
 /// </summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
 [JsonSerializable(typeof(SubjectResultsDto))]
-[JsonSerializable(typeof(List<PinnedAchievementBadgeDto>))]
+[JsonSerializable(typeof(ActiveAchievementDto))]
 [JsonSerializable(typeof(List<StudentColorUpdateDto>))]
 internal sealed partial class ResultsJsonContext : JsonSerializerContext;

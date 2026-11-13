@@ -102,7 +102,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ProfileMediaAsset> ProfileMediaAssets => Set<ProfileMediaAsset>();
     public DbSet<AchievementDefinition> AchievementDefinitions => Set<AchievementDefinition>();
     public DbSet<AchievementAward> AchievementAwards => Set<AchievementAward>();
-    public DbSet<PinnedAchievement> PinnedAchievements => Set<PinnedAchievement>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ForumTopic> ForumTopics => Set<ForumTopic>();

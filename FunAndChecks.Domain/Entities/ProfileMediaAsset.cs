@@ -6,6 +6,7 @@ public class ProfileMediaAsset
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? UserProfileId { get; set; }
     public int? AchievementDefinitionId { get; set; }
+    public FunAndChecks.Domain.Enums.AchievementMediaSlot Slot { get; set; }
     public required byte[] Data { get; set; }
     public required string ContentType { get; set; }
     public required byte[] PosterData { get; set; }

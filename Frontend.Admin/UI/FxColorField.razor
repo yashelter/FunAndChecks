@@ -1,0 +1,25 @@
+@* Цвет эффекта достижения: палитра + HEX. Пустое значение — «не задано». *@
+<div class="fc-fx-color">
+    <span class="fc-fx-color-label">@Label</span>
+    <input type="color" value="@(string.IsNullOrEmpty(Value) ? "#7c3aed" : Expand(Value))" @onchange="e => SetAsync(e.Value?.ToString())" disabled="@Disabled" aria-label="@Label" class="@(string.IsNullOrEmpty(Value) ? "empty" : "")" />
+    <input type="text" value="@Value" @onchange="e => SetAsync(e.Value?.ToString())" disabled="@Disabled" maxlength="7" placeholder="—" aria-label="@(Label + " HEX")" />
+    @if (!string.IsNullOrEmpty(Value) && !Disabled) { <button type="button" @onclick="() => SetAsync(null)" aria-label="@(Label + ": ×")" title="×">×</button> }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private Task SetAsync(string? value)
+    {
+        value = value?.Trim();
+        if (!string.IsNullOrEmpty(value) && !value.StartsWith('#')) value = "#" + value;
+        return ValueChanged.InvokeAsync(string.IsNullOrEmpty(value) ? null : value.ToLowerInvariant());
+    }
+
+    // <input type="color"> понимает только #rrggbb.
+    private static string Expand(string value) =>
+        value.Length == 4 ? $"#{value[1]}{value[1]}{value[2]}{value[2]}{value[3]}{value[3]}" : value;
+}

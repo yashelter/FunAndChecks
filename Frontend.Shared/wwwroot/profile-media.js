@@ -43,13 +43,14 @@ export function loopSegment(element, start, end, still) {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 function applyCrop(element) {
     const state = element._profileCrop; if (!state) return;
-    const scale = state.zoom / Math.min(state.width, state.height);
-    const width = state.width * scale * 100, height = state.height * scale * 100;
+    // The frame is 1 high and `aspect` wide; at zoom 1 the source covers it completely.
+    const aspect = state.aspect || 1, scale = state.zoom * Math.max(aspect / state.width, 1 / state.height);
+    const width = state.width * scale / aspect * 100, height = state.height * scale * 100;
     element.style.setProperty('--crop-width', width + '%'); element.style.setProperty('--crop-height', height + '%');
     element.style.setProperty('--crop-left', -(width - 100) * state.x + '%'); element.style.setProperty('--crop-top', -(height - 100) * state.y + '%');
 }
-export function configureCrop(element, width, height, zoom, x, y, busy) {
-    element._profileCrop = { width, height, zoom, x, y, busy }; applyCrop(element);
+export function configureCrop(element, width, height, zoom, x, y, busy, aspect) {
+    element._profileCrop = { width, height, zoom, x, y, busy, aspect: aspect || 1 }; applyCrop(element);
 }
 export function readCrop(element) { const state = element._profileCrop; return { x: state?.x ?? .5, y: state?.y ?? .5, zoom: state?.zoom ?? 1 }; }
 export function attachCrop(element, reference) {
@@ -74,7 +75,7 @@ export function attachCrop(element, reference) {
         points.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (points.size > 1) state.zoom = clamp(gesture.zoom * distance() / gesture.distance, 1, 4);
         else {
-            const scale = element.clientWidth * state.zoom / Math.min(state.width, state.height);
+            const scale = state.zoom * Math.max(element.clientWidth / state.width, element.clientHeight / state.height);
             const overflowX = state.width * scale - element.clientWidth, overflowY = state.height * scale - element.clientHeight;
             state.x = overflowX > .1 ? clamp(gesture.focusX - (e.clientX - gesture.x) / overflowX, 0, 1) : .5;
             state.y = overflowY > .1 ? clamp(gesture.focusY - (e.clientY - gesture.y) / overflowY, 0, 1) : .5;
@@ -93,7 +94,7 @@ export function attachCrop(element, reference) {
     }, { passive: false });
     element.addEventListener('keydown', e => {
         const state = element._profileCrop; if (!state || state.busy) return;
-        const scale = element.clientWidth * state.zoom / Math.min(state.width, state.height), step = e.shiftKey ? 20 : 8;
+        const scale = state.zoom * Math.max(element.clientWidth / state.width, element.clientHeight / state.height), step = e.shiftKey ? 20 : 8;
         const horizontal = Math.max(1, state.width * scale - element.clientWidth), vertical = Math.max(1, state.height * scale - element.clientHeight);
         if (e.key === 'ArrowLeft') state.x = clamp(state.x + step / horizontal, 0, 1);
         else if (e.key === 'ArrowRight') state.x = clamp(state.x - step / horizontal, 0, 1);

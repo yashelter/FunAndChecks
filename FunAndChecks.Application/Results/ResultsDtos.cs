@@ -30,7 +30,7 @@ public record StudentResultRowDto(
     string? StudentColor,
     string LastName = "",
     string FirstName = "",
-    IReadOnlyList<PinnedAchievementBadgeDto>? PinnedAchievements = null,
+    ActiveAchievementDto? ActiveAchievement = null,
     int Rank = 0);
 
 /// <summary>Полная таблица результатов по предмету (кэшируется).</summary>

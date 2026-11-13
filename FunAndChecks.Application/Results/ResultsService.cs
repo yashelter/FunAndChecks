@@ -72,9 +72,9 @@ public class ResultsService(
             .ToListAsync(cancellationToken);
 
         var studentIds = studentsData.Select(s => s.Id).ToList();
-        var pinnedAchievements = profiles is null
-            ? new Dictionary<Guid, IReadOnlyList<PinnedAchievementBadgeDto>>()
-            : await profiles.GetPinnedAchievementsAsync(studentIds, cancellationToken);
+        var activeAchievements = profiles is null
+            ? new Dictionary<Guid, ActiveAchievementDto>()
+            : await profiles.GetActiveAchievementsAsync(studentIds, cancellationToken);
 
         var allSubmissions = await db.Submissions
             .Where(s => s.Task.SubjectId == subjectId && studentIds.Contains(s.StudentId))
@@ -147,7 +147,7 @@ public class ResultsService(
                 student.Color,
                 student.LastName,
                 student.FirstName,
-                pinnedAchievements.GetValueOrDefault(student.Id));
+                activeAchievements.GetValueOrDefault(student.Id));
         })
         .OrderByDescending(r => r.TotalPoints)
         .ThenBy(r => r.FullName, StringComparer.CurrentCultureIgnoreCase)

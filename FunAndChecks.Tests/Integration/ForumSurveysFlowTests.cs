@@ -290,9 +290,9 @@ public class ForumSurveysFlowTests : IDisposable
         foreign.Detailed.Should().BeFalse();
         foreign.Subjects.Should().BeEmpty();
 
-        var avatars = await student.GetFromJsonAsync<Dictionary<Guid, MediaAssetDto>>(
-            $"/api/profiles/avatars?ids={seed.AdminId}&ids={seed.OutsiderId}");
-        avatars.Should().BeEmpty();
+        var looks = await student.GetFromJsonAsync<Dictionary<Guid, UserLookDto>>(
+            $"/api/profiles/looks?ids={seed.AdminId}&ids={seed.OutsiderId}");
+        looks.Should().BeEmpty();
     }
 
     private static CreateForumTopicRequest Topic(int? subjectId) =>

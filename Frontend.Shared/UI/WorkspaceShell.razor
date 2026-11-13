@@ -16,7 +16,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 <a class="fc-skip-link" href="@ContentAnchor">@Text("Перейти к содержимому", "Skip to content")</a>
-<div class="fc-shell @(Public ? "fc-shell-public" : IsAdmin ? "fc-shell-admin" : "")">
+<div class="fc-shell @(Public ? "fc-shell-public" : "")">
     @if (!Public)
     {
         @if (_mobileOpen) { <button type="button" class="fc-nav-overlay" @onclick="CloseNav" aria-label="@Text("Закрыть навигацию", "Close navigation")"></button> }
@@ -28,12 +28,14 @@
             <div class="fc-workspace"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /><div><strong>@(IsAdmin ? Text("Рабочее пространство", "Workspace") : _group ?? Text("Кабинет студента", "Student workspace"))</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : Text("Студент", "Student"))</small></div></div>
             <nav class="fc-navigation" @onclick="CloseNav">@Navigation</nav>
             <div class="fc-sidebar-bottom"><button type="button" class="fc-logout" @onclick="LogoutAsync"><MudIcon Icon="@Icons.Material.Outlined.Logout" Size="Size.Small" />@Loc["App_Logout"]</button>
-                <a class="fc-account fc-account-link" href="@(IsAdmin ? "/admin/profile" : "/student/profile")" aria-label="@Text("Открыть мой кабинет", "Open my profile")"><ProfileMedia Media="_avatar" Fallback="@Initials" Alt="@_userName" /><div><strong>@_userName</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : _group)</small></div></a>
+                <a class="fc-account fc-account-link" href="@(IsAdmin ? "/admin/profile" : "/student/profile")" aria-label="@Text("Открыть мой кабинет", "Open my profile")"><span class="fc-fx-avatar" data-fx="@_fx"><ProfileMedia Media="_avatar" Fallback="@Initials" Alt="@_userName" /></span><div><strong>@_userName</strong><small>@(IsAdmin ? Text("Преподаватель", "Teacher") : _group)</small></div></a>
             </div>
         </aside>
     }
     <div class="fc-main-shell">
         <SeasonalDecorations />
+        @* Декор сайта от своего активного достижения видит только владелец; частицы — пустые <i>, их оформляет таблица стилей эффектов. *@
+        @if (_fx is int fx) { <div class="fc-fx-site" data-fx="@fx" aria-hidden="true">@for (var i = 0; i < 12; i++) { <i></i> }</div> }
         @if (!Public && !IsAdmin) { <LegalConsentGate /> }
         <header class="fc-topbar">
             @if (!Public) { <MudIconButton Icon="@Icons.Material.Outlined.Menu" OnClick="ToggleNav" Class="fc-mobile-menu" aria-label="@Text("Открыть навигацию", "Open navigation")" /> }
@@ -84,6 +86,7 @@
     private string? _group;
     private string _caption = "";
     private MediaDto? _avatar;
+    private int? _fx;
     private string ContentAnchor => new Uri(Nav.Uri).PathAndQuery + "#workspace-content";
     private string Initials => string.Concat(_userName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0]));
     private string PageName
@@ -92,11 +95,13 @@
         {
             var path = new Uri(Nav.Uri).AbsolutePath;
             if (path.Contains("/student-accounts")) return Text("Управление аккаунтами", "Manage accounts");
+            if (path.Contains("/achievements/")) return Text("Редактор достижения", "Achievement editor");
             if (path.Contains("/achievements")) return Text("Достижения", "Achievements");
             if (path.Contains("/profile")) return Text("Личный кабинет", "Profile");
             if (path.Contains("/forum")) return Text("Форум", "Forum");
             if (path.Contains("/surveys")) return Text("Опросы", "Surveys");
             if (path.Contains("/variants")) return Text("Варианты", "Variants");
+            if (path.StartsWith("/metrics", StringComparison.Ordinal)) return Loc["Monitoring_Title"];
             return path.Contains("/queues") ? Loc["AdminNav_Queues"] : path.Contains("/attendance") ? Text("Посещаемость", "Attendance") :
                 path.Contains("/management") ? Loc["AdminNav_Management"] : path.Contains("/grading") ? Loc["AdminNav_Grading"] :
                 path.Contains("/admins") ? Loc["AdminNav_Admins"] : path.Contains("/maintenance") ? Loc["AdminNav_Maintenance"] :
@@ -112,7 +117,7 @@
             Profiles.ProfileChanged += ProfileChanged;
             try { var me = await Me.GetMeAsync(); _userName = me.FullName; _group = me.GroupName; }
             catch (ApiException) { /* The page handles data errors; the account label is optional. */ }
-            try { _avatar = (await Profiles.MineAsync()).Avatar; }
+            try { var mine = await Profiles.MineAsync(); _avatar = mine.Avatar; _fx = mine.ActiveAchievement?.AchievementId; }
             catch (ApiException) { }
         }
     }
@@ -127,7 +132,7 @@
     private void Refresh() => InvokeAsync(StateHasChanged);
     private async void ProfileChanged()
     {
-        try { _avatar = (await Profiles.MineAsync()).Avatar; await InvokeAsync(StateHasChanged); }
+        try { var mine = await Profiles.MineAsync(); _avatar = mine.Avatar; _fx = mine.ActiveAchievement?.AchievementId; await InvokeAsync(StateHasChanged); }
         catch (ApiException) { }
     }
     private void ToggleNav() => _mobileOpen = !_mobileOpen;

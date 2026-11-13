@@ -11,9 +11,6 @@ public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequ
             .WithErrorCode("profile_url_invalid").WithMessage("Use an HTTPS link to GitHub.");
         RuleFor(r => r.PortfolioUrl).MaximumLength(500).Must(url => SafeUrl(url, false))
             .WithErrorCode("profile_url_invalid").WithMessage("Use an HTTPS link.");
-        RuleFor(r => r.PinnedAwardIds).Must(ids => ids is null ||
-            (ids.Count <= 3 && ids.All(id => id > 0) && ids.Distinct().Count() == ids.Count))
-            .WithErrorCode("profile_pins_invalid").WithMessage("Choose at most three different awards.");
     }
 
     private static bool SafeUrl(string? value, bool github)
@@ -36,6 +33,7 @@ public class UpsertAchievementRequestValidator : AbstractValidator<UpsertAchieve
             (!r.MediaSessionId.HasValue || r.MediaSessionId != Guid.Empty) &&
             !(r.RemoveImage && r.MediaSessionId.HasValue))
             .WithErrorCode("media_request_invalid").WithMessage("Choose an image session and its edit settings together.");
+        RuleFor(r => r.CustomCss).MaximumLength(EffectCssCompiler.MaxLength);
     }
 }
 

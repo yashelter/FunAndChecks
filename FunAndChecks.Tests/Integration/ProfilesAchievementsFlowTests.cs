@@ -47,11 +47,11 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task OwnProfile_ValidatesLinksAndPins_WithoutChangingAcademicIdentity()
+    public async Task OwnProfile_ValidatesLinksAndActiveAward_WithoutChangingAcademicIdentity()
     {
         var seed = await SeedAsync();
         using var student = Client(seed.StudentToken);
-        var request = new UpdateProfileRequest(" <b>Люблю C#</b> ", "https://github.com/student", "https://portfolio.example/work", []);
+        var request = new UpdateProfileRequest(" <b>Люблю C#</b> ", "https://github.com/student", "https://portfolio.example/work");
         var updated = await student.PutAsJsonAsync("/api/me/profile", request);
         updated.StatusCode.Should().Be(HttpStatusCode.OK);
         var profile = (await updated.Content.ReadFromJsonAsync<UserProfileDto>())!;
@@ -60,8 +60,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
         profile.GroupName.Should().Be("Hidden group");
         (await student.PutAsJsonAsync("/api/me/profile", request with { PortfolioUrl = "javascript:alert(1)" })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await student.PutAsJsonAsync("/api/me/profile", request with { GitHubUrl = "https://github.com.evil.example/student" })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await student.PutAsJsonAsync("/api/me/profile", request with { PinnedAwardIds = [1, 2, 3, 4] })).StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await student.PutAsJsonAsync("/api/me/profile", request with { PinnedAwardIds = [999] })).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(999))).StatusCode.Should().Be(HttpStatusCode.Conflict);
         using var scope = _factory.Services.CreateScope();
         var original = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Students.SingleAsync(s => s.Id == seed.StudentId);
         original.Color.Should().Be("#aabbcc");
@@ -124,7 +123,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task RevokeUnpins_OnlyIssuerOrSuperAllowed_RegrantPreservesHistory()
+    public async Task RevokeClearsActiveAward_OnlyIssuerOrSuperAllowed_RegrantPreservesHistory()
     {
         var seed = await SeedAsync();
         using var super = Client(seed.SuperToken);
@@ -135,19 +134,23 @@ public class ProfilesAchievementsFlowTests : IDisposable
         var award = await GrantAsync(admin, definition.Id, seed.StudentId);
         (await admin.PostAsJsonAsync($"/api/admin/achievements/{definition.Id}/awards", new GrantAchievementRequest(seed.StudentId)))
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("", null, null, [award.Id])))
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(award.Id)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
-        (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!.Awards.Should().ContainSingle().Which.PinPosition.Should().Be(1);
+        var wearing = (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!;
+        wearing.Awards.Should().ContainSingle().Which.IsActive.Should().BeTrue();
+        wearing.ActiveAchievement!.AchievementId.Should().Be(definition.Id);
         (await other.PostAsync($"/api/admin/achievement-awards/{award.Id}/revoke", null)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await admin.PostAsync($"/api/admin/achievement-awards/{award.Id}/revoke", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!.Awards.Should().BeEmpty();
+        var revoked = (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!;
+        revoked.Awards.Should().BeEmpty();
+        revoked.ActiveAchievement.Should().BeNull();
         var replacement = await GrantAsync(other, definition.Id, seed.StudentId);
         replacement.Id.Should().NotBe(award.Id);
         (await super.PostAsync($"/api/admin/achievement-awards/{replacement.Id}/revoke", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         (await db.AchievementAwards.CountAsync(a => a.UserId == seed.StudentId)).Should().Be(2);
-        (await db.PinnedAchievements.CountAsync()).Should().Be(0);
+        (await db.UserProfiles.AllAsync(p => p.ActiveAwardId == null)).Should().BeTrue();
         (await db.AchievementAwards.AllAsync(a => a.RevokedAtUtc != null)).Should().BeTrue();
     }
 
@@ -174,24 +177,96 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task PinReorderingIsAtomic_AndCannotPinSomeoneElsesAward()
+    public async Task ActiveAward_IsOneOfOwn_AndDefaultTakesOverWhenNothingIsChosen()
     {
         var seed = await SeedAsync();
         using var super = Client(seed.SuperToken);
         using var admin = Client(seed.AdminToken);
         using var student = Client(seed.StudentToken);
-        var ids = new List<int>();
-        for (var i = 0; i < 3; i++) ids.Add((await GrantAsync(admin, (await CreateAsync(super, $"Achievement {i}")).Id, seed.StudentId)).Id);
-        var foreignAward = await GrantAsync(admin, (await CreateAsync(super, "Admin only")).Id, seed.AdminId);
-        foreach (var order in new[] { ids.ToArray(), ids.AsEnumerable().Reverse().ToArray() })
+        var plain = await CreateAsync(super, "Plain");
+        var byDefault = (await (await super.PostAsJsonAsync("/api/admin/achievements",
+            new UpsertAchievementRequest("By default", "Description", ActiveByDefault: true))).Content.ReadFromJsonAsync<AchievementDto>())!;
+        byDefault.ActiveByDefault.Should().BeTrue();
+        var plainAward = await GrantAsync(admin, plain.Id, seed.StudentId);
+        await GrantAsync(admin, byDefault.Id, seed.StudentId);
+        var foreignAward = await GrantAsync(admin, plain.Id, seed.AdminId);
+
+        async Task<int?> ActiveAsync() =>
+            (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!.ActiveAchievement?.AchievementId;
+
+        // Ничего не выбрано — активно достижение с пометкой «по умолчанию».
+        (await ActiveAsync()).Should().Be(byDefault.Id);
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(plainAward.Id))).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ActiveAsync()).Should().Be(plain.Id);
+        var profile = (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!;
+        profile.Awards.Where(a => a.IsActive).Select(a => a.Id).Should().Equal(plainAward.Id);
+        // Чужую награду выбрать нельзя, и выбор при этом не меняется.
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(foreignAward.Id))).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await ActiveAsync()).Should().Be(plain.Id);
+        // «Снять» возвращает к достижению по умолчанию.
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(null))).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ActiveAsync()).Should().Be(byDefault.Id);
+
+        // Аватара нет, но активное достижение есть — пользователь попадает в «вид для списков».
+        var looks = (await admin.GetFromJsonAsync<Dictionary<Guid, UserLookDto>>($"/api/profiles/looks?ids={seed.StudentId}&ids={seed.OtherAdminId}"))!;
+        looks.Should().ContainKey(seed.StudentId).WhoseValue.Should().Be(new UserLookDto(null, byDefault.Id));
+        looks.Should().NotContainKey(seed.OtherAdminId);
+    }
+
+    [Fact]
+    public async Task Effects_AreCheckedScopedToTheAchievement_AndServedWithoutLogin()
+    {
+        var seed = await SeedAsync();
+        using var super = Client(seed.SuperToken);
+        using var admin = Client(seed.AdminToken);
+        using var student = Client(seed.StudentToken);
+        using var anonymous = _factory.CreateClient();
+        var effects = new AchievementEffects(Name: new NameEffect(Color: "#ff8800", Bold: true));
+        var request = new UpsertAchievementRequest("Shiny", "Description", Effects: effects, CustomCss: "row { box-shadow: inset 3px 0 0 gold; }");
+        var definition = (await (await super.PostAsJsonAsync("/api/admin/achievements", request)).Content.ReadFromJsonAsync<AchievementDto>())!;
+        definition.Effects!.Name!.Color.Should().Be("#ff8800");
+
+        var sheet = await anonymous.GetAsync("/api/achievements/effects.css");
+        sheet.StatusCode.Should().Be(HttpStatusCode.OK);
+        sheet.Content.Headers.ContentType!.MediaType.Should().Be("text/css");
+        var css = await sheet.Content.ReadAsStringAsync();
+        css.Should().Contain($".fc-fx-name[data-fx=\"{definition.Id}\"]{{color:#ff8800;font-weight:700;}}");
+        css.Should().Contain($"tr.fc-fx-row[data-fx=\"{definition.Id}\"]>td");
+        using (var revalidate = new HttpRequestMessage(HttpMethod.Get, "/api/achievements/effects.css"))
         {
-            (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("", null, null, order))).StatusCode.Should().Be(HttpStatusCode.OK);
-            var profile = (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!;
-            profile.Awards.Where(a => a.PinPosition.HasValue).OrderBy(a => a.PinPosition).Select(a => a.Id).Should().Equal(order);
+            revalidate.Headers.IfNoneMatch.Add(sheet.Headers.ETag!);
+            (await anonymous.SendAsync(revalidate)).StatusCode.Should().Be(HttpStatusCode.NotModified);
         }
-        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Changed", null, null, [foreignAward.Id])))
-            .StatusCode.Should().Be(HttpStatusCode.Conflict);
-        (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!.AboutMe.Should().BeEmpty();
+
+        // Недопустимый CSS не сохраняется: прежнее оформление остаётся.
+        (await super.PutAsJsonAsync($"/api/admin/achievements/{definition.Id}", request with { CustomCss = "name { background: url(https://evil.example/x.png); }" }))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await anonymous.GetStringAsync("/api/achievements/effects.css")).Should().Be(css);
+
+        // Предпросмотр доступен любому преподавателю (редактор открывается на просмотр), студенту — нет.
+        (await student.PostAsJsonAsync("/api/admin/achievements/effects/preview", new EffectPreviewRequest(effects, null))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var preview = (await (await admin.PostAsJsonAsync("/api/admin/achievements/effects/preview",
+            new EffectPreviewRequest(effects, "avatar { height: 10px; }", definition.Id))).Content.ReadFromJsonAsync<EffectPreviewDto>())!;
+        preview.Css.Should().BeEmpty();
+        preview.Errors.Should().ContainSingle().Which.Line.Should().Be(1);
+        (await admin.GetFromJsonAsync<AchievementEditDto>($"/api/admin/achievements/{definition.Id}"))!.Achievement.CustomCss.Should().Be(request.CustomCss);
+
+        // Картинки эффектов: загружает только супер-администратор, отдаются всем, аватары — нет.
+        var frame = new SetAchievementMediaRequest(_factory.Media.AddSession(seed.AdminId), Crop);
+        (await admin.PutAsJsonAsync($"/api/admin/achievements/{definition.Id}/media/Frame", frame)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var saved = await super.PutAsJsonAsync($"/api/admin/achievements/{definition.Id}/media/Frame",
+            new SetAchievementMediaRequest(_factory.Media.AddSession(seed.SuperId), Crop));
+        saved.StatusCode.Should().Be(HttpStatusCode.OK);
+        var media = (await saved.Content.ReadFromJsonAsync<MediaAssetDto>())!;
+        (await anonymous.GetAsync($"/api/achievements/media/{media.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await anonymous.GetStringAsync("/api/achievements/effects.css")).Should().Contain($"--fx-img-frame:url(\"/api/achievements/media/{media.Id}\")");
+        var avatar = (await (await student.PostAsJsonAsync("/api/me/avatar", new UpdateAvatarRequest(_factory.Media.AddSession(seed.StudentId), Crop)))
+            .Content.ReadFromJsonAsync<MediaAssetDto>())!;
+        (await anonymous.GetAsync($"/api/achievements/media/{avatar.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        // Значок и рамка — разные слоты: рамка не подменяет значок достижения.
+        (await student.GetFromJsonAsync<AchievementDto>($"/api/achievements/{definition.Id}"))!.Image.Should().BeNull();
+        (await super.DeleteAsync($"/api/admin/achievements/{definition.Id}/media/Frame")).StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await anonymous.GetAsync($"/api/achievements/media/{media.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -242,7 +317,8 @@ public class ProfilesAchievementsFlowTests : IDisposable
             new UpsertAchievementRequest("Retained", "", definitionSession, Crop))).Content.ReadFromJsonAsync<AchievementDto>())!;
         definition.Image!.Width.Should().Be(512);
         var award = await GrantAsync(admin, definition.Id, seed.StudentId);
-        await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Bio", null, null, [award.Id]));
+        await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Bio", null, null));
+        await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(award.Id));
         var avatarSession = _factory.Media.AddSession(seed.StudentId);
         var avatar = (await (await student.PostAsJsonAsync("/api/me/avatar", new UpdateAvatarRequest(avatarSession, Crop)))
             .Content.ReadFromJsonAsync<MediaAssetDto>())!;
@@ -257,7 +333,6 @@ public class ProfilesAchievementsFlowTests : IDisposable
         (await db.UserProfiles.AnyAsync(p => p.UserId == seed.StudentId)).Should().BeFalse();
         (await db.ProfileMediaAssets.AnyAsync(a => a.Id == avatar.Id)).Should().BeFalse();
         (await db.AchievementAwards.AnyAsync(a => a.UserId == seed.StudentId)).Should().BeFalse();
-        (await db.PinnedAchievements.AnyAsync()).Should().BeFalse();
         (await db.ProfileMediaAssets.AnyAsync(a => a.Id == definition.Image.Id)).Should().BeTrue();
         (await db.AchievementDefinitions.AnyAsync(a => a.Id == definition.Id)).Should().BeTrue();
     }
@@ -287,7 +362,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task PinnedBadges_InResultsAndQueue_FollowPinsRevokeAndRename()
+    public async Task ActiveBadge_InResultsAndQueue_FollowsChoiceRevokeAndRename()
     {
         var seed = await SeedAsync();
         var (subjectId, _, queueId) = await SeedSubjectsAsync(seed.StudentId);
@@ -299,40 +374,43 @@ public class ProfilesAchievementsFlowTests : IDisposable
         var firstAward = await GrantAsync(admin, first.Id, seed.StudentId);
         var secondAward = await GrantAsync(admin, second.Id, seed.StudentId);
 
-        async Task<IEnumerable<string>?> BadgesInResults()
+        async Task<string?> BadgeInResults()
         {
             var results = await super.GetFromJsonAsync<SubjectResultsDto>($"/api/results/subjects/{subjectId}");
-            return results!.UserResults.Single(r => r.StudentId == seed.StudentId).PinnedAchievements?.Select(b => b.Name);
+            return results!.UserResults.Single(r => r.StudentId == seed.StudentId).ActiveAchievement?.Name;
         }
 
         // Первый запрос заполняет кэш таблицы: дальше каждое изменение обязано его сбросить.
-        (await BadgesInResults()).Should().BeNull();
+        (await BadgeInResults()).Should().BeNull();
 
-        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("", null, null, [secondAward.Id, firstAward.Id])))
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(secondAward.Id)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
-        (await BadgesInResults()).Should().Equal("Вторая", "Первая");
+        (await BadgeInResults()).Should().Be("Вторая");
         using (var scope = _factory.Services.CreateScope())
         {
             var queue = await scope.ServiceProvider.GetRequiredService<IQueueService>().GetDetailsAsync(queueId, seed.SuperId);
-            queue.Participants.Single(p => p.StudentId == seed.StudentId).PinnedAchievements!
-                .Select(b => (b.AwardId, b.Position)).Should().Equal((secondAward.Id, 1), (firstAward.Id, 2));
+            queue.Participants.Single(p => p.StudentId == seed.StudentId).ActiveAchievement
+                .Should().Be(new ActiveAchievementDto(secondAward.Id, second.Id, "Вторая", null));
         }
 
         (await admin.PostAsync($"/api/admin/achievement-awards/{secondAward.Id}/revoke", null)).StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await BadgesInResults()).Should().Equal("Первая");
+        (await BadgeInResults()).Should().BeNull();
 
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(firstAward.Id)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
         (await super.PutAsJsonAsync($"/api/admin/achievements/{first.Id}", new UpsertAchievementRequest("Новая", "Description")))
             .StatusCode.Should().Be(HttpStatusCode.OK);
-        (await BadgesInResults()).Should().Equal("Новая");
+        (await BadgeInResults()).Should().Be("Новая");
 
-        // Публичная страница /results: таблица и диалог бейджа доступны без входа, список ачивок — нет.
+        // Публичная страница /results: таблица, диалог значка и оформление доступны без входа, список достижений — нет.
         using var anonymous = _factory.CreateClient();
         (await anonymous.GetAsync($"/api/results/subjects/{subjectId}")).StatusCode.Should().Be(HttpStatusCode.OK);
         (await anonymous.GetAsync($"/api/achievements/{first.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await anonymous.GetAsync("/api/achievements/effects.css")).StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task SavingProfile_DropsCachedResults_OnlyWhenPinsChange_AndOnlyForOwnSubjects()
+    public async Task ChoosingActiveAward_DropsCachedResults_OnlyForOwnSubjects_AndProfileTextDoesNot()
     {
         var seed = await SeedAsync();
         var (subjectId, otherSubjectId, _) = await SeedSubjectsAsync(seed.StudentId);
@@ -344,11 +422,11 @@ public class ProfilesAchievementsFlowTests : IDisposable
         foreach (var id in new[] { subjectId, otherSubjectId })
             (await super.GetAsync($"/api/results/subjects/{id}")).StatusCode.Should().Be(HttpStatusCode.OK);
 
-        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Новый текст", null, null, [])))
+        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Новый текст", null, null)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
-        cache.GetResults(subjectId).Should().NotBeNull("the pins did not change");
+        cache.GetResults(subjectId).Should().NotBeNull("the profile text is not shown in the table");
 
-        (await student.PutAsJsonAsync("/api/me/profile", new UpdateProfileRequest("Новый текст", null, null, [award.Id])))
+        (await student.PutAsJsonAsync("/api/me/profile/active-award", new SetActiveAwardRequest(award.Id)))
             .StatusCode.Should().Be(HttpStatusCode.OK);
         cache.GetResults(subjectId).Should().BeNull();
         cache.GetResults(otherSubjectId).Should().NotBeNull("the student's group does not study this subject");

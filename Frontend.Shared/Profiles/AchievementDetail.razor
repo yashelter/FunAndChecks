@@ -17,7 +17,7 @@
             {
                 <p class="fc-profile-hint">@ProfileText.T("Получено", "Granted") @Award.GrantedAtUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture)</p>
                 <p class="fc-profile-hint">@ProfileText.T("Выдал(а):", "Issued by:") @if (Award.IssuedByUserId is { } issuer) { <a class="fc-profile-inline-link" href="@(BasePath + "/profile/" + issuer)" @onclick="() => OpenProfileAsync(issuer)" @onclick:preventDefault="true">@Award.IssuedByName</a> } else { <span>@Award.IssuedByName</span> }</p>
-                @if (_confirmRevoke && CanRevoke) { <MudAlert Severity="Severity.Warning">@ProfileText.T("Отозвать эту выдачу? Награда исчезнет из профиля и закреплённых.", "Revoke this award? It will be removed from the profile and pinned achievements.")<div class="mt-3"><MudButton OnClick="() => _confirmRevoke = false" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="RevokeAsync" Disabled="@_busy" Color="Color.Error">@ProfileText.T("Отозвать", "Revoke")</MudButton></div></MudAlert> }
+                @if (_confirmRevoke && CanRevoke) { <MudAlert Severity="Severity.Warning">@ProfileText.T("Отозвать эту выдачу? Награда исчезнет из профиля, её эффекты отключатся.", "Revoke this award? It will be removed from the profile and its effects will stop.")<div class="mt-3"><MudButton OnClick="() => _confirmRevoke = false" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="RevokeAsync" Disabled="@_busy" Color="Color.Error">@ProfileText.T("Отозвать", "Revoke")</MudButton></div></MudAlert> }
             }
             @if (ShowRecipients)
             {
@@ -31,7 +31,7 @@
             }
         }
     </ChildContent><Actions>
-        @if (Award is not null && Mine) { <MudButton OnClick="() => Pin.InvokeAsync(Award)" Disabled="@_busy" Variant="Variant.Outlined">@(Award.PinPosition.HasValue ? ProfileText.T("Убрать из закреплённых", "Unpin") : ProfileText.T("Закрепить", "Pin"))</MudButton> }
+        @if (Award is not null && Mine) { <MudButton OnClick="() => ToggleActive.InvokeAsync(Award)" Disabled="@_busy" Variant="Variant.Outlined">@(Award.IsActive ? ProfileText.T("Снять активное", "Stop wearing") : ProfileText.T("Сделать активным", "Make active"))</MudButton> }
         @if (CanRevoke) { <MudButton OnClick="() => _confirmRevoke = true" Color="Color.Error" Disabled="@_busy">@ProfileText.T("Отозвать", "Revoke")</MudButton> }
         @if (IsAdmin && _achievement?.IsArchived == false) { <MudButton OnClick="() => _grant = true" Color="Color.Primary" Variant="Variant.Filled">@ProfileText.T("Выдать", "Grant")</MudButton> }
         <MudButton OnClick="() => Close.InvokeAsync()" Disabled="@_busy">@ProfileText.T("Закрыть", "Close")</MudButton>
@@ -45,7 +45,7 @@
     [Parameter] public bool IsAdmin { get; set; }
     [Parameter] public string BasePath { get; set; } = "/student";
     [Parameter] public bool ShowRecipients { get; set; } = true;
-    [Parameter] public EventCallback<AchievementAwardDto> Pin { get; set; }
+    [Parameter] public EventCallback<AchievementAwardDto> ToggleActive { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     [Parameter] public EventCallback Close { get; set; }
     private bool CanRevoke => IsAdmin && Award?.CanRevoke == true;

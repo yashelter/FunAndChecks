@@ -17,6 +17,8 @@ public class UserProfileConfiguration : IEntityTypeConfiguration<UserProfile>
         builder.Property(p => p.PortfolioUrl).HasMaxLength(500);
         builder.HasOne<ApplicationUser>().WithOne().HasForeignKey<UserProfile>(p => p.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<AchievementAward>().WithMany().HasForeignKey(p => p.ActiveAwardId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
@@ -32,8 +34,11 @@ public class ProfileMediaAssetConfiguration : IEntityTypeConfiguration<ProfileMe
         builder.Property(m => m.PosterContentType).HasMaxLength(100);
         builder.HasOne<UserProfile>().WithOne().HasForeignKey<ProfileMediaAsset>(m => m.UserProfileId)
             .OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<AchievementDefinition>().WithOne().HasForeignKey<ProfileMediaAsset>(m => m.AchievementDefinitionId)
+        builder.HasOne<AchievementDefinition>().WithMany().HasForeignKey(m => m.AchievementDefinitionId)
             .OnDelete(DeleteBehavior.Cascade);
+        // One picture per slot of an achievement (badge, frame, pattern, banner, decor).
+        builder.HasIndex(m => new { m.AchievementDefinitionId, m.Slot }).IsUnique()
+            .HasFilter("\"AchievementDefinitionId\" IS NOT NULL");
     }
 }
 
@@ -45,6 +50,9 @@ public class AchievementDefinitionConfiguration : IEntityTypeConfiguration<Achie
         builder.Property(a => a.Name).HasMaxLength(100);
         builder.Property(a => a.Description).HasMaxLength(2000);
         builder.Property(a => a.CreatedByName).HasMaxLength(201);
+        builder.Property(a => a.EffectsJson).HasMaxLength(8000);
+        builder.Property(a => a.CustomCss).HasMaxLength(8000);
+        builder.Property(a => a.CompiledCss).HasMaxLength(64000);
         builder.HasIndex(a => new { a.IsArchived, a.Name });
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.CreatedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
@@ -65,18 +73,5 @@ public class AchievementAwardConfiguration : IEntityTypeConfiguration<Achievemen
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.IssuedByUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.RevokedByUserId).OnDelete(DeleteBehavior.SetNull);
-    }
-}
-
-public class PinnedAchievementConfiguration : IEntityTypeConfiguration<PinnedAchievement>
-{
-    public void Configure(EntityTypeBuilder<PinnedAchievement> builder)
-    {
-        builder.ToTable("PinnedAchievements", t => t.HasCheckConstraint("CK_PinnedAchievements_Position",
-            "\"Position\" >= 1 AND \"Position\" <= 3"));
-        builder.HasKey(p => new { p.UserId, p.Position });
-        builder.HasIndex(p => p.AchievementAwardId).IsUnique();
-        builder.HasOne<UserProfile>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<AchievementAward>().WithMany().HasForeignKey(p => p.AchievementAwardId).OnDelete(DeleteBehavior.Cascade);
     }
 }

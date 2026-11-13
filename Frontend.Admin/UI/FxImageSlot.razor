@@ -1,0 +1,39 @@
+@using Frontend.Shared.Profiles
+@* Одна картинка достижения (значок, рамка, узор, баннер, декор). Файлы достижений открыты,
+   поэтому показываем их обычным <img> — так же, как их берёт таблица стилей эффектов. *@
+<div class="fc-fx-slot">
+    <div class="fc-fx-slot-thumb @(Wide ? "wide" : "")">
+        @if (Media is not null) { <img src="@Url" alt="@Label" /> }
+        else { <span>@ProfileText.T("нет", "none")</span> }
+    </div>
+    <div class="fc-fx-slot-text">
+        <strong>@Label</strong>
+        <small>@Hint</small>
+        <div class="fc-fx-slot-actions">
+            @if (Locked)
+            {
+                <small class="fc-fx-slot-locked">@ProfileText.T("Сначала сохраните достижение — тогда можно загрузить картинку.", "Save the achievement first, then upload a picture.")</small>
+            }
+            else
+            {
+                <PermissionGate Allowed="CanEdit" Context="denied"><MudButton OnClick="Upload" Disabled="@(denied || Busy)" Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Upload">@(Media is null ? ProfileText.T("Загрузить", "Upload") : ProfileText.T("Заменить", "Replace"))</MudButton></PermissionGate>
+                @if (Media is not null) { <PermissionGate Allowed="CanEdit" Context="denied"><MudButton OnClick="Remove" Disabled="@(denied || Busy)" Size="Size.Small" Color="Color.Error">@ProfileText.T("Убрать", "Remove")</MudButton></PermissionGate> }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public MediaDto? Media { get; set; }
+    [Parameter] public bool Wide { get; set; }
+    [Parameter] public bool CanEdit { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    /// <summary>Достижение ещё не создано: картинку некуда сохранить.</summary>
+    [Parameter] public bool Locked { get; set; }
+    [Parameter] public EventCallback Upload { get; set; }
+    [Parameter] public EventCallback Remove { get; set; }
+    // Видео в <img> не показать — берём его кадр-обложку.
+    private string Url => $"/api/achievements/media/{Media!.Id}{(Media.ContentType.StartsWith("video/") ? "?poster=true" : "")}";
+}

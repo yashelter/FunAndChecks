@@ -84,9 +84,9 @@ else if (_details is not null)
                     {
                         var place = Waiting.IndexOf(p);
                         var past = _rounds.IsPastRound(p, _participants);
-                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.EntryId" class="@(p.StudentId == _myId && !past ? "fc-queue-me-row" : "") @(past ? "fc-queue-past-round" : "")">
+                        <tr style="@QueueStyles.RowStyle(p.Status)" @key="p.EntryId" class="@(p.StudentId == _myId && !past ? "fc-queue-me-row" : "") @(past ? "fc-queue-past-round" : "") @(p.ActiveAchievement is null ? "" : "fc-fx-row")" data-fx="@p.ActiveAchievement?.AchievementId">
                             <td class="fc-queue-place">@(place >= 0 ? place + 1 : "")</td>
-                            <td><div class="fc-queue-name-cell"><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-result-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /><Frontend.Shared.Profiles.PinnedAchievementBadges Achievements="p.PinnedAchievements" BasePath="/student" /></div></td>
+                            <td><div class="fc-queue-name-cell"><UserChip UserId="p.StudentId" Name="@($"{p.LastName} {p.FirstName}")" NameClass="fc-result-name" NameStyle="@QueueStyles.NameStyle(p.StudentColor)" Compact="true" /><Frontend.Shared.Profiles.ActiveAchievementBadge Achievement="p.ActiveAchievement" /></div></td>
                             <td class="fc-queue-group">@p.GroupName</td>
                             <td class="fc-queue-points">@p.TotalPoints</td>
                             <td class="fc-queue-status"><MudChip T="string" Color="@StatusColor(p.Status)" Size="Size.Small" Variant="Variant.Outlined">@QueueStyles.StatusText(p.Status, p.CheckingByAdminName, Loc)</MudChip>

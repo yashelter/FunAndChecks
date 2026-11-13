@@ -1,0 +1,22 @@
+@namespace Frontend.Shared.Profiles
+@inject IDialogService Dialogs
+
+@* Значок активного достижения рядом с именем: в таблице результатов, очереди и профиле. *@
+@if (Achievement is not null)
+{
+    <button type="button" class="fc-active-achievement-badge" title="@Achievement.Name" aria-label="@Achievement.Name" @onclick="OpenAsync">
+        <ProfileMedia Media="@Achievement.Image" Alt="@Achievement.Name" Class="fc-active-achievement-image" />
+    </button>
+}
+
+@code {
+    [Parameter] public ActiveAchievementDto? Achievement { get; set; }
+
+    private async Task OpenAsync()
+    {
+        if (Achievement is null) return;
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        await Dialogs.ShowAsync<AchievementBadgeDialog>(Achievement.Name,
+            new DialogParameters { [nameof(AchievementBadgeDialog.Achievement)] = Achievement }, options);
+    }
+}

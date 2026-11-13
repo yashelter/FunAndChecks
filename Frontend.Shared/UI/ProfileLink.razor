@@ -3,16 +3,18 @@
 
 <AuthorizeView>
     <Authorized Context="viewer">
-        <a class="fc-profile-link @Class" style="@Style" href="@ProfileUrl(viewer.User)"
+        <a class="fc-profile-link @Class" style="@Style" data-fx="@Fx" href="@ProfileUrl(viewer.User)"
            @onclick="() => OpenAsync(viewer.User)" @onclick:preventDefault="BeforeNavigate.HasDelegate">@ChildContent</a>
     </Authorized>
-    <NotAuthorized><span class="@Class" style="@Style">@ChildContent</span></NotAuthorized>
+    <NotAuthorized><span class="@Class" style="@Style" data-fx="@Fx">@ChildContent</span></NotAuthorized>
 </AuthorizeView>
 
 @code {
     [Parameter] public Guid UserId { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? Style { get; set; }
+    /// <summary>Активное достижение владельца: по нему таблица стилей эффектов оформляет имя.</summary>
+    [Parameter] public int? Fx { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public EventCallback BeforeNavigate { get; set; }
     // returnUrl — страница, с которой открыли профиль: «← Назад» вернёт в очередь, на форум и т. п., а не в результаты.

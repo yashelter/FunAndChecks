@@ -12,7 +12,7 @@
         <p class="fc-profile-hint">@ProfileText.T("До 20 МБ. Анимация до 10 секунд. Видео сохраняется без звука.", "Up to 20 MB. Animation up to 10 seconds. Videos are saved without sound.")</p>
         @if (_error is not null) { <MudAlert Severity="Severity.Error">@_error</MudAlert> }
         @if (_busy) { <MudProgressLinear Indeterminate="true" Class="my-3" /> }
-        <div @ref="_preview" class="fc-profile-crop" style="@CropStyle" tabindex="0" role="group" aria-label="@ProfileText.T("Квадратная область обрезки. Перетащите изображение или используйте стрелки.", "Square crop. Drag the image or use arrow keys.")">
+        <div @ref="_preview" class="fc-profile-crop" style="@(BoxStyle + CropStyle)" tabindex="0" role="group" aria-label="@ProfileText.T("Область обрезки. Перетащите изображение или используйте стрелки.", "Crop area. Drag the image or use arrow keys.")">
             @if (_previewUrl is null) { <span>@ProfileText.T("Выберите файл", "Choose a file")</span> }
             else if (_session?.CanAnimate == true)
             {
@@ -23,7 +23,7 @@
         </div>
         @if (_session is not null)
         {
-            <p class="fc-profile-hint fc-profile-crop-instruction">@ProfileText.T("Перетащите изображение внутри квадрата, чтобы выбрать область.", "Drag the image inside the square to choose your crop.")</p>
+            <p class="fc-profile-hint fc-profile-crop-instruction">@ProfileText.T("Перетащите изображение внутри рамки, чтобы выбрать область.", "Drag the image inside the frame to choose your crop.")</p>
             <label class="fc-profile-label" for="media-zoom">@ProfileText.T("Масштаб", "Zoom") <output>@_zoom.ToString("0.0", CultureInfo.CurrentCulture)×</output></label>
             <input id="media-zoom" class="fc-profile-range" type="range" min="1" max="4" step="0.05" value="@Invariant(_zoom)" @oninput="ZoomChanged" disabled="@_busy" />
             @if (_session.CanAnimate)
@@ -54,6 +54,8 @@
 @code {
     [Parameter] public Func<MediaSelection, Task<bool>>? Save { get; set; }
     [Parameter] public EventCallback Close { get; set; }
+    /// <summary>Ширина к высоте области обрезки: 1 — квадрат (аватар, значок), 4 — баннер профиля.</summary>
+    [Parameter] public double AspectRatio { get; set; } = 1;
     private MediaSessionDto? _session;
     private string? _previewUrl, _frameUrl, _error;
     private bool _busy, _still, _consumed, _configurePreview, _disposed;
@@ -70,11 +72,14 @@
         get
         {
             if (_session is null) return "";
-            var scale = _zoom / Math.Min(_session.Width, _session.Height);
-            var width = _session.Width * scale * 100; var height = _session.Height * scale * 100;
+            var scale = CoverScale(_session);
+            var width = _session.Width * scale / AspectRatio * 100; var height = _session.Height * scale * 100;
             return $"--crop-width:{Invariant(width)}%;--crop-height:{Invariant(height)}%;--crop-left:{Invariant(-(width - 100) * _x)}%;--crop-top:{Invariant(-(height - 100) * _y)}%";
         }
     }
+    // Рамка высотой 1 и шириной AspectRatio; при масштабе 1 исходник закрывает её целиком.
+    private double CoverScale(MediaSessionDto session) => _zoom * Math.Max(AspectRatio / session.Width, 1d / session.Height);
+    private string BoxStyle => Math.Abs(AspectRatio - 1) < .001 ? "" : $"width:min(100%,480px);height:auto;aspect-ratio:{Invariant(AspectRatio)};";
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_disposed) return;
@@ -88,7 +93,7 @@
             if (_disposed || session != _session) return;
             if (session is not null)
             {
-                await module.InvokeVoidAsync("configureCrop", _preview, session.Width, session.Height, _zoom, _x, _y, _busy);
+                await module.InvokeVoidAsync("configureCrop", _preview, session.Width, session.Height, _zoom, _x, _y, _busy, AspectRatio);
                 if (_disposed || session != _session) return;
                 if (session.CanAnimate)
                 {
@@ -144,7 +149,7 @@
         catch (OperationCanceledException) when (_disposed) { }
         finally { _busy = false; }
     }
-    private async Task ZoomChanged(ChangeEventArgs e) { _zoom = Math.Clamp(Number(e, _zoom), 1, 4); if (_module is not null && _session is not null) await _module.InvokeVoidAsync("configureCrop", _preview, _session.Width, _session.Height, _zoom, _x, _y, _busy); }
+    private async Task ZoomChanged(ChangeEventArgs e) { _zoom = Math.Clamp(Number(e, _zoom), 1, 4); if (_module is not null && _session is not null) await _module.InvokeVoidAsync("configureCrop", _preview, _session.Width, _session.Height, _zoom, _x, _y, _busy, AspectRatio); }
     [JSInvokable] public async Task CropChangedAsync(double x, double y, double zoom) { if (_busy || _disposed) return; _x = Math.Clamp(x, 0, 1); _y = Math.Clamp(y, 0, 1); _zoom = Math.Clamp(zoom, 1, 4); await InvokeAsync(StateHasChanged); }
     [JSInvokable] public async Task TimelineChangedAsync(double start, double end, double frame)
     {
@@ -211,8 +216,8 @@
                     _frame = Math.Clamp(time.Frame, 0, Math.Max(0, session.DurationSeconds - .01));
                 }
             }
-            var side = Math.Min(session.Width, session.Height) / _zoom;
-            var width = side / session.Width; var height = side / session.Height;
+            var scale = CoverScale(session);
+            var width = AspectRatio / scale / session.Width; var height = 1 / scale / session.Height;
             var render = new MediaRenderRequest((1 - width) * _x, (1 - height) * _y, width, height, _start, _end, _frame, _still ? "Still" : "Animated");
             if (await Save(new(session.Id, render))) { _consumed = true; if (!_disposed) await Close.InvokeAsync(); }
         }

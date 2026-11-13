@@ -14,6 +14,117 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
     IValidator<UpsertAchievementRequest> validator, INotificationService? notifications = null,
     IResultsCacheService? resultsCache = null) : IAchievementService
 {
+    public async Task<string> GetEffectsStylesheetAsync(CancellationToken ct = default)
+    {
+        var styles = await db.AchievementDefinitions.AsNoTracking()
+            .Where(a => a.CompiledCss != null && a.CompiledCss != "")
+            .OrderBy(a => a.Id).Select(a => new { a.Id, a.CompiledCss }).ToListAsync(ct);
+        if (styles.Count == 0) return "";
+        var ids = styles.Select(s => s.Id).ToList();
+        var media = await db.ProfileMediaAssets.AsNoTracking()
+            .Where(m => m.AchievementDefinitionId.HasValue && ids.Contains(m.AchievementDefinitionId.Value))
+            .Select(m => new { AchievementId = m.AchievementDefinitionId!.Value, m.Slot, m.Id, m.ContentType })
+            .ToListAsync(ct);
+        var pictures = media.ToLookup(m => m.AchievementId);
+        var css = new System.Text.StringBuilder();
+        foreach (var style in styles)
+        {
+            css.Append(EffectCssGenerator.ImageVariables(Scope(style.Id),
+                pictures[style.Id].Select(m => (m.Slot, m.Id, IsVideo(m.ContentType)))));
+            css.Append(style.CompiledCss).Append('\n');
+        }
+        return css.ToString();
+    }
+
+    public async Task<EffectPreviewDto> PreviewEffectsAsync(Guid adminId, EffectPreviewRequest request, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(adminId, false, ct);
+        var result = EffectCssGenerator.Build(PreviewScope, request.Effects, request.CustomCss);
+        if (!result.Ok) return new("", result.Errors);
+        var media = request.AchievementId is int id
+            ? await db.ProfileMediaAssets.AsNoTracking().Where(m => m.AchievementDefinitionId == id)
+                .Select(m => new { m.Slot, m.Id, m.ContentType }).ToListAsync(ct)
+            : [];
+        return new(EffectCssGenerator.ImageVariables(PreviewScope, media.Select(m => (m.Slot, m.Id, IsVideo(m.ContentType)))) + result.Css, []);
+    }
+
+    public async Task<AchievementEditDto> GetForEditAsync(Guid adminId, int id, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(adminId, false, ct);
+        var achievement = await GetByIdAsync(id, ct);
+        var media = await db.ProfileMediaAssets.AsNoTracking().Where(m => m.AchievementDefinitionId == id)
+            .Select(m => new { m.Slot, Media = new MediaAssetDto(m.Id, m.ContentType, m.Width, m.Height, m.DurationSeconds, m.IsAnimated, m.PosterData.Length > 0) })
+            .ToListAsync(ct);
+        return new(achievement, media.ToDictionary(m => m.Slot.ToString().ToLowerInvariant(), m => m.Media));
+    }
+
+    public async Task<MediaAssetDto> SetMediaAsync(Guid adminId, int id, AchievementMediaSlot slot,
+        SetAchievementMediaRequest request, CancellationToken ct = default)
+    {
+        await EnsureAdminAsync(adminId, true, ct);
+        if (!Enum.IsDefined(slot) || request.MediaSessionId == Guid.Empty || request.Media is null)
+            throw new ValidationException("Choose a picture slot, a media session and its edit settings.");
+        await RequireDefinitionAsync(id, ct);
+        var (width, height) = SlotSize(slot);
+        await using var lease = await processor.RenderAsync(adminId, request.MediaSessionId, request.Media, width, height, ct);
+        var assetId = Guid.NewGuid();
+        await db.ExecuteSerializableAsync(async token =>
+        {
+            await EnsureAdminAsync(adminId, true, token);
+            var definition = await RequireDefinitionAsync(id, token);
+            var previous = await db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id && a.Slot == slot).ToListAsync(token);
+            db.ProfileMediaAssets.RemoveRange(previous);
+            // The slot is unique per achievement: free it before the new picture takes it.
+            await db.SaveChangesAsync(token);
+            var asset = ProfileService.FromProcessed(assetId, lease.Media);
+            asset.AchievementDefinitionId = id;
+            asset.Slot = slot;
+            db.ProfileMediaAssets.Add(asset);
+            definition.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(token);
+        }, ct);
+        await lease.CommitAsync(ct);
+        // The badge is shown in cached results tables of everyone who wears the achievement.
+        if (slot == AchievementMediaSlot.Badge) resultsCache?.Clear();
+        return ProfileService.Metadata(assetId, lease.Media);
+    }
+
+    public async Task RemoveMediaAsync(Guid adminId, int id, AchievementMediaSlot slot, CancellationToken ct = default)
+    {
+        await db.ExecuteSerializableAsync(async token =>
+        {
+            await EnsureAdminAsync(adminId, true, token);
+            await RequireDefinitionAsync(id, token);
+            var previous = await db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id && a.Slot == slot).ToListAsync(token);
+            db.ProfileMediaAssets.RemoveRange(previous);
+            await db.SaveChangesAsync(token);
+        }, ct);
+        if (slot == AchievementMediaSlot.Badge) resultsCache?.Clear();
+    }
+
+    public async Task<MediaFileDto> GetPublicMediaAsync(Guid mediaId, bool poster, CancellationToken ct = default)
+    {
+        var file = await db.ProfileMediaAssets.AsNoTracking()
+            .Where(a => a.Id == mediaId && a.AchievementDefinitionId != null)
+            .Select(a => new MediaFileDto(poster ? a.PosterData : a.Data, poster ? a.PosterContentType : a.ContentType))
+            .SingleOrDefaultAsync(ct);
+        return file ?? throw new NotFoundException("Media not found.", "media.not_found");
+    }
+
+    internal const string PreviewScope = "preview";
+
+    private static string Scope(int id) => id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private static bool IsVideo(string contentType) => contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Rendered size of each picture. Only the banner is not square.</summary>
+    internal static (int Width, int Height) SlotSize(AchievementMediaSlot slot) => slot switch
+    {
+        AchievementMediaSlot.Banner => (1600, 400),
+        AchievementMediaSlot.Pattern or AchievementMediaSlot.Decor => (256, 256),
+        _ => (512, 512)
+    };
+
     public async Task<AchievementPageDto> GetAsync(string? query, int page, int pageSize, bool includeArchived, CancellationToken ct = default)
     {
         ProfileValidation.Page(page, pageSize);
@@ -63,12 +174,17 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
             var definition = new AchievementDefinition
             {
                 Name = request.Name!.Trim(), Description = request.Description?.Trim() ?? "",
+                // Set before the first save: the effects are compiled after it (they need the id), and that
+                // second save must not look like a separate edit in the admin audit.
+                ActiveByDefault = request.ActiveByDefault,
                 CreatedByUserId = adminId, CreatedByName = account.FullName,
                 CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow
             };
             db.AchievementDefinitions.Add(definition);
             await db.SaveChangesAsync(token);
             id = definition.Id;
+            ApplyEffects(definition, request);
+            await db.SaveChangesAsync(token);
             if (lease is not null)
             {
                 var asset = ProfileService.FromProcessed(Guid.NewGuid(), lease.Media);
@@ -93,13 +209,15 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
         {
             await EnsureAdminAsync(adminId, true, token);
             var definition = await RequireDefinitionAsync(id, token);
-            badgeChanged = definition.Name != request.Name!.Trim() || lease is not null || request.RemoveImage;
+            badgeChanged = definition.Name != request.Name!.Trim() || lease is not null || request.RemoveImage
+                || definition.ActiveByDefault != request.ActiveByDefault;
+            ApplyEffects(definition, request);
             definition.Name = request.Name!.Trim();
             definition.Description = request.Description?.Trim() ?? "";
             definition.UpdatedAtUtc = DateTime.UtcNow;
             if (lease is not null || request.RemoveImage)
             {
-                var previous = await db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id).ToListAsync(token);
+                var previous = await db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id && a.Slot == FunAndChecks.Domain.Enums.AchievementMediaSlot.Badge).ToListAsync(token);
                 db.ProfileMediaAssets.RemoveRange(previous);
                 await db.SaveChangesAsync(token);
                 if (lease is not null)
@@ -112,7 +230,7 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
             await db.SaveChangesAsync(token);
         }, ct);
         if (lease is not null) await lease.CommitAsync(ct);
-        // Название и картинка видны в таблицах результатов всех, кто закрепил эту ачивку.
+        // Название, значок и «активно по умолчанию» видны в таблицах результатов всех, кто носит это достижение.
         if (badgeChanged) resultsCache?.Clear();
         return await GetByIdAsync(id, ct);
     }
@@ -152,18 +270,19 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
         }
         catch (DbUpdateException ex) when (DatabaseErrors.IsUniqueViolation(ex)) { throw DuplicateAward(); }
         var awardedDefinition = await RequireDefinitionAsync(id, ct);
-        var image = await ProfileService.MediaMetadata(db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id))
+        var image = await ProfileService.MediaMetadata(db.ProfileMediaAssets.Where(a => a.AchievementDefinitionId == id && a.Slot == FunAndChecks.Domain.Enums.AchievementMediaSlot.Badge))
             .SingleOrDefaultAsync(ct);
+        await ProfileService.InvalidateResultsAsync(db, resultsCache, request.UserId, ct);
         if (notifications is not null)
             await notifications.NotifyAsync([request.UserId], new(NotificationType.AchievementGranted, awardedDefinition.Name,
                 award!.IssuedByName, "profile"), ct);
         return new(award!.Id, id, awardedDefinition.Name, awardedDefinition.Description, image,
-            award.GrantedAtUtc, award.IssuedByUserId, award.IssuedByName, null, true);
+            award.GrantedAtUtc, award.IssuedByUserId, award.IssuedByName, false, true);
     }
 
     public async Task RevokeAsync(Guid adminId, int awardId, CancellationToken ct = default)
     {
-        Guid? unpinnedUserId = null;
+        Guid? affectedUserId = null;
         try
         {
             await db.ExecuteSerializableAsync(async token =>
@@ -179,14 +298,17 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
                 award.RevokedByUserId = adminId;
                 award.RevokedByName = actor.FullName;
                 award.Version = Guid.NewGuid();
-                var pins = await db.PinnedAchievements.Where(p => p.AchievementAwardId == awardId).ToListAsync(token);
-                db.PinnedAchievements.RemoveRange(pins);
+                List<UserProfile> profiles = await db.UserProfiles.Where(p => p.ActiveAwardId == awardId).ToListAsync(token);
+                foreach (UserProfile profile in profiles)
+                {
+                    profile.ActiveAwardId = null;
+                }
                 await db.SaveChangesAsync(token);
-                unpinnedUserId = pins.Count > 0 ? award.UserId : null;
+                affectedUserId = award.UserId;
             }, ct);
         }
         catch (DbUpdateConcurrencyException) { throw new ConflictException("Award changed. Refresh and try again.", "achievement.changed"); }
-        if (unpinnedUserId is Guid userId) await ProfileService.InvalidateResultsAsync(db, resultsCache, userId, ct);
+        if (affectedUserId is Guid userId) await ProfileService.InvalidateResultsAsync(db, resultsCache, userId, ct);
     }
 
     public async Task<AchievementRecipientAccountPageDto> SearchRecipientsAsync(Guid adminId, string? query, int page,
@@ -215,16 +337,33 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
     private async Task<List<AchievementDto>> ToDtosAsync(IReadOnlyList<AchievementDefinition> definitions, CancellationToken ct)
     {
         var ids = definitions.Select(d => d.Id).ToArray();
-        var images = await db.ProfileMediaAssets.AsNoTracking().Where(a => a.AchievementDefinitionId.HasValue && ids.Contains(a.AchievementDefinitionId.Value))
+        var images = await db.ProfileMediaAssets.AsNoTracking().Where(a => a.Slot == AchievementMediaSlot.Badge && a.AchievementDefinitionId.HasValue && ids.Contains(a.AchievementDefinitionId.Value))
             .Select(a => new { AchievementId = a.AchievementDefinitionId!.Value,
                 Image = new MediaAssetDto(a.Id, a.ContentType, a.Width, a.Height, a.DurationSeconds, a.IsAnimated, a.PosterData.Length > 0) })
             .ToDictionaryAsync(a => a.AchievementId, a => a.Image, ct);
         var counts = await db.AchievementAwards.AsNoTracking().Where(a => ids.Contains(a.AchievementId) && a.RevokedAtUtc == null)
             .GroupBy(a => a.AchievementId).Select(g => new { Id = g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Id, g => g.Count, ct);
         return definitions.Select(d => new AchievementDto(d.Id, d.Name, d.Description, images.GetValueOrDefault(d.Id),
-            d.IsArchived, counts.GetValueOrDefault(d.Id), d.CreatedAtUtc)).ToList();
+            d.IsArchived, counts.GetValueOrDefault(d.Id), d.CreatedAtUtc, d.ActiveByDefault,
+            AchievementEffects.Parse(d.EffectsJson), d.CustomCss)).ToList();
     }
 
     private static ConflictException DuplicateAward() => new("This user already has the achievement.", "achievement.already_awarded");
+
+    private static void ApplyEffects(AchievementDefinition definition, UpsertAchievementRequest request)
+    {
+        EffectCssResult result = EffectCssGenerator.Build(
+            definition.Id.ToString(System.Globalization.CultureInfo.InvariantCulture), request.Effects, request.CustomCss);
+        if (!result.Ok)
+        {
+            throw new ValidationException(result.Errors.Select(error => new FluentValidation.Results.ValidationFailure(
+                nameof(request.CustomCss), $"Строка {error.Line}. {error.Message}") { ErrorCode = "achievement.effects_invalid" }));
+        }
+        definition.ActiveByDefault = request.ActiveByDefault;
+        definition.EffectsJson = request.Effects?.ToJson();
+        definition.CustomCss = request.CustomCss;
+        definition.CompiledCss = result.Css;
+        definition.EffectsVersion++;
+    }
 
 }

@@ -1,23 +1,24 @@
 @using Frontend.Shared.Profiles
 @inject AvatarDirectory Avatars
 
-@* Только аватар (без ссылки) — для мест, где вокруг уже есть ссылка или кнопка. *@
-<ProfileMedia Media="_avatar" Alt="@Name" Fallback="@ProfileText.Initials(Name)" Class="@Class" />
+@* Только аватар (без ссылки) — для мест, где вокруг уже есть ссылка или кнопка.
+   Обёртка несёт data-fx активного достижения: рамка рисуется на ней, потому что сама картинка обрезает содержимое. *@
+<span class="fc-fx-avatar" data-fx="@_look?.Fx"><ProfileMedia Media="_look?.Avatar" Alt="@Name" Fallback="@ProfileText.Initials(Name)" Class="@Class" /></span>
 
 @code {
     [Parameter] public Guid? UserId { get; set; }
     [Parameter, EditorRequired] public string Name { get; set; } = "";
     [Parameter] public string Class { get; set; } = "fc-user-chip-avatar";
-    private MediaDto? _avatar;
+    private UserLookDto? _look;
     private Guid? _loadedFor;
 
     protected override async Task OnParametersSetAsync()
     {
         if (UserId == _loadedFor) return;
         _loadedFor = UserId;
-        _avatar = null;
+        _look = null;
         if (UserId is not Guid id) return;
-        var avatar = await Avatars.GetAsync(id);
-        if (_loadedFor == id) _avatar = avatar;
+        var look = await Avatars.GetAsync(id);
+        if (_loadedFor == id) _look = look;
     }
 }

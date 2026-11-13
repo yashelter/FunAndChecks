@@ -18,6 +18,8 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     private bool _initialized;
     public bool IsDarkMode { get; private set; } = true;
     public bool IsCompact { get; private set; }
+    /// <summary>Оформление активных достижений (рамки, строки, декор сайта). Выключается у себя, другим не мешает.</summary>
+    public bool EffectsEnabled { get; private set; } = true;
     /// <summary>Сезонные темы, которые пользователь выключил (по <c>ISeasonalTheme.Id</c>). По умолчанию все включены.</summary>
     private HashSet<string> _disabledSeasons = new(StringComparer.Ordinal);
     public string Accent { get; private set; } = Presets[0].Dark;
@@ -33,6 +35,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
             var stored = await js.InvokeAsync<Preferences>("dashboardAppearance.load");
             IsDarkMode = stored.IsDarkMode;
             IsCompact = stored.IsCompact;
+            EffectsEnabled = !stored.EffectsOff;
             _disabledSeasons = new HashSet<string>(stored.DisabledSeasons ?? [], StringComparer.Ordinal);
             if (NormalizeAccent(stored.Accent) is { } accent) Accent = accent;
         }
@@ -43,6 +46,13 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     public Task ToggleThemeAsync() => SetThemeAsync(!IsDarkMode);
     public Task SetThemeAsync(bool dark) { IsDarkMode = dark; return ApplyAsync(save: true); }
     public Task SetCompactAsync(bool compact) { IsCompact = compact; return ApplyAsync(save: true); }
+    public Task SetEffectsEnabledAsync(bool enabled) { EffectsEnabled = enabled; return ApplyAsync(save: true); }
+    /// <summary>Достижение изменили: перечитать таблицу стилей эффектов.</summary>
+    public async Task ReloadEffectsAsync()
+    {
+        try { await js.InvokeVoidAsync("dashboardAppearance.reloadEffects"); }
+        catch (JSException) { }
+    }
     public bool IsSeasonEnabled(string seasonId) => !_disabledSeasons.Contains(seasonId);
     public Task SetSeasonEnabledAsync(string seasonId, bool enabled)
     {
@@ -72,7 +82,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
         try
         {
             await js.InvokeVoidAsync("dashboardAppearance.apply", IsDarkMode, IsCompact, Accent,
-                active.Primary.ToString(), active.PrimaryContrastText.ToString(), _disabledSeasons.Order(StringComparer.Ordinal).ToArray(), save);
+                active.Primary.ToString(), active.PrimaryContrastText.ToString(), _disabledSeasons.Order(StringComparer.Ordinal).ToArray(), save, !EffectsEnabled);
         }
         catch (JSException) { }
         Changed?.Invoke();
@@ -111,7 +121,7 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
                 ErrorContrastText = "#ffffff", Dark = "#182638"
             },
             Typography = new Typography { Default = new DefaultTypography { FontFamily = ["Inter", "Segoe UI", "Arial", "sans-serif"], FontSize = "0.875rem" } },
-            LayoutProperties = new LayoutProperties { DefaultBorderRadius = "8px", DrawerWidthLeft = "234px" }
+            LayoutProperties = new LayoutProperties { DefaultBorderRadius = "8px", DrawerWidthLeft = "216px" }
         };
     }
 
@@ -144,5 +154,5 @@ public sealed partial class DashboardAppearanceService(IJSRuntime js)
     }
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")]
     private static partial Regex HexColor();
-    public sealed record Preferences(bool IsDarkMode, bool IsCompact, string? Accent, string[]? DisabledSeasons);
+    public sealed record Preferences(bool IsDarkMode, bool IsCompact, string? Accent, string[]? DisabledSeasons, bool EffectsOff = false);
 }

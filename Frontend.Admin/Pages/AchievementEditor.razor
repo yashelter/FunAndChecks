@@ -1,0 +1,194 @@
+@page "/admin/achievements/new"
+@page "/admin/achievements/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Roles = Roles.Admin + "," + Roles.SuperAdmin)]
+@using Frontend.Shared.Profiles
+@using Frontend.Admin.UI
+
+<PageTitle>@Title</PageTitle>
+<NavigationLock OnBeforeInternalNavigation="ConfirmLeaveAsync" ConfirmExternalNavigation="_dirty" />
+<a class="fc-profile-back" href="/admin/achievements">← @ProfileText.T("К достижениям", "Back to achievements")</a>
+@if (_loading) { <div class="fc-loading"><MudProgressCircular Indeterminate="true" /></div> }
+else if (_loadError is not null) { <MudAlert Severity="Severity.Error">@_loadError <MudButton OnClick="LoadAsync">@ProfileText.T("Повторить", "Retry")</MudButton></MudAlert> }
+else
+{
+    <div class="fc-page-heading"><div>
+        <MudText Typo="Typo.h4">@Title</MudText>
+        <MudText Class="fc-muted">@(_superAdmin
+            ? ProfileText.T("Значок и оформление, которое получает тот, кто сделал достижение активным.", "The badge and the look given to whoever makes this achievement active.")
+            : ProfileText.T("Только просмотр: изменять достижения может супер-администратор.", "View only: achievements are edited by a super administrator."))</MudText>
+    </div><div class="fc-profile-heading-actions">
+        @if (_dirty) { <span class="fc-fx-unsaved">@ProfileText.T("Есть несохранённые изменения", "Unsaved changes")</span> }
+        <PermissionGate Allowed="_superAdmin" Reason="@SuperOnly" Context="denied"><MudButton OnClick="SaveAsync" Disabled="@(denied || _busy || string.IsNullOrWhiteSpace(_name))" Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Save">@(Id is null ? ProfileText.T("Создать", "Create") : ProfileText.T("Сохранить", "Save"))</MudButton></PermissionGate>
+    </div></div>
+    @if (_error is not null) { <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert> }
+
+    <div class="fc-fx-editor">
+        <div class="fc-fx-editor-form">
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Основное", "Basics")</h2>
+                <MudTextField T="string" Value="@_name" ValueChanged="@(v => Set(() => _name = v ?? ""))" Immediate="true" Disabled="!_superAdmin" Label="@ProfileText.T("Название", "Name")" MaxLength="100" Variant="Variant.Outlined" Required="true" RequiredError="@ProfileText.T("Укажите название", "Enter a name")" />
+                <MudTextField T="string" Value="@_description" ValueChanged="@(v => Set(() => _description = v ?? ""))" Immediate="true" Disabled="!_superAdmin" Label="@ProfileText.T("Описание", "Description")" MaxLength="2000" Lines="3" Variant="Variant.Outlined" Class="mt-3" />
+                <FxImageSlot Label="@ProfileText.T("Значок", "Badge")" Hint="@ProfileText.T("Квадрат. Виден в каталоге, профиле и рядом с именем владельца.", "Square. Shown in the catalog, on profiles and next to the owner's name.")"
+                             Media="@Slot("badge")" CanEdit="_superAdmin" Busy="_busy" Locked="Id is null" Upload="@(() => _slotEditing = "badge")" Remove="@(() => RemoveSlotAsync("badge"))" />
+                <MudSwitch T="bool" Value="_activeByDefault" ValueChanged="@(v => Set(() => _activeByDefault = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Активно по умолчанию", "Active by default")" />
+                <p class="fc-profile-hint">@ProfileText.T("Если владелец сам не выбрал активное достижение, активным считается это. Он может заменить его любым другим своим.", "If the owner has not chosen an active achievement, this one is active. They can replace it with any other of theirs.")</p>
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Аватар", "Avatar")</h2>
+                <FxImageSlot Label="@ProfileText.T("Рамка", "Frame")" Hint="@ProfileText.T("Квадрат с прозрачной серединой: ложится поверх аватара и немного выходит за края.", "A square with a transparent centre: drawn over the avatar, slightly beyond its edges.")"
+                             Media="@Slot("frame")" CanEdit="_superAdmin" Busy="_busy" Locked="Id is null" Upload="@(() => _slotEditing = "frame")" Remove="@(() => RemoveSlotAsync("frame"))" />
+                <MudSwitch T="bool" Value="_effects.Avatar.Frame" ValueChanged="@(v => Set(() => _effects.Avatar.Frame = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Показывать рамку", "Show the frame")" />
+                <div class="fc-fx-grid">
+                    <FxColorField Label="@ProfileText.T("Кольцо", "Ring")" Value="@_effects.Avatar.RingColor" ValueChanged="@(v => Set(() => _effects.Avatar.RingColor = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Свечение", "Glow")" Value="@_effects.Avatar.GlowColor" ValueChanged="@(v => Set(() => _effects.Avatar.GlowColor = v))" Disabled="!_superAdmin" />
+                </div>
+                <div class="fc-fx-grid">
+                    <MudSlider T="int" Value="_effects.Avatar.RingWidth" ValueChanged="@(v => Set(() => _effects.Avatar.RingWidth = v))" Min="0" Max="4" Disabled="!_superAdmin">@ProfileText.T("Толщина кольца:", "Ring width:") @_effects.Avatar.RingWidth px</MudSlider>
+                    <MudSelect T="string" Value="_effects.Avatar.Animation" ValueChanged="@(v => Set(() => _effects.Avatar.Animation = v))" Label="@ProfileText.T("Анимация", "Animation")" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="!_superAdmin">
+                        <MudSelectItem Value="@("none")">@ProfileText.T("Нет", "None")</MudSelectItem>
+                        <MudSelectItem Value="@("pulse")">@ProfileText.T("Пульс", "Pulse")</MudSelectItem>
+                        <MudSelectItem Value="@("spin")">@ProfileText.T("Вращение рамки", "Spinning frame")</MudSelectItem>
+                    </MudSelect>
+                </div>
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Имя", "Name")</h2>
+                <p class="fc-profile-hint">@ProfileText.T("В таблице результатов, очередях, на форуме и в профиле. Если преподаватель назначил студенту цвет, имя остаётся в этом цвете.", "In the results table, queues, the forum and the profile. If a teacher gave the student a colour, the name keeps that colour.")</p>
+                <div class="fc-fx-grid">
+                    <FxColorField Label="@ProfileText.T("Цвет", "Colour")" Value="@_effects.Name.Color" ValueChanged="@(v => Set(() => _effects.Name.Color = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Второй цвет (градиент)", "Second colour (gradient)")" Value="@_effects.Name.Color2" ValueChanged="@(v => Set(() => _effects.Name.Color2 = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Свечение", "Glow")" Value="@_effects.Name.GlowColor" ValueChanged="@(v => Set(() => _effects.Name.GlowColor = v))" Disabled="!_superAdmin" />
+                    <MudSelect T="string" Value="_effects.Name.Animation" ValueChanged="@(v => Set(() => _effects.Name.Animation = v))" Label="@ProfileText.T("Анимация", "Animation")" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="!_superAdmin">
+                        <MudSelectItem Value="@("none")">@ProfileText.T("Нет", "None")</MudSelectItem>
+                        <MudSelectItem Value="@("shimmer")">@ProfileText.T("Перелив (нужен градиент)", "Shimmer (needs a gradient)")</MudSelectItem>
+                        <MudSelectItem Value="@("rainbow")">@ProfileText.T("Радуга", "Rainbow")</MudSelectItem>
+                    </MudSelect>
+                </div>
+                <div class="fc-fx-switches">
+                    <MudSwitch T="bool" Value="_effects.Name.Bold" ValueChanged="@(v => Set(() => _effects.Name.Bold = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Жирный", "Bold")" />
+                    <MudSwitch T="bool" Value="_effects.Name.Italic" ValueChanged="@(v => Set(() => _effects.Name.Italic = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Курсив", "Italic")" />
+                </div>
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Строка в таблице и очереди", "Row in the table and queue")</h2>
+                <div class="fc-fx-grid">
+                    <FxColorField Label="@ProfileText.T("Фон: сверху", "Background: top")" Value="@_effects.Row.Color" ValueChanged="@(v => Set(() => _effects.Row.Color = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Фон: снизу", "Background: bottom")" Value="@_effects.Row.Color2" ValueChanged="@(v => Set(() => _effects.Row.Color2 = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Полоса слева", "Left bar")" Value="@_effects.Row.BarColor" ValueChanged="@(v => Set(() => _effects.Row.BarColor = v))" Disabled="!_superAdmin" />
+                    <MudSlider T="int" Value="_effects.Row.Opacity" ValueChanged="@(v => Set(() => _effects.Row.Opacity = v))" Min="0" Max="60" Disabled="!_superAdmin">@ProfileText.T("Насыщенность фона:", "Background strength:") @_effects.Row.Opacity%</MudSlider>
+                </div>
+                <FxImageSlot Label="@ProfileText.T("Узор", "Pattern")" Hint="@ProfileText.T("Квадратная плитка, повторяется вдоль строки.", "A square tile repeated along the row.")"
+                             Media="@Slot("pattern")" CanEdit="_superAdmin" Busy="_busy" Locked="Id is null" Upload="@(() => _slotEditing = "pattern")" Remove="@(() => RemoveSlotAsync("pattern"))" />
+                <MudSwitch T="bool" Value="_effects.Row.Pattern" ValueChanged="@(v => Set(() => _effects.Row.Pattern = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Показывать узор", "Show the pattern")" />
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Страница профиля", "Profile page")</h2>
+                <p class="fc-profile-hint">@ProfileText.T("Видят все, кто открыл профиль владельца.", "Seen by everyone who opens the owner's profile.")</p>
+                <FxImageSlot Label="@ProfileText.T("Баннер", "Banner")" Hint="@ProfileText.T("Широкая картинка 4:1 за шапкой профиля.", "A wide 4:1 picture behind the profile header.")" Wide="true"
+                             Media="@Slot("banner")" CanEdit="_superAdmin" Busy="_busy" Locked="Id is null" Upload="@(() => _slotEditing = "banner")" Remove="@(() => RemoveSlotAsync("banner"))" />
+                <MudSwitch T="bool" Value="_effects.Profile.Banner" ValueChanged="@(v => Set(() => _effects.Profile.Banner = v))" Disabled="!_superAdmin" Color="Color.Primary" Label="@ProfileText.T("Показывать баннер", "Show the banner")" />
+                <div class="fc-fx-grid">
+                    <FxColorField Label="@ProfileText.T("Фон страницы", "Page background")" Value="@_effects.Profile.Color" ValueChanged="@(v => Set(() => _effects.Profile.Color = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Фон: второй цвет", "Background: second colour")" Value="@_effects.Profile.Color2" ValueChanged="@(v => Set(() => _effects.Profile.Color2 = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Акцент кнопок и ссылок", "Accent of buttons and links")" Value="@_effects.Profile.AccentColor" ValueChanged="@(v => Set(() => _effects.Profile.AccentColor = v))" Disabled="!_superAdmin" />
+                    <FxColorField Label="@ProfileText.T("Свечение шапки", "Header glow")" Value="@_effects.Profile.GlowColor" ValueChanged="@(v => Set(() => _effects.Profile.GlowColor = v))" Disabled="!_superAdmin" />
+                </div>
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Декор сайта", "Site decoration")</h2>
+                <p class="fc-profile-hint">@ProfileText.T("Видит только сам владелец — на всех страницах, поверх интерфейса; клики проходят насквозь.", "Seen only by the owner — on every page, over the interface; clicks pass through.")</p>
+                <FxImageSlot Label="@ProfileText.T("Частица", "Particle")" Hint="@ProfileText.T("Маленькая квадратная картинка: снежинка, звезда, лист…", "A small square picture: a snowflake, a star, a leaf…")"
+                             Media="@Slot("decor")" CanEdit="_superAdmin" Busy="_busy" Locked="Id is null" Upload="@(() => _slotEditing = "decor")" Remove="@(() => RemoveSlotAsync("decor"))" />
+                <div class="fc-fx-grid">
+                    <MudSlider T="int" Value="_effects.Site.Particles" ValueChanged="@(v => Set(() => _effects.Site.Particles = v))" Min="0" Max="12" Disabled="!_superAdmin">@ProfileText.T("Частиц:", "Particles:") @_effects.Site.Particles</MudSlider>
+                    <MudSelect T="string" Value="_effects.Site.Motion" ValueChanged="@(v => Set(() => _effects.Site.Motion = v))" Label="@ProfileText.T("Движение", "Motion")" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="!_superAdmin">
+                        <MudSelectItem Value="@("fall")">@ProfileText.T("Падают", "Falling")</MudSelectItem>
+                        <MudSelectItem Value="@("float")">@ProfileText.T("Парят на месте", "Floating in place")</MudSelectItem>
+                    </MudSelect>
+                    <MudSlider T="int" Value="_effects.Site.Size" ValueChanged="@(v => Set(() => _effects.Site.Size = v))" Min="8" Max="96" Disabled="!_superAdmin">@ProfileText.T("Размер:", "Size:") @_effects.Site.Size px</MudSlider>
+                    <MudSlider T="int" Value="_effects.Site.Opacity" ValueChanged="@(v => Set(() => _effects.Site.Opacity = v))" Min="5" Max="100" Disabled="!_superAdmin">@ProfileText.T("Непрозрачность:", "Opacity:") @_effects.Site.Opacity%</MudSlider>
+                </div>
+            </section>
+
+            <section class="fc-panel fc-fx-section">
+                <h2>@ProfileText.T("Свой CSS", "Custom CSS")</h2>
+                <p class="fc-profile-hint">@ProfileText.T("Дописывается после настроек выше и может их переопределить. Правило начинается с поверхности; сервер проверяет каждое свойство.", "Added after the settings above and may override them. A rule starts with a surface; the server checks every property.")</p>
+                <textarea class="fc-fx-code" value="@_css" @oninput="@(e => Set(() => _css = e.Value?.ToString() ?? ""))" disabled="@(!_superAdmin)" spellcheck="false" rows="12" maxlength="8000"
+                          aria-label="@ProfileText.T("Свой CSS", "Custom CSS")" placeholder="@CssPlaceholder"></textarea>
+                @if (_errors.Count > 0)
+                {
+                    <ul class="fc-fx-errors" role="alert">
+                        @foreach (var error in _errors) { <li>@if (error.Line > 0) { <b>@ProfileText.T("Строка", "Line") @error.Line.</b> } @error.Message</li> }
+                    </ul>
+                }
+                <details class="fc-fx-help">
+                    <summary>@ProfileText.T("Что можно писать", "What you can write")</summary>
+                    <table>
+                        <tr><td><code>avatar</code></td><td>@ProfileText.T("картинка аватара;", "the avatar picture;") <code>avatar::before</code>, <code>avatar::after</code> — @ProfileText.T("слои поверх неё, не обрезаются", "layers over it, not clipped")</td></tr>
+                        <tr><td><code>name</code></td><td>@ProfileText.T("имя владельца (только цвет, тени, шрифт, анимация)", "the owner's name (colour, shadows, font, animation only)")</td></tr>
+                        <tr><td><code>row</code></td><td>@ProfileText.T("строка таблицы результатов и очереди: только слои поверх фона, размеры менять нельзя", "the results and queue row: layers over the background only, sizes cannot change")</td></tr>
+                        <tr><td><code>profile</code>, <code>hero</code></td><td>@ProfileText.T("страница профиля и её шапка; есть", "the profile page and its header; with") <code>::before</code>, <code>::after</code>, <code>:hover</code></td></tr>
+                        <tr><td><code>site</code>, <code>site i</code></td><td>@ProfileText.T("слой поверх сайта у владельца и 12 пустых частиц в нём:", "the layer over the owner's site and its 12 empty particles:") <code>site i:nth-child(3)</code></td></tr>
+                        <tr><td><code>image(frame)</code></td><td>@ProfileText.T("загруженная картинка вместо url():", "an uploaded picture instead of url():") <code>badge</code>, <code>frame</code>, <code>pattern</code>, <code>banner</code>, <code>decor</code></td></tr>
+                        <tr><td><code>@@keyframes</code></td><td>@ProfileText.T("свои анимации; в", "your own animations; in") <code>animation</code> @ProfileText.T("имя пишется первым", "the name goes first")</td></tr>
+                        <tr><td><code>@@light</code>, <code>@@dark</code></td><td>@ProfileText.T("правила только для светлой или тёмной темы", "rules for the light or the dark theme only")</td></tr>
+                        <tr><td><code>@@media</code></td><td><code>(prefers-reduced-motion: reduce)</code>, <code>(max-width: 600px)</code>, <code>(min-width: …)</code></td></tr>
+                    </table>
+                    <p class="fc-profile-hint">@ProfileText.T("Нельзя: url(), !important, кавычки вне content, вложенные правила, чужие селекторы.", "Not allowed: url(), !important, quotes outside content, nested rules, foreign selectors.")</p>
+                </details>
+            </section>
+        </div>
+
+        <aside class="fc-fx-editor-preview" aria-label="@ProfileText.T("Предпросмотр", "Preview")">
+            <style>@_previewCss</style>
+            <section class="fc-panel fc-fx-preview">
+                <div class="fc-fx-preview-title"><h2>@ProfileText.T("Предпросмотр", "Preview")</h2>@if (_previewing) { <MudProgressCircular Indeterminate="true" Size="Size.Small" /> }</div>
+                <p class="fc-profile-hint">@ProfileText.T("Обновляется по мере правок, в текущей теме — переключите её кнопкой в шапке, чтобы проверить вторую.", "Updates as you edit, in the current theme — switch it with the button in the header to check the other one.")</p>
+
+                <h3>@ProfileText.T("Аватар", "Avatar")</h3>
+                <div class="fc-fx-preview-avatars">
+                    <span class="fc-user-chip compact"><span class="fc-fx-avatar" data-fx="preview"><ProfileMedia Media="_myAvatar" Alt="" Fallback="@Initials" Class="fc-user-chip-avatar" /></span></span>
+                    <span class="fc-fx-avatar" data-fx="preview"><ProfileMedia Media="_myAvatar" Alt="" Fallback="@Initials" Class="fc-user-chip-avatar" /></span>
+                    <span class="fc-fx-avatar" data-fx="preview"><ProfileMedia Media="_myAvatar" Alt="" Fallback="@Initials" Class="fc-profile-avatar" /></span>
+                </div>
+
+                <h3>@ProfileText.T("Таблица результатов", "Results table")</h3>
+                <div class="fc-fx-preview-scroll">
+                    <table class="fc-fx-preview-table">
+                        <tr><td>1</td><td>@ProfileText.T("Обычная Строка", "Plain Row")</td><td>48</td><td>✓</td><td>✓</td><td></td></tr>
+                        <tr class="fc-fx-row" data-fx="preview"><td>2</td><td><span class="fc-fx-name" data-fx="preview">@SampleName</span>@if (Slot("badge") is { } badge) { <span class="fc-active-achievement-badge"><img src="@($"/api/achievements/media/{badge.Id}{(badge.ContentType.StartsWith("video/") ? "?poster=true" : "")}")" alt="" /></span> }</td><td>42</td><td>✓</td><td></td><td>✓</td></tr>
+                        <tr><td>3</td><td>@ProfileText.T("Ещё Одна", "Another One")</td><td>37</td><td></td><td>✓</td><td></td></tr>
+                    </table>
+                </div>
+
+                <h3>@ProfileText.T("Очередь", "Queue")</h3>
+                <div class="fc-fx-preview-queue fc-fx-row" data-fx="preview">
+                    <span class="fc-user-chip compact"><span class="fc-fx-avatar" data-fx="preview"><ProfileMedia Media="_myAvatar" Alt="" Fallback="@Initials" Class="fc-user-chip-avatar" /></span><span class="fc-user-chip-text"><span class="fc-user-chip-name fc-fx-name" data-fx="preview">@SampleName</span></span></span>
+                    <small>@ProfileText.T("ожидает", "waiting")</small>
+                </div>
+
+                <h3>@ProfileText.T("Профиль", "Profile")</h3>
+                <div class="fc-fx-profile fc-fx-preview-profile" data-fx="preview">
+                    <section class="fc-panel fc-profile-hero">
+                        <span class="fc-fx-avatar" data-fx="preview"><ProfileMedia Media="_myAvatar" Alt="" Fallback="@Initials" Class="fc-profile-avatar" /></span>
+                        <div class="fc-profile-identity"><div class="fc-profile-identity-name"><h1 class="fc-fx-name" data-fx="preview">@SampleName</h1></div><div class="fc-profile-tags"><span>@ProfileText.T("Студент", "Student")</span><span>@ProfileText.T("Группа", "Group")</span></div></div>
+                    </section>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small">@ProfileText.T("Кнопка в профиле", "A button on the profile")</MudButton>
+                </div>
+
+                <h3>@ProfileText.T("Декор сайта", "Site decoration")</h3>
+                <div class="fc-fx-preview-site"><div class="fc-fx-site" data-fx="preview" aria-hidden="true">@for (var i = 0; i < 12; i++) { <i></i> }</div><span>@ProfileText.T("окно сайта", "the site window")</span></div>
+            </section>
+        </aside>
+    </div>
+}
+@if (_slotEditing is not null && _superAdmin && Id is not null)
+{
+    <MediaEditor @key="_slotEditing" AspectRatio="@(_slotEditing == "banner" ? 4 : 1)" Save="SaveSlotAsync" Close="() => _slotEditing = null" />
+}

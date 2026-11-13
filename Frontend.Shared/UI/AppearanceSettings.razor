@@ -50,6 +50,11 @@
                 <MudSwitch T="bool" Value="Appearance.IsCompact" ValueChanged="Appearance.SetCompactAsync" Color="Color.Primary" Label="@Text("Компактный вид", "Compact view")" />
                 <p class="fc-settings-hint">@Text("Помогает видеть больше студентов на одном экране.", "See more students on one screen.")</p>
             </section>
+            <section>
+                <h3>@Text("Достижения", "Achievements")</h3>
+                <MudSwitch T="bool" Value="Appearance.EffectsEnabled" ValueChanged="Appearance.SetEffectsEnabledAsync" Color="Color.Primary" Label="@Text("Эффекты достижений", "Achievement effects")" />
+                <p class="fc-settings-hint">@Text("Рамки аватаров, оформление имён и строк, декор сайта от активных достижений. Выключается только у вас.", "Avatar frames, styled names and rows, site decorations from active achievements. Turned off only for you.")</p>
+            </section>
             @* Сезонные темы, которые идут сейчас (окно по дате задаёт сама тема). *@
             @foreach (var theme in Seasons.InSeason)
             {

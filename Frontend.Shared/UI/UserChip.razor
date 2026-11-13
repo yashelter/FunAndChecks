@@ -1,14 +1,17 @@
-@* Аватар + имя со ссылкой на профиль. Без UserId (удалённый аккаунт) — просто подпись. *@
+@using Frontend.Shared.Profiles
+@inject AvatarDirectory Avatars
+@* Аватар + имя со ссылкой на профиль. Без UserId (удалённый аккаунт) — просто подпись.
+   Имя получает эффект активного достижения, только если у него нет учебной окраски: цвет преподавателя важнее. *@
 <span class="fc-user-chip @(Compact ? "compact" : "") @Class">
     <UserAvatar UserId="UserId" Name="@Name" />
     <span class="fc-user-chip-text">
         @if (UserId is Guid id && Link)
         {
-            <ProfileLink UserId="id" Class="@($"fc-user-chip-name {NameClass}")" Style="@NameStyle">@Name</ProfileLink>
+            <ProfileLink UserId="id" Class="@($"fc-user-chip-name {NameClass} {FxClass}")" Style="@NameStyle" Fx="NameFx">@Name</ProfileLink>
         }
         else
         {
-            <span class="fc-user-chip-name @NameClass" style="@NameStyle">@Name</span>
+            <span class="fc-user-chip-name @NameClass @FxClass" style="@NameStyle" data-fx="@NameFx">@Name</span>
         }
         @if (!string.IsNullOrEmpty(Subtitle)) { <small>@Subtitle</small> }
     </span>
@@ -26,4 +29,19 @@
     [Parameter] public string? NameStyle { get; set; }
     [Parameter] public string? NameClass { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
+    private int? _fx;
+    private Guid? _loadedFor;
+    private int? NameFx => string.IsNullOrEmpty(NameStyle) ? _fx : null;
+    private string FxClass => NameFx is null ? "" : "fc-fx-name";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (UserId == _loadedFor) return;
+        _loadedFor = UserId;
+        _fx = null;
+        if (UserId is not Guid id) return;
+        // Тот же пакетный запрос, что и у аватара рядом: второго обращения к серверу нет.
+        var look = await Avatars.GetAsync(id);
+        if (_loadedFor == id) _fx = look?.Fx;
+    }
 }

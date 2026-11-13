@@ -1,10 +1,10 @@
-@namespace Frontend.Admin.Layout
+@namespace Frontend.Shared.UI
 @implements IDisposable
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 
-@* Сворачиваемый раздел меню преподавателя. Состояние хранится в localStorage; переход на страницу раздела раскрывает его.
-   Свёрнутый раздел с непрочитанным (.fc-nav-badge внутри) показывает точку у заголовка — admin-dashboard.css. *@
+@* Сворачиваемый раздел бокового меню (преподаватель и студент). Состояние хранится в localStorage; переход на страницу
+   раздела раскрывает его. Свёрнутый раздел с непрочитанным (.fc-nav-badge внутри) показывает точку у заголовка — dashboard.css. *@
 <div class="fc-nav-section @(_expanded ? "is-open" : "is-collapsed") @(_ready ? "is-ready" : "")">
     <button type="button" class="fc-nav-section-head" aria-expanded="@(_expanded ? "true" : "false")" aria-controls="@BodyId"
             @onclick="ToggleAsync" @onclick:stopPropagation="true">

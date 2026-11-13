@@ -99,6 +99,13 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("ActiveByDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("CompiledCss")
+                        .HasMaxLength(64000)
+                        .HasColumnType("character varying(64000)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -110,10 +117,21 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("CustomCss")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("EffectsJson")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
+
+                    b.Property<int>("EffectsVersion")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsArchived")
                         .HasColumnType("boolean");
@@ -697,28 +715,6 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("Notifications", (string)null);
                 });
 
-            modelBuilder.Entity("FunAndChecks.Domain.Entities.PinnedAchievement", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AchievementAwardId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("UserId", "Position");
-
-                    b.HasIndex("AchievementAwardId")
-                        .IsUnique();
-
-                    b.ToTable("PinnedAchievements", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_PinnedAchievements_Position", "\"Position\" >= 1 AND \"Position\" <= 3");
-                        });
-                });
-
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ProfileMediaAsset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -754,6 +750,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("UserProfileId")
                         .HasColumnType("uuid");
 
@@ -762,11 +761,12 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AchievementDefinitionId")
-                        .IsUnique();
-
                     b.HasIndex("UserProfileId")
                         .IsUnique();
+
+                    b.HasIndex("AchievementDefinitionId", "Slot")
+                        .IsUnique()
+                        .HasFilter("\"AchievementDefinitionId\" IS NOT NULL");
 
                     b.ToTable("ProfileMediaAssets", null, t =>
                         {
@@ -1298,6 +1298,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<int?>("ActiveAwardId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("GitHubUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -1310,6 +1313,8 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("UserId");
+
+                    b.HasIndex("ActiveAwardId");
 
                     b.ToTable("UserProfiles", (string)null);
                 });
@@ -2040,26 +2045,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("FunAndChecks.Domain.Entities.PinnedAchievement", b =>
-                {
-                    b.HasOne("FunAndChecks.Domain.Entities.AchievementAward", null)
-                        .WithMany()
-                        .HasForeignKey("AchievementAwardId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("FunAndChecks.Domain.Entities.UserProfile", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("FunAndChecks.Domain.Entities.ProfileMediaAsset", b =>
                 {
                     b.HasOne("FunAndChecks.Domain.Entities.AchievementDefinition", null)
-                        .WithOne()
-                        .HasForeignKey("FunAndChecks.Domain.Entities.ProfileMediaAsset", "AchievementDefinitionId")
+                        .WithMany()
+                        .HasForeignKey("AchievementDefinitionId")
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("FunAndChecks.Domain.Entities.UserProfile", null)
@@ -2290,6 +2280,11 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.UserProfile", b =>
                 {
+                    b.HasOne("FunAndChecks.Domain.Entities.AchievementAward", null)
+                        .WithMany()
+                        .HasForeignKey("ActiveAwardId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
                         .WithOne()
                         .HasForeignKey("FunAndChecks.Domain.Entities.UserProfile", "UserId")
