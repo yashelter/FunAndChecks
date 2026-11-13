@@ -3,6 +3,8 @@ using FunAndChecks.Domain.Enums;
 
 namespace FunAndChecks.Application.Forum;
 
+public record CreateForumAnnouncementRequest(string? Text);
+
 public record ForumUserDto(Guid? UserId, string Name, bool IsAdmin);
 
 /// <summary>Раздел форума: «Общее» (SubjectId = null) или предмет.</summary>

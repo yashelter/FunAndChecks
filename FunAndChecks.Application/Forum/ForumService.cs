@@ -15,6 +15,7 @@ namespace FunAndChecks.Application.Forum;
 
 public interface IForumService
 {
+    Task SendAnnouncementAsync(Guid userId, CreateForumAnnouncementRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<ForumSectionDto>> GetSectionsAsync(Guid userId, CancellationToken ct = default);
     Task<ForumTopicPageDto> GetTopicsAsync(Guid userId, int? subjectId, bool generalOnly, string? search, int page, int pageSize,
         bool personalOnly = false, CancellationToken ct = default);
@@ -54,6 +55,26 @@ public partial class ForumService(
     IValidator<UpdateForumPostRequest> updatePostValidator,
     ILogger<ForumService> logger) : IForumService
 {
+    private const int ANNOUNCEMENT_MAX_LENGTH = 300;
+
+    public async Task SendAnnouncementAsync(Guid userId, CreateForumAnnouncementRequest request, CancellationToken ct = default)
+    {
+        IReadOnlyCollection<string> roles = await identity.GetCurrentRolesAsync(userId, ct);
+        if (!roles.Contains(Roles.SuperAdmin))
+        {
+            throw new ForbiddenException("Only a super admin can send a system announcement.", "forum.super_admin_required");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > ANNOUNCEMENT_MAX_LENGTH)
+        {
+            throw new ValidationException($"Announcement text must contain 1–{ANNOUNCEMENT_MAX_LENGTH} characters.");
+        }
+
+        IReadOnlySet<Guid> recipients = await access.AudienceAsync(subjectId: null, ct: ct);
+        await notifications.SendAsync(recipients,
+            new NotificationRequest(NotificationType.ForumAnnouncement, request.Text.Trim(), ActorName: null, Link: null), ct);
+    }
+
     private const int QuoteLength = 160;
 
     [GeneratedRegex(@"(?:@\[|\[@)(?<name>[^\]\r\n]{1,100})\]\(user:(?<id>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)")]

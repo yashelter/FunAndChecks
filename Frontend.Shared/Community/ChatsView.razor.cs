@@ -31,6 +31,7 @@ public partial class ChatsView : IAsyncDisposable
     private HubConnection? _hub;
     private Guid _viewerId;
     private bool _isSuper, _creating, _live = true;
+    private bool _sendingAnnouncement;
     private string _folder = "all";
     private string? _search, _error;
     private int _listSize = ListPageSize;

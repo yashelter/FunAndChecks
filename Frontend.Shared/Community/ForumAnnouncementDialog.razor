@@ -1,0 +1,58 @@
+@inject ForumApi Api
+@inject ISnackbar Snackbar
+
+<Frontend.Shared.Profiles.ProfileDialog Title="@CommunityText.T("Сделать объявление", "Make an announcement")" Close="Close" Busy="_busy">
+    <ChildContent>
+        <MudText Typo="Typo.body2">
+            @CommunityText.T("Активные студенты и администраторы получат системное уведомление без имени отправителя.",
+                             "Active students and administrators will receive a system notification without a sender name.")
+        </MudText>
+        <MudTextField T="string" @bind-Value="_text" Label="@CommunityText.T("Текст объявления", "Announcement text")"
+                      Variant="Variant.Outlined" Class="mt-3" Lines="4" MaxLength="MAX_LENGTH" Counter="MAX_LENGTH"
+                      Immediate="true" Disabled="_busy" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-3">@_error</MudAlert>
+        }
+    </ChildContent>
+    <Actions>
+        <MudButton Disabled="_busy" OnClick="() => Close.InvokeAsync()">@CommunityText.T("Отмена", "Cancel")</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !CanSend)"
+                   OnClick="() => SendAsync()">@CommunityText.T("Отправить всем", "Send to everyone")</MudButton>
+    </Actions>
+</Frontend.Shared.Profiles.ProfileDialog>
+
+@code {
+    [Parameter] public EventCallback Close { get; set; }
+
+    private const int MAX_LENGTH = 300;
+    private string? _text;
+    private string? _error;
+    private bool _busy;
+    private bool CanSend => !string.IsNullOrWhiteSpace(_text) && _text.Length <= MAX_LENGTH;
+
+    private async Task SendAsync(CancellationToken cancellationToken = default)
+    {
+        if (_busy || !CanSend)
+        {
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.SendAnnouncementAsync(_text!.Trim(), cancellationToken);
+            Snackbar.Add(CommunityText.T("Объявление отправлено", "Announcement sent"), Severity.Success);
+            await Close.InvokeAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = CommunityText.Error(ex);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

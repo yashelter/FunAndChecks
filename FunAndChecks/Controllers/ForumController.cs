@@ -11,6 +11,15 @@ namespace FunAndChecks.Controllers;
 [Authorize]
 public class ForumController(IForumService forum, IForumModerationService moderation) : ControllerBase
 {
+    [HttpPost("api/forum/announcements")]
+    [Authorize(Roles = Roles.SuperAdmin)]
+    [EnableRateLimiting(RateLimitPolicies.ForumWrite)]
+    public async Task<IActionResult> SendAnnouncementAsync(CreateForumAnnouncementRequest request, CancellationToken ct)
+    {
+        await forum.SendAnnouncementAsync(User.GetUserId(), request, ct);
+        return NoContent();
+    }
+
     [HttpGet("api/forum/sections")]
     public async Task<ActionResult<IReadOnlyList<ForumSectionDto>>> Sections(CancellationToken ct) =>
         Ok(await forum.GetSectionsAsync(User.GetUserId(), ct));

@@ -28,6 +28,8 @@ public class ForumApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiCl
         GetAsync<ForumTopicPageDto>($"api/forum/topics?{(subjectId is int s ? $"subjectId={s}&" : "")}general={general}&personal={personal}" +
             $"&search={Uri.EscapeDataString(search ?? "")}&page={page}&pageSize={pageSize}", ct);
     public Task<ForumFoldersDto> FoldersAsync(CancellationToken ct = default) => GetAsync<ForumFoldersDto>("api/forum/folders", ct);
+    public Task SendAnnouncementAsync(string text, CancellationToken ct = default) =>
+        PostAsync("api/forum/announcements", new { text }, ct);
     public Task<ForumTopicDto> OpenDirectAsync(Guid userId, CancellationToken ct = default) =>
         PostAsync<ForumTopicDto>("api/forum/direct", new { userId }, ct);
     public Task<ForumTopicDto> OpenSavedAsync(CancellationToken ct = default) => PostAsync<ForumTopicDto>("api/forum/saved", new { }, ct);

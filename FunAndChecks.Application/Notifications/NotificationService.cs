@@ -17,30 +17,54 @@ public class NotificationService(IApplicationDbContext db, IUserNotifier notifie
     {
         var recipients = userIds.Distinct().ToList();
         if (recipients.Count == 0) return;
-        List<Notification> created;
         try
         {
-            var existing = await db.Students.Select(s => s.Id).Where(id => recipients.Contains(id))
+            List<Guid> existing = await db.Students.Select(s => s.Id).Where(id => recipients.Contains(id))
                 .Union(db.Admins.Select(a => a.Id).Where(id => recipients.Contains(id))).ToListAsync(ct);
-            var now = DateTime.UtcNow;
-            created = existing.Select(userId => new Notification
-            {
-                UserId = userId, Type = request.Type, Subject = Truncate(request.Subject, 300)!,
-                ActorName = Truncate(request.ActorName, 201), Link = Truncate(request.Link, 300), CreatedAtUtc = now,
-            }).ToList();
-            db.Notifications.AddRange(created);
-            await db.SaveChangesAsync(ct);
+            await SendAsync(existing, request, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Failed to store {Type} notifications for {Count} users.", request.Type, recipients.Count);
+        }
+    }
+
+    public async Task SendAsync(IReadOnlyCollection<Guid> recipients, NotificationRequest request, CancellationToken ct = default)
+    {
+        if (recipients.Count == 0)
+        {
             return;
         }
 
-        foreach (var notification in created)
+        DateTime now = DateTime.UtcNow;
+        List<Notification> created = recipients.Distinct().Select(userId => new Notification
         {
-            try { await notifier.NotificationCreatedAsync(notification.UserId, ToDto(notification), ct); }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            UserId = userId,
+            Type = request.Type,
+            Subject = Truncate(request.Subject, 300)!,
+            ActorName = Truncate(request.ActorName, 201),
+            Link = Truncate(request.Link, 300),
+            CreatedAtUtc = now
+        }).ToList();
+        db.Notifications.AddRange(created);
+        await db.SaveChangesAsync(ct);
+
+        foreach (Notification notification in created)
+        {
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            try
+            {
+                await notifier.NotificationCreatedAsync(notification.UserId, ToDto(notification), ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
             {
                 logger.LogWarning(ex, "Notification {Id} was stored, but realtime delivery failed.", notification.Id);
             }

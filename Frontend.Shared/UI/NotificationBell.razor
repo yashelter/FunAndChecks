@@ -29,7 +29,16 @@
                         <li @key="item.Id" class="@(item.IsRead ? "" : "unread")">
                             <button type="button" @onclick="() => OpenAsync(item)">
                                 <MudIcon Icon="@IconFor(item.Type)" Size="Size.Small" />
-                                <span><span>@CommunityText.Notification(item)</span>
+                                <span>
+                                    @if (item is { Type: NotificationType.ForumAnnouncement, ActorName: null, Link: null })
+                                    {
+                                        <strong>@CommunityText.T("Новое объявление", "New announcement")</strong>
+                                        <span style="white-space: pre-wrap">@item.Subject</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@CommunityText.Notification(item)</span>
+                                    }
                                     <small>@(item.ActorName is { Length: > 0 } actor ? actor + " · " : "")@CommunityText.Ago(item.CreatedAtUtc)</small></span>
                             </button>
                             @* Убрать можно только прочитанное: непрочитанное сначала откройте или отметьте прочитанным. *@
