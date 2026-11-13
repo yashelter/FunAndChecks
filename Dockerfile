@@ -26,6 +26,7 @@ COPY ["Frontend.Admin/", "Frontend.Admin/"]
 COPY ["Frontend.Student/", "Frontend.Student/"]
 # Пользовательское соглашение (licence/agreement.md) встраивается в Frontend.Shared.
 COPY ["licence/", "licence/"]
+COPY ["docs/achievement-effects.md", "docs/"]
 
 # Публикуем основной API проект
 RUN dotnet publish "FunAndChecks/FunAndChecks.csproj" -c Release -o /app/publish /p:UseAppHost=false
