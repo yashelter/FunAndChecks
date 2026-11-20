@@ -8,6 +8,18 @@ namespace Frontend.Shared.Profiles;
 
 public class ProfileApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiClientBase(http, loc)
 {
+    private static string DraftMediaPath(Guid draftId, string slot) =>
+        $"api/admin/achievements/drafts/{draftId}/media/{slot}";
+
+    public Task<MediaDto> StageAchievementMediaAsync(Guid draftId, string slot, MediaSelection selection,
+        CancellationToken ct = default) => PutAsync<MediaDto>(DraftMediaPath(draftId, slot),
+        new { mediaSessionId = selection.SessionId, media = selection.Media }, ct);
+
+    public Task RemoveDraftAchievementMediaAsync(Guid draftId, string slot, CancellationToken ct = default) =>
+        DeleteAsync(DraftMediaPath(draftId, slot), ct);
+
+    public Task ConsumeDraftAchievementMediaAsync(Guid draftId, string slot, Guid uploadId, bool poster, Func<Stream, Task> consume,
+        CancellationToken ct = default) => ConsumeAsync($"{DraftMediaPath(draftId, slot)}?poster={poster}&uploadId={uploadId}", consume, ct);
     public event Action? ProfileChanged;
     public async Task<UserProfileDto> SetActiveAwardAsync(int? awardId, CancellationToken ct = default)
     {

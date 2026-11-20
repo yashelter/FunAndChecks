@@ -100,6 +100,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<ProfileMediaAsset> ProfileMediaAssets => Set<ProfileMediaAsset>();
+    public DbSet<AchievementDraft> AchievementDrafts => Set<AchievementDraft>();
+    public DbSet<AchievementDraftMedia> AchievementDraftMedia => Set<AchievementDraftMedia>();
     public DbSet<AchievementDefinition> AchievementDefinitions => Set<AchievementDefinition>();
     public DbSet<AchievementAward> AchievementAwards => Set<AchievementAward>();
     public DbSet<Attachment> Attachments => Set<Attachment>();

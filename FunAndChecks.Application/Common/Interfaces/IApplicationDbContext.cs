@@ -30,6 +30,8 @@ public interface IApplicationDbContext
     DbSet<VariantAssignment> VariantAssignments { get; }
     DbSet<UserProfile> UserProfiles { get; }
     DbSet<ProfileMediaAsset> ProfileMediaAssets { get; }
+    DbSet<AchievementDraft> AchievementDrafts { get; }
+    DbSet<AchievementDraftMedia> AchievementDraftMedia { get; }
     DbSet<AchievementDefinition> AchievementDefinitions { get; }
     DbSet<AchievementAward> AchievementAwards { get; }
     DbSet<Attachment> Attachments { get; }

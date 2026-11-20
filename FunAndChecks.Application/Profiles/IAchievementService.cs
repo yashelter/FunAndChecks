@@ -1,3 +1,5 @@
+using FunAndChecks.Domain.Enums;
+
 namespace FunAndChecks.Application.Profiles;
 
 public interface IAchievementService
@@ -8,6 +10,11 @@ public interface IAchievementService
     Task<MediaAssetDto> SetMediaAsync(Guid adminId, int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot,
         SetAchievementMediaRequest request, CancellationToken ct = default);
     Task RemoveMediaAsync(Guid adminId, int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot, CancellationToken ct = default);
+    Task<MediaAssetDto> StageDraftMediaAsync(Guid adminId, Guid draftId, AchievementMediaSlot slot,
+        SetAchievementMediaRequest request, CancellationToken ct = default);
+    Task<MediaFileDto> GetDraftMediaAsync(Guid adminId, Guid draftId, AchievementMediaSlot slot,
+        bool poster, Guid? uploadId, CancellationToken ct = default);
+    Task RemoveDraftMediaAsync(Guid adminId, Guid draftId, AchievementMediaSlot slot, CancellationToken ct = default);
     /// <summary>A picture of an achievement. Avatars are never served here.</summary>
     Task<MediaFileDto> GetPublicMediaAsync(Guid mediaId, bool poster, CancellationToken ct = default);
     Task<AchievementPageDto> GetAsync(string? query, int page, int pageSize, bool includeArchived, CancellationToken ct = default);

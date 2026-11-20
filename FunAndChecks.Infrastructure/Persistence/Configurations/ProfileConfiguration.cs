@@ -54,6 +54,8 @@ public class AchievementDefinitionConfiguration : IEntityTypeConfiguration<Achie
         builder.Property(a => a.CustomCss).HasMaxLength(8000);
         builder.Property(a => a.CompiledCss).HasMaxLength(64000);
         builder.HasIndex(a => new { a.IsArchived, a.Name });
+        builder.HasIndex(a => new { a.CreatedByUserId, a.CreatedFromDraftId }).IsUnique()
+            .HasFilter("\"CreatedFromDraftId\" IS NOT NULL");
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.CreatedByUserId)
             .OnDelete(DeleteBehavior.SetNull);
     }

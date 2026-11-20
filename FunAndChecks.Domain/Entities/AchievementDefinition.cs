@@ -16,6 +16,7 @@ public class AchievementDefinition
     public string? CompiledCss { get; set; }
     public int EffectsVersion { get; set; }
     public Guid? CreatedByUserId { get; set; }
+    public Guid? CreatedFromDraftId { get; set; }
     public required string CreatedByName { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }

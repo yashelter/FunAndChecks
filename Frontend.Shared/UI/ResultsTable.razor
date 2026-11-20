@@ -9,25 +9,28 @@
    - классы mud-table-* сохранены: на них держатся закреплённая шапка, стили и results-scroll.js. *@
 @if (_layout is not null)
 {
-    <div class="fc-results-tools">
-        <MudTextField T="string" Value="@_view.Search" ValueChanged="OnSearchChanged" Immediate="true" DebounceInterval="200" Clearable="true"
-                      Placeholder="@Loc["Results_Search"]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="fc-results-search" />
-        @if (_groups.Count > 1)
-        {
-            <MudSelect T="string" Value="@_view.Group" ValueChanged="OnGroupChanged" Clearable="true" Placeholder="@Loc["Results_AllGroups"]"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-results-group-filter">
-                @foreach (var group in _groups)
-                {
-                    <MudSelectItem T="string" Value="@group">@group</MudSelectItem>
-                }
-            </MudSelect>
-        }
-        @if (_view.HasFilter)
-        {
-            <span class="fc-results-found fc-muted" role="status">@_visible.Count / @_rows.Count</span>
-        }
-    </div>
+    @if (Preview is null)
+    {
+        <div class="fc-results-tools">
+            <MudTextField T="string" Value="@_view.Search" ValueChanged="OnSearchChanged" Immediate="true" DebounceInterval="200" Clearable="true"
+                          Placeholder="@Loc["Results_Search"]" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Class="fc-results-search" />
+            @if (_groups.Count > 1)
+            {
+                <MudSelect T="string" Value="@_view.Group" ValueChanged="OnGroupChanged" Clearable="true" Placeholder="@Loc["Results_AllGroups"]"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="fc-results-group-filter">
+                    @foreach (var group in _groups)
+                    {
+                        <MudSelectItem T="string" Value="@group">@group</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+            @if (_view.HasFilter)
+            {
+                <span class="fc-results-found fc-muted" role="status">@_visible.Count / @_rows.Count</span>
+            }
+        </div>
+    }
     <div class="fc-results-scroll-host" @ref="_host">
         @* Вторая полоса горизонтальной прокрутки — над шапкой, закреплена у верха окна (results-scroll.js). *@
         <div class="fc-results-hscroll" aria-hidden="true"><div></div></div>
@@ -73,14 +76,24 @@
                         </tr>
                     </thead>
                     <tbody class="mud-table-body">
-                        <Virtualize Items="_visible" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" SpacerElement="tr" Context="row">
-                            <ItemContent>
+                        @if (Preview is not null)
+                        {
+                            @foreach (StudentResultRowDto row in _visible)
+                            {
                                 <ResultsRow @key="row.StudentId" Row="row" Layout="_layout" />
-                            </ItemContent>
-                            <EmptyContent>
-                                <tr class="mud-table-row"><td class="mud-table-cell fc-results-empty" colspan="@_layout.ColumnCount">@Loc["Results_NothingFound"]</td></tr>
-                            </EmptyContent>
-                        </Virtualize>
+                            }
+                        }
+                        else
+                        {
+                            <Virtualize Items="_visible" ItemSize="ResultsColumns.RowHeight" OverscanCount="6" SpacerElement="tr" Context="row">
+                                <ItemContent>
+                                    <ResultsRow @key="row.StudentId" Row="row" Layout="_layout" />
+                                </ItemContent>
+                                <EmptyContent>
+                                    <tr class="mud-table-row"><td class="mud-table-cell fc-results-empty" colspan="@_layout.ColumnCount">@Loc["Results_NothingFound"]</td></tr>
+                                </EmptyContent>
+                            </Virtualize>
+                        }
                     </tbody>
                 </table>
             </div>

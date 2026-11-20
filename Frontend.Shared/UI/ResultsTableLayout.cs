@@ -15,6 +15,8 @@ public readonly record struct ResultsExtraCell(string? Text, string? Title = nul
 public sealed record ResultsExtraColumn(string Key, string Title, Func<StudentResultRowDto, ResultsExtraCell> Cell,
     Func<StudentResultRowDto, IComparable>? SortKey = null, string? CellClass = null);
 
+public sealed record ResultsTablePreview(string EffectScope, IReadOnlySet<Guid> EffectStudentIds, string? BadgeUrl);
+
 /// <summary>
 /// Всё, что одинаково для всех строк таблицы: колонки, режим, тексты. Неизменяемый снимок: строка
 /// (<c>ResultsRow</c>) перерисовывается, только если сменился он или её данные, поэтому при прокрутке
@@ -29,6 +31,7 @@ public sealed class ResultsTableLayout
     public bool ShowRank { get; init; }
     /// <summary>Таблица преподавателя: ячейки задач — кнопки, клик открывает студента на задаче.</summary>
     public bool Interactive { get; init; }
+    public ResultsTablePreview? Preview { get; init; }
     public Guid? HighlightStudentId { get; init; }
     /// <summary>«/admin» или «/student»; null — зритель не вошёл, имя без ссылки на профиль.</summary>
     public string? ProfileBase { get; init; }
@@ -53,7 +56,7 @@ public sealed class ResultsTableLayout
     }
 
     public string? ProfileUrl(Guid studentId) =>
-        ProfileBase is null ? null : $"{ProfileBase}/profile/{studentId}?returnUrl={ReturnUrl}";
+        ProfileBase is null || Preview is not null ? null : $"{ProfileBase}/profile/{studentId}?returnUrl={ReturnUrl}";
 
     public int ColumnCount => (ShowRank ? 1 : 0) + 3 + Leading.Count + Tasks.Count + Grades.Count + Trailing.Count;
 }

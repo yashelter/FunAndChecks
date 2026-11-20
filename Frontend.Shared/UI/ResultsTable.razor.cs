@@ -28,6 +28,7 @@ public partial class ResultsTable : IAsyncDisposable
     [Parameter] public Guid? HighlightStudentId { get; set; }
     /// <summary>Таблица преподавателя: ячейки задач — кнопки, клик по любой сообщается через <see cref="OnCellClick"/>.</summary>
     [Parameter] public bool Interactive { get; set; }
+    [Parameter] public ResultsTablePreview? Preview { get; set; }
     [Parameter] public EventCallback<ResultCellClick> OnCellClick { get; set; }
     /// <summary>Колонки после «Группы», перед задачами (варианты).</summary>
     [Parameter] public IReadOnlyList<ResultsExtraColumn>? LeadingColumns { get; set; }
@@ -48,7 +49,7 @@ public partial class ResultsTable : IAsyncDisposable
 
     // Что было показано: таблица рендерится, только если что-то из этого сменилось.
     private (SubjectResultsDto? Results, List<StudentResultRowDto>? Rows, object? Leading, object? Trailing,
-        bool Rank, Guid? Highlight, bool Interactive, string? Culture, string? Key) _shown;
+        bool Rank, Guid? Highlight, bool Interactive, ResultsTablePreview? Preview, string? Culture, string? Key) _shown;
     private bool _dirty = true;
     private bool _attachPending;
     private bool _restoreScroll;
@@ -69,13 +70,13 @@ public partial class ResultsTable : IAsyncDisposable
         if (_layout is not null && ReferenceEquals(_shown.Results, Results) && ReferenceEquals(_shown.Rows, rows)
             && ReferenceEquals(_shown.Leading, LeadingColumns) && ReferenceEquals(_shown.Trailing, TrailingColumns)
             && _shown.Rank == ShowRank && _shown.Highlight == HighlightStudentId && _shown.Interactive == Interactive
-            && _shown.Culture == culture && _shown.Key == StateKey)
+            && _shown.Preview == Preview && _shown.Culture == culture && _shown.Key == StateKey)
             return;
 
         // Другой предмет — поиск и сортировка прошлого к нему не относятся. Живое обновление того же предмета их сохраняет.
         if (_shown.Results is not null && _shown.Results.SubjectId != Results.SubjectId)
             _view = ResultsViewState.Default;
-        _shown = (Results, rows, LeadingColumns, TrailingColumns, ShowRank, HighlightStudentId, Interactive, culture, StateKey);
+        _shown = (Results, rows, LeadingColumns, TrailingColumns, ShowRank, HighlightStudentId, Interactive, Preview, culture, StateKey);
         _rows = rows;
         _groups = rows.Select(r => r.GroupName).Where(g => !string.IsNullOrEmpty(g)).Distinct()
             .OrderBy(g => g, StringComparer.CurrentCultureIgnoreCase).ToList();
@@ -91,7 +92,8 @@ public partial class ResultsTable : IAsyncDisposable
             Trailing = TrailingColumns ?? [],
             ShowRank = ShowRank,
             Interactive = Interactive,
-            HighlightStudentId = HighlightStudentId,
+            Preview = Preview,
+            HighlightStudentId = Preview is null ? HighlightStudentId : null,
             ProfileBase = _profileBase,
             ReturnUrl = Uri.EscapeDataString("/" + Nav.ToBaseRelativePath(Nav.Uri)),
             YouLabel = Loc["Results_You"],
@@ -116,7 +118,7 @@ public partial class ResultsTable : IAsyncDisposable
         _dirty = false;
         if (_layout is null) return;
         // Возврат из профиля: сначала показать строки в сохранённом порядке, прокрутку вернуть следующим рендером.
-        if (ProfileReturn.TakeRestore(StateKey, _instance) is { } saved)
+        if (Preview is null && ProfileReturn.TakeRestore(StateKey, _instance) is { } saved)
         {
             _view = saved.Group is not null && !_groups.Contains(saved.Group) ? saved with { Group = null } : saved;
             Recompute();
@@ -127,16 +129,20 @@ public partial class ResultsTable : IAsyncDisposable
         if (_attachPending)
         {
             _attachPending = false;
-            _self ??= DotNetObjectReference.Create(this);
+            bool enableCellActions = Interactive && Preview is null;
+            if (enableCellActions)
+            {
+                _self ??= DotNetObjectReference.Create(this);
+            }
             try
             {
                 await JS.InvokeVoidAsync("resultsScroll.attach", _host, new
                 {
-                    dotnet = Interactive ? _self : null,
+                    dotnet = enableCellActions ? _self : null,
                     accepted = Loc["Task_StatusAccepted"].Value,
                     rejected = Loc["Task_StatusRejected"].Value,
                     none = Loc["Task_StatusNotSubmitted"].Value,
-                    action = Interactive ? Loc["Dashboard_CellAction"].Value : null,
+                    action = enableCellActions ? Loc["Dashboard_CellAction"].Value : null,
                 });
             }
             catch (JSException) { }
@@ -192,6 +198,10 @@ public partial class ResultsTable : IAsyncDisposable
     [JSInvokable]
     public Task OnCellClickFromJs(string studentId, int taskId)
     {
+        if (Preview is not null)
+        {
+            return Task.CompletedTask;
+        }
         if (!Guid.TryParse(studentId, out var id)
             || _rows.FirstOrDefault(r => r.StudentId == id) is not { } row
             || Results.TaskHeaders.FirstOrDefault(t => t.TaskId == taskId) is not { } task)

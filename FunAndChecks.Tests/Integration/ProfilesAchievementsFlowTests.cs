@@ -270,6 +270,110 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
+    public async Task DraftImages_ArePrivateAndPublishedAtomicallyOnce()
+    {
+        ProfileSeed seed = await SeedAsync();
+        using HttpClient super = Client(seed.SuperToken);
+        using HttpClient admin = Client(seed.AdminToken);
+        using HttpClient anonymous = _factory.CreateClient();
+        Guid draftId = Guid.NewGuid();
+        string draftPath = $"/api/admin/achievements/drafts/{draftId}/media";
+        const string createPath = "/api/admin/achievements";
+        Dictionary<string, Guid> slots = [];
+        foreach (string slot in new[] { "badge", "frame", "pattern", "banner", "decor" })
+        {
+            Guid sessionId = _factory.Media.AddSession(seed.SuperId);
+            using HttpResponseMessage response = await super.PutAsJsonAsync($"{draftPath}/{slot}",
+                new SetAchievementMediaRequest(sessionId, Crop));
+            response.EnsureSuccessStatusCode();
+            MediaAssetDto media = (await response.Content.ReadFromJsonAsync<MediaAssetDto>())!;
+            slots.Add(slot, media.Id);
+            _factory.Media.Committed.Should().Contain(sessionId);
+            (await super.GetAsync($"{draftPath}/{slot}?poster=true")).StatusCode.Should().Be(HttpStatusCode.OK);
+            (await anonymous.GetAsync($"/api/achievements/media/{media.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+        (await admin.GetAsync($"{draftPath}/frame")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        using HttpResponseMessage replaced = await super.PutAsJsonAsync($"{draftPath}/frame",
+            new SetAchievementMediaRequest(_factory.Media.AddSession(seed.SuperId), Crop));
+        replaced.EnsureSuccessStatusCode();
+        Guid originalFrame = slots["frame"];
+        slots["frame"] = (await replaced.Content.ReadFromJsonAsync<MediaAssetDto>())!.Id;
+        (await super.GetAsync($"{draftPath}/frame?uploadId={originalFrame}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await super.DeleteAsync($"{draftPath}/pattern")).EnsureSuccessStatusCode();
+        slots.Remove("pattern");
+
+        UpsertAchievementRequest request = new("Draft images", "", DraftId: draftId, DraftSlots: slots);
+        Dictionary<string, Guid> stale = new(slots) { ["frame"] = originalFrame };
+        (await super.PostAsJsonAsync(createPath, request with { DraftSlots = stale })).IsSuccessStatusCode.Should().BeFalse();
+        (await super.GetFromJsonAsync<AchievementPageDto>("/api/achievements"))!.Items.Should().BeEmpty();
+
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            ApplicationDbContext db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.Database.ExecuteSqlRawAsync(
+                "CREATE TRIGGER fail_draft_publish BEFORE INSERT ON ProfileMediaAssets BEGIN SELECT RAISE(ABORT, 'test draft failure'); END;");
+            try
+            {
+                (await super.PostAsJsonAsync(createPath, request)).StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+                (await super.GetFromJsonAsync<AchievementPageDto>("/api/achievements"))!.Items.Should().BeEmpty();
+                (await super.GetAsync($"{draftPath}/frame")).StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            finally
+            {
+                await db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_draft_publish;");
+            }
+        }
+
+        using HttpResponseMessage created = await super.PostAsJsonAsync(createPath, request);
+        created.EnsureSuccessStatusCode();
+        AchievementDto achievement = (await created.Content.ReadFromJsonAsync<AchievementDto>())!;
+        using HttpResponseMessage repeated = await super.PostAsJsonAsync(createPath, request);
+        repeated.EnsureSuccessStatusCode();
+        (await repeated.Content.ReadFromJsonAsync<AchievementDto>())!.Id.Should().Be(achievement.Id);
+        (await super.GetFromJsonAsync<AchievementPageDto>("/api/achievements"))!.Items.Should().ContainSingle();
+        AchievementEditDto edit = (await super.GetFromJsonAsync<AchievementEditDto>($"{createPath}/{achievement.Id}"))!;
+        edit.Media.Keys.Should().BeEquivalentTo(slots.Keys);
+        foreach (MediaAssetDto media in edit.Media.Values)
+        {
+            (await anonymous.GetAsync($"/api/achievements/media/{media.Id}")).StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+    }
+
+    [Fact]
+    public async Task DraftImages_ExpiredSlotsCanBeUploadedAgain()
+    {
+        ProfileSeed seed = await SeedAsync();
+        using HttpClient super = Client(seed.SuperToken);
+        Guid draftId = Guid.NewGuid();
+        string framePath = $"/api/admin/achievements/drafts/{draftId}/media/frame";
+        const string createPath = "/api/admin/achievements";
+
+        using HttpResponseMessage staged = await super.PutAsJsonAsync(framePath,
+            new SetAchievementMediaRequest(_factory.Media.AddSession(seed.SuperId), Crop));
+        staged.EnsureSuccessStatusCode();
+        MediaAssetDto original = (await staged.Content.ReadFromJsonAsync<MediaAssetDto>())!;
+        using (IServiceScope scope = _factory.Services.CreateScope())
+        {
+            ApplicationDbContext db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.AchievementDrafts.Where(draft => draft.Id == draftId).ExecuteUpdateAsync(update =>
+                update.SetProperty(draft => draft.ExpiresAtUtc, DateTime.UtcNow.AddMinutes(-1)));
+        }
+
+        UpsertAchievementRequest request = new("Expired draft", "Kept description", DraftId: draftId,
+            DraftSlots: new Dictionary<string, Guid> { ["frame"] = original.Id });
+        (await super.GetAsync(framePath)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await super.PostAsJsonAsync(createPath, request)).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using HttpResponseMessage restaged = await super.PutAsJsonAsync(framePath,
+            new SetAchievementMediaRequest(_factory.Media.AddSession(seed.SuperId), Crop));
+        restaged.EnsureSuccessStatusCode();
+        request.DraftSlots!["frame"] = (await restaged.Content.ReadFromJsonAsync<MediaAssetDto>())!.Id;
+        using HttpResponseMessage created = await super.PostAsJsonAsync(createPath, request);
+        created.EnsureSuccessStatusCode();
+        (await created.Content.ReadFromJsonAsync<AchievementDto>())!.Description.Should().Be(request.Description);
+    }
+
+    [Fact]
     public async Task AvatarReplacementAndDatabaseFailure_KeepRetryableSessionAndPreviousMedia()
     {
         var seed = await SeedAsync();
@@ -534,11 +638,15 @@ public class ProfilesAchievementsFlowTests : IDisposable
             return id;
         }
         public Task<IProfileMediaRenderLease> RenderAsync(Guid userId, Guid sessionId, MediaRenderRequest request, int outputSize, CancellationToken cancellationToken = default)
+            => RenderAsync(userId, sessionId, request, outputSize, outputSize, cancellationToken);
+
+        public Task<IProfileMediaRenderLease> RenderAsync(Guid userId, Guid sessionId, MediaRenderRequest request,
+            int outputWidth, int outputHeight, CancellationToken cancellationToken = default)
         {
             if (!_sessions.TryGetValue(sessionId, out var owner)) throw new NotFoundException("Session not found.");
             if (owner != userId) throw new ForbiddenException("The session belongs to someone else.");
             return Task.FromResult<IProfileMediaRenderLease>(new Lease(this, sessionId,
-                new ProcessedProfileMedia([1, 2, 3], "image/webp", [4, 5], "image/webp", outputSize, outputSize, 0, false)));
+                new ProcessedProfileMedia([1, 2, 3], "image/webp", [4, 5], "image/webp", outputWidth, outputHeight, 0, false)));
         }
         public Task<MediaEditorSessionDto> PrepareAsync(Guid userId, Stream source, string fileName, string contentType, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<MediaStreamResult> GetPreviewAsync(Guid userId, Guid sessionId, bool poster = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();

@@ -117,6 +117,9 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CreatedFromDraftId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("CustomCss")
                         .HasMaxLength(8000)
                         .HasColumnType("character varying(8000)");
@@ -146,11 +149,83 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedByUserId");
+                    b.HasIndex("CreatedByUserId", "CreatedFromDraftId")
+                        .IsUnique()
+                        .HasFilter("\"CreatedFromDraftId\" IS NOT NULL");
 
                     b.HasIndex("IsArchived", "Name");
 
                     b.ToTable("AchievementDefinitions", (string)null);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDraft", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OwnerId", "Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.ToTable("AchievementDrafts");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDraftMedia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("DurationSeconds")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAnimated")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PosterContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<byte[]>("PosterData")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "DraftId", "Slot")
+                        .IsUnique();
+
+                    b.ToTable("AchievementDraftMedia");
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>
@@ -1958,6 +2033,24 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDraft", b =>
+                {
+                    b.HasOne("FunAndChecks.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AchievementDraftMedia", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.AchievementDraft", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "DraftId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminGroupAccess", b =>

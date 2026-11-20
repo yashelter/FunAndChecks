@@ -269,11 +269,12 @@
 .fc-fx-preview h3 { margin:10px 0 0; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--mud-palette-text-secondary); }
 .fc-fx-preview-title { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .fc-fx-preview-avatars { display:flex; align-items:center; gap:28px; padding:20px 14px; }
-.fc-fx-preview-scroll { overflow:auto; }
-.fc-fx-preview-table { width:100%; border-collapse:collapse; font-size:13px; }
-.fc-fx-preview-table td { height:37px; padding:0 10px; white-space:nowrap; border-bottom:1px solid var(--mud-palette-table-lines); background-color:var(--mud-palette-surface); }
-.fc-fx-preview-table .fc-active-achievement-badge { display:inline-flex; cursor:default; }
-.fc-fx-preview-table .fc-active-achievement-badge img { width:18px; height:18px; border-radius:50%; object-fit:cover; }
+.fc-fx-results-preview { min-width:0; container-type:inline-size; }
+@container (max-width:380px) {
+    .fc-fx-results-preview .fc-results-grid { --fc-results-name:122px; }
+}
+.fc-fx-results-preview .fc-results-preview-badge { cursor:default; }
+.fc-fx-results-preview .fc-results-preview-badge:hover { border-color:var(--mud-palette-lines-default); transform:none; }
 .fc-fx-preview-queue { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border:1px solid var(--mud-palette-lines-default); border-radius:10px; }
 .fc-fx-preview-queue small { color:var(--mud-palette-text-secondary); }
 .fc-fx-preview-profile { padding:12px; display:grid; gap:10px; justify-items:start; }

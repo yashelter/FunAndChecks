@@ -24,7 +24,8 @@ public record AttendanceSummaryDto(int Present, int Absent, int Marked);
 public record ProfileStatsDto(bool Detailed, List<SubjectProgressDto> Subjects, AttendanceSummaryDto? Attendance, int ForumTopics, int ForumPosts, int SurveysCompleted);
 public record UpdateProfileRequest(string? AboutMe, string? GitHubUrl, string? PortfolioUrl);
 public record SaveAchievementRequest(string Name, string Description, Guid? MediaSessionId, MediaRenderRequest? Media, bool RemoveImage = false,
-    bool ActiveByDefault = false, AchievementEffects? Effects = null, string? CustomCss = null);
+    bool ActiveByDefault = false, AchievementEffects? Effects = null, string? CustomCss = null,
+    Guid? DraftId = null, Dictionary<string, Guid>? DraftSlots = null);
 
 // Настройки конструктора эффектов. Классы, а не записи: редактор привязывает поля напрямую.
 // Пустой цвет — «не задано»; сервер проверяет значения и собирает из них CSS.

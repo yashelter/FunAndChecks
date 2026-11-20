@@ -48,6 +48,7 @@ public class RetentionCleanupService(
 
         var now = DateTime.UtcNow;
         var tokens = await db.RefreshTokens.Where(t => t.ExpiresAt < now).ExecuteDeleteAsync(cancellationToken);
+        int drafts = await db.AchievementDrafts.Where(draft => draft.ExpiresAtUtc <= now).ExecuteDeleteAsync(cancellationToken);
 
         var crowded = await db.Notifications.GroupBy(n => n.UserId)
             .Where(g => g.Count() > NotificationService.KeepPerUser)
@@ -60,5 +61,9 @@ public class RetentionCleanupService(
         if (tokens > 0 || notifications > 0)
             logger.LogInformation("Retention cleanup removed {Tokens} expired refresh token(s) and {Notifications} old notification(s).",
                 tokens, notifications);
+        if (drafts > 0)
+        {
+            logger.LogInformation("Retention cleanup removed {Drafts} expired achievement draft(s).", drafts);
+        }
     }
 }

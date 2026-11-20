@@ -1,8 +1,10 @@
 using FunAndChecks.Application.Profiles;
 using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
+using FunAndChecks.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FunAndChecks.Controllers;
 
@@ -10,6 +12,34 @@ namespace FunAndChecks.Controllers;
 [Authorize]
 public class AchievementsController(IAchievementService achievements) : ControllerBase
 {
+    private const string DRAFT_MEDIA_ROUTE = "api/admin/achievements/drafts/{draftId:guid}/media/{slot}";
+
+    [HttpPut(DRAFT_MEDIA_ROUTE)]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [EnableRateLimiting(RateLimitPolicies.MediaProcessing)]
+    public async Task<ActionResult<MediaAssetDto>> StageDraftMediaAsync(Guid draftId, AchievementMediaSlot slot,
+        SetAchievementMediaRequest request, CancellationToken ct) =>
+        Ok(await achievements.StageDraftMediaAsync(User.GetUserId(), draftId, slot, request, ct));
+
+    [HttpGet(DRAFT_MEDIA_ROUTE)]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    public async Task<IActionResult> GetDraftMediaAsync(Guid draftId, AchievementMediaSlot slot,
+        [FromQuery] bool poster = true, [FromQuery] Guid? uploadId = null, CancellationToken ct = default)
+    {
+        MediaFileDto media = await achievements.GetDraftMediaAsync(User.GetUserId(), draftId, slot, poster, uploadId, ct);
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.XContentTypeOptions = "nosniff";
+        return File(media.Data, media.ContentType);
+    }
+
+    [HttpDelete(DRAFT_MEDIA_ROUTE)]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    public async Task<IActionResult> RemoveDraftMediaAsync(Guid draftId, AchievementMediaSlot slot, CancellationToken ct)
+    {
+        await achievements.RemoveDraftMediaAsync(User.GetUserId(), draftId, slot, ct);
+        return NoContent();
+    }
+
     [HttpGet("api/achievements/effects.css")]
     [AllowAnonymous]
     public async Task<IActionResult> Effects(CancellationToken ct)

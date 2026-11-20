@@ -1,0 +1,80 @@
+@namespace Frontend.Admin.UI
+@using Frontend.Shared.Profiles
+
+<div class="fc-results-panel fc-fx-results-preview">
+    <h3>@ProfileText.T("Таблица результатов", "Results table")</h3>
+    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="@(() => _expanded = true)">
+        @ProfileText.T("Развернуть таблицу", "Expand table")
+    </MudButton>
+    @PreviewTable
+</div>
+
+<MudDialog @bind-Visible="_expanded" Options="EXPANDED_OPTIONS">
+    <TitleContent>@ProfileText.T("Таблица результатов", "Results table")</TitleContent>
+    <DialogContent>
+        <div class="fc-results-panel fc-fx-results-preview">
+            @PreviewTable
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter, EditorRequired] public string SampleName { get; set; } = "";
+    [Parameter] public string? BadgeUrl { get; set; }
+
+    private const string EFFECT_SCOPE = "preview";
+    private const string STATE_KEY = "achievement-results-preview";
+    private const string TEACHER_COLOR = "#5B4BB7";
+
+    private static readonly Guid PlainStudentId = Guid.NewGuid();
+    private static readonly Guid EffectStudentId = Guid.NewGuid();
+    private static readonly Guid ColoredStudentId = Guid.NewGuid();
+    private static readonly IReadOnlySet<Guid> EffectStudentIds = new HashSet<Guid> { EffectStudentId, ColoredStudentId };
+    private static readonly DialogOptions EXPANDED_OPTIONS = new()
+    {
+        FullWidth = true,
+        MaxWidth = MaxWidth.Large,
+        CloseButton = true,
+        CloseOnEscapeKey = true,
+    };
+
+    private bool _expanded;
+    private SubjectResultsDto _results = null!;
+    private ResultsTablePreview _preview = null!;
+    private (string? Name, string? Culture) _resultKey;
+
+    private RenderFragment PreviewTable => @<ResultsTable Results="_results" StateKey="@STATE_KEY"
+                                                         ShowRank="true" Interactive="true" Preview="_preview" />;
+
+    protected override void OnParametersSet()
+    {
+        (string Name, string Culture) key = (SampleName, CultureInfo.CurrentUICulture.Name);
+        if (_resultKey != key)
+        {
+            _resultKey = key;
+            _results = MakeSampleResults();
+        }
+        _preview = new ResultsTablePreview(EFFECT_SCOPE, EffectStudentIds, BadgeUrl);
+    }
+
+    private SubjectResultsDto MakeSampleResults()
+    {
+        ResultCellDto accepted = new("+", null, SubmissionStatus.Accepted);
+        ResultCellDto rejected = new("R", null, SubmissionStatus.Rejected);
+        string taskLabel = ProfileText.T("ЛР", "Lab");
+        string group = ProfileText.T("ИВТ-101", "CS-101");
+        return new SubjectResultsDto(0, "", [
+            new(1, $"{taskLabel} 1", 15),
+            new(2, $"{taskLabel} 2", 15),
+            new(3, $"{taskLabel} 3", 12),
+            new(4, $"{taskLabel} 4", 6),
+        ], [], [
+            new(PlainStudentId, ProfileText.T("Петров Алексей", "Alex Petrov"), group, 48,
+                new() { [1] = accepted, [2] = accepted, [3] = accepted, [4] = accepted }, [], null, Rank: 1),
+            new(EffectStudentId, SampleName, group, 42,
+                new() { [1] = accepted, [2] = accepted, [3] = accepted }, [], null, Rank: 2),
+            new(ColoredStudentId, ProfileText.T("Смирнова Анна", "Anna Smirnova"), group, 33,
+                new() { [1] = accepted, [2] = rejected, [3] = accepted, [4] = accepted }, [], TEACHER_COLOR, Rank: 3),
+        ]);
+    }
+}

@@ -3,7 +3,12 @@
 @* Строка таблицы результатов. Отдельный компонент ради ShouldRender: при прокрутке Virtualize заново обходит
    все видимые строки, но рендерится только та, у которой сменились данные или раскладка колонок.
    У ячеек задач нет ни обработчиков, ни подсказок: клик и title делегированы в results-scroll.js. *@
-<tr class="@RowClass()" data-fx="@Fx" data-s="@Row.StudentId">
+@{
+    string? fx = EffectScope();
+    string? nameFx = string.IsNullOrEmpty(Row.StudentColor) ? fx : null;
+    string? nameFxClass = nameFx is null ? null : "fc-fx-name";
+}
+<tr class="@RowClass(fx)" data-fx="@fx" data-s="@Row.StudentId">
     @if (Layout.ShowRank)
     {
         <td class="mud-table-cell fc-results-rank-column">
@@ -19,18 +24,27 @@
         <span class="fc-results-name" title="@Row.FullName">
             @if (Layout.ProfileUrl(Row.StudentId) is { } profileUrl)
             {
-                <a class="@NameClass @NameFxClass" data-fx="@NameFx" style="@NameStyle()" href="@profileUrl" @onclick="OpenProfileAsync" @onclick:preventDefault="true"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></a>
+                <a class="@NameClass @nameFxClass" data-fx="@nameFx" style="@NameStyle()" href="@profileUrl" @onclick="OpenProfileAsync" @onclick:preventDefault="true"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></a>
             }
             else
             {
-                <span class="@NameClass @NameFxClass" data-fx="@NameFx" style="@NameStyle()"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></span>
+                <span class="@NameClass @nameFxClass" data-fx="@nameFx" style="@NameStyle()"><span class="fc-name-full">@Row.FullName</span><span class="fc-name-short">@ResultsColumns.ShortName(Row.FullName)</span></span>
             }
             @if (IsMe)
             {
                 <span class="fc-results-you">@Layout.YouLabel</span>
             }
             <span class="fc-results-sum" aria-hidden="true">@Row.TotalPoints</span>
-            @if (Row.ActiveAchievement is { } active)
+            @if (Layout.Preview is { } preview)
+            {
+                if (fx is not null && !string.IsNullOrWhiteSpace(preview.BadgeUrl))
+                {
+                    <span class="fc-active-achievement-badge fc-results-preview-badge">
+                        <span class="fc-active-achievement-image fc-profile-media"><img src="@preview.BadgeUrl" alt="" /></span>
+                    </span>
+                }
+            }
+            else if (Row.ActiveAchievement is { } active)
             {
                 <Frontend.Shared.Profiles.ActiveAchievementBadge Achievement="active" />
             }
@@ -48,7 +62,14 @@
         <td class="@TaskCellClass">
             @if (Layout.Interactive)
             {
-                <button type="button" class="@TeacherClass(cell)" style="@TeacherStyle(cell)">@TeacherText(cell)</button>
+                if (Layout.Preview is null)
+                {
+                    <button type="button" class="@TeacherClass(cell) fc-result-history-button" style="@TeacherStyle(cell)">@TeacherText(cell)</button>
+                }
+                else
+                {
+                    <span class="@TeacherClass(cell)" style="@TeacherStyle(cell)">@TeacherText(cell)</span>
+                }
             }
             else if (IsMe)
             {
@@ -101,12 +122,11 @@
 
     // Активное достижение: по data-fx таблица стилей эффектов (api/achievements/effects.css) оформляет строку и имя.
     // Это чистый CSS: на высоту строки и на рендер он не влияет.
-    private int? Fx => Row.ActiveAchievement?.AchievementId;
-    // Цвет имени, назначенный преподавателем, важнее эффекта достижения.
-    private int? NameFx => string.IsNullOrEmpty(Row.StudentColor) ? Fx : null;
-    private string NameFxClass => NameFx is null ? "" : "fc-fx-name";
+    private string? EffectScope() => Layout.Preview is { } preview
+        ? (preview.EffectStudentIds.Contains(Row.StudentId) ? preview.EffectScope : null)
+        : Row.ActiveAchievement?.AchievementId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-    private string RowClass()
+    private string RowClass(string? fx)
     {
         var podium = Layout.ShowRank ? ResultsColumns.RowClass(Row) : string.Empty;
         var row = (IsMe, podium.Length > 0) switch
@@ -116,7 +136,7 @@
             (false, true) => $"mud-table-row {podium}",
             _ => "mud-table-row",
         };
-        return Fx is null ? row : row + " fc-fx-row";
+        return fx is null ? row : row + " fc-fx-row";
     }
 
     private string? NameStyle()
@@ -173,9 +193,9 @@
 
     private static string TeacherClass(ResultCellDto? cell) => cell?.Status switch
     {
-        SubmissionStatus.Accepted => "fc-result-cell fc-result-history-button fc-result-accepted",
-        SubmissionStatus.Rejected => "fc-result-cell fc-result-history-button fc-result-rework",
-        _ => "fc-result-cell fc-result-history-button fc-result-unsubmitted",
+        SubmissionStatus.Accepted => "fc-result-cell fc-result-accepted",
+        SubmissionStatus.Rejected => "fc-result-cell fc-result-rework",
+        _ => "fc-result-cell fc-result-unsubmitted",
     };
 
     private static string? TeacherStyle(ResultCellDto? cell)

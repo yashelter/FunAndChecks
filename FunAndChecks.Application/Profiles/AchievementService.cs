@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Application.Profiles;
 
-public class AchievementService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
+public sealed partial class AchievementService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
     IValidator<UpsertAchievementRequest> validator, INotificationService? notifications = null,
     IResultsCacheService? resultsCache = null) : IAchievementService
 {
@@ -163,43 +163,101 @@ public class AchievementService(IApplicationDbContext db, IIdentityService ident
     public async Task<AchievementDto> CreateAsync(Guid adminId, UpsertAchievementRequest request, CancellationToken ct = default)
     {
         await EnsureAdminAsync(adminId, true, ct);
-        await validator.ValidateAndThrowAsync(request, ct);
-        var account = await RequireAccountAsync(adminId, ct);
-        await using var lease = request.MediaSessionId.HasValue
-            ? await processor.RenderAsync(adminId, request.MediaSessionId.Value, request.Media!, 512, ct) : null;
-        var id = 0;
-        await db.ExecuteSerializableAsync(async token =>
+        if (request.DraftId is Guid replayId && replayId != Guid.Empty)
         {
-            await EnsureAdminAsync(adminId, true, token);
-            var definition = new AchievementDefinition
+            int? existingId = await FindCreatedDraftAsync(adminId, replayId, ct);
+            if (existingId.HasValue)
             {
-                Name = request.Name!.Trim(), Description = request.Description?.Trim() ?? "",
-                // Set before the first save: the effects are compiled after it (they need the id), and that
-                // second save must not look like a separate edit in the admin audit.
-                ActiveByDefault = request.ActiveByDefault,
-                CreatedByUserId = adminId, CreatedByName = account.FullName,
-                CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow
-            };
-            db.AchievementDefinitions.Add(definition);
-            await db.SaveChangesAsync(token);
-            id = definition.Id;
-            ApplyEffects(definition, request);
-            await db.SaveChangesAsync(token);
-            if (lease is not null)
-            {
-                var asset = ProfileService.FromProcessed(Guid.NewGuid(), lease.Media);
-                asset.AchievementDefinitionId = id;
-                db.ProfileMediaAssets.Add(asset);
-                await db.SaveChangesAsync(token);
+                return await GetByIdAsync(existingId.Value, ct);
             }
-        }, ct);
-        if (lease is not null) await lease.CommitAsync(ct);
+        }
+
+        await validator.ValidateAndThrowAsync(request, ct);
+        IReadOnlyDictionary<AchievementMediaSlot, Guid> slots = ValidateDraftSlots(request);
+        ProfileAccountInfo account = await RequireAccountAsync(adminId, ct);
+        await using IProfileMediaRenderLease? lease = request.MediaSessionId.HasValue
+            ? await processor.RenderAsync(adminId, request.MediaSessionId.Value, request.Media!, 512, ct) : null;
+        int id = 0;
+        try
+        {
+            await db.ExecuteSerializableAsync(async token =>
+            {
+                await EnsureAdminAsync(adminId, true, token);
+                AchievementDraft? draft = null;
+                if (request.DraftId is Guid draftId)
+                {
+                    int? existingId = await FindCreatedDraftAsync(adminId, draftId, token);
+                    if (existingId.HasValue)
+                    {
+                        id = existingId.Value;
+                        return;
+                    }
+                    draft = await FindDraftAsync(adminId, draftId, token);
+                }
+
+                IReadOnlyList<AchievementDraftMedia> staged = await ResolveDraftSlotsAsync(draft, slots, token);
+                AchievementDefinition definition = new()
+                {
+                    Name = request.Name!.Trim(), Description = request.Description?.Trim() ?? "",
+                    ActiveByDefault = request.ActiveByDefault,
+                    CreatedByUserId = adminId, CreatedByName = account.FullName,
+                    CreatedFromDraftId = request.DraftId,
+                    CreatedAtUtc = DateTime.UtcNow, UpdatedAtUtc = DateTime.UtcNow
+                };
+                db.AchievementDefinitions.Add(definition);
+                await db.SaveChangesAsync(token);
+                id = definition.Id;
+                ApplyEffects(definition, request);
+
+                if (lease is not null)
+                {
+                    ProfileMediaAsset asset = ProfileService.FromProcessed(Guid.NewGuid(), lease.Media);
+                    asset.AchievementDefinitionId = id;
+                    db.ProfileMediaAssets.Add(asset);
+                }
+
+                foreach (AchievementDraftMedia media in staged)
+                {
+                    db.ProfileMediaAssets.Add(new ProfileMediaAsset
+                    {
+                        Id = media.Id, AchievementDefinitionId = id, Slot = media.Slot,
+                        Data = media.Data, ContentType = media.ContentType,
+                        PosterData = media.PosterData, PosterContentType = media.PosterContentType,
+                        Width = media.Width, Height = media.Height,
+                        DurationSeconds = media.DurationSeconds, IsAnimated = media.IsAnimated
+                    });
+                }
+
+                if (draft is not null)
+                {
+                    db.AchievementDrafts.Remove(draft);
+                }
+                await db.SaveChangesAsync(token);
+            }, ct);
+        }
+        catch (DbUpdateException ex) when (request.DraftId.HasValue && DatabaseErrors.IsUniqueViolation(ex))
+        {
+            int? existingId = await FindCreatedDraftAsync(adminId, request.DraftId.Value, ct);
+            if (!existingId.HasValue)
+            {
+                throw;
+            }
+            id = existingId.Value;
+        }
+        if (lease is not null)
+        {
+            await lease.CommitAsync(ct);
+        }
         return await GetByIdAsync(id, ct);
     }
 
     public async Task<AchievementDto> UpdateAsync(Guid adminId, int id, UpsertAchievementRequest request, CancellationToken ct = default)
     {
         await EnsureAdminAsync(adminId, true, ct);
+        if (request.DraftId.HasValue || request.DraftSlots is not null)
+        {
+            throw new ValidationException("Draft media is only supported when creating an achievement.");
+        }
         await validator.ValidateAndThrowAsync(request, ct);
         await RequireDefinitionAsync(id, ct);
         await using var lease = request.MediaSessionId.HasValue

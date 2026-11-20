@@ -55,7 +55,8 @@ public record AchievementRecipientAccountPageDto(IReadOnlyList<AchievementRecipi
 
 public record UpsertAchievementRequest(string? Name, string? Description, Guid? MediaSessionId = null,
     MediaRenderRequest? Media = null, bool RemoveImage = false, bool ActiveByDefault = false,
-    AchievementEffects? Effects = null, string? CustomCss = null);
+    AchievementEffects? Effects = null, string? CustomCss = null, Guid? DraftId = null,
+    Dictionary<string, Guid>? DraftSlots = null);
 
 public record ArchiveAchievementRequest(bool Archived);
 public record GrantAchievementRequest(Guid UserId);

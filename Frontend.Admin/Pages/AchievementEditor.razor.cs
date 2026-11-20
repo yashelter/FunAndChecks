@@ -29,6 +29,10 @@ public partial class AchievementEditor : IAsyncDisposable
     [Inject] private DashboardAppearanceService Appearance { get; set; } = null!;
     [Inject] private IJSRuntime JS { get; set; } = null!;
     private IJSObjectReference? _community;
+    private IJSObjectReference? _draftMediaModule;
+    private Guid _draftId = Guid.NewGuid();
+    private readonly Dictionary<string, string> _draftUrls = [];
+    private readonly HashSet<string> _expiredSlots = [];
     private bool _importing;
     private string _importText = "";
     private string? _importError;
@@ -56,6 +60,14 @@ public partial class AchievementEditor : IAsyncDisposable
     private static string CssPlaceholder => "name { text-shadow: 0 0 8px gold; }\navatar::after { content: \"\"; position: absolute; inset: -18%; background: image(frame) center/contain no-repeat; }";
 
     private MediaDto? Slot(string slot) => _media.GetValueOrDefault(slot);
+    private string? DraftUrl(string slot) => _draftUrls.GetValueOrDefault(slot);
+    private string? BadgeUrl => Id is null ? DraftUrl("badge") :
+        Slot("badge") is { } badge ? $"/api/achievements/media/{badge.Id}?poster={IsVideo(badge)}" : null;
+    private string PreviewCss => Id is not null || _draftUrls.Count == 0 ? _previewCss :
+        _previewCss + "[data-fx=\"preview\"]{" + string.Concat(_draftUrls.Select(
+            pair => $"--fx-img-{pair.Key}:url(\"{pair.Value}\");")) + "}";
+
+    private static bool IsVideo(MediaDto media) => media.ContentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
     private string GuideUrl => "/admin/achievements/guide?returnUrl=" + Uri.EscapeDataString("/" + Nav.ToBaseRelativePath(Nav.Uri));
 
     private AchievementDraft CurrentDraft() => new(_name, _description, _activeByDefault, _effects,
@@ -106,6 +118,9 @@ public partial class AchievementEditor : IAsyncDisposable
 
     private async Task LoadAsync()
     {
+        await ReleaseDraftUrlsAsync();
+        _expiredSlots.Clear();
+        _draftId = Guid.NewGuid();
         _loading = true; _loadError = _error = null; _dirty = false; _slotEditing = null;
         try
         {
@@ -184,7 +199,9 @@ public partial class AchievementEditor : IAsyncDisposable
         _busy = true; _error = null;
         try
         {
-            var request = new SaveAchievementRequest(_name.Trim(), _description.Trim(), null, null, false, _activeByDefault, _effects, _css);
+            SaveAchievementRequest request = new(_name.Trim(), _description.Trim(), null, null, false, _activeByDefault,
+                _effects, _css, Id is null ? _draftId : null,
+                Id is null ? _media.ToDictionary(pair => pair.Key, pair => pair.Value.Id) : null);
             if (Id is int id)
             {
                 await Api.UpdateAchievementAsync(id, request, _life.Token);
@@ -197,11 +214,26 @@ public partial class AchievementEditor : IAsyncDisposable
                 var created = await Api.CreateAchievementAsync(request, _life.Token);
                 _dirty = false;
                 await Appearance.ReloadEffectsAsync();
-                Snackbar.Add(ProfileText.T("Достижение создано. Теперь можно загрузить картинки.", "Achievement created. You can upload pictures now."), Severity.Success);
+                Snackbar.Add(ProfileText.T("Достижение создано", "Achievement created"), Severity.Success);
                 Nav.NavigateTo($"/admin/achievements/{created.Id}");
             }
         }
-        catch (ApiException ex) { _error = ex.Message; }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            if (Id is null && ex.Code == "achievement.draft_media_expired")
+            {
+                try
+                {
+                    await CheckDraftSlotsAsync();
+                    _error = "Срок хранения картинок истёк. Загрузите отмеченные картинки повторно или уберите их.";
+                }
+                catch (ApiException checkError)
+                {
+                    _error = checkError.Message;
+                }
+            }
+        }
         catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
         finally { _busy = false; }
     }
@@ -209,8 +241,32 @@ public partial class AchievementEditor : IAsyncDisposable
     /// <summary>Картинка сохраняется сразу, отдельно от остальных полей: у неё свой файл на сервере.</summary>
     private async Task<bool> SaveSlotAsync(MediaSelection selection)
     {
-        if (Id is not int id || _slotEditing is not { } slot) return false;
-        var media = await Api.SetAchievementMediaAsync(id, slot, selection, _life.Token);
+        if (!_superAdmin || _slotEditing is not { } slot)
+        {
+            return false;
+        }
+        if (Id is not int id)
+        {
+            MediaDto staged = await Api.StageAchievementMediaAsync(_draftId, slot, selection, _life.Token);
+            _media[slot] = staged;
+            _expiredSlots.Remove(slot);
+            _dirty = true;
+            await ReleaseDraftUrlAsync(slot);
+            try
+            {
+                await LoadDraftUrlAsync(slot, staged);
+            }
+            catch (ApiException ex)
+            {
+                _error = ex.Message;
+            }
+            catch (JSException)
+            {
+                _error = "Картинка подготовлена, но браузеру не удалось показать предпросмотр.";
+            }
+            return true;
+        }
+        MediaDto media = await Api.SetAchievementMediaAsync(id, slot, selection, _life.Token);
         _media[slot] = media;
         await Appearance.ReloadEffectsAsync();
         await RefreshPreviewAsync();
@@ -220,10 +276,25 @@ public partial class AchievementEditor : IAsyncDisposable
 
     private async Task RemoveSlotAsync(string slot)
     {
-        if (Id is not int id || !_superAdmin) return;
+        if (!_superAdmin)
+        {
+            return;
+        }
         _busy = true; _error = null;
         try
         {
+            if (Id is not int id)
+            {
+                if (!_expiredSlots.Contains(slot))
+                {
+                    await Api.RemoveDraftAchievementMediaAsync(_draftId, slot, _life.Token);
+                }
+                _expiredSlots.Remove(slot);
+                _media.Remove(slot);
+                _dirty = true;
+                await ReleaseDraftUrlAsync(slot);
+                return;
+            }
             await Api.RemoveAchievementMediaAsync(id, slot, _life.Token);
             _media.Remove(slot);
             await Appearance.ReloadEffectsAsync();
@@ -231,6 +302,50 @@ public partial class AchievementEditor : IAsyncDisposable
         }
         catch (ApiException ex) { _error = ex.Message; }
         finally { _busy = false; }
+    }
+
+    private async Task LoadDraftUrlAsync(string slot, MediaDto media)
+    {
+        _draftMediaModule ??= await JS.InvokeAsync<IJSObjectReference>("import", _life.Token, ProfileMediaModule.Url);
+        await Api.ConsumeDraftAchievementMediaAsync(_draftId, slot, media.Id, IsVideo(media), async stream =>
+        {
+            using DotNetStreamReference reference = new(stream, leaveOpen: true);
+            _draftUrls[slot] = await _draftMediaModule.InvokeAsync<string>("objectUrl", _life.Token,
+                reference, IsVideo(media) ? "image/webp" : media.ContentType);
+        }, _life.Token);
+    }
+
+    private async Task CheckDraftSlotsAsync()
+    {
+        foreach ((string slot, MediaDto media) in _media)
+        {
+            try
+            {
+                await Api.ConsumeDraftAchievementMediaAsync(_draftId, slot, media.Id, IsVideo(media),
+                    _ => Task.CompletedTask, _life.Token);
+            }
+            catch (ApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _expiredSlots.Add(slot);
+                await ReleaseDraftUrlAsync(slot);
+            }
+        }
+    }
+
+    private async Task ReleaseDraftUrlAsync(string slot)
+    {
+        if (_draftUrls.Remove(slot, out string? url) && _draftMediaModule is not null)
+        {
+            await _draftMediaModule.InvokeVoidAsync("release", url);
+        }
+    }
+
+    private async Task ReleaseDraftUrlsAsync()
+    {
+        foreach (string slot in _draftUrls.Keys.ToArray())
+        {
+            await ReleaseDraftUrlAsync(slot);
+        }
     }
 
     private async Task ConfirmLeaveAsync(LocationChangingContext context)
@@ -247,7 +362,18 @@ public partial class AchievementEditor : IAsyncDisposable
         _previewDelay?.Cancel();
         _life.Cancel();
         _life.Dispose();
-        try { if (_community is not null) await _community.DisposeAsync(); }
+        try
+        {
+            await ReleaseDraftUrlsAsync();
+            if (_draftMediaModule is not null)
+            {
+                await _draftMediaModule.DisposeAsync();
+            }
+            if (_community is not null)
+            {
+                await _community.DisposeAsync();
+            }
+        }
         catch (JSDisconnectedException) { }
     }
 }
