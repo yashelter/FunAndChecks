@@ -1057,4 +1057,19 @@
   <data name="Maintenance_RestoreStatusUnavailable" xml:space="preserve"><value>Не удалось получить статус восстановления. Войдите снова, чтобы проверить результат.</value></data>
   <data name="AdminPermissions_HiddenSubjects" xml:space="preserve"><value>Скрытые предметы</value></data>
   <data name="AdminPermissions_HiddenGroups" xml:space="preserve"><value>Скрытые группы</value></data>
+  <data name="AdminPermissions_Tab" xml:space="preserve"><value>Права</value></data>
+  <data name="AdminPermissions_EditorHint" xml:space="preserve"><value>Права по категориям, доступ к предметам и ограничения групп.</value></data>
+  <data name="AdminPermissions_CategoryTeaching" xml:space="preserve"><value>Учебный процесс</value></data>
+  <data name="AdminPermissions_CategoryAchievements" xml:space="preserve"><value>Достижения</value></data>
+  <data name="AdminPermissions_CategoryCommunity" xml:space="preserve"><value>Чаты</value></data>
+  <data name="AdminPermissions_CategoryAdministration" xml:space="preserve"><value>Администрирование</value></data>
+  <data name="AdminPermissions_CategoryOther" xml:space="preserve"><value>Другие права</value></data>
+  <data name="AdminPermissions_SubjectsHint" xml:space="preserve"><value>Отметьте разрешённые предметы. Новые предметы требуют отдельной выдачи доступа.</value></data>
+  <data name="AdminPermissions_GroupsHint" xml:space="preserve"><value>Отметьте группы, с которыми администратор не сможет работать.</value></data>
+  <data name="AdminPermissions_SubjectsOverrideHint" xml:space="preserve"><value>Сейчас у администратора есть доступ ко всем предметам. Этот список начнёт действовать после снятия полного доступа к предметам.</value></data>
+  <data name="AdminPermissions_CatalogUnavailable" xml:space="preserve"><value>Сервер не вернул каталог прав. Обновите сервер до версии с поддержкой особых прав.</value></data>
+  <data name="AdminPermissions_SaveScopes" xml:space="preserve"><value>Сохранить предметы и группы</value></data>
+  <data name="AdminPermissions_AllScopes" xml:space="preserve"><value>Все предметы и группы</value></data>
+  <data name="AdminPermissions_RestrictAllScopes" xml:space="preserve"><value>Запретить всё</value></data>
+  <data name="AdminPermissions_AllowAllScopes" xml:space="preserve"><value>Разрешить всё</value></data>
 </root>

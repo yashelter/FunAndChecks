@@ -1055,4 +1055,19 @@
   <data name="Maintenance_RestoreStatusUnavailable" xml:space="preserve"><value>Restore status is unavailable. Sign in again to check the result.</value></data>
   <data name="AdminPermissions_HiddenSubjects" xml:space="preserve"><value>Hidden subjects</value></data>
   <data name="AdminPermissions_HiddenGroups" xml:space="preserve"><value>Hidden groups</value></data>
+  <data name="AdminPermissions_Tab" xml:space="preserve"><value>Permissions</value></data>
+  <data name="AdminPermissions_EditorHint" xml:space="preserve"><value>Permissions by category, subject access, and group restrictions.</value></data>
+  <data name="AdminPermissions_CategoryTeaching" xml:space="preserve"><value>Teaching</value></data>
+  <data name="AdminPermissions_CategoryAchievements" xml:space="preserve"><value>Achievements</value></data>
+  <data name="AdminPermissions_CategoryCommunity" xml:space="preserve"><value>Chats</value></data>
+  <data name="AdminPermissions_CategoryAdministration" xml:space="preserve"><value>Administration</value></data>
+  <data name="AdminPermissions_CategoryOther" xml:space="preserve"><value>Other permissions</value></data>
+  <data name="AdminPermissions_SubjectsHint" xml:space="preserve"><value>Select the allowed subjects. New subjects require a separate grant.</value></data>
+  <data name="AdminPermissions_GroupsHint" xml:space="preserve"><value>Select the groups this administrator cannot manage.</value></data>
+  <data name="AdminPermissions_SubjectsOverrideHint" xml:space="preserve"><value>This administrator currently has access to all subjects. This list takes effect when access to all subjects is removed.</value></data>
+  <data name="AdminPermissions_CatalogUnavailable" xml:space="preserve"><value>The server did not return the permission catalog. Update the server to a version that supports special permissions.</value></data>
+  <data name="AdminPermissions_SaveScopes" xml:space="preserve"><value>Save subjects and groups</value></data>
+  <data name="AdminPermissions_AllScopes" xml:space="preserve"><value>All subjects and groups</value></data>
+  <data name="AdminPermissions_RestrictAllScopes" xml:space="preserve"><value>Restrict all</value></data>
+  <data name="AdminPermissions_AllowAllScopes" xml:space="preserve"><value>Allow all</value></data>
 </root>

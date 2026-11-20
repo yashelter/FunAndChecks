@@ -290,6 +290,30 @@ public class AdminRestrictionsTests : IDisposable
     }
 
     [Fact]
+    public async Task SuperAdminCanEditAnotherSuperAdminsExplicitPermissionsAndGroupRestrictionsAsync()
+    {
+        TestData data = await SeedAsync();
+        using HttpClient super = CreateClient(data.SuperAdminToken);
+        using HttpResponseMessage promote = await super.PutAsJsonAsync($"/api/admins/{data.AdminId}",
+            new UpdateAdminRequest("New", "Super", null, null, IsSuperAdmin: true));
+        promote.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        string accessUrl = $"/api/admins/{data.AdminId}/access";
+        using HttpResponseMessage rights = await super.PutAsJsonAsync($"{accessUrl}/special-permissions",
+            new ReplaceSpecialPermissionsRequest([AdminPermissions.GRANT_SELF], []));
+        rights.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using HttpResponseMessage scopes = await super.PutAsJsonAsync($"{accessUrl}/permissions",
+            new ReplaceAdminPermissionsRequest([data.SubjectId], [data.GroupId]));
+        scopes.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        AdminAccessDto saved = (await super.GetFromJsonAsync<AdminAccessDto>(accessUrl))!;
+        saved.ExplicitPermissions.Should().Equal(AdminPermissions.GRANT_SELF);
+        saved.EffectivePermissions.Should().BeEquivalentTo(AdminPermissions.All);
+        saved.ExplicitSubjectIds.Should().Equal(data.SubjectId);
+        saved.RestrictedGroupIds.Should().Equal(data.GroupId);
+    }
+
+    [Fact]
     public async Task DelegatedAdministratorCannotModifySuperAdminOrAssignRoleAsync()
     {
         TestData data = await SeedAsync();

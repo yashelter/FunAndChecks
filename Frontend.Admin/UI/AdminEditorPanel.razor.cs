@@ -15,9 +15,7 @@ namespace Frontend.Admin.UI;
 /// </summary>
 public partial class AdminEditorPanel : IDisposable
 {
-    [Inject] private AdminPermissionReader PermissionReader { get; set; } = null!;
     [Inject] private AdminsApi Admins { get; set; } = null!;
-    [Inject] private SubjectsApi Subjects { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ConfirmService Confirm { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
@@ -42,21 +40,8 @@ public partial class AdminEditorPanel : IDisposable
     private bool _showPassword;
     private bool _saving;
 
-    private AccessSummary? _access;
-    private AdminAccessDto? _adminAccess;
-    private HashSet<string> _permissionSelection = new(StringComparer.Ordinal);
-    private List<string> _expectedPermissions = [];
-    private bool _permissionsStale;
-    private bool _permissionsSaving;
-    private bool _actorDemoted;
-
-    private bool CanEdit => !_actorDemoted && (!Admin.IsSuperAdmin || ActorIsSuperAdmin);
-    private bool PermissionsChanged => !_permissionSelection.SetEquals(_expectedPermissions);
-    private bool _accessFailed;
-    private int _accessVersion;
     private UnsavedChangesTracker.Registration? _edits;
-
-    private sealed record AccessSummary(int AllowedSubjects, int TotalSubjects, int RestrictedGroups);
+    private bool CanEdit => !Admin.IsSuperAdmin || ActorIsSuperAdmin;
 
     private bool IsSelf => CurrentUserId == Admin.Id;
     private bool CannotDemoteSelf => IsSelf && Admin.IsSuperAdmin;
@@ -71,7 +56,7 @@ public partial class AdminEditorPanel : IDisposable
     private bool EmailChanged => EmailDiffers(Admin);
 
     /// <summary>Есть несохранённые правки — родитель спрашивает перед сменой админа.</summary>
-    public bool HasChanges => DiffersFrom(Admin) || PermissionsChanged;
+    public bool HasChanges => DiffersFrom(Admin);
 
     private bool EmailDiffers(AdminDetailsDto baseline) =>
         !string.Equals(_email.Trim(), baseline.Email ?? string.Empty, StringComparison.OrdinalIgnoreCase);
@@ -84,7 +69,7 @@ public partial class AdminEditorPanel : IDisposable
 
     protected override void OnInitialized() => _edits = Dirty.Register();
 
-    protected override async Task OnParametersSetAsync()
+    protected override void OnParametersSet()
     {
         if (ReferenceEquals(Admin, _source))
             return;
@@ -96,8 +81,6 @@ public partial class AdminEditorPanel : IDisposable
             return;
         }
         LoadFrom(Admin);
-        if (otherAdmin || _access is null)
-            await LoadAccessAsync();
     }
 
     protected override void OnAfterRender(bool firstRender)
@@ -122,39 +105,8 @@ public partial class AdminEditorPanel : IDisposable
     public void Discard()
     {
         LoadFrom(Admin);
-        _permissionSelection = _expectedPermissions.ToHashSet(StringComparer.Ordinal);
         _edits?.MarkClean();
         StateHasChanged();
-    }
-
-    private async Task LoadAccessAsync(bool keepSelection = false, CancellationToken cancellationToken = default)
-    {
-        var version = ++_accessVersion;
-        _access = null;
-        _accessFailed = false;
-        _adminAccess = null;
-        try
-        {
-            var subjectsTask = Subjects.GetAllAsync();
-            Task<AdminAccessDto> accessTask = Admins.GetAccessAsync(Admin.Id, cancellationToken);
-            await Task.WhenAll(subjectsTask, accessTask);
-            if (version != _accessVersion) return;
-            var subjectIds = (await subjectsTask).Select(s => s.Id).ToHashSet();
-            AdminAccessDto access = await accessTask;
-            _adminAccess = access;
-            _expectedPermissions = access.ExplicitPermissions ?? [];
-            if (!keepSelection)
-            {
-                _permissionSelection = _expectedPermissions.ToHashSet(StringComparer.Ordinal);
-            }
-            _permissionsStale = false;
-            _access = new AccessSummary(
-                (access.AllowedSubjectIds ?? []).Count(subjectIds.Contains), subjectIds.Count, access.RestrictedGroupIds.Count);
-        }
-        catch (ApiException)
-        {
-            if (version == _accessVersion) _accessFailed = true;
-        }
     }
 
     private async Task SaveAsync()
@@ -186,14 +138,15 @@ public partial class AdminEditorPanel : IDisposable
 
     private async Task OpenAccessAsync()
     {
-        if (!CanEdit) { return; }
-        var parameters = new DialogParameters<AdminRestrictionsDialog> { { x => x.Admin, ToAdminDto(Admin) } };
-        var dialog = await DialogService.ShowAsync<AdminRestrictionsDialog>(
+        if (!CanEdit || _saving)
+        {
+            return;
+        }
+
+        DialogParameters<AdminRestrictionsDialog> parameters = new() { { x => x.Admin, ToAdminDto(Admin) } };
+        await DialogService.ShowAsync<AdminRestrictionsDialog>(
             Loc["AdminMgmt_RestrictionsTitle", Admin.LastName, Admin.FirstName], parameters,
-            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
-        var result = await dialog.Result;
-        if (result is { Canceled: false })
-            await LoadAccessAsync();
+            new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
     }
 
     private async Task DeleteAsync()
@@ -210,65 +163,6 @@ public partial class AdminEditorPanel : IDisposable
         catch (ApiException ex)
         {
             Snackbar.Add(ex.Message, Severity.Error);
-        }
-    }
-
-    private void TogglePermission((string Key, bool Selected) change)
-    {
-        if (change.Selected)
-        {
-            _permissionSelection.Add(change.Key);
-        }
-        else
-        {
-            _permissionSelection.Remove(change.Key);
-        }
-    }
-
-    private void SelectAllPermissions()
-    {
-        _permissionSelection = (_adminAccess?.PermissionCatalog ?? []).ToHashSet(StringComparer.Ordinal);
-    }
-
-    private Task ReloadPermissionBaselineAsync() => LoadAccessAsync(keepSelection: true);
-
-    private async Task SavePermissionsAsync(CancellationToken cancellationToken = default)
-    {
-        if (!CanEdit || !PermissionsChanged || _permissionsStale || _permissionsSaving || _adminAccess is null)
-        {
-            return;
-        }
-
-        _permissionsSaving = true;
-        try
-        {
-            List<string> keys = _permissionSelection.Order(StringComparer.Ordinal).ToList();
-            await Admins.ReplaceSpecialPermissionsAsync(Admin.Id, new(keys, _expectedPermissions), cancellationToken);
-            await LoadAccessAsync(cancellationToken: cancellationToken);
-            Snackbar.Add(Loc["Common_Saved"], Severity.Success);
-        }
-        catch (ApiException ex)
-        {
-            if (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
-            {
-                _permissionsStale = true;
-                Snackbar.Add(Loc["AdminPermissions_Changed"], Severity.Warning);
-            }
-            else
-            {
-                Snackbar.Add(ex.Message, Severity.Error);
-                if (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                {
-                    AdminAccessDto? mine = await PermissionReader.ReadAsync(cancellationToken);
-                    _actorDemoted = mine?.Has(FunAndChecks.Domain.Constants.AdminPermissions.ADMINS_MANAGE) != true ||
-                        (Admin.IsSuperAdmin && mine.IsSuperAdmin != true);
-                    await LoadAccessAsync(keepSelection: true, cancellationToken);
-                }
-            }
-        }
-        finally
-        {
-            _permissionsSaving = false;
         }
     }
 

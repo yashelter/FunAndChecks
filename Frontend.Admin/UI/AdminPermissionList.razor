@@ -5,29 +5,31 @@
 @if (Access.IsSuperAdmin)
 {
     <MudText Typo="Typo.subtitle2">@Loc["AdminPermissions_AllFuture"]</MudText>
-    <ul>
-        @foreach (string key in Access.PermissionCatalog ?? [])
-        {
-            <li>@Loc[$"AdminPermission.{key}"]</li>
-        }
-    </ul>
 }
-@if (!Access.IsSuperAdmin || Editable)
+@if (Access.IsSuperAdmin && Editable)
 {
-    @if (Access.IsSuperAdmin)
-    {
-        <MudText Typo="Typo.subtitle2">@Loc["AdminPermissions_AfterDemotion"]</MudText>
-    }
-    @foreach (string key in Access.PermissionCatalog ?? [])
-    {
-        <MudCheckBox T="bool" Value="@Selected.Contains(key)" ValueChanged="@(value => Changed.InvokeAsync((key, value)))"
-                     Disabled="@(!Editable || Busy)" Label="@Loc[$"AdminPermission.{key}"]" />
-        @if (key == SpecialPermissions.ADMINS_MANAGE && Editable)
-        {
-            <MudText Typo="Typo.caption">@Loc["AdminPermissions_ManageHint"]</MudText>
-        }
-    }
+    <MudText Typo="Typo.body2" Class="mb-3">@Loc["AdminPermissions_AfterDemotion"]</MudText>
 }
+<MudGrid Spacing="2" Class="mt-1">
+    @foreach (IGrouping<string, string> category in (Access.PermissionCatalog ?? []).GroupBy(GetCategory))
+    {
+        <MudItem xs="12" sm="6">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-3">
+                <MudText Typo="Typo.subtitle2">@Loc[category.Key]</MudText>
+                @foreach (string key in category)
+                {
+                    <MudCheckBox @key="key" T="bool" Value="@Selected.Contains(key)"
+                                 ValueChanged="@(value => Changed.InvokeAsync((key, value)))"
+                                 Disabled="@(!Editable || Busy)" Label="@Loc[$"AdminPermission.{key}"]" />
+                    @if (key == SpecialPermissions.ADMINS_MANAGE && Editable)
+                    {
+                        <MudText Typo="Typo.caption">@Loc["AdminPermissions_ManageHint"]</MudText>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
 
 @code {
     [Parameter, EditorRequired] public AdminAccessDto Access { get; set; } = null!;
@@ -35,4 +37,13 @@
     [Parameter] public bool Editable { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback<(string Key, bool Selected)> Changed { get; set; }
+
+    private static string GetCategory(string key) => key.Split('.', 2)[0] switch
+    {
+        "students" or "subjects" or "catalog" or "statistics" => "AdminPermissions_CategoryTeaching",
+        "achievements" => "AdminPermissions_CategoryAchievements",
+        "forum" => "AdminPermissions_CategoryCommunity",
+        "admins" or "monitoring" or "backups" => "AdminPermissions_CategoryAdministration",
+        _ => "AdminPermissions_CategoryOther",
+    };
 }

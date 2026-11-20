@@ -21,6 +21,19 @@
     </header>
 
     <section class="fc-admin-section">
+        <div class="fc-admin-access">
+            <div class="fc-admin-section-head">
+                <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["Common_Access"]</MudText>
+                <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminPermissions_EditorHint"]</MudText>
+            </div>
+            <PermissionGate Allowed="CanEdit" Context="denied">
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune"
+                           OnClick="OpenAccessAsync" Disabled="@(_saving || denied)">@Loc["AdminMgmt_AccessConfigure"]</MudButton>
+            </PermissionGate>
+        </div>
+    </section>
+
+    <section class="fc-admin-section">
         <div class="fc-admin-section-head">
             <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["AdminMgmt_ProfileSection"]</MudText>
             <MudText Typo="Typo.body2" Class="fc-muted">@Loc["AdminMgmt_ProfileHint"]</MudText>
@@ -60,59 +73,6 @@
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync" Disabled="@(_saving || !CanEdit || !DiffersFrom(Admin) || !IsValid)"
                    StartIcon="@Icons.Material.Filled.Save">@(_saving ? Loc["AdminMgmt_Saving"] : Loc["Common_Save"])</MudButton>
     </div>
-
-    <section class="fc-admin-section">
-        <div class="fc-admin-section-head">
-            <MudText Typo="Typo.subtitle1" Class="fc-bold">@Loc["Common_Access"]</MudText>
-        </div>
-        @if (Admin.IsSuperAdmin)
-        {
-            <MudText Typo="Typo.body2">@Loc["AdminMgmt_AccessSuperAdmin"]</MudText>
-        }
-        else
-        {
-            <div class="fc-admin-access">
-                <MudText Typo="Typo.body2">
-                    @if (_access is { } access)
-                    {
-                        @Loc["AdminMgmt_AccessSummary", access.AllowedSubjects, access.TotalSubjects, access.RestrictedGroups]
-                    }
-                    else if (_accessFailed)
-                    {
-                        @Loc["AdminMgmt_AccessLoadFailed"]
-                    }
-                    else
-                    {
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                    }
-                </MudText>
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune" OnClick="OpenAccessAsync" Disabled="@(!CanEdit)">@Loc["AdminMgmt_AccessConfigure"]</MudButton>
-            </div>
-        }
-    </section>
-
-    <section class="fc-admin-section">
-        <MudText Typo="Typo.subtitle1">@Loc["AdminPermissions_Special"]</MudText>
-        @if (_adminAccess is { } access)
-        {
-            <AdminPermissionList Access="access" Selected="_permissionSelection" Editable="CanEdit" Busy="_permissionsSaving" Changed="TogglePermission" />
-            @if (_permissionsStale)
-            {
-                <MudAlert Severity="Severity.Warning">@Loc["AdminPermissions_Changed"]</MudAlert>
-                <MudButton OnClick="ReloadPermissionBaselineAsync">@Loc["AdminMgmt_Retry"]</MudButton>
-            }
-            <PermissionGate Allowed="CanEdit" Context="denied">
-                <MudButton OnClick="SelectAllPermissions" Disabled="@(denied || _permissionsSaving)">@Loc["AdminPermissions_SelectAll"]</MudButton>
-                <MudButton OnClick="@(() => SavePermissionsAsync())" Disabled="@(denied || _permissionsSaving || _permissionsStale || !PermissionsChanged)"
-                           Color="Color.Primary" Variant="Variant.Filled">@Loc["AdminPermissions_Save"]</MudButton>
-            </PermissionGate>
-        }
-        else if (_accessFailed)
-        {
-            <MudAlert Severity="Severity.Error">@Loc["AdminMgmt_AccessLoadFailed"]</MudAlert>
-            <MudButton OnClick="ReloadPermissionBaselineAsync">@Loc["AdminMgmt_Retry"]</MudButton>
-        }
-    </section>
 
     @if (!IsSelf)
     {
