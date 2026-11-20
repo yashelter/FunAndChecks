@@ -75,6 +75,7 @@ public static class DependencyInjection
 
         // Типизированные клиенты.
         services.AddScoped<MeApi>();
+        services.AddScoped<Services.AdminPermissionReader>();
         services.AddScoped<StudentsApi>();
         services.AddScoped<SubjectsApi>();
         services.AddScoped<GroupsApi>();

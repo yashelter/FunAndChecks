@@ -1,0 +1,66 @@
+@page "/admin/permissions"
+@layout AdminLayout
+@using Frontend.Admin.UI
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject AdminPermissionReader PermissionReader
+@inject IStringLocalizer<AppStrings> Loc
+@inject SubjectsApi SubjectsApi
+@inject GroupsApi GroupsApi
+
+<PageTitle>@Loc["AdminPermissions_MyTitle"]</PageTitle>
+<MudText Typo="Typo.h4">@Loc["AdminPermissions_MyTitle"]</MudText>
+@if (_access is { } access)
+{
+    <AdminPermissionList Access="access" Selected="@(access.EffectivePermissions ?? [])" />
+    <MudText Typo="Typo.subtitle1">@Loc["AdminPermissions_Subjects"]</MudText>
+    @if (access.Has(SpecialPermissions.ALL_SUBJECTS))
+    {
+        <MudText>@Loc["AdminPermission.subjects.all"]</MudText>
+    }
+    else
+    {
+        <MudText>@DisplayNames(access.ExplicitSubjectIds ?? [], _subjects)</MudText>
+    }
+    <MudText Typo="Typo.subtitle1">@Loc["AdminPermissions_Groups"]</MudText>
+    <MudText>@DisplayNames(access.RestrictedGroupIds, _groups)</MudText>
+    <MudText Typo="Typo.subtitle1">@Loc["AdminPermissions_HiddenSubjects"]</MudText>
+    <MudText>@DisplayNames(access.HiddenSubjectIds, _subjects)</MudText>
+    <MudText Typo="Typo.subtitle1">@Loc["AdminPermissions_HiddenGroups"]</MudText>
+    <MudText>@DisplayNames(access.HiddenGroupIds, _groups)</MudText>
+}
+else if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudAlert Severity="Severity.Error">@Loc["AdminMgmt_AccessLoadFailed"]</MudAlert>
+}
+
+@code {
+    private AdminAccessDto? _access;
+    private Dictionary<int, string> _subjects = [];
+    private Dictionary<int, string> _groups = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _access = await PermissionReader.ReadAsync();
+        if (_access is not null)
+        {
+            try
+            {
+                _subjects = (await SubjectsApi.GetAllAsync()).ToDictionary(subject => subject.Id, subject => subject.Name);
+                _groups = (await GroupsApi.GetAllAsync()).ToDictionary(group => group.Id, group => group.Name);
+            }
+            catch (ApiException)
+            {
+                // Access data is still useful when a display name cannot be resolved.
+            }
+        }
+        _loading = false;
+    }
+
+    private string DisplayNames(IReadOnlyCollection<int> ids, IReadOnlyDictionary<int, string> names) =>
+        ids.Count == 0 ? Loc["AdminPermissions_None"].Value : string.Join(", ", ids.Select(id => names.GetValueOrDefault(id, id.ToString())));
+}

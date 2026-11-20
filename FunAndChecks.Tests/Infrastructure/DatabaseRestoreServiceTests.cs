@@ -46,7 +46,10 @@ public class DatabaseRestoreServiceTests : IDisposable
             .Returns(_ => { maintenanceDuringReplace = _maintenance.IsActive; return Task.CompletedTask; });
         var sut = Service();
 
-        sut.Start("old.dump").State.Should().Be(RestoreState.Running);
+        Guid initiator = Guid.NewGuid();
+        sut.Start("old.dump", initiator).State.Should().Be(RestoreState.Running);
+        sut.GetStatusForInitiator(initiator).Should().NotBeNull();
+        sut.GetStatusForInitiator(Guid.NewGuid()).Should().BeNull();
         await sut.Completion;
 
         var status = sut.GetStatus();

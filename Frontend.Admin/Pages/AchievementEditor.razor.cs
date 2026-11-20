@@ -3,7 +3,6 @@ using Frontend.Shared.Auth;
 using Frontend.Shared.Profiles;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using System.Text.Json;
@@ -22,7 +21,6 @@ public partial class AchievementEditor : IAsyncDisposable
 
     [Parameter] public int? Id { get; set; }
     [Inject] private ProfileApi Api { get; set; } = null!;
-    [Inject] private AuthenticationStateProvider Authentication { get; set; } = null!;
     [Inject] private NavigationManager Nav { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private ConfirmService Confirm { get; set; } = null!;
@@ -45,7 +43,9 @@ public partial class AchievementEditor : IAsyncDisposable
     private MediaDto? _myAvatar;
     private string _name = "", _description = "", _css = "", _previewCss = "", _myName = "";
     private string? _loadError, _error, _slotEditing;
-    private bool _loading = true, _superAdmin, _activeByDefault, _dirty, _busy, _previewing;
+    [Inject] private Frontend.Shared.Services.AdminPermissionReader PermissionReader { get; set; } = null!;
+
+    private bool _loading = true, _canManageCatalog, _activeByDefault, _dirty, _busy, _previewing;
     private int? _loadedId;
     private bool _loadedOnce;
     private int _previewVersion;
@@ -53,8 +53,8 @@ public partial class AchievementEditor : IAsyncDisposable
     private string Title => Id is null
         ? ProfileText.T("Новое достижение", "New achievement")
         : string.IsNullOrWhiteSpace(_name) ? ProfileText.T("Достижение", "Achievement") : _name;
-    private static string SuperOnly => ProfileText.T("Недостаточно прав: достижениями управляет супер-администратор",
-        "Not enough permissions: achievements are managed by a super administrator");
+    private static string SuperOnly => ProfileText.T("Нет права управлять каталогом достижений",
+        "Achievement catalog permission is required");
     private string SampleName => string.IsNullOrWhiteSpace(_myName) ? ProfileText.T("Иванов Иван", "Ivan Ivanov") : _myName;
     private string Initials => ProfileText.Initials(SampleName);
     private static string CssPlaceholder => "name { text-shadow: 0 0 8px gold; }\navatar::after { content: \"\"; position: absolute; inset: -18%; background: image(frame) center/contain no-repeat; }";
@@ -124,8 +124,7 @@ public partial class AchievementEditor : IAsyncDisposable
         _loading = true; _loadError = _error = null; _dirty = false; _slotEditing = null;
         try
         {
-            var state = await Authentication.GetAuthenticationStateAsync();
-            _superAdmin = state.User.IsInRole(Roles.SuperAdmin);
+            _canManageCatalog = (await PermissionReader.ReadAsync(_life.Token))?.Has(FunAndChecks.Domain.Constants.AdminPermissions.ACHIEVEMENT_CATALOG) == true;
             if (Id is int id)
             {
                 var edit = await Api.AchievementForEditAsync(id, _life.Token);
@@ -195,7 +194,7 @@ public partial class AchievementEditor : IAsyncDisposable
 
     private async Task SaveAsync()
     {
-        if (!_superAdmin || string.IsNullOrWhiteSpace(_name)) return;
+        if (!_canManageCatalog || string.IsNullOrWhiteSpace(_name)) return;
         _busy = true; _error = null;
         try
         {
@@ -241,7 +240,7 @@ public partial class AchievementEditor : IAsyncDisposable
     /// <summary>Картинка сохраняется сразу, отдельно от остальных полей: у неё свой файл на сервере.</summary>
     private async Task<bool> SaveSlotAsync(MediaSelection selection)
     {
-        if (!_superAdmin || _slotEditing is not { } slot)
+        if (!_canManageCatalog || _slotEditing is not { } slot)
         {
             return false;
         }
@@ -276,7 +275,7 @@ public partial class AchievementEditor : IAsyncDisposable
 
     private async Task RemoveSlotAsync(string slot)
     {
-        if (!_superAdmin)
+        if (!_canManageCatalog)
         {
             return;
         }

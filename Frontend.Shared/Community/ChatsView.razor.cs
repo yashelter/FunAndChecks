@@ -30,7 +30,9 @@ public partial class ChatsView : IAsyncDisposable
     private ChatPane? _pane;
     private HubConnection? _hub;
     private Guid _viewerId;
-    private bool _isSuper, _creating, _live = true;
+    [Inject] private Frontend.Shared.Services.AdminPermissionReader PermissionReader { get; set; } = null!;
+
+    private bool _canAnnounce, _canManageCatalog, _creating, _live = true;
     private bool _sendingAnnouncement;
     private string _folder = "all";
     private string? _search, _error;
@@ -65,7 +67,12 @@ public partial class ChatsView : IAsyncDisposable
     {
         var state = await Authentication.GetAuthenticationStateAsync();
         Guid.TryParse(state.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out _viewerId);
-        _isSuper = state.User.IsInRole(Roles.SuperAdmin);
+        if (state.User.IsInRole(Roles.Admin))
+        {
+            Frontend.Shared.Models.AdminAccessDto? permissions = await PermissionReader.ReadAsync();
+            _canAnnounce = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.ANNOUNCEMENTS) == true;
+            _canManageCatalog = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.FORUM_CATALOG) == true;
+        }
         await Task.WhenAll(LoadFoldersAsync(), LoadListAsync());
         await ConnectAsync();
     }

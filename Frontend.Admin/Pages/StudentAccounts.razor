@@ -1,6 +1,7 @@
 @page "/admin/student-accounts"
 @layout AdminLayout
-@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject AdminPermissionReader PermissionReader
 @implements IDisposable
 @using Frontend.Admin.UI
 @inject StudentsApi Students
@@ -12,6 +13,12 @@
 
 <StudentDirectoryHeading Accounts="true" />
 
+@if (!_canManage)
+{
+    <MudAlert Severity="Severity.Info">@Loc["Error_Forbidden"]</MudAlert>
+}
+else
+{
 <section class="fc-panel fc-grading-panel">
     <div class="fc-grading-toolbar">
         <MudTextField T="string" Value="_query" ValueChanged="value => QueryChangedAsync(value)" Label="@Loc["Grading_SearchLabel"]"
@@ -97,6 +104,8 @@
     }
 </section>
 
+}
+
 @code {
     private const int PAGE_SIZE = 25;
     private const string ACTIVE = "Active";
@@ -131,7 +140,16 @@
         ? _pendingStatus
         : !account.HasStudentProfile ? _noProfileStatus : !account.IsActive ? _inactiveStatus : _activeStatus;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    private bool _canManage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _canManage = (await PermissionReader.ReadAsync())?.Has(SpecialPermissions.STUDENT_ACCOUNTS) == true;
+        if (_canManage)
+        {
+            await LoadAsync();
+        }
+    }
 
     private Task QueryChangedAsync(string? value, CancellationToken cancellationToken = default)
     {

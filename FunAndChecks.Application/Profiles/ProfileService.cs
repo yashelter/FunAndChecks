@@ -1,5 +1,6 @@
 using FluentValidation;
 using FunAndChecks.Application.Admins;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
@@ -9,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FunAndChecks.Application.Profiles;
 
 public class ProfileService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
-    IValidator<UpdateProfileRequest> validator, IAdminAccessService? adminAccess = null,
+    IValidator<UpdateProfileRequest> validator, IAdminPermissionService permissions, IAdminAccessService? adminAccess = null,
     IResultsCacheService? resultsCache = null) : IProfileService
 {
     internal const int MaxAvatarBatch = 100;
@@ -126,14 +127,14 @@ public class ProfileService(IApplicationDbContext db, IIdentityService identity,
             .Select(a => a.IssuedByUserId!.Value), ct);
         var roles = await identity.GetCurrentRolesAsync(viewerId, ct);
         var canManage = roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin);
-        var isSuper = roles.Contains(Roles.SuperAdmin);
+        bool canRevokeOthers = canManage && await permissions.HasAsync(viewerId, AdminPermissions.REVOKE_OTHERS, ct);
         return new(userId, account.FullName, account.GroupName, account.IsAdmin,
             profile?.AboutMe ?? "", profile?.GitHubUrl, profile?.PortfolioUrl, avatar,
             awards.Select(a => new AchievementAwardDto(a.Id, a.AchievementId, a.Achievement.Name,
                 a.Achievement.Description, images.GetValueOrDefault(a.AchievementId), a.GrantedAtUtc,
                 a.IssuedByUserId, a.IssuedByUserId.HasValue && issuers.TryGetValue(a.IssuedByUserId.Value, out var issuer)
                     ? issuer.FullName : a.IssuedByName, active?.AwardId == a.Id,
-                canManage && (isSuper || a.IssuedByUserId == viewerId))).ToList(), active);
+                canManage && (canRevokeOthers || a.IssuedByUserId == viewerId))).ToList(), active);
     }
 
     public async Task<UserProfileDto> UpdateAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct = default)

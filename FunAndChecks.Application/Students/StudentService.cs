@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Domain.Constants;
 using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common;
 using FunAndChecks.Application.Common.Exceptions;
@@ -275,7 +276,17 @@ public class StudentService(
 
         await db.ExecuteSerializableAsync(async ct =>
         {
-            var student = await db.Students.FirstAsync(s => s.Id == studentId, ct);
+            await accessService.EnsurePermissionAsync(adminId, AdminPermissions.STUDENT_ACCOUNTS, ct);
+            FunAndChecks.Domain.Entities.Student student = await db.Students.FirstAsync(s => s.Id == studentId, ct);
+            if (student.GroupId is int currentGroupId)
+            {
+                await accessService.EnsureGroupAllowedAsync(adminId, currentGroupId, ct);
+            }
+            if (request.GroupId is int targetGroupId)
+            {
+                await accessService.EnsureGroupAllowedAsync(adminId, targetGroupId, ct);
+            }
+
             student.FirstName = request.FirstName;
             student.LastName = request.LastName;
             student.GroupId = request.GroupId;

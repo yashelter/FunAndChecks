@@ -30,7 +30,7 @@ public class UserAccountServiceTests : IDisposable
             db.Database.CurrentTransaction.Should().BeNull();
             (await db.Users.AnyAsync(u => u.Id == studentId)).Should().BeFalse();
         });
-        var service = new UserAccountService(db, identity, Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
+        var service = new UserAccountService(db, identity, db.Access(), Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
 
         await service.DeleteAsync(adminId, studentId);
 
@@ -52,7 +52,7 @@ public class UserAccountServiceTests : IDisposable
             throw new InvalidOperationException("Failed before commit");
         });
         var notifier = Substitute.For<IQueueNotifier>();
-        var service = new UserAccountService(db, identity, Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
+        var service = new UserAccountService(db, identity, db.Access(), Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
 
         await FluentActions.Invoking(() => service.DeleteAsync(adminId, studentId)).Should().ThrowAsync<InvalidOperationException>();
 
@@ -72,7 +72,7 @@ public class UserAccountServiceTests : IDisposable
         var notifier = Substitute.For<IQueueNotifier>();
         notifier.QueueEntryUpdatedAsync(Arg.Any<QueueEntryUpdateDto>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new InvalidOperationException("Notification transport failed")));
-        var service = new UserAccountService(db, identity, Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
+        var service = new UserAccountService(db, identity, db.Access(), Substitute.For<IResultsCacheService>(), notifier, NullLogger<UserAccountService>.Instance);
 
         await service.DeleteAsync(adminId, studentId);
 

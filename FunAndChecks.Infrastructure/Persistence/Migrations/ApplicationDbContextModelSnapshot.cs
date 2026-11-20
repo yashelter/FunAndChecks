@@ -249,6 +249,20 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("AdminGroupAccesses");
                 });
 
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminPermissionGrant", b =>
+                {
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("AdminId", "Key");
+
+                    b.ToTable("AdminPermissionGrants");
+                });
+
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminSubjectAccess", b =>
                 {
                     b.Property<Guid>("AdminId")
@@ -1824,6 +1838,19 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("FunAndChecks.Infrastructure.Persistence.Seeding.AdminBootstrapState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AdminBootstrapStates");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -2070,6 +2097,15 @@ namespace FunAndChecks.Infrastructure.Persistence.Migrations
                     b.Navigation("Admin");
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminPermissionGrant", b =>
+                {
+                    b.HasOne("FunAndChecks.Domain.Entities.Admin", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("FunAndChecks.Domain.Entities.AdminSubjectAccess", b =>

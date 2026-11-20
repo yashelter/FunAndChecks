@@ -56,7 +56,8 @@ public class AchievementConcurrencyTests : IDisposable
             barrier.SignalAndWait(TimeSpan.FromSeconds(10));
             try
             {
-                await new ProfileService(db, _identity, _media, new UpdateProfileRequestValidator())
+                await new ProfileService(db, _identity, _media, new UpdateProfileRequestValidator(),
+                    new FunAndChecks.Application.Admins.AdminPermissionService(db, _identity))
                     .SetActiveAwardAsync(seed.StudentId, awardId);
             }
             catch (ConflictException ex) { ex.Code.Should().Be("profile.active_award_invalid"); }
@@ -80,7 +81,8 @@ public class AchievementConcurrencyTests : IDisposable
         return await action(context);
     }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).Unwrap();
 
-    private AchievementService Service(ApplicationDbContext db) => new(db, _identity, _media, new UpsertAchievementRequestValidator());
+    private AchievementService Service(ApplicationDbContext db) => new(db, _identity, _media, new UpsertAchievementRequestValidator(),
+        new FunAndChecks.Application.Admins.AdminPermissionService(db, _identity));
 
     private ApplicationDbContext Context() => new(new DbContextOptionsBuilder<ApplicationDbContext>()
         .UseSqlite($"Data Source={_databasePath};Default Timeout=3;Pooling=False;Foreign Keys=True").Options);

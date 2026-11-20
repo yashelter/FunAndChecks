@@ -41,6 +41,7 @@ public static class DependencyInjection
         services.AddScoped<IGradeService, GradeService>();
         services.AddScoped<IAdminService, AdminService>();
         services.AddScoped<IAdminAccessService, AdminAccessService>();
+        services.AddScoped<Admins.Interfaces.IAdminPermissionService, AdminPermissionService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<IVariantService, VariantService>();
         services.AddScoped<IProfileService, ProfileService>();

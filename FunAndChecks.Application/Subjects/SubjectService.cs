@@ -4,6 +4,7 @@ using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Tasks;
+using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -30,10 +31,10 @@ public class SubjectService(
 
     public async Task<List<SubjectDto>> GetVisibleForAdminAsync(Guid adminId, CancellationToken cancellationToken = default)
     {
-        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
+        bool allSubjects = await accessService.HasAllSubjectsAsync(adminId, cancellationToken);
 
         return await db.Subjects
-            .Where(s => isSuperAdmin
+            .Where(s => allSubjects
                 ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == s.Id && a.IsHidden)
                 : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == s.Id && !a.IsRestricted && !a.IsHidden))
             .OrderBy(s => s.Name)
@@ -121,6 +122,7 @@ public class SubjectService(
 
     public async Task DeleteAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsurePermissionAsync(adminId, AdminPermissions.DELETE_CATALOG, cancellationToken);
         await accessService.EnsureSubjectAllowedAsync(adminId, subjectId, cancellationToken);
         var subject = await db.Subjects.FindAsync([subjectId], cancellationToken)
                       ?? throw new NotFoundException($"Subject with ID {subjectId} not found.");
@@ -246,6 +248,7 @@ public class SubjectService(
 
     public async Task DeleteTaskAsync(Guid adminId, int taskId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsurePermissionAsync(adminId, AdminPermissions.DELETE_CATALOG, cancellationToken);
         var task = await db.Tasks.FindAsync([taskId], cancellationToken)
                    ?? throw new NotFoundException($"Task with ID {taskId} not found.");
 

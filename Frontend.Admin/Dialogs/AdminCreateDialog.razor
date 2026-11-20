@@ -12,12 +12,14 @@
         </div>
     </TitleContent>
     <DialogContent>
-        <AdminCreateForm @ref="_form" OnCreated="OnCreated" OnCancel="Cancel" />
+        <AdminCreateForm CanCreateSuperAdmin="CanCreateSuperAdmin" @ref="_form" OnCreated="OnCreated" OnCancel="Cancel" />
     </DialogContent>
 </MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public bool CanCreateSuperAdmin { get; set; }
+
     private AdminCreateForm? _form;
 
     private Task CloseAsync() => _form?.RequestCancelAsync() ?? Task.CompletedTask;

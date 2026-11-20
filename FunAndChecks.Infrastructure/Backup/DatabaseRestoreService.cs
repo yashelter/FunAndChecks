@@ -29,6 +29,7 @@ public sealed class DatabaseRestoreService(
 
     private readonly Lock _gate = new();
     private RestoreStatusDto _status = RestoreStatusDto.Idle;
+    private Guid? _initiatorId;
 
     /// <summary>Фоновая задача последнего запуска (для тестов).</summary>
     internal Task Completion { get; private set; } = Task.CompletedTask;
@@ -38,7 +39,15 @@ public sealed class DatabaseRestoreService(
         lock (_gate) return _status;
     }
 
-    public RestoreStatusDto Start(string fileName)
+    public RestoreStatusDto? GetStatusForInitiator(Guid userId)
+    {
+        lock (_gate)
+        {
+            return _initiatorId == userId ? _status : null;
+        }
+    }
+
+    public RestoreStatusDto Start(string fileName, Guid? initiatorId = null)
     {
         if (!fileName.EndsWith(".dump", StringComparison.OrdinalIgnoreCase))
             throw new FluentValidation.ValidationException([
@@ -54,6 +63,7 @@ public sealed class DatabaseRestoreService(
         {
             if (_status.State == RestoreState.Running)
                 throw new ConflictException("A restore is already in progress.", "backup.restore_in_progress");
+            _initiatorId = initiatorId;
             _status = new RestoreStatusDto(RestoreState.Running, RestoreSteps.Validating, fileName, null, null, null, null,
                 DateTime.UtcNow, null);
             var token = lifetime?.ApplicationStopping ?? CancellationToken.None;

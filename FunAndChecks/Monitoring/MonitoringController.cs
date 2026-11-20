@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using FunAndChecks.Application.Common.Interfaces;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Common;
 using FunAndChecks.Domain.Constants;
 using FunAndChecks.Infrastructure.Persistence;
@@ -14,7 +14,7 @@ namespace FunAndChecks.Monitoring;
 [ApiController]
 public sealed class MonitoringController(
     IOptions<MonitoringOptions> options,
-    IIdentityService identity,
+    IAdminPermissionService permissions,
     ApplicationDbContext db) : ControllerBase
 {
     [Authorize]
@@ -28,7 +28,7 @@ public sealed class MonitoringController(
         var userId = User.GetUserId();
         if (!await AccountExistsAsync(userId, cancellationToken))
             return Unauthorized();
-        if (!await IsSuperAdminAsync(userId, cancellationToken))
+        if (!await permissions.HasAsync(userId, AdminPermissions.MONITORING, cancellationToken))
             return Forbid();
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -65,7 +65,7 @@ public sealed class MonitoringController(
             await HttpContext.SignOutAsync(MonitoringAuthentication.Scheme);
             return ReenterMonitoring();
         }
-        if (!await IsSuperAdminAsync(userId, cancellationToken))
+        if (!await permissions.HasAsync(userId, AdminPermissions.MONITORING, cancellationToken))
         {
             await HttpContext.SignOutAsync(MonitoringAuthentication.Scheme);
             return StatusCode(StatusCodes.Status403Forbidden);
@@ -85,6 +85,5 @@ public sealed class MonitoringController(
     private Task<bool> AccountExistsAsync(Guid userId, CancellationToken cancellationToken) =>
         db.Users.AsNoTracking().AnyAsync(user => user.Id == userId, cancellationToken);
 
-    private async Task<bool> IsSuperAdminAsync(Guid userId, CancellationToken cancellationToken) =>
-        (await identity.GetCurrentRolesAsync(userId, cancellationToken)).Contains(Roles.SuperAdmin);
+
 }

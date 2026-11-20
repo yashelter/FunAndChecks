@@ -82,7 +82,7 @@ else
                 <MudSelect T="int" SelectedValues="_newSubjectGroupIds" SelectedValuesChanged="@(v => _newSubjectGroupIds = v.ToList())"
                            MultiSelection="true" ToStringFunc="@(id => _groups.FirstOrDefault(g => g.Id == id)?.Name ?? "")"
                            Label="@Loc["Management_GroupAccessLabel"]" Variant="Variant.Outlined" Margin="Margin.Dense"
-                           Disabled="@(!_isSuperAdmin)" HelperText="@(_isSuperAdmin ? null : Loc["Management_SubjectPermissionRequired"].Value)"
+                           Disabled="@(!_allSubjects)" HelperText="@(_allSubjects ? null : Loc["Management_SubjectPermissionRequired"].Value)"
                            Placeholder="@Loc["Management_GroupAccessPlaceholder"]" Style="min-width: 0;"
                            MultiSelectionTextFunc="@(items => items.Count == 0 ? "" : string.Format(Loc["Management_GroupCount"], items.Count))">
                     @foreach (var g in _groups) { <MudSelectItem T="int" Value="@g.Id">@g.Name</MudSelectItem> }
@@ -99,7 +99,7 @@ else
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.GroupWork"
                                    Disabled="@(!CanUseSubject(context.Id))" OnClick="@(() => OpenSubjectAccessAsync(context))">@Loc["Common_Access"]</MudButton>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@Loc["Common_Delete"]"
-                                       OnClick="@(() => DeleteSubjectAsync(context))" />
+                                       Disabled="@(!_canDeleteCatalog)" OnClick="@(() => DeleteSubjectAsync(context))" />
                     </MudTd>
                 </RowTemplate>
                 <RowEditingTemplate>
@@ -135,7 +135,7 @@ else
                         <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.MenuBook"
                                    OnClick="@(() => OpenGroupAccessAsync(context))">@Loc["Common_Access"]</MudButton>
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@Loc["Common_Delete"]"
-                                       OnClick="@(() => DeleteGroupAsync(context))" />
+                                       Disabled="@(!_canDeleteCatalog)" OnClick="@(() => DeleteGroupAsync(context))" />
                     </MudTd>
                 </RowTemplate>
                 <RowEditingTemplate>
@@ -260,7 +260,7 @@ else
                         <MudTd DataLabel="@Loc["Management_ColPoints"]">@context.MaxPoints</MudTd>
                         <MudTd DataLabel="@Loc["Management_TaskGroupLabel"]"><span class="@(context.TaskGroupId is null ? "fc-muted" : "")">@TaskGroupName(context.TaskGroupId)</span></MudTd>
                         <MudTd><MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" aria-label="@Loc["Common_Delete"]"
-                                              OnClick="@(() => DeleteTaskAsync(context))" /></MudTd>
+                                              Disabled="@(!_canDeleteCatalog)" OnClick="@(() => DeleteTaskAsync(context))" /></MudTd>
                     </RowTemplate>
                     <RowEditingTemplate>
                         <MudTd DataLabel="@Loc["Management_ColName"]"><MudTextField @bind-Value="context.Name" aria-label="@Loc["Management_ColName"]" /></MudTd>
@@ -290,7 +290,7 @@ else
                         <MudNumericField T="int?" @bind-Value="_bulkPoints" Immediate="true" Label="@Loc["Management_TaskPointsLabel"]" Placeholder="@Loc["Management_BulkKeep"]"
                                          Variant="Variant.Outlined" Margin="Margin.Dense" Min="0" Max="1000" Clearable="true" Style="width: 140px;" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!BulkHasChanges || _bulkBusy)" OnClick="ApplyBulkEditAsync">@Loc["Management_BulkApply"]</MudButton>
-                        <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="_bulkBusy" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteSelectedTasksAsync">@Loc["Management_BulkDelete"]</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="@(_bulkBusy || !_canDeleteCatalog)" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteSelectedTasksAsync">@Loc["Management_BulkDelete"]</MudButton>
                         <MudButton Variant="Variant.Text" Disabled="_bulkBusy" OnClick="ClearTaskSelection">@Loc["Management_BulkClear"]</MudButton>
                     </div>
                 }
@@ -339,7 +339,7 @@ else
             <VariantsBoard />
         }
 
-        @if (_section == "statistics" && _isSuperAdmin)
+        @if (_section == "statistics" && _canReadStatistics)
         {
             <ReviewerStatsBoard />
         }

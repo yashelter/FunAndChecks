@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Queues;
 using FunAndChecks.Domain.Enums;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace FunAndChecks.Application.Students;
 
 public class UserAccountService(IApplicationDbContext db, IIdentityService identity,
-    IResultsCacheService cache, IQueueNotifier queueNotifier, ILogger<UserAccountService> logger) : IUserAccountService
+    IAdminAccessService access, IResultsCacheService cache, IQueueNotifier queueNotifier, ILogger<UserAccountService> logger) : IUserAccountService
 {
     public Task<UserAccountPageDto> GetAsync(Guid actingAdminId, string? query, int page, int pageSize,
         UserAccountStatus? status = null, CancellationToken cancellationToken = default) =>
@@ -19,7 +20,11 @@ public class UserAccountService(IApplicationDbContext db, IIdentityService ident
         List<int> affectedQueueEvents = [];
         await db.ExecuteSerializableAsync(async ct =>
         {
-            var groupId = await db.Students.Where(s => s.Id == userId).Select(s => s.GroupId).FirstOrDefaultAsync(ct);
+            int? groupId = await db.Students.Where(student => student.Id == userId).Select(student => student.GroupId).FirstOrDefaultAsync(ct);
+            if (groupId is int existingGroupId)
+            {
+                await access.EnsureGroupAllowedAsync(actingAdminId, existingGroupId, ct);
+            }
             affectedSubjects = await db.GroupSubjects.Where(gs => groupId != null && gs.GroupId == groupId)
                 .Select(gs => gs.SubjectId)
                 .Concat(db.Submissions.Where(s => s.StudentId == userId).Select(s => s.Task.SubjectId))

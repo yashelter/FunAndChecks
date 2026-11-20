@@ -1,6 +1,7 @@
 @namespace Frontend.Shared.Profiles
 @implements IDisposable
 @inject ProfileApi Api
+@inject AdminPermissionReader PermissionReader
 @inject AuthenticationStateProvider Authentication
 @inject ISnackbar Snackbar
 <PageTitle>@ProfileText.T("Достижения", "Achievements")</PageTitle>
@@ -10,7 +11,7 @@
     {
         <div class="fc-profile-heading-actions">
             <MudButton OnClick="() => _grant = true" Variant="Variant.Outlined">@ProfileText.T("Выдать достижение", "Grant achievement")</MudButton>
-            <PermissionGate Allowed="_superAdmin" Reason="@SuperOnly" Context="denied"><MudButton Href="/admin/achievements/new" Disabled="denied" Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Add">@ProfileText.T("Создать", "Create")</MudButton></PermissionGate>
+            <PermissionGate Allowed="_canManageCatalog" Reason="@SuperOnly" Context="denied"><MudButton Href="/admin/achievements/new" Disabled="denied" Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Outlined.Add">@ProfileText.T("Создать", "Create")</MudButton></PermissionGate>
         </div>
     }
 </div>
@@ -27,8 +28,8 @@ else
         {
             <div class="fc-profile-catalog-item-actions">
                 @* Открыть редактор может любой преподаватель (посмотреть оформление); сохранять — только супер-администратор. *@
-                <MudButton Href="@($"/admin/achievements/{item.Id}")" Size="Size.Small">@(_superAdmin ? ProfileText.T("Изменить", "Edit") : ProfileText.T("Открыть", "Open"))</MudButton>
-                <PermissionGate Allowed="_superAdmin" Reason="@SuperOnly" Context="denied"><MudButton OnClick="() => _archive = item" Disabled="denied" Size="Size.Small" Color="@(item.IsArchived ? Color.Primary : Color.Warning)">@(item.IsArchived ? ProfileText.T("Вернуть", "Restore") : ProfileText.T("В архив", "Archive"))</MudButton></PermissionGate>
+                <MudButton Href="@($"/admin/achievements/{item.Id}")" Size="Size.Small">@(_canManageCatalog ? ProfileText.T("Изменить", "Edit") : ProfileText.T("Открыть", "Open"))</MudButton>
+                <PermissionGate Allowed="_canManageCatalog" Reason="@SuperOnly" Context="denied"><MudButton OnClick="() => _archive = item" Disabled="denied" Size="Size.Small" Color="@(item.IsArchived ? Color.Primary : Color.Warning)">@(item.IsArchived ? ProfileText.T("Вернуть", "Restore") : ProfileText.T("В архив", "Archive"))</MudButton></PermissionGate>
             </div>
         }
     </article> }</div>
@@ -36,24 +37,25 @@ else
 }
 @if (_detail is not null) { <AchievementDetail AchievementId="_detail.Id" IsAdmin="_admin" BasePath="@BasePath" Changed="LoadAsync" Close="() => _detail = null" /> }
 @if (_grant && _admin) { <GrantAchievementDialog Changed="GrantDoneAsync" Close="() => _grant = false" /> }
-@if (_archive is not null && _superAdmin)
+@if (_archive is not null && _canManageCatalog)
 {
     <ProfileDialog Title="@(_archive.IsArchived ? ProfileText.T("Вернуть достижение?", "Restore achievement?") : ProfileText.T("Архивировать достижение?", "Archive achievement?"))" Busy="_busy" Close="() => _archive = null"><ChildContent><h3>@_archive.Name</h3><p>@(_archive.IsArchived ? ProfileText.T("Достижение снова станет доступно для выдачи.", "This achievement will be available to grant again.") : ProfileText.T("Новые выдачи станут недоступны. Уже полученные награды сохранятся.", "New awards will be disabled. Existing awards will remain."))</p>@if (_archiveError is not null) { <MudAlert Severity="Severity.Error">@_archiveError</MudAlert> }</ChildContent><Actions><MudButton OnClick="() => _archive = null" Disabled="_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="ArchiveAsync" Disabled="_busy" Variant="Variant.Filled" Color="Color.Primary">@(_archive.IsArchived ? ProfileText.T("Вернуть", "Restore") : ProfileText.T("Архивировать", "Archive"))</MudButton></Actions></ProfileDialog>
 }
 @code {
     [Parameter] public bool IsAdminLayout { get; set; }
     private string BasePath => IsAdminLayout ? "/admin" : "/student";
-    private static string SuperOnly => ProfileText.T("Недостаточно прав: достижениями управляет супер-администратор", "Not enough permissions: achievements are managed by a super administrator");
+    private static string SuperOnly => ProfileText.T("Нет права управлять каталогом достижений", "Achievement catalog permission is required");
     private List<AchievementDefinitionDto> _items = [];
     private AchievementDefinitionDto? _detail, _archive;
     private string _query = "";
     private string? _error, _archiveError;
-    private bool _loading = true, _admin, _superAdmin, _includeArchived, _grant, _busy;
+    private bool _loading = true, _admin, _canManageCatalog, _includeArchived, _grant, _busy;
     private int _page = 1, _total, _version;
     private readonly CancellationTokenSource _life = new();
     protected override async Task OnInitializedAsync()
     {
-        var state = await Authentication.GetAuthenticationStateAsync(); _superAdmin = IsAdminLayout && state.User.IsInRole(Frontend.Shared.Auth.Roles.SuperAdmin); _admin = IsAdminLayout && (_superAdmin || state.User.IsInRole(Frontend.Shared.Auth.Roles.Admin));
+        var state = await Authentication.GetAuthenticationStateAsync(); _canManageCatalog = IsAdminLayout && (await PermissionReader.ReadAsync(_life.Token))?.Has(SpecialPermissions.ACHIEVEMENT_CATALOG) == true;
+        _admin = IsAdminLayout && state.User.IsInRole(Frontend.Shared.Auth.Roles.Admin);
         await LoadAsync();
     }
     private async Task QueryAsync(string query) { _query = query ?? ""; _page = 1; await LoadAsync(); }

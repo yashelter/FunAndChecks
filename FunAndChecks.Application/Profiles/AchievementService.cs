@@ -1,4 +1,5 @@
 using FunAndChecks.Application.Common;
+using FunAndChecks.Application.Admins.Interfaces;
 using FluentValidation;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -11,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 namespace FunAndChecks.Application.Profiles;
 
 public sealed partial class AchievementService(IApplicationDbContext db, IIdentityService identity, IProfileMediaProcessor processor,
-    IValidator<UpsertAchievementRequest> validator, INotificationService? notifications = null,
+    IValidator<UpsertAchievementRequest> validator, IAdminPermissionService permissions, INotificationService? notifications = null,
     IResultsCacheService? resultsCache = null) : IAchievementService
 {
     public async Task<string> GetEffectsStylesheetAsync(CancellationToken ct = default)
@@ -311,6 +312,11 @@ public sealed partial class AchievementService(IApplicationDbContext db, IIdenti
             await db.ExecuteSerializableAsync(async token =>
             {
                 await EnsureAdminAsync(adminId, false, token);
+                if (request.UserId == adminId)
+                {
+                    await permissions.EnsureAsync(adminId, AdminPermissions.GRANT_SELF, token);
+                }
+
                 var definition = await RequireDefinitionAsync(id, token);
                 if (definition.IsArchived) throw new ConflictException("Archived achievements cannot be awarded.", "achievement.archived");
                 await RequireAccountAsync(request.UserId, token);
@@ -345,11 +351,13 @@ public sealed partial class AchievementService(IApplicationDbContext db, IIdenti
         {
             await db.ExecuteSerializableAsync(async token =>
             {
-                var roles = await EnsureAdminAsync(adminId, false, token);
+                await EnsureAdminAsync(adminId, false, token);
                 var award = await db.AchievementAwards.SingleOrDefaultAsync(a => a.Id == awardId, token)
                     ?? throw new NotFoundException("Award not found.", "achievement.award_not_found");
-                if (award.IssuedByUserId != adminId && !roles.Contains(Roles.SuperAdmin))
-                    throw new ForbiddenException("Only the issuing administrator or a super administrator can revoke an award.", "achievement.revoke_forbidden");
+                if (award.IssuedByUserId != adminId)
+                {
+                    await permissions.EnsureAsync(adminId, AdminPermissions.REVOKE_OTHERS, token);
+                }
                 if (award.RevokedAtUtc.HasValue) return;
                 var actor = await RequireAccountAsync(adminId, token);
                 award.RevokedAtUtc = DateTime.UtcNow;
@@ -377,12 +385,19 @@ public sealed partial class AchievementService(IApplicationDbContext db, IIdenti
         return await identity.SearchAchievementRecipientsAsync(query, page, pageSize, ct);
     }
 
-    private async Task<IReadOnlyCollection<string>> EnsureAdminAsync(Guid adminId, bool superOnly, CancellationToken ct)
+    private async Task EnsureAdminAsync(Guid adminId, bool catalogWrite, CancellationToken ct)
     {
-        var roles = await identity.GetCurrentRolesAsync(adminId, ct);
-        if (superOnly ? !roles.Contains(Roles.SuperAdmin) : !roles.Contains(Roles.Admin) && !roles.Contains(Roles.SuperAdmin))
+        if (catalogWrite)
+        {
+            await permissions.EnsureAsync(adminId, AdminPermissions.ACHIEVEMENT_CATALOG, ct);
+            return;
+        }
+
+        IReadOnlyCollection<string> roles = await identity.GetCurrentRolesAsync(adminId, ct);
+        if (!roles.Contains(Roles.Admin) && !roles.Contains(Roles.SuperAdmin))
+        {
             throw new ForbiddenException("You do not have permission to manage achievements.");
-        return roles;
+        }
     }
 
     private async Task<ProfileAccountInfo> RequireAccountAsync(Guid userId, CancellationToken ct) =>

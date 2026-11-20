@@ -1,6 +1,8 @@
 @namespace Frontend.Shared.Profiles
 @implements IDisposable
 @inject ProfileApi Api
+@inject AdminPermissionReader PermissionReader
+@inject AuthenticationStateProvider Authentication
 @inject ISnackbar Snackbar
 <ProfileDialog Title="@ProfileText.T("Выдать достижение", "Grant achievement")" Close="Close" Busy="@_busy">
     <ChildContent>
@@ -18,8 +20,15 @@
         <div class="fc-profile-picker-list">@foreach (var user in _users) { <button type="button" class="fc-profile-picker @(_selectedUser?.UserId == user.UserId ? "selected" : "")" @onclick="() => _selectedUser = user" disabled="@_busy"><span><strong>@user.FullName</strong><small>@(user.IsAdmin ? ProfileText.T("Преподаватель", "Teacher") : user.GroupName ?? ProfileText.T("Студент", "Student"))</small></span><span>@(_selectedUser?.UserId == user.UserId ? "✓" : "+")</span></button> }</div>
         @if (!_searching && _users.Count == 0) { <p class="fc-profile-empty">@ProfileText.T("Пользователи не найдены", "No users found")</p> }
         @if (_userTotal > 20) { <MudPagination Count="@((int)Math.Ceiling(_userTotal / 20d))" Selected="_userPage" SelectedChanged="UserPageChangedAsync" /> }
-        <p class="fc-profile-hint">@ProfileText.T("Можно выдать любому пользователю, включая себя. Одну награду нельзя выдать повторно, пока она не отозвана.", "You can grant an achievement to any user, including yourself. An active award cannot be granted twice.")</p>
-    </ChildContent><Actions><MudButton OnClick="() => Close.InvokeAsync()" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton><MudButton OnClick="GrantAsync" Disabled="@(_busy || _selectedUser is null || (Achievement is null && _selectedAchievement is null))" Color="Color.Primary" Variant="Variant.Filled">@ProfileText.T("Выдать достижение", "Grant achievement")</MudButton></Actions>
+        <p class="fc-profile-hint">@ProfileText.T("Одну награду нельзя выдать повторно, пока она не отозвана.", "An active award cannot be granted twice.")</p>
+    </ChildContent>
+    <Actions>
+        <MudButton OnClick="() => Close.InvokeAsync()" Disabled="@_busy">@ProfileText.T("Отмена", "Cancel")</MudButton>
+        <PermissionGate Allowed="CanGrantSelected" Reason="@SelfGrantReason" Context="denied">
+            <MudButton OnClick="GrantAsync" Disabled="@(denied || _busy || _selectedUser is null || (Achievement is null && _selectedAchievement is null))"
+                       Color="Color.Primary" Variant="Variant.Filled">@ProfileText.T("Выдать достижение", "Grant achievement")</MudButton>
+        </PermissionGate>
+    </Actions>
 </ProfileDialog>
 @code {
     [Parameter] public AchievementDefinitionDto? Achievement { get; set; }
@@ -35,7 +44,27 @@
     private bool _busy, _searching;
     private int _userPage = 1, _achievementPage = 1, _userTotal, _achievementTotal, _searchVersion, _achievementVersion;
     private readonly CancellationTokenSource _life = new();
-    protected override async Task OnInitializedAsync() { _selectedUser = Recipient; if (Achievement is null) await LoadAchievementsAsync(); await LoadUsersAsync(); }
+    private Guid? _currentUserId;
+    private bool _canGrantSelf;
+    private bool CanGrantSelected => _currentUserId.HasValue && (_selectedUser?.UserId != _currentUserId || _canGrantSelf);
+    private string SelfGrantReason => ProfileText.T("Нет права выдавать достижения себе", "You cannot award achievements to yourself");
+
+    protected override async Task OnInitializedAsync()
+    {
+        _selectedUser = Recipient;
+        AuthenticationState state = await Authentication.GetAuthenticationStateAsync();
+        if (Guid.TryParse(state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out Guid currentUserId))
+        {
+            _currentUserId = currentUserId;
+        }
+
+        _canGrantSelf = (await PermissionReader.ReadAsync(_life.Token))?.Has(SpecialPermissions.GRANT_SELF) == true;
+        if (Achievement is null)
+        {
+            await LoadAchievementsAsync();
+        }
+        await LoadUsersAsync();
+    }
     private async Task AchievementQueryAsync(string value) { _achievementQuery = value ?? ""; _achievementPage = 1; await LoadAchievementsAsync(); }
     private async Task AchievementPageChangedAsync(int page) { _achievementPage = page; await LoadAchievementsAsync(); }
     private async Task LoadAchievementsAsync()
@@ -57,10 +86,17 @@
     }
     private async Task GrantAsync()
     {
-        var achievement = Achievement ?? _selectedAchievement; if (achievement is null || _selectedUser is null) return;
+        var achievement = Achievement ?? _selectedAchievement; if (achievement is null || _selectedUser is null || !CanGrantSelected) return;
         _busy = true; _error = null;
         try { await Api.GrantAsync(achievement.Id, _selectedUser.UserId, _life.Token); Snackbar.Add(ProfileText.T("Достижение выдано", "Achievement granted"), Severity.Success); await Changed.InvokeAsync(); await Close.InvokeAsync(); }
-        catch (ApiException ex) { _error = ex.Message; }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            if (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                _canGrantSelf = (await PermissionReader.ReadAsync(_life.Token))?.Has(SpecialPermissions.GRANT_SELF) == true;
+            }
+        }
         finally { _busy = false; }
     }
     public void Dispose() { _life.Cancel(); _life.Dispose(); }

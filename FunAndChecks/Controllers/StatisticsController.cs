@@ -1,14 +1,15 @@
 using FunAndChecks.Application.Statistics;
-using FunAndChecks.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FunAndChecks.Domain.Constants;
+
 namespace FunAndChecks.Controllers;
 
-/// <summary>Статистика для суперадминов (раздел «Статистика» в «Управлении»).</summary>
+/// <summary>Reviewer statistics for administrators with the statistics permission.</summary>
 [ApiController]
 [Route("api/statistics")]
-[Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+[Authorize(Policy = AdminPermissions.STATISTICS)]
 public class StatisticsController(IReviewerStatisticsService statistics) : ControllerBase
 {
     /// <summary>

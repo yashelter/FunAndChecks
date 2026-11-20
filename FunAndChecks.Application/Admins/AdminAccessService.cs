@@ -1,4 +1,5 @@
 using FunAndChecks.Application.Common.Exceptions;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Entities;
 using FunAndChecks.Domain.Constants;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FunAndChecks.Application.Admins;
 
-public class AdminAccessService(IApplicationDbContext db, IIdentityService identity) : IAdminAccessService
+public class AdminAccessService(IApplicationDbContext db, IAdminPermissionService permissions) : IAdminAccessService
 {
     public async Task<AdminAccessDto> GetAccessAsync(Guid adminId, CancellationToken cancellationToken = default)
     {
@@ -17,11 +18,15 @@ public class AdminAccessService(IApplicationDbContext db, IIdentityService ident
             .Where(a => a.AdminId == adminId)
             .ToListAsync(cancellationToken);
 
-        var isSuperAdmin = await IsSuperAdminAsync(adminId, cancellationToken);
+        bool isSuperAdmin = await permissions.IsSuperAdminAsync(adminId, cancellationToken);
+        List<string> explicitPermissions = await db.AdminPermissionGrants.AsNoTracking()
+            .Where(grant => grant.AdminId == adminId).OrderBy(grant => grant.Key)
+            .Select(grant => grant.Key).ToListAsync(cancellationToken);
+        bool allSubjects = isSuperAdmin || explicitPermissions.Contains(AdminPermissions.ALL_SUBJECTS);
         var grantedIds = subjects.Where(a => !a.IsRestricted).Select(a => a.SubjectId).ToList();
-        List<int> restrictedSubjectIds = isSuperAdmin ? [] : await db.Subjects
+        List<int> restrictedSubjectIds = allSubjects ? [] : await db.Subjects
             .Where(s => !grantedIds.Contains(s.Id)).Select(s => s.Id).ToListAsync(cancellationToken);
-        var allowedSubjectIds = isSuperAdmin
+        var allowedSubjectIds = allSubjects
             ? await db.Subjects.Select(s => s.Id).ToListAsync(cancellationToken)
             : grantedIds;
         return new AdminAccessDto(
@@ -29,7 +34,8 @@ public class AdminAccessService(IApplicationDbContext db, IIdentityService ident
             groups.Where(a => a.IsRestricted).Select(a => a.GroupId).ToList(),
             subjects.Where(a => a.IsHidden).Select(a => a.SubjectId).ToList(),
             groups.Where(a => a.IsHidden).Select(a => a.GroupId).ToList(),
-            allowedSubjectIds);
+            allowedSubjectIds, grantedIds, AdminPermissions.All.ToList(), explicitPermissions,
+            isSuperAdmin ? AdminPermissions.All.ToList() : explicitPermissions, isSuperAdmin);
     }
 
     public async Task EnsureSubjectAllowedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default)
@@ -38,7 +44,7 @@ public class AdminAccessService(IApplicationDbContext db, IIdentityService ident
             .Where(a => a.AdminId == adminId && a.SubjectId == subjectId)
             .Select(a => new { a.IsRestricted, a.IsHidden })
             .FirstOrDefaultAsync(cancellationToken);
-        if (access?.IsRestricted != false && !await IsSuperAdminAsync(adminId, cancellationToken))
+        if (access?.IsRestricted != false && !await HasAllSubjectsAsync(adminId, cancellationToken))
             throw new ForbiddenException("You are restricted from working with this subject.", "access.subject_restricted",
                 new Dictionary<string, object?> { ["subjectId"] = subjectId });
         if (access?.IsHidden == true)
@@ -87,11 +93,14 @@ public class AdminAccessService(IApplicationDbContext db, IIdentityService ident
     }
 
     public async Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default) =>
-        !await IsSuperAdminAsync(adminId, cancellationToken) &&
+        !await HasAllSubjectsAsync(adminId, cancellationToken) &&
         !await db.AdminSubjectAccesses.AnyAsync(a => a.AdminId == adminId && a.SubjectId == subjectId && !a.IsRestricted, cancellationToken);
 
-    public async Task<bool> IsSuperAdminAsync(Guid adminId, CancellationToken cancellationToken = default) =>
-        (await identity.GetCurrentRolesAsync(adminId, cancellationToken)).Contains(Roles.SuperAdmin);
+    public Task<bool> HasAllSubjectsAsync(Guid adminId, CancellationToken cancellationToken = default) =>
+        permissions.HasAsync(adminId, AdminPermissions.ALL_SUBJECTS, cancellationToken);
+
+    public Task EnsurePermissionAsync(Guid adminId, string key, CancellationToken cancellationToken = default) =>
+        permissions.EnsureAsync(adminId, key, cancellationToken);
 
     public async Task EnsureStudentAllowedAsync(Guid adminId, Guid studentId, CancellationToken cancellationToken = default)
     {

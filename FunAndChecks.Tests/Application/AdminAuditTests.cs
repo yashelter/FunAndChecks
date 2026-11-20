@@ -431,7 +431,8 @@ public sealed class AdminAuditTests : IDisposable
         identity.GetProfileAccountAsync(admin.Id, Arg.Any<CancellationToken>())
             .Returns(new ProfileAccountInfo(admin.Id, admin.FirstName, admin.LastName, null, true));
         await using var audited = _db.NewContext(Scope("achievements.manage"));
-        var service = new AchievementService(audited, identity, Substitute.For<IProfileMediaProcessor>(), new UpsertAchievementRequestValidator());
+        var service = new AchievementService(audited, identity, Substitute.For<IProfileMediaProcessor>(), new UpsertAchievementRequestValidator(),
+            new FunAndChecks.Application.Admins.AdminPermissionService(audited, identity));
         var definition = await service.CreateAsync(admin.Id, new UpsertAchievementRequest("Badge", "Original description"));
         var award = await service.GrantAsync(admin.Id, definition.Id, new GrantAchievementRequest(admin.Id));
         await service.RevokeAsync(admin.Id, award.Id);

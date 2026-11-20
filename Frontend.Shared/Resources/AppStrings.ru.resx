@@ -379,7 +379,7 @@
   <data name="AdminMgmt_NoChanges" xml:space="preserve"><value>Изменений нет</value></data>
   <data name="AdminMgmt_Revert" xml:space="preserve"><value>Отменить изменения</value></data>
   <data name="AdminMgmt_Saving" xml:space="preserve"><value>Сохранение…</value></data>
-  <data name="AdminMgmt_AccessSuperAdmin" xml:space="preserve"><value>Суперадмин работает со всеми предметами и группами, ограничения к нему не применяются.</value></data>
+  <data name="AdminMgmt_AccessSuperAdmin" xml:space="preserve"><value>У супер-админа есть все разрешения. Личное скрытие и ограничения групп действуют.</value></data>
   <data name="AdminMgmt_AccessSummary" xml:space="preserve"><value>Разрешено предметов: {0} из {1} · запрещено групп: {2}</value></data>
   <data name="AdminMgmt_AccessLoadFailed" xml:space="preserve"><value>Не удалось загрузить сводку доступа.</value></data>
   <data name="AdminMgmt_AccessConfigure" xml:space="preserve"><value>Настроить доступ</value></data>
@@ -589,7 +589,7 @@
   <data name="Dialog_ColorSaturationBrightness" xml:space="preserve"><value>Насыщенность и яркость</value></data>
   <data name="Monitoring_Title" xml:space="preserve"><value>Мониторинг</value></data>
   <data name="Monitoring_Opening" xml:space="preserve"><value>Открываем метрики и логи…</value></data>
-  <data name="Monitoring_SuperAdminOnly" xml:space="preserve"><value>Мониторинг доступен только суперадминистраторам.</value></data>
+  <data name="Monitoring_SuperAdminOnly" xml:space="preserve"><value>Нет права просматривать мониторинг.</value></data>
   <data name="Monitoring_Disabled" xml:space="preserve"><value>Мониторинг не включён на этом сервере.</value></data>
   <data name="Monitoring_Retry" xml:space="preserve"><value>Повторить</value></data>
   <data name="Dialog_Undo" xml:space="preserve"><value>Отменить</value></data>
@@ -1029,4 +1029,32 @@
   <data name="Results_Search" xml:space="preserve"><value>Поиск по ФИО</value></data>
   <data name="Results_AllGroups" xml:space="preserve"><value>Все группы</value></data>
   <data name="Results_NothingFound" xml:space="preserve"><value>Никого не найдено</value></data>
+  <data name="AdminPermission.admins.manage" xml:space="preserve"><value>Управление администраторами</value></data>
+  <data name="AdminPermission.students.accounts.manage" xml:space="preserve"><value>Управление учётками студентов</value></data>
+  <data name="AdminPermission.subjects.all" xml:space="preserve"><value>Все предметы</value></data>
+  <data name="AdminPermission.catalog.delete" xml:space="preserve"><value>Удаление учебных объектов</value></data>
+  <data name="AdminPermission.achievements.catalog.manage" xml:space="preserve"><value>Управление достижениями</value></data>
+  <data name="AdminPermission.achievements.awards.grant_self" xml:space="preserve"><value>Выдача достижений себе</value></data>
+  <data name="AdminPermission.achievements.awards.revoke_others" xml:space="preserve"><value>Отзыв чужих выдач</value></data>
+  <data name="AdminPermission.forum.moderate_staff" xml:space="preserve"><value>Модерация преподавателей</value></data>
+  <data name="AdminPermission.forum.catalog.manage" xml:space="preserve"><value>Управление реакциями и стикерами</value></data>
+  <data name="AdminPermission.forum.announcements.send" xml:space="preserve"><value>Отправка общих объявлений</value></data>
+  <data name="AdminPermission.statistics.read" xml:space="preserve"><value>Статистика проверяющих</value></data>
+  <data name="AdminPermission.monitoring.read" xml:space="preserve"><value>Мониторинг</value></data>
+  <data name="AdminPermission.backups.manage" xml:space="preserve"><value>Управление резервными копиями</value></data>
+  <data name="AdminPermissions_Baseline" xml:space="preserve"><value>Базовые возможности: работа с очередями, сдачами, оценками, посещаемостью и вариантами в пределах доступных предметов и групп.</value></data>
+  <data name="AdminPermissions_AllFuture" xml:space="preserve"><value>Все разрешения, включая будущие</value></data>
+  <data name="AdminPermissions_AfterDemotion" xml:space="preserve"><value>Явные разрешения после снятия роли супер-админа</value></data>
+  <data name="AdminPermissions_ManageHint" xml:space="preserve"><value>Это право позволяет выдавать любые особые права обычным админам, включая себя, и менять данные их учёток.</value></data>
+  <data name="AdminPermissions_MyTitle" xml:space="preserve"><value>Мои права</value></data>
+  <data name="AdminPermissions_Subjects" xml:space="preserve"><value>Предметы</value></data>
+  <data name="AdminPermissions_Groups" xml:space="preserve"><value>Ограниченные группы</value></data>
+  <data name="AdminPermissions_None" xml:space="preserve"><value>Нет</value></data>
+  <data name="AdminPermissions_Special" xml:space="preserve"><value>Особые права</value></data>
+  <data name="AdminPermissions_SelectAll" xml:space="preserve"><value>Выбрать все особые права</value></data>
+  <data name="AdminPermissions_Save" xml:space="preserve"><value>Сохранить права</value></data>
+  <data name="AdminPermissions_Changed" xml:space="preserve"><value>Права уже изменены. Обновите данные, проверьте выбранные права и повторите сохранение.</value></data>
+  <data name="Maintenance_RestoreStatusUnavailable" xml:space="preserve"><value>Не удалось получить статус восстановления. Войдите снова, чтобы проверить результат.</value></data>
+  <data name="AdminPermissions_HiddenSubjects" xml:space="preserve"><value>Скрытые предметы</value></data>
+  <data name="AdminPermissions_HiddenGroups" xml:space="preserve"><value>Скрытые группы</value></data>
 </root>

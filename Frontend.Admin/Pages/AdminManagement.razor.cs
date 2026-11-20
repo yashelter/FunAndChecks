@@ -20,6 +20,7 @@ namespace Frontend.Admin.Pages;
 /// </summary>
 public partial class AdminManagement
 {
+    [Inject] private AdminPermissionReader PermissionReader { get; set; } = null!;
     [Inject] private AdminsApi Admins { get; set; } = null!;
     [Inject] private ConfirmService Confirm { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
@@ -30,6 +31,8 @@ public partial class AdminManagement
     [SupplyParameterFromQuery(Name = "id")] public Guid? SelectedIdQuery { get; set; }
 
     private List<AdminDetailsDto> _admins = [];
+    private bool _actorIsSuperAdmin;
+    private bool _canManage;
     private bool _loading = true;
     private bool _loadFailed;
     private string? _search;
@@ -70,6 +73,16 @@ public partial class AdminManagement
         _loadFailed = false;
         try
         {
+            AdminAccessDto? access = await PermissionReader.ReadAsync();
+            _actorIsSuperAdmin = access?.IsSuperAdmin == true;
+            _canManage = access?.Has(FunAndChecks.Domain.Constants.AdminPermissions.ADMINS_MANAGE) == true;
+            if (!_canManage)
+            {
+                _loadFailed = true;
+                _admins.Clear();
+                return;
+            }
+
             _admins = await Admins.GetDetailsAsync();
         }
         catch (ApiException)
@@ -131,6 +144,7 @@ public partial class AdminManagement
     private async Task OpenCreateAsync()
     {
         var dialog = await DialogService.ShowAsync<AdminCreateDialog>(string.Empty,
+            new DialogParameters<AdminCreateDialog> { { dialog => dialog.CanCreateSuperAdmin, _actorIsSuperAdmin } },
             new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = false, BackdropClick = false });
         var result = await dialog.Result;
         if (result is { Canceled: false, Data: Guid id })

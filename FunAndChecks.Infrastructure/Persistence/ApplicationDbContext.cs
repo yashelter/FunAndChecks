@@ -1,5 +1,6 @@
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Entities;
+using FunAndChecks.Infrastructure.Persistence.Seeding;
 using FunAndChecks.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -80,6 +81,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     }
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Admin> Admins => Set<Admin>();
+    public DbSet<AdminBootstrapState> AdminBootstrapStates => Set<AdminBootstrapState>();
+    public DbSet<AdminPermissionGrant> AdminPermissionGrants => Set<AdminPermissionGrant>();
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<CourseTask> Tasks => Set<CourseTask>();

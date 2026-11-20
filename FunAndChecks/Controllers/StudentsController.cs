@@ -20,7 +20,7 @@ public class StudentsController(
 {
     /// <summary>Страничный поиск учётных записей без административных прав, независимо от предмета.</summary>
     [HttpGet("accounts")]
-    [Authorize(Roles = Roles.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.STUDENT_ACCOUNTS)]
     public async Task<ActionResult<UserAccountPageDto>> Accounts([FromQuery] string? query,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 25, [FromQuery] UserAccountStatus? status = null,
         CancellationToken cancellationToken = default) =>
@@ -28,7 +28,7 @@ public class StudentsController(
 
     /// <summary>Удалить учётную запись без административных прав и связанные данные студента.</summary>
     [HttpDelete("accounts/{userId:guid}")]
-    [Authorize(Roles = Roles.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.STUDENT_ACCOUNTS)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -81,7 +81,7 @@ public class StudentsController(
 
     /// <summary>Редактирование профиля и аккаунта студента.</summary>
     [HttpPut("{studentId:guid}/account")]
-    [Authorize(Roles = Roles.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.STUDENT_ACCOUNTS)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

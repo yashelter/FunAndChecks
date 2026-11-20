@@ -125,7 +125,7 @@ public class SubjectPermissionsTests : IDisposable
         var identity = Substitute.For<IIdentityService>();
         identity.GetCurrentRolesAsync(admin.Id, Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<IReadOnlyCollection<string>>(roles));
-        var access = new AdminAccessService(db, identity);
+        var access = new AdminAccessService(db, new AdminPermissionService(db, identity));
         await access.SetGroupRestrictedAsync(admin.Id, group.Id, true);
         await access.EnsureSubjectAllowedAsync(admin.Id, subject.Id);
         var restrictedGroup = () => access.EnsureGroupAllowedAsync(admin.Id, group.Id);

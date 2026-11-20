@@ -1,6 +1,7 @@
 @page "/admin/forum/stickers"
 @layout AdminLayout
-@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject AdminPermissionReader PermissionReader
 @inject ForumApi Api
 @inject ForumCatalog Catalog
 @inject ISnackbar Snackbar
@@ -9,11 +10,17 @@
 <PageTitle>@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</PageTitle>
 <div class="fc-page-heading"><div>
     <MudText Typo="Typo.h4">@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</MudText>
-    <MudText Class="fc-muted">@CommunityText.T("Наборы видят все пользователи чатов. Менять их может только супер-админ.", "Everyone in chats sees these sets. Only a super admin can change them.")</MudText>
+    <MudText Class="fc-muted">@CommunityText.T("Наборы видят все пользователи чатов.", "Everyone in chats sees these sets.")</MudText>
 </div>
     <div class="fc-profile-heading-actions"><MudButton Href="/admin/forum" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.ArrowBack">@CommunityText.T("К чатам", "Back to chats")</MudButton></div>
 </div>
 
+@if (!_canManage)
+{
+    <MudAlert Severity="Severity.Info">@CommunityText.T("Нет права управлять реакциями и стикерами.", "You cannot manage reactions and stickers.")</MudAlert>
+}
+else
+{
 <div class="fc-catalog">
     <section class="fc-panel fc-catalog-reactions" aria-labelledby="reactions-title">
         <div class="fc-catalog-head">
@@ -120,6 +127,8 @@
     </section>
 </div>
 
+}
+
 @code {
     private const long MaxSticker = 1024 * 1024;
     private const long MaxReactionImage = 256 * 1024;
@@ -130,7 +139,16 @@
     private bool _packPublished, _busy;
     private int _uploading;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _canManage = (await PermissionReader.ReadAsync())?.Has(SpecialPermissions.FORUM_CATALOG) == true;
+        if (_canManage)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private bool _canManage;
 
     private async Task LoadAsync()
     {

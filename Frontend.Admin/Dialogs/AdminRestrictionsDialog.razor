@@ -79,7 +79,7 @@
             // Read permissions after the displayed subjects, so a new subject cannot
             // appear allowed merely because it was absent from an older access snapshot.
             var access = await Admins.GetAccessAsync(Admin.Id);
-            var allowedSubjects = (access.AllowedSubjectIds ?? []).ToHashSet();
+            var allowedSubjects = (access.ExplicitSubjectIds ?? access.AllowedSubjectIds ?? []).ToHashSet();
             _restrictedSubjects = _subjects.Where(x => !allowedSubjects.Contains(x.Id)).Select(x => x.Id).ToHashSet();
             _restrictedGroups = [.. access.RestrictedGroupIds];
             _originalSubjects = [.. _restrictedSubjects];

@@ -20,7 +20,7 @@ public class TasksController(ISubjectService subjectService) : ControllerBase
 
     /// <summary>Удаляет задание каскадно вместе с историей сдач.</summary>
     [HttpDelete("{taskId:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.DELETE_CATALOG)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int taskId, CancellationToken cancellationToken)
     {

@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Attachments;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -33,7 +34,7 @@ public interface IForumCatalogService
     Task ReorderStickersAsync(Guid adminId, int packId, ReorderForumItemsRequest request, CancellationToken ct = default);
 }
 
-public class ForumCatalogService(IApplicationDbContext db, IIdentityService identity) : IForumCatalogService
+public class ForumCatalogService(IApplicationDbContext db, IAdminPermissionService permissions) : IForumCatalogService
 {
     public const int MaxStickerBytes = 1024 * 1024;
     public const int MaxReactionImageBytes = 256 * 1024;
@@ -69,7 +70,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task<ForumReactionTypeDto> CreateReactionAsync(Guid adminId, SaveForumReactionRequest request, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var (name, emoji) = ValidateReaction(request);
         var last = await db.ForumReactionTypes.MaxAsync(r => (int?)r.SortOrder, ct) ?? 0;
         var reaction = new ForumReactionType { Name = name, Emoji = emoji, IsEnabled = request.IsEnabled, SortOrder = last + 1 };
@@ -81,7 +82,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
     public async Task<ForumReactionTypeDto> UpdateReactionAsync(Guid adminId, int id, SaveForumReactionRequest request,
         CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var (name, emoji) = ValidateReaction(request);
         var reaction = await RequireReactionAsync(id, ct);
         if (emoji is null && reaction.ImageData is null)
@@ -95,7 +96,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task<ForumReactionTypeDto> SetReactionImageAsync(Guid adminId, int id, byte[]? data, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var reaction = await RequireReactionAsync(id, ct);
         if (data is null)
         {
@@ -117,7 +118,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
     /// <summary>Удаляет реакцию вместе с поставленными ею отметками. Чтобы сохранить отметки, реакцию лучше выключить.</summary>
     public async Task DeleteReactionAsync(Guid adminId, int id, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var reaction = await RequireReactionAsync(id, ct);
         db.ForumReactions.RemoveRange(await db.ForumReactions.Where(r => r.ReactionTypeId == id).ToListAsync(ct));
         db.ForumReactionTypes.Remove(reaction);
@@ -126,7 +127,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task ReorderReactionsAsync(Guid adminId, ReorderForumItemsRequest request, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var all = await db.ForumReactionTypes.ToListAsync(ct);
         Reorder(all, request.Ids, r => r.Id, (r, order) => r.SortOrder = order);
         await db.SaveChangesAsync(ct);
@@ -134,14 +135,14 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task<IReadOnlyList<ForumStickerPackDto>> GetAllStickerPacksAsync(Guid adminId, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         return await PacksAsync(true, ct);
     }
 
     public async Task<ForumStickerPackDto> CreateStickerPackAsync(Guid adminId, SaveForumStickerPackRequest request,
         CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var last = await db.ForumStickerPacks.MaxAsync(p => (int?)p.SortOrder, ct) ?? 0;
         var pack = new ForumStickerPack
         {
@@ -155,7 +156,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
     public async Task<ForumStickerPackDto> UpdateStickerPackAsync(Guid adminId, int id, SaveForumStickerPackRequest request,
         CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var pack = await RequirePackAsync(id, ct);
         pack.Name = PackName(request.Name);
         pack.IsPublished = request.IsPublished;
@@ -165,7 +166,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task DeleteStickerPackAsync(Guid adminId, int id, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var pack = await RequirePackAsync(id, ct);
         pack.IsDeleted = true;
         pack.IsPublished = false;
@@ -174,7 +175,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task<ForumStickerDto> AddStickerAsync(Guid adminId, int packId, string? name, byte[] data, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         await RequirePackAsync(packId, ct);
         var contentType = DetectImage(data, MaxStickerBytes);
         var clean = (name ?? "").Trim();
@@ -192,7 +193,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task DeleteStickerAsync(Guid adminId, int id, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         var sticker = await db.ForumStickers.SingleOrDefaultAsync(s => s.Id == id && !s.IsDeleted, ct)
             ?? throw new NotFoundException("Sticker not found.", "forum.sticker_not_found");
         sticker.IsDeleted = true;
@@ -201,7 +202,7 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
 
     public async Task ReorderStickersAsync(Guid adminId, int packId, ReorderForumItemsRequest request, CancellationToken ct = default)
     {
-        await EnsureSuperAdminAsync(adminId, ct);
+        await permissions.EnsureAsync(adminId, AdminPermissions.FORUM_CATALOG, ct);
         await RequirePackAsync(packId, ct);
         var stickers = await db.ForumStickers.Where(s => s.PackId == packId && !s.IsDeleted).ToListAsync(ct);
         Reorder(stickers, request.Ids, s => s.Id, (s, order) => s.SortOrder = order);
@@ -271,9 +272,4 @@ public class ForumCatalogService(IApplicationDbContext db, IIdentityService iden
         await db.ForumStickerPacks.SingleOrDefaultAsync(p => p.Id == id && !p.IsDeleted, ct)
         ?? throw new NotFoundException("Sticker pack not found.", "forum.sticker_pack_not_found");
 
-    private async Task EnsureSuperAdminAsync(Guid adminId, CancellationToken ct)
-    {
-        if (!(await identity.GetCurrentRolesAsync(adminId, ct)).Contains(Roles.SuperAdmin))
-            throw new ForbiddenException("Only a super admin manages reactions and stickers.", "forum.super_admin_required");
-    }
 }

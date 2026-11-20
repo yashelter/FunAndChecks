@@ -12,5 +12,7 @@ public interface IDatabaseRestoreService
     /// Запускает восстановление из <paramref name="fileName"/> (.dump) в фоне и сразу возвращает статус.
     /// Одновременно выполняется только одно восстановление (иначе 409 <c>backup.restore_in_progress</c>).
     /// </summary>
-    RestoreStatusDto Start(string fileName);
+    RestoreStatusDto Start(string fileName, Guid? initiatorId = null);
+
+    RestoreStatusDto? GetStatusForInitiator(Guid userId);
 }

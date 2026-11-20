@@ -15,7 +15,7 @@ public static class Seed
         var identity = Substitute.For<IIdentityService>();
         identity.GetCurrentRolesAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<string>());
-        return new AdminAccessService(db, identity);
+        return new AdminAccessService(db, new AdminPermissionService(db, identity));
     }
 
     public static void GrantSubject(this ApplicationDbContext db, Admin admin, Subject subject) =>

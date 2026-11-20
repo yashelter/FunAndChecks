@@ -40,7 +40,7 @@ public class GroupsController(IGroupService groupService) : ControllerBase
 
     /// <summary>Удаляет группу; студенты группы остаются без группы.</summary>
     [HttpDelete("{groupId:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.DELETE_CATALOG)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(int groupId, CancellationToken cancellationToken)
     {

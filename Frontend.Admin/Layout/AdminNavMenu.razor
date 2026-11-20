@@ -1,4 +1,5 @@
 @inject IStringLocalizer<AppStrings> Loc
+@inject AdminPermissionReader PermissionReader
 
 @* Меню преподавателя: «Учёба» открыта всегда, «Сообщество» и «Администрирование» сворачиваются (NavSection).
    Вид меню общий со студентом — dashboard.css. *@
@@ -31,18 +32,33 @@
             @CommunityText.T("Опросы", "Surveys")
         </MudNavLink>
     </NavSection>
-    <AuthorizeView Roles="@Roles.SuperAdmin">
+    <MudNavLink Href="/admin/permissions" Icon="@Icons.Material.Outlined.Badge">@Loc["AdminPermissions_MyTitle"]</MudNavLink>
         <NavSection Key="administration" Title="@CommunityText.T("Администрирование", "Administration")" Icon="@Icons.Material.Outlined.Security"
                          Paths="@(["/admin/admins", "/admin/maintenance", "/metrics"])">
-            <MudNavLink Href="/admin/admins" Icon="@Icons.Material.Outlined.AdminPanelSettings">
+            <PermissionGate Allowed="@(_access?.Has(SpecialPermissions.ADMINS_MANAGE) == true)" Context="denied">
+            <MudNavLink Disabled="denied" Href="/admin/admins" Icon="@Icons.Material.Outlined.AdminPanelSettings">
                 @Loc["AdminNav_Admins"]
             </MudNavLink>
-            <MudNavLink Href="/admin/maintenance" Icon="@Icons.Material.Outlined.Construction">
+            </PermissionGate>
+            <PermissionGate Allowed="@(_access?.Has(SpecialPermissions.BACKUPS) == true)" Context="denied">
+            <MudNavLink Disabled="denied" Href="/admin/maintenance" Icon="@Icons.Material.Outlined.Construction">
                 @Loc["AdminNav_Maintenance"]
             </MudNavLink>
-            <MudNavLink Href="/metrics" Icon="@Icons.Material.Outlined.MonitorHeart">
+            </PermissionGate>
+            <PermissionGate Allowed="@(_access?.Has(SpecialPermissions.MONITORING) == true)" Context="denied">
+            <MudNavLink Disabled="denied" Href="/metrics" Icon="@Icons.Material.Outlined.MonitorHeart">
                 @Loc["Monitoring_Title"]
             </MudNavLink>
+            </PermissionGate>
         </NavSection>
-    </AuthorizeView>
+
 </MudNavMenu>
+
+@code {
+    private AdminAccessDto? _access;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _access = await PermissionReader.ReadAsync();
+    }
+}

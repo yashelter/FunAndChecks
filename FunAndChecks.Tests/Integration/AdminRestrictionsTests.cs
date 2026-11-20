@@ -86,6 +86,8 @@ public class AdminRestrictionsTests : IDisposable
             var account = (await users.FindByIdAsync(actor.Id.ToString()))!;
             (await users.RemoveFromRoleAsync(account, Roles.SuperAdmin)).Succeeded.Should().BeTrue();
         }
+        (await superAdmin.GetAsync("/api/admins/details")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await superAdmin.GetAsync("/api/admin/backup/restore/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await superAdmin.PostAsJsonAsync("/api/queues",
             new CreateQueueEventRequest("Denied after demotion", DateTime.UtcNow.AddDays(1), subject.Id)))
             .StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -285,6 +287,64 @@ public class AdminRestrictionsTests : IDisposable
         using var scope = _factory.Services.CreateScope();
         var identity = scope.ServiceProvider.GetRequiredService<IIdentityService>();
         (await identity.GetCurrentRolesAsync(data.AdminId)).Should().Contain(Roles.SuperAdmin);
+    }
+
+    [Fact]
+    public async Task DelegatedAdministratorCannotModifySuperAdminOrAssignRoleAsync()
+    {
+        TestData data = await SeedAsync();
+        using HttpClient admin = CreateClient(data.AdminToken);
+        using HttpClient super = CreateClient(data.SuperAdminToken);
+        string grantUrl = $"/api/admins/{data.AdminId}/access/special-permissions";
+        (await super.PutAsJsonAsync(grantUrl, new ReplaceSpecialPermissionsRequest([AdminPermissions.ADMINS_MANAGE], [])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        List<AdminDetailsDto>? accounts = await admin.GetFromJsonAsync<List<AdminDetailsDto>>("/api/admins/details");
+        Guid superId = accounts!.Single(account => account.IsSuperAdmin).Id;
+        (await admin.PutAsJsonAsync($"/api/admins/{superId}", new UpdateAdminRequest("New", "Name", null, null)))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await admin.PutAsJsonAsync($"/api/admins/{superId}/subjects/{data.SubjectId}/restriction", new SetRestrictionRequest(true)))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await admin.PutAsJsonAsync($"/api/admins/{superId}/access/special-permissions",
+            new ReplaceSpecialPermissionsRequest([AdminPermissions.BACKUPS], []))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await admin.PostAsJsonAsync("/api/admins",
+            new CreateAdminRequest("New", "Super", "new-super@example.test", "ValidPassword123!", null, null, true)))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        (await admin.PutAsJsonAsync(grantUrl, new ReplaceSpecialPermissionsRequest([], [])))
+            .StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await admin.PutAsJsonAsync(grantUrl, new ReplaceSpecialPermissionsRequest(["unknown.permission"], [AdminPermissions.ADMINS_MANAGE])))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await super.PutAsJsonAsync(grantUrl, new ReplaceSpecialPermissionsRequest([], [AdminPermissions.ADMINS_MANAGE])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await admin.GetAsync("/api/admins/details")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task AllSubjectsPermissionRespectsPersonalHidingAsync()
+    {
+        TestData data = await SeedAsync();
+        using HttpClient super = CreateClient(data.SuperAdminToken);
+        using HttpClient admin = CreateClient(data.AdminToken);
+        using HttpResponseMessage created = await super.PostAsJsonAsync("/api/subjects", new CreateSubjectRequest("New subject"));
+        created.StatusCode.Should().Be(HttpStatusCode.Created);
+        SubjectDto? subject = await created.Content.ReadFromJsonAsync<SubjectDto>();
+        using HttpResponseMessage queued = await super.PostAsJsonAsync("/api/queues",
+            new CreateQueueEventRequest("New queue", DateTime.UtcNow.AddDays(1), subject!.Id));
+        queued.StatusCode.Should().Be(HttpStatusCode.Created);
+        QueueEventDto? queue = await queued.Content.ReadFromJsonAsync<QueueEventDto>();
+        string detailsUrl = $"/api/queues/{queue!.Id}";
+        (await admin.GetAsync(detailsUrl)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        string grantUrl = $"/api/admins/{data.AdminId}/access/special-permissions";
+        (await super.PutAsJsonAsync(grantUrl, new ReplaceSpecialPermissionsRequest([AdminPermissions.ALL_SUBJECTS], [])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await admin.GetAsync(detailsUrl)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.PutAsJsonAsync($"/api/me/subjects/{subject.Id}/hidden", new SetHiddenRequest(true)))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await admin.GetAsync(detailsUrl)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        List<QueueEventDto>? visible = await admin.GetFromJsonAsync<List<QueueEventDto>>("/api/queues/all");
+        visible.Should().NotContain(item => item.Id == queue.Id);
     }
 
     private async Task<TestData> SeedAsync()

@@ -15,10 +15,35 @@ public class DataSeeder(
     IConfiguration configuration,
     ILogger<DataSeeder> logger)
 {
-    public async Task SeedAsync()
+    private const int BOOTSTRAP_ID = 1;
+
+    public async Task SeedAsync(bool initializeAdmins = true, CancellationToken cancellationToken = default)
     {
         await SeedRolesAsync();
-        await SeedAdminsAsync();
+        if (!initializeAdmins)
+        {
+            return;
+        }
+
+        await dbContext.ExecuteSerializableAsync(async token =>
+        {
+            if (await dbContext.AdminBootstrapStates.AnyAsync(token))
+            {
+                return;
+            }
+
+            if (!await dbContext.Users.AnyAsync(token))
+            {
+                bool seeded = await SeedAdminsAsync(token);
+                if (!seeded)
+                {
+                    return;
+                }
+            }
+
+            dbContext.AdminBootstrapStates.Add(new AdminBootstrapState { Id = BOOTSTRAP_ID });
+            await dbContext.SaveChangesAsync(token);
+        }, cancellationToken);
     }
 
     private async Task SeedRolesAsync()
@@ -35,69 +60,41 @@ public class DataSeeder(
         }
     }
 
-    private async Task SeedAdminsAsync()
+    private async Task<bool> SeedAdminsAsync(CancellationToken cancellationToken)
     {
         var adminsToCreate = configuration.GetSection("InitialAdmins").Get<List<AdminSeedModel>>();
 
         if (adminsToCreate == null || adminsToCreate.Count == 0)
         {
             logger.LogWarning("No initial admins found in configuration. Skipping admin seeding.");
-            return;
+            return false;
         }
 
-        foreach (var model in adminsToCreate)
+        foreach (AdminSeedModel model in adminsToCreate)
         {
-            await dbContext.ExecuteSerializableAsync(async cancellationToken =>
+            cancellationToken.ThrowIfCancellationRequested();
+            ApplicationUser account = new()
             {
-                var account = await userManager.FindByEmailAsync(model.Email);
-                if (account is null)
-                {
-                    account = new ApplicationUser
-                    {
-                        Id = Guid.NewGuid(),
-                        UserName = model.Email,
-                        Email = model.Email,
-                        EmailConfirmed = true,
-                    };
-                    EnsureSucceeded(await userManager.CreateAsync(account, model.Password), $"create admin '{model.Email}'");
-                }
-                else
-                {
-                    if (await dbContext.Students.AnyAsync(s => s.Id == account.Id, cancellationToken))
-                        throw new InvalidOperationException($"Initial admin email '{model.Email}' belongs to a student account.");
+                Id = Guid.NewGuid(),
+                UserName = model.Email,
+                Email = model.Email,
+                EmailConfirmed = true,
+            };
+            EnsureSucceeded(await userManager.CreateAsync(account, model.Password), "create initial admin");
+            string[] requiredRoles = model.IsSuperAdmin ? [Roles.Admin, Roles.SuperAdmin] : [Roles.Admin];
+            EnsureSucceeded(await userManager.AddToRolesAsync(account, requiredRoles), "assign initial admin roles");
 
-                    account.EmailConfirmed = true;
-                    EnsureSucceeded(await userManager.UpdateAsync(account), $"update admin '{model.Email}'");
-                }
-
-                var requiredRoles = model.IsSuperAdmin ? new[] { Roles.Admin, Roles.SuperAdmin } : [Roles.Admin];
-                var currentRoles = await userManager.GetRolesAsync(account);
-                var missingRoles = requiredRoles.Except(currentRoles, StringComparer.OrdinalIgnoreCase).ToArray();
-                if (missingRoles.Length > 0)
-                    EnsureSucceeded(await userManager.AddToRolesAsync(account, missingRoles), $"assign roles to '{model.Email}'");
-
-                var profile = await dbContext.Admins.FindAsync([account.Id], cancellationToken);
-                if (profile is null)
-                {
-                    profile = new Admin
-                    {
-                        Id = account.Id,
-                        FirstName = model.FirstName,
-                        LastName = model.LastName,
-                    };
-                    dbContext.Admins.Add(profile);
-                }
-
-                profile.FirstName = model.FirstName;
-                profile.LastName = model.LastName;
-                profile.Color = model.Color;
-                profile.Letter = model.Letter;
-                await dbContext.SaveChangesAsync(cancellationToken);
-
-                logger.LogInformation("Admin {Email} is consistent and assigned roles: {Roles}.",
-                    model.Email, string.Join(", ", requiredRoles));
+            dbContext.Admins.Add(new Admin
+            {
+                Id = account.Id,
+                FirstName = model.FirstName,
+                LastName = model.LastName,
+                Color = model.Color,
+                Letter = model.Letter,
             });
         }
+
+        return true;
     }
 
     private static void EnsureSucceeded(IdentityResult result, string operation)

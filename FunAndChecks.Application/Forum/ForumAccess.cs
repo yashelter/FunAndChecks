@@ -1,3 +1,4 @@
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
@@ -35,17 +36,17 @@ public interface IForumAccess
     Task<IReadOnlySet<Guid>> AudienceAsync(ForumTopic topic, CancellationToken ct = default);
 }
 
-public class ForumAccess(IApplicationDbContext db, IIdentityService identity) : IForumAccess
+public class ForumAccess(IApplicationDbContext db, IIdentityService identity, IAdminPermissionService permissions) : IForumAccess
 {
     public async Task<ForumViewer> GetViewerAsync(Guid userId, CancellationToken ct = default)
     {
         var account = await identity.GetProfileAccountAsync(userId, ct)
             ?? throw new ForbiddenException("The forum is available to confirmed students and teachers.", "forum.no_access");
         var roles = await identity.GetCurrentRolesAsync(userId, ct);
-        var isSuper = roles.Contains(Roles.SuperAdmin);
+        bool isSuper = await permissions.IsSuperAdminAsync(userId, ct);
         var isAdmin = isSuper || roles.Contains(Roles.Admin);
         List<int> subjects;
-        if (isSuper)
+        if (isAdmin && await permissions.HasAsync(userId, AdminPermissions.ALL_SUBJECTS, ct))
             subjects = await db.Subjects.Select(s => s.Id).ToListAsync(ct);
         else if (isAdmin)
             subjects = await db.AdminSubjectAccesses.Where(a => a.AdminId == userId && !a.IsRestricted)
@@ -85,6 +86,11 @@ public class ForumAccess(IApplicationDbContext db, IIdentityService identity) : 
         }
         var result = (await students.Select(s => s.Id).ToListAsync(ct)).ToHashSet();
         result.UnionWith(await admins.ToListAsync(ct));
+        if (subjectId.HasValue)
+        {
+            result.UnionWith(await db.AdminPermissionGrants
+                .Where(grant => grant.Key == AdminPermissions.ALL_SUBJECTS).Select(grant => grant.AdminId).ToListAsync(ct));
+        }
         result.UnionWith(supers);
         return result;
     }

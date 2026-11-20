@@ -42,7 +42,7 @@
             </div>
         </div>
         <div class="fc-admin-role">
-            <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Disabled="_saving">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
+            <MudSwitch T="bool" @bind-Value="_isSuperAdmin" Color="Color.Primary" Disabled="@(_saving || !CanCreateSuperAdmin)">@Loc["AdminMgmt_IsSuperAdmin"]</MudSwitch>
             <MudText Typo="Typo.caption" Class="fc-muted">@Loc["AdminMgmt_SuperAdminHint"]</MudText>
         </div>
     </section>
@@ -67,6 +67,8 @@
     private string _password = string.Empty;
     private string? _color;
     private string? _letter;
+    [Parameter] public bool CanCreateSuperAdmin { get; set; }
+
     private bool _isSuperAdmin;
     private bool _showPassword;
     private bool _submitted;
@@ -133,7 +135,7 @@
                 _firstName.Trim(), _lastName.Trim(), _email.Trim(), _password,
                 string.IsNullOrWhiteSpace(_color) ? null : _color.Trim(),
                 string.IsNullOrWhiteSpace(_letter) ? null : _letter.Trim(),
-                _isSuperAdmin));
+                CanCreateSuperAdmin && _isSuperAdmin));
             Snackbar.Add(Loc["AdminMgmt_Created"], Severity.Success);
             Reset();
             await OnCreated.InvokeAsync(id);

@@ -3,6 +3,8 @@ using FunAndChecks.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FunAndChecks.Domain.Constants;
+
 namespace FunAndChecks.Controllers;
 
 /// <summary>Реакции и стикеры форума: читают все, меняет супер-админ.</summary>
@@ -33,29 +35,29 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
     public async Task<IActionResult> ReactionImage(int id, CancellationToken ct) => Image(await catalog.GetReactionImageAsync(id, ct));
 
     [HttpPost("api/admin/forum/reactions")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<ForumReactionTypeDto>> CreateReaction(SaveForumReactionRequest request, CancellationToken ct) =>
         Ok(await catalog.CreateReactionAsync(User.GetUserId(), request, ct));
 
     [HttpPut("api/admin/forum/reactions/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<ForumReactionTypeDto>> UpdateReaction(int id, SaveForumReactionRequest request, CancellationToken ct) =>
         Ok(await catalog.UpdateReactionAsync(User.GetUserId(), id, request, ct));
 
     [HttpPut("api/admin/forum/reactions/{id:int}/image")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     [RequestSizeLimit(UploadLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadLimit)]
     public async Task<ActionResult<ForumReactionTypeDto>> SetReactionImage(int id, IFormFile file, CancellationToken ct) =>
         Ok(await catalog.SetReactionImageAsync(User.GetUserId(), id, await ReadAsync(file, ct), ct));
 
     [HttpDelete("api/admin/forum/reactions/{id:int}/image")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<ForumReactionTypeDto>> RemoveReactionImage(int id, CancellationToken ct) =>
         Ok(await catalog.SetReactionImageAsync(User.GetUserId(), id, null, ct));
 
     [HttpDelete("api/admin/forum/reactions/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<IActionResult> DeleteReaction(int id, CancellationToken ct)
     {
         await catalog.DeleteReactionAsync(User.GetUserId(), id, ct);
@@ -63,7 +65,7 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
     }
 
     [HttpPut("api/admin/forum/reactions/order")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<IActionResult> ReorderReactions(ReorderForumItemsRequest request, CancellationToken ct)
     {
         await catalog.ReorderReactionsAsync(User.GetUserId(), request, ct);
@@ -71,22 +73,22 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
     }
 
     [HttpGet("api/admin/forum/sticker-packs")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<IReadOnlyList<ForumStickerPackDto>>> AllPacks(CancellationToken ct) =>
         Ok(await catalog.GetAllStickerPacksAsync(User.GetUserId(), ct));
 
     [HttpPost("api/admin/forum/sticker-packs")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<ForumStickerPackDto>> CreatePack(SaveForumStickerPackRequest request, CancellationToken ct) =>
         Ok(await catalog.CreateStickerPackAsync(User.GetUserId(), request, ct));
 
     [HttpPut("api/admin/forum/sticker-packs/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<ActionResult<ForumStickerPackDto>> UpdatePack(int id, SaveForumStickerPackRequest request, CancellationToken ct) =>
         Ok(await catalog.UpdateStickerPackAsync(User.GetUserId(), id, request, ct));
 
     [HttpDelete("api/admin/forum/sticker-packs/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<IActionResult> DeletePack(int id, CancellationToken ct)
     {
         await catalog.DeleteStickerPackAsync(User.GetUserId(), id, ct);
@@ -94,7 +96,7 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
     }
 
     [HttpPost("api/admin/forum/sticker-packs/{id:int}/stickers")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     [RequestSizeLimit(UploadLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = UploadLimit)]
     public async Task<ActionResult<ForumStickerDto>> AddSticker(int id, IFormFile file, [FromForm] string? name, CancellationToken ct) =>
@@ -102,7 +104,7 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
             await ReadAsync(file, ct), ct));
 
     [HttpPut("api/admin/forum/sticker-packs/{id:int}/order")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<IActionResult> ReorderStickers(int id, ReorderForumItemsRequest request, CancellationToken ct)
     {
         await catalog.ReorderStickersAsync(User.GetUserId(), id, request, ct);
@@ -110,7 +112,7 @@ public class ForumCatalogController(IForumCatalogService catalog) : ControllerBa
     }
 
     [HttpDelete("api/admin/forum/stickers/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.FORUM_CATALOG)]
     public async Task<IActionResult> DeleteSticker(int id, CancellationToken ct)
     {
         await catalog.DeleteStickerAsync(User.GetUserId(), id, ct);

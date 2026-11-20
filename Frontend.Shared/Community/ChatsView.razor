@@ -10,13 +10,16 @@
                 <MudMenu Icon="@Icons.Material.Outlined.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Size="Size.Small"
                          aria-label="@CommunityText.T("Ещё", "More")">
                     <MudMenuItem Href="/admin/forum/moderation" Icon="@Icons.Material.Outlined.Flag">@CommunityText.T("Жалобы и ограничения", "Reports and restrictions")</MudMenuItem>
-                    @if (_isSuper)
-                    {
-                        <MudMenuItem Icon="@Icons.Material.Outlined.Campaign" OnClick="() => _sendingAnnouncement = true">
+                    <PermissionGate Allowed="_canAnnounce" Context="denied">
+                        <MudMenuItem Disabled="denied" Icon="@Icons.Material.Outlined.Campaign" OnClick="() => _sendingAnnouncement = true">
                             @CommunityText.T("Сделать объявление", "Make an announcement")
                         </MudMenuItem>
-                        <MudMenuItem Href="/admin/forum/stickers" Icon="@Icons.Material.Outlined.EmojiEmotions">@CommunityText.T("Реакции и стикеры", "Reactions and stickers")</MudMenuItem>
-                    }
+                    </PermissionGate>
+                    <PermissionGate Allowed="_canManageCatalog" Context="denied">
+                        <MudMenuItem Disabled="denied" Href="/admin/forum/stickers" Icon="@Icons.Material.Outlined.EmojiEmotions">
+                            @CommunityText.T("Реакции и стикеры", "Reactions and stickers")
+                        </MudMenuItem>
+                    </PermissionGate>
                 </MudMenu>
             }
             <button type="button" class="fc-chats-new" @onclick="() => _creating = true" aria-label="@CommunityText.T("Новый чат", "New chat")" title="@CommunityText.T("Новый чат", "New chat")">
@@ -112,7 +115,7 @@
 {
     <NewChatDialog IsAdmin="IsAdmin" Sections="CreatableSections" Close="() => _creating = false" Opened="ChatOpened" />
 }
-@if (IsAdmin && _isSuper && _sendingAnnouncement)
+@if (IsAdmin && _canAnnounce && _sendingAnnouncement)
 {
     <ForumAnnouncementDialog Close="() => _sendingAnnouncement = false" />
 }

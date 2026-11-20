@@ -5,6 +5,7 @@ using FunAndChecks.Application.Students;
 using FunAndChecks.Application.Queues;
 using FunAndChecks.Application.Results;
 using FunAndChecks.Domain.Entities;
+using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Enums;
 using FunAndChecks.Infrastructure.Caching;
 using FunAndChecks.Tests.Common;
@@ -23,7 +24,7 @@ public class StudentServiceTests : IDisposable
     private readonly IQueueNotifier _queueNotifier = Substitute.For<IQueueNotifier>();
 
     private StudentService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, ctx.Access(), new SetStudentColorRequestValidator(),
+        new(ctx, _identity, _cache, new AdminAccessService(ctx, new AdminPermissionService(ctx, _identity)), new SetStudentColorRequestValidator(),
             new FunAndChecks.Application.Students.Validators.UpdateStudentAccountRequestValidator(),
             _resultsNotifier, _queueNotifier, NullLogger<StudentService>.Instance);
 
@@ -278,7 +279,8 @@ public class StudentServiceTests : IDisposable
         var sut = CreateSut(ctx);
         var req = new UpdateStudentAccountRequest("NewFirst", "NewLast", group.Id, "new@test.com", "newpass");
 
-        await sut.UpdateStudentAccountAsync(Guid.NewGuid(), student.Id, req);
+        Guid actorId = await SeedAccountManagerAsync(ctx);
+        await sut.UpdateStudentAccountAsync(actorId, student.Id, req);
 
         var updated = await ctx.Students.FindAsync(student.Id);
         updated!.FirstName.Should().Be("NewFirst");
@@ -301,7 +303,8 @@ public class StudentServiceTests : IDisposable
         var student = ctx.Student(oldGroup);
         await ctx.SaveChangesAsync();
 
-        await CreateSut(ctx).UpdateStudentAccountAsync(Guid.NewGuid(), student.Id,
+        Guid actorId = await SeedAccountManagerAsync(ctx);
+        await CreateSut(ctx).UpdateStudentAccountAsync(actorId, student.Id,
             new UpdateStudentAccountRequest("New", "Name", newGroup.Id, "new@test.com", null));
 
         _cache.Received(1).Invalidate(oldSubject.Id);
@@ -318,6 +321,16 @@ public class StudentServiceTests : IDisposable
         var act = async () => await sut.UpdateStudentAccountAsync(Guid.NewGuid(), Guid.NewGuid(), req);
 
         await act.Should().ThrowAsync<FunAndChecks.Application.Common.Exceptions.NotFoundException>().WithMessage("Group not found.");
+    }
+
+    private async Task<Guid> SeedAccountManagerAsync(Infrastructure.Persistence.ApplicationDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        Admin actor = db.Admin();
+        db.AdminPermissionGrants.Add(new AdminPermissionGrant { AdminId = actor.Id, Key = AdminPermissions.STUDENT_ACCOUNTS });
+        await db.SaveChangesAsync(cancellationToken);
+        _identity.GetCurrentRolesAsync(actor.Id, Arg.Any<CancellationToken>()).Returns([Roles.Admin]);
+        return actor.Id;
     }
 
     public void Dispose() => _db.Dispose();

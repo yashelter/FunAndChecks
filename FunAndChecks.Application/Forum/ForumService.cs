@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Attachments;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
@@ -46,6 +47,7 @@ public partial class ForumService(
     IApplicationDbContext db,
     IForumAccess access,
     IIdentityService identity,
+    IAdminPermissionService permissions,
     IAttachmentUrlSigner signer,
     INotificationService notifications,
     IForumNotifier forumNotifier,
@@ -59,11 +61,7 @@ public partial class ForumService(
 
     public async Task SendAnnouncementAsync(Guid userId, CreateForumAnnouncementRequest request, CancellationToken ct = default)
     {
-        IReadOnlyCollection<string> roles = await identity.GetCurrentRolesAsync(userId, ct);
-        if (!roles.Contains(Roles.SuperAdmin))
-        {
-            throw new ForbiddenException("Only a super admin can send a system announcement.", "forum.super_admin_required");
-        }
+        await permissions.EnsureAsync(userId, AdminPermissions.ANNOUNCEMENTS, ct);
 
         if (string.IsNullOrWhiteSpace(request.Text) || request.Text.Length > ANNOUNCEMENT_MAX_LENGTH)
         {
@@ -571,6 +569,8 @@ public partial class ForumService(
         var result = (await db.AdminSubjectAccesses.Where(a => subjects.Contains(a.SubjectId) && !a.IsRestricted)
             .Select(a => a.AdminId).Distinct().ToListAsync(ct)).ToHashSet();
         result.UnionWith(await identity.GetUserIdsInRoleAsync(Roles.SuperAdmin, ct));
+        result.UnionWith(await db.AdminPermissionGrants.Where(grant => grant.Key == AdminPermissions.ALL_SUBJECTS)
+            .Select(grant => grant.AdminId).ToListAsync(ct));
         var groupId = await db.Students.Where(s => s.Id == viewer.UserId).Select(s => s.GroupId).FirstOrDefaultAsync(ct);
         if (groupId is not null)
             result.UnionWith(await db.Students.Where(s => s.GroupId == groupId && s.IsActive).Select(s => s.Id).ToListAsync(ct));

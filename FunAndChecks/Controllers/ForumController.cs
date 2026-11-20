@@ -12,7 +12,7 @@ namespace FunAndChecks.Controllers;
 public class ForumController(IForumService forum, IForumModerationService moderation) : ControllerBase
 {
     [HttpPost("api/forum/announcements")]
-    [Authorize(Roles = Roles.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ANNOUNCEMENTS)]
     [EnableRateLimiting(RateLimitPolicies.ForumWrite)]
     public async Task<IActionResult> SendAnnouncementAsync(CreateForumAnnouncementRequest request, CancellationToken ct)
     {

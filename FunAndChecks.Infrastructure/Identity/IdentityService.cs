@@ -2,6 +2,7 @@ using FunAndChecks.Application.Common.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using FunAndChecks.Infrastructure.Persistence;
+using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Students;
 using FunAndChecks.Domain.Constants;
@@ -55,13 +56,16 @@ public class IdentityService(
     {
         var user = await userManager.FindByIdAsync(id.ToString());
         if (user != null)
-            await userManager.DeleteAsync(user);
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureSucceeded(await userManager.DeleteAsync(user), "Account");
+        }
     }
 
     public async Task<UserAccountPageDto> GetNonAdminAccountsAsync(Guid actingAdminId, string? query,
         int page, int pageSize, UserAccountStatus? status = null, CancellationToken cancellationToken = default)
     {
-        await EnsureSuperAdminAsync(actingAdminId, cancellationToken);
+        await EnsureStudentAccountsPermissionAsync(actingAdminId, cancellationToken);
         if (page < 1 || pageSize is < 1 or > 100 || page > int.MaxValue / pageSize)
             throw new FluentValidation.ValidationException("Page must be positive and page size must be between 1 and 100.");
 
@@ -107,7 +111,7 @@ public class IdentityService(
     public Task DeleteNonAdminAccountAsync(Guid actingAdminId, Guid userId, CancellationToken cancellationToken = default) =>
         dbContext.ExecuteSerializableAsync(async ct =>
         {
-            await EnsureSuperAdminAsync(actingAdminId, ct);
+            await EnsureStudentAccountsPermissionAsync(actingAdminId, ct);
             var isProtected = await dbContext.Admins.AnyAsync(a => a.Id == userId, ct) ||
                 await dbContext.UserRoles.AnyAsync(ur => ur.UserId == userId && dbContext.Roles.Any(r =>
                     r.Id == ur.RoleId && (r.Name == Roles.Admin || r.Name == Roles.SuperAdmin)), ct);
@@ -120,13 +124,8 @@ public class IdentityService(
             EnsureSucceeded(deleted, "Account");
         }, cancellationToken);
 
-    private async Task EnsureSuperAdminAsync(Guid actingAdminId, CancellationToken cancellationToken)
-    {
-        var allowed = await dbContext.UserRoles.AnyAsync(ur => ur.UserId == actingAdminId &&
-            dbContext.Roles.Any(r => r.Id == ur.RoleId && r.Name == Roles.SuperAdmin), cancellationToken);
-        if (!allowed)
-            throw new ForbiddenException("Only a super administrator can manage user accounts.");
-    }
+    private Task EnsureStudentAccountsPermissionAsync(Guid actingAdminId, CancellationToken cancellationToken) =>
+        AdminPermissionService.EnsureAsync(dbContext, this, actingAdminId, AdminPermissions.STUDENT_ACCOUNTS, cancellationToken);
 
     public async Task<AccountInfo?> FindByEmailAsync(string email)
     {

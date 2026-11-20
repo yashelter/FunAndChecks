@@ -1,5 +1,6 @@
 using FluentAssertions;
 using FunAndChecks.Application.Admins;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Domain.Constants;
@@ -17,8 +18,14 @@ public class AdminServiceTests : IDisposable
     private readonly IIdentityService _identity = Substitute.For<IIdentityService>();
     private readonly IResultsCacheService _cache = Substitute.For<IResultsCacheService>();
 
-    private AdminService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx) =>
-        new(ctx, _identity, _cache, new CreateAdminRequestValidator(), new UpdateAdminRequestValidator());
+    private AdminService CreateSut(Infrastructure.Persistence.ApplicationDbContext ctx)
+    {
+        IAdminPermissionService permissions = Substitute.For<IAdminPermissionService>();
+        permissions.ManageAsync(Arg.Any<Guid>(), Arg.Any<Guid?>(), Arg.Any<bool>(),
+                Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task>>()(call.Arg<CancellationToken>()));
+        return new AdminService(ctx, _identity, _cache, permissions, new CreateAdminRequestValidator(), new UpdateAdminRequestValidator());
+    }
 
     [Fact]
     public async Task Create_Valid_CreatesProfileWithConfirmedEmail()
@@ -36,7 +43,7 @@ public class AdminServiceTests : IDisposable
         await using var ctx = _db.NewContext();
         var sut = CreateSut(ctx);
 
-        var id = await sut.CreateAsync(new CreateAdminRequest("Super", "Admin", "sa@example.com", "secret", "#123456", "S", true));
+        var id = await sut.CreateAsync(Guid.NewGuid(), new CreateAdminRequest("Super", "Admin", "sa@example.com", "secret", "#123456", "S", true));
 
         (await ctx.Admins.FindAsync(id)).Should().NotBeNull();
         await _identity.Received(1).CreateAccountAsync(id, "sa@example.com", "secret",

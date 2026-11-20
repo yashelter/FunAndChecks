@@ -3,6 +3,7 @@ using FunAndChecks.Application.Admins;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Students;
+using FunAndChecks.Domain.Constants;
 using FunAndChecks.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -98,6 +99,7 @@ public class GroupService(
 
     public async Task DeleteAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
     {
+        await accessService.EnsurePermissionAsync(adminId, AdminPermissions.DELETE_CATALOG, cancellationToken);
         await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
         var group = await db.Groups.FindAsync([groupId], cancellationToken)
                     ?? throw new NotFoundException($"Group with ID {groupId} not found.");
@@ -158,10 +160,10 @@ public class GroupService(
     public async Task<List<int>> GetSubjectIdsAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default)
     {
         await accessService.EnsureGroupAllowedAsync(adminId, groupId, cancellationToken);
-        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
+        bool allSubjects = await accessService.HasAllSubjectsAsync(adminId, cancellationToken);
         return await db.GroupSubjects
             .Where(gs => gs.GroupId == groupId)
-            .Where(gs => isSuperAdmin
+            .Where(gs => allSubjects
                 ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && a.IsHidden)
                 : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && !a.IsRestricted && !a.IsHidden))
             .Select(gs => gs.SubjectId)
@@ -170,10 +172,10 @@ public class GroupService(
 
     public async Task<List<GroupSubjectsDto>> GetSubjectLinksAsync(Guid adminId, CancellationToken cancellationToken = default)
     {
-        var isSuperAdmin = await accessService.IsSuperAdminAsync(adminId, cancellationToken);
+        bool allSubjects = await accessService.HasAllSubjectsAsync(adminId, cancellationToken);
         var links = await db.GroupSubjects
             .Where(gs => !db.AdminGroupAccesses.Any(a => a.AdminId == adminId && a.GroupId == gs.GroupId && (a.IsRestricted || a.IsHidden)))
-            .Where(gs => isSuperAdmin
+            .Where(gs => allSubjects
                 ? !db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && a.IsHidden)
                 : db.AdminSubjectAccesses.Any(a => a.AdminId == adminId && a.SubjectId == gs.SubjectId && !a.IsRestricted && !a.IsHidden))
             .Select(gs => new { gs.GroupId, gs.SubjectId })

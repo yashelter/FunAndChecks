@@ -1,17 +1,23 @@
 @inject IStringLocalizer<AppStrings> Loc
+@inject AdminPermissionReader PermissionReader
 
 <div class="fc-page-heading fc-grading-heading">
     <MudText Typo="Typo.h4" HtmlTag="h1">@Loc["Grading_Title"]</MudText>
-    <AuthorizeView Roles="@Roles.SuperAdmin">
-        <Authorized>
+    @if (_canManageAccounts)
+    {
             <nav class="fc-grading-tabs" aria-label="@Loc["Grading_Title"]">
                 <a href="/admin/grading" aria-current="@(Accounts ? null : "page")">@Loc["Dashboard_Students"]</a>
                 <a href="/admin/student-accounts" aria-current="@(Accounts ? "page" : null)">@Loc["Grading_Accounts"]</a>
             </nav>
-        </Authorized>
-    </AuthorizeView>
+    }
 </div>
 
 @code {
+    private bool _canManageAccounts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _canManageAccounts = (await PermissionReader.ReadAsync())?.Has(SpecialPermissions.STUDENT_ACCOUNTS) == true;
+    }
     [Parameter] public bool Accounts { get; set; }
 }

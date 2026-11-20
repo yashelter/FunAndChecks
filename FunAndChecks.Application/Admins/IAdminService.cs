@@ -10,7 +10,7 @@ public interface IAdminService
     Task<List<AdminDetailsDto>> GetDetailsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Создаёт админа (и при необходимости супер-админа). Почта сразу подтверждена.</summary>
-    Task<Guid> CreateAsync(CreateAdminRequest request, CancellationToken cancellationToken = default);
+    Task<Guid> CreateAsync(Guid actingAdminId, CreateAdminRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Меняет профиль и, если переданы, почту/пароль и роль супер-админа.

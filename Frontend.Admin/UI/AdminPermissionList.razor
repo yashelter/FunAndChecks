@@ -1,0 +1,38 @@
+@namespace Frontend.Admin.UI
+@inject IStringLocalizer<AppStrings> Loc
+
+<MudText Typo="Typo.body2">@Loc["AdminPermissions_Baseline"]</MudText>
+@if (Access.IsSuperAdmin)
+{
+    <MudText Typo="Typo.subtitle2">@Loc["AdminPermissions_AllFuture"]</MudText>
+    <ul>
+        @foreach (string key in Access.PermissionCatalog ?? [])
+        {
+            <li>@Loc[$"AdminPermission.{key}"]</li>
+        }
+    </ul>
+}
+@if (!Access.IsSuperAdmin || Editable)
+{
+    @if (Access.IsSuperAdmin)
+    {
+        <MudText Typo="Typo.subtitle2">@Loc["AdminPermissions_AfterDemotion"]</MudText>
+    }
+    @foreach (string key in Access.PermissionCatalog ?? [])
+    {
+        <MudCheckBox T="bool" Value="@Selected.Contains(key)" ValueChanged="@(value => Changed.InvokeAsync((key, value)))"
+                     Disabled="@(!Editable || Busy)" Label="@Loc[$"AdminPermission.{key}"]" />
+        @if (key == SpecialPermissions.ADMINS_MANAGE && Editable)
+        {
+            <MudText Typo="Typo.caption">@Loc["AdminPermissions_ManageHint"]</MudText>
+        }
+    }
+}
+
+@code {
+    [Parameter, EditorRequired] public AdminAccessDto Access { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyCollection<string> Selected { get; set; } = [];
+    [Parameter] public bool Editable { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<(string Key, bool Selected)> Changed { get; set; }
+}

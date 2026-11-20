@@ -33,6 +33,8 @@ public static class HttpResponseExtensions
         new Dictionary<string, (string, string[])>(StringComparer.OrdinalIgnoreCase)
         {
             ["auth.unauthorized"] = ("Error_Unauthorized", []),
+            ["access.permission_required"] = ("Error_Forbidden", []),
+            ["admin.permissions_changed"] = ("AdminPermissions_Changed", []),
             ["access.forbidden"] = ("Error_Forbidden", []),
             ["access.subject_restricted"] = ("Error_SubjectRestricted", ["subjectId"]),
             ["access.group_restricted"] = ("Error_GroupRestricted", ["groupId"]),

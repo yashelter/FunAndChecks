@@ -25,10 +25,17 @@ public class QueueService(
 
     private async Task<IQueryable<QueueEvent>> VisibleEventsAsync(Guid? adminId, CancellationToken cancellationToken)
     {
-        if (!adminId.HasValue || await accessService.IsSuperAdminAsync(adminId.Value, cancellationToken))
+        if (adminId is not Guid actorId)
+        {
             return db.QueueEvents;
-        return db.QueueEvents.Where(qe => db.AdminSubjectAccesses.Any(
-            a => a.AdminId == adminId && a.SubjectId == qe.SubjectId && !a.IsRestricted));
+        }
+
+        bool allSubjects = await accessService.HasAllSubjectsAsync(actorId, cancellationToken);
+        return db.QueueEvents.Where(queue =>
+            !db.AdminSubjectAccesses.Any(access => access.AdminId == actorId &&
+                access.SubjectId == queue.SubjectId && access.IsHidden) &&
+            (allSubjects || db.AdminSubjectAccesses.Any(access => access.AdminId == actorId &&
+                access.SubjectId == queue.SubjectId && !access.IsRestricted)));
     }
 
     public Task<List<QueueEventDto>> GetActiveEventsAsync(Guid? adminId = null, CancellationToken cancellationToken = default) =>

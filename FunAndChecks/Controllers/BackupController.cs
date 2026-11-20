@@ -1,23 +1,27 @@
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Backups;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using FunAndChecks.Domain.Constants;
+
 namespace FunAndChecks.Controllers;
 
-/// <summary>Резервное копирование БД (только супер-админ).</summary>
+/// <summary>Database backup management and restore.</summary>
 [ApiController]
 [Route("api/admin/backup")]
-[Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+[Authorize]
 public class BackupController(IDatabaseBackupService backupService, IDatabaseRestoreService restoreService,
-    IBackupDownloadLinks downloadLinks) : ControllerBase
+    IBackupDownloadLinks downloadLinks, MaintenanceModeState maintenance, IAdminPermissionService permissions) : ControllerBase
 {
     /// <summary>Предел загрузки бэкапа (дамп + архив вложений).</summary>
     internal const long MaxUploadBytes = 2L * 1024 * 1024 * 1024;
 
     /// <summary>Список завершённых резервных копий, начиная с самой новой.</summary>
     [HttpGet]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [ProducesResponseType<IReadOnlyList<BackupFileDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<BackupFileDto>>> List(CancellationToken cancellationToken) =>
         Ok(await backupService.ListAsync(cancellationToken));
@@ -25,13 +29,24 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
     /// <summary>Состояние текущего или последнего восстановления (доступно и во время восстановления).</summary>
     [HttpGet("restore/status")]
     [ProducesResponseType<RestoreStatusDto>(StatusCodes.Status200OK)]
-    public ActionResult<RestoreStatusDto> RestoreStatus() => Ok(restoreService.GetStatus());
+    public async Task<ActionResult<RestoreStatusDto>> RestoreStatusAsync(CancellationToken cancellationToken)
+    {
+        Guid userId = User.GetUserId();
+        if (maintenance.IsActive)
+        {
+            RestoreStatusDto? status = restoreService.GetStatusForInitiator(userId);
+            return status is null ? Forbid() : Ok(status);
+        }
+
+        return await permissions.IsSuperAdminAsync(userId, cancellationToken) ? Ok(restoreService.GetStatus()) : Forbid();
+    }
 
     /// <summary>
     /// Загружает бэкап с компьютера: дамп pg_dump (-Fc) и необязательный архив вложений.
     /// Файлы появляются в списке под новым именем; восстановление запускается отдельно.
     /// </summary>
     [HttpPost("upload")]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [RequestSizeLimit(MaxUploadBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     [ProducesResponseType<BackupFileDto>(StatusCodes.Status200OK)]
@@ -48,18 +63,20 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
     /// Перед заменой автоматически создаётся страховочный бэкап. Ход — через GET restore/status.
     /// </summary>
     [HttpPost("{fileName}/restore")]
+    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
     [ProducesResponseType<RestoreStatusDto>(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public ActionResult<RestoreStatusDto> Restore(string fileName) =>
-        Accepted(restoreService.Start(fileName));
+        Accepted(restoreService.Start(fileName, User.GetUserId()));
 
     /// <summary>
     /// Выдаёт одноразовую по смыслу (несколько минут) подписанную ссылку: по ней браузер скачивает файл сам,
     /// потоком на диск, без буферизации всего дампа во вкладке.
     /// </summary>
     [HttpPost("{fileName}/download-link")]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [ProducesResponseType<BackupDownloadLinkDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<BackupDownloadLinkDto>> DownloadLink(string fileName, CancellationToken cancellationToken)
@@ -86,6 +103,7 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
 
     /// <summary>Скачивает выбранную резервную копию.</summary>
     [HttpGet("{fileName}")]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -98,6 +116,7 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
 
     /// <summary>Удаляет выбранную резервную копию с сервера.</summary>
     [HttpDelete("{fileName}")]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -109,6 +128,7 @@ public class BackupController(IDatabaseBackupService backupService, IDatabaseRes
 
     /// <summary>Создаёт дамп БД в настроенном каталоге и возвращает путь к файлу.</summary>
     [HttpPost]
+    [Authorize(Policy = AdminPermissions.BACKUPS)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> Create(CancellationToken cancellationToken)
     {

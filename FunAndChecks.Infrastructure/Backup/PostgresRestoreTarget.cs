@@ -258,8 +258,16 @@ public sealed partial class PostgresRestoreTarget(
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         await db.Database.MigrateAsync(cancellationToken);
-        // Сидер возвращает начальных супер-админов: после отката к старому дампу доступ не теряется.
-        await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
+        await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync(false, cancellationToken);
+        FunAndChecks.Application.Common.Interfaces.IIdentityService identity = scope.ServiceProvider
+            .GetRequiredService<FunAndChecks.Application.Common.Interfaces.IIdentityService>();
+        IReadOnlyCollection<Guid> superAdmins = await identity.GetUserIdsInRoleAsync(
+            FunAndChecks.Domain.Constants.Roles.SuperAdmin, cancellationToken);
+        if (!await db.Admins.AnyAsync(admin => superAdmins.Contains(admin.Id) &&
+            db.Users.Any(user => user.Id == admin.Id && user.EmailConfirmed), cancellationToken))
+        {
+            throw new InvalidOperationException("The restored database has no active super admin.");
+        }
     }
 
     public async Task TerminateOtherSessionsAsync(CancellationToken cancellationToken)

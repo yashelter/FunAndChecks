@@ -37,7 +37,17 @@ public record AdminAccessDto(
     List<int> RestrictedGroupIds,
     List<int> HiddenSubjectIds,
     List<int> HiddenGroupIds,
-    List<int>? AllowedSubjectIds = null);
+    List<int>? AllowedSubjectIds = null,
+    List<int>? ExplicitSubjectIds = null,
+    List<string>? PermissionCatalog = null,
+    List<string>? ExplicitPermissions = null,
+    List<string>? EffectivePermissions = null,
+    bool IsSuperAdmin = false)
+{
+    public bool Has(string permission) => EffectivePermissions?.Contains(permission) == true;
+}
+
+public record ReplaceSpecialPermissionsRequest(List<string> Keys, List<string> ExpectedKeys);
 
 public record SetRestrictionRequest(bool Restricted);
 

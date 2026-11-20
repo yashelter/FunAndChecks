@@ -11,6 +11,7 @@ public interface IApplicationDbContext
 {
     DbSet<Student> Students { get; }
     DbSet<Admin> Admins { get; }
+    DbSet<AdminPermissionGrant> AdminPermissionGrants { get; }
     DbSet<Group> Groups { get; }
     DbSet<Subject> Subjects { get; }
     DbSet<CourseTask> Tasks { get; }

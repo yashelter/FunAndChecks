@@ -28,7 +28,9 @@ public interface IAdminAccessService
     Task<bool> IsSubjectRestrictedAsync(Guid adminId, int subjectId, CancellationToken cancellationToken = default);
     Task<bool> IsGroupRestrictedAsync(Guid adminId, int groupId, CancellationToken cancellationToken = default);
     /// <summary>Актуальная роль супер-администратора в Identity, без доверия устаревшему JWT.</summary>
-    Task<bool> IsSuperAdminAsync(Guid adminId, CancellationToken cancellationToken = default);
+    Task EnsurePermissionAsync(Guid adminId, string key, CancellationToken cancellationToken = default);
+
+    Task<bool> HasAllSubjectsAsync(Guid adminId, CancellationToken cancellationToken = default);
 
     // --- Глобальные ограничения (только супер-админ) ---
     Task SetSubjectRestrictedAsync(Guid adminId, int subjectId, bool restricted, CancellationToken cancellationToken = default);

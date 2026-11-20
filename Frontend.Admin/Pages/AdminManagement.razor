@@ -1,13 +1,16 @@
 @page "/admin/admins"
 @layout AdminLayout
-@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@attribute [Authorize(Roles = Roles.Admin)]
 @using Frontend.Admin.UI
 
 <PageTitle>@Loc["AdminMgmt_PageTitle"]</PageTitle>
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" OnBeforeInternalNavigation="OnBeforeInternalNavigationAsync" />
 
 <div class="fc-page-heading"><div><span class="fc-eyebrow">@Loc["AdminMgmt_Eyebrow"]</span><MudText Typo="Typo.h4">@Loc["AdminMgmt_Title"]</MudText></div>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.PersonAdd" OnClick="OpenCreateAsync">@Loc["AdminMgmt_NewAdmin"]</MudButton>
+    <PermissionGate Allowed="_canManage" Context="denied">
+        <MudButton Disabled="denied" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.PersonAdd"
+                   OnClick="OpenCreateAsync">@Loc["AdminMgmt_NewAdmin"]</MudButton>
+    </PermissionGate>
 </div>
 
 <div class="fc-admin-management">
@@ -61,7 +64,7 @@
             <div class="fc-admin-detail">
                 @if (SelectedAdmin is { } selectedAdmin)
                 {
-                    <AdminEditorPanel @ref="_editor" Admin="selectedAdmin" CurrentUserId="_currentUserId"
+                    <AdminEditorPanel @ref="_editor" Admin="selectedAdmin" CurrentUserId="_currentUserId" ActorIsSuperAdmin="_actorIsSuperAdmin"
                                       OnSaved="OnAdminSavedAsync" OnDeleted="OnAdminDeletedAsync" />
                 }
                 else

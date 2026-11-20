@@ -142,8 +142,11 @@ public partial class StudentGrading
         catch (Exception ex) when (ex is JSException or JsonException) { _groups = []; }
     }
 
+    private bool _canManageAccounts;
+
     protected override async Task OnInitializedAsync()
     {
+        _canManageAccounts = (await PermissionReader.ReadAsync())?.Has(FunAndChecks.Domain.Constants.AdminPermissions.STUDENT_ACCOUNTS) == true;
         try
         {
             _subjects = await Me.GetVisibleSubjectsAsync();

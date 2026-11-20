@@ -173,7 +173,7 @@ public class BackupFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task MaintenanceMode_BlocksApi_ButNotRestoreStatus()
+    public async Task MaintenanceMode_BlocksApi_AndStatusForNonInitiatorAsync()
     {
         var tokens = await SeedTokensAsync();
         using var super = Client(tokens.Super);
@@ -185,7 +185,7 @@ public class BackupFlowTests : IDisposable
             blocked.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
             (await blocked.Content.ReadAsStringAsync()).Should().Contain("maintenance.restore_in_progress");
             (await super.GetAsync("/api/subjects")).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
-            (await super.GetAsync("/api/admin/backup/restore/status")).StatusCode.Should().Be(HttpStatusCode.OK);
+            (await super.GetAsync("/api/admin/backup/restore/status")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         }
         finally
         {

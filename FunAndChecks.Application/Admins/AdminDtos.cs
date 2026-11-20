@@ -37,7 +37,14 @@ public record AdminAccessDto(
     List<int> RestrictedGroupIds,
     List<int> HiddenSubjectIds,
     List<int> HiddenGroupIds,
-    List<int>? AllowedSubjectIds = null);
+    List<int>? AllowedSubjectIds = null,
+    List<int>? ExplicitSubjectIds = null,
+    List<string>? PermissionCatalog = null,
+    List<string>? ExplicitPermissions = null,
+    List<string>? EffectivePermissions = null,
+    bool IsSuperAdmin = false);
+
+public record ReplaceSpecialPermissionsRequest(List<string> Keys, List<string> ExpectedKeys);
 
 /// <summary>Глобальный запрет супер-админа на работу с предметом/группой.</summary>
 public record SetRestrictionRequest(bool Restricted);

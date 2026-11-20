@@ -1,3 +1,4 @@
+@inject AdminPermissionReader PermissionReader
 @page "/admin/grading"
 @layout AdminLayout
 @attribute [Authorize(Roles = Roles.Admin)]
@@ -109,12 +110,10 @@
                         </td>
                         <td>
                             <div class="fc-grading-actions">
-                                <AuthorizeView Roles="@Roles.SuperAdmin">
-                                    <Authorized>
-                                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" OnClick="@(() => EditAsync(student))"
+                                <PermissionGate Allowed="_canManageAccounts" Context="denied">
+                                        <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Disabled="denied" OnClick="@(() => EditAsync(student))"
                                                        aria-label="@Loc["StudentGrading_EditProfileTitle"]" />
-                                    </Authorized>
-                                </AuthorizeView>
+                                </PermissionGate>
                                 @if (IsGroupRestricted(student))
                                 {
                                     <span class="fc-grading-restricted">

@@ -15,14 +15,14 @@ public class AchievementsController(IAchievementService achievements) : Controll
     private const string DRAFT_MEDIA_ROUTE = "api/admin/achievements/drafts/{draftId:guid}/media/{slot}";
 
     [HttpPut(DRAFT_MEDIA_ROUTE)]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     [EnableRateLimiting(RateLimitPolicies.MediaProcessing)]
     public async Task<ActionResult<MediaAssetDto>> StageDraftMediaAsync(Guid draftId, AchievementMediaSlot slot,
         SetAchievementMediaRequest request, CancellationToken ct) =>
         Ok(await achievements.StageDraftMediaAsync(User.GetUserId(), draftId, slot, request, ct));
 
     [HttpGet(DRAFT_MEDIA_ROUTE)]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<IActionResult> GetDraftMediaAsync(Guid draftId, AchievementMediaSlot slot,
         [FromQuery] bool poster = true, [FromQuery] Guid? uploadId = null, CancellationToken ct = default)
     {
@@ -33,7 +33,7 @@ public class AchievementsController(IAchievementService achievements) : Controll
     }
 
     [HttpDelete(DRAFT_MEDIA_ROUTE)]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<IActionResult> RemoveDraftMediaAsync(Guid draftId, AchievementMediaSlot slot, CancellationToken ct)
     {
         await achievements.RemoveDraftMediaAsync(User.GetUserId(), draftId, slot, ct);
@@ -78,13 +78,13 @@ public class AchievementsController(IAchievementService achievements) : Controll
         Ok(await achievements.GetForEditAsync(User.GetUserId(), id, ct));
 
     [HttpPut("api/admin/achievements/{id:int}/media/{slot}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<ActionResult<MediaAssetDto>> SetMedia(int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot,
         SetAchievementMediaRequest request, CancellationToken ct) =>
         Ok(await achievements.SetMediaAsync(User.GetUserId(), id, slot, request, ct));
 
     [HttpDelete("api/admin/achievements/{id:int}/media/{slot}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<IActionResult> RemoveMedia(int id, FunAndChecks.Domain.Enums.AchievementMediaSlot slot, CancellationToken ct)
     {
         await achievements.RemoveMediaAsync(User.GetUserId(), id, slot, ct);
@@ -108,7 +108,7 @@ public class AchievementsController(IAchievementService achievements) : Controll
         Ok(await achievements.GetRecipientsAsync(id, page, pageSize, ct));
 
     [HttpPost("api/admin/achievements")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<ActionResult<AchievementDto>> Create(UpsertAchievementRequest request, CancellationToken ct)
     {
         var result = await achievements.CreateAsync(User.GetUserId(), request, ct);
@@ -116,12 +116,12 @@ public class AchievementsController(IAchievementService achievements) : Controll
     }
 
     [HttpPut("api/admin/achievements/{id:int}")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<ActionResult<AchievementDto>> Update(int id, UpsertAchievementRequest request, CancellationToken ct) =>
         Ok(await achievements.UpdateAsync(User.GetUserId(), id, request, ct));
 
     [HttpPut("api/admin/achievements/{id:int}/archive")]
-    [Authorize(Policy = AuthorizationPolicies.SuperAdmin)]
+    [Authorize(Policy = AdminPermissions.ACHIEVEMENT_CATALOG)]
     public async Task<IActionResult> Archive(int id, ArchiveAchievementRequest request, CancellationToken ct)
     {
         await achievements.ArchiveAsync(User.GetUserId(), id, request.Archived, ct);

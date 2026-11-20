@@ -2,6 +2,7 @@
 @using System.Globalization
 @implements IDisposable
 @inject ProfileApi Api
+@inject AdminPermissionReader PermissionReader
 @inject AuthenticationStateProvider Authentication
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
@@ -106,7 +107,7 @@ else if (_profile is not null)
     private UserProfileDto? _profile;
     private ProfileStatsDto? _stats;
     private AchievementAwardDto? _award;
-    private bool _mine, _admin, _superAdmin, _loading = true, _edit, _avatarEditor, _grant, _busy, _account;
+    private bool _mine, _admin, _canManageStudentAccounts, _loading = true, _edit, _avatarEditor, _grant, _busy, _account;
     private string? _error, _editError, _about, _github, _portfolio;
     private readonly CancellationTokenSource _life = new();
     private Guid? _routeUserId;
@@ -131,14 +132,14 @@ else if (_profile is not null)
             if (version != _loadVersion) return;
             Guid.TryParse(state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var viewerId);
             var admin = IsAdminLayout && (state.User.IsInRole(Frontend.Shared.Auth.Roles.Admin) || state.User.IsInRole(Frontend.Shared.Auth.Roles.SuperAdmin));
-            var superAdmin = IsAdminLayout && state.User.IsInRole(Frontend.Shared.Auth.Roles.SuperAdmin);
+            bool canManageStudentAccounts = admin && (await PermissionReader.ReadAsync(_life.Token))?.Has(SpecialPermissions.STUDENT_ACCOUNTS) == true;
             var mine = userId is null || userId == viewerId;
             // Статистика необязательна и грузится параллельно с профилем; её ошибка профиль не ломает.
             var statsTask = StatsOrNullAsync(mine ? null : userId);
             var profile = mine ? await Api.MineAsync(_life.Token) : await Api.GetProfileAsync(userId!.Value, _life.Token);
             var stats = await statsTask;
             if (version != _loadVersion || _life.IsCancellationRequested) return;
-            _admin = admin; _superAdmin = superAdmin; _mine = mine; _profile = profile; _stats = stats;
+            _admin = admin; _canManageStudentAccounts = canManageStudentAccounts; _mine = mine; _profile = profile; _stats = stats;
         }
         catch (ApiException ex) { if (version == _loadVersion) _error = ex.Message; }
         catch (OperationCanceledException) when (_life.IsCancellationRequested) { }
@@ -191,7 +192,7 @@ else if (_profile is not null)
     }
     private async Task RefreshAwardAsync() { _award = null; await LoadAsync(); }
     // Удалять можно только чужой профиль студента; сервер дополнительно запрещает удаление админов.
-    private bool CanDeleteStudent => _superAdmin && !_mine && _profile is { IsAdmin: false };
+    private bool CanDeleteStudent => _canManageStudentAccounts && !_mine && _profile is { IsAdmin: false };
     private async Task DeleteStudentAsync()
     {
         if (_profile is not { } profile) return;

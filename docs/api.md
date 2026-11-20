@@ -63,7 +63,7 @@ Application, возвращают результат. Composition root и middle
 | PUT | `/{studentId}/color` | 🛡 | Задать цвет заливки ячейки ФИО (null — убрать) |
 | GET | `/{studentId}/subjects/{subjectId}/tasks` | 🛡 | Задания предмета со статусами сдачи студента |
 | GET | `/{studentId}/subjects/{subjectId}/grades` | 🛡 | Баллы студента по оценочным колонкам |
-| PUT | `/{studentId}/account` | ⭐ | Редактировать профиль и аккаунт студента (ФИО, группа, email, пароль) → `204`; ошибки: `400` валидация, `404`, `409 account.email_taken` |
+| PUT | `/{studentId}/account` | `students.accounts.manage` | Редактировать профиль и аккаунт студента (ФИО, группа, email, пароль) → `204`; ошибки: `400` валидация, `404`, `409 account.email_taken` |
 
 ## Предметы — `/api/subjects`
 
@@ -73,7 +73,7 @@ Application, возвращают результат. Composition root и middle
 | GET | `/{subjectId}` | 🌐 | Предмет |
 | POST | `/` | 🛡 | Создать предмет → `201` |
 | PUT | `/{subjectId}` | 🛡 | Переименовать предмет |
-| DELETE | `/{subjectId}` | ⭐ | Удалить каскадно (задачи, история) → `204` |
+| DELETE | `/{subjectId}` | `catalog.delete` | Удалить каскадно (задачи, история) → `204` |
 | GET | `/{subjectId}/tasks` | 🛡 | Задачи предмета |
 | POST | `/{subjectId}/tasks` | 🛡 | Создать задачу → `201` |
 | GET | `/{subjectId}/students` | 🛡 | Студенты, чьи группы имеют доступ к предмету |
@@ -85,7 +85,7 @@ Application, возвращают результат. Composition root и middle
 | Метод | Путь | Доступ | Описание |
 |-------|------|--------|----------|
 | PUT | `/{taskId}` | 🛡 | Изменить задачу (название, описание, баллы) |
-| DELETE | `/{taskId}` | ⭐ | Удалить задачу каскадно с историей сдач → `204` |
+| DELETE | `/{taskId}` | `catalog.delete` | Удалить задачу каскадно с историей сдач → `204` |
 
 ## Оценки — `/api/grade-components` (🛡)
 
@@ -106,7 +106,7 @@ Application, возвращают результат. Composition root и middle
 | GET | `/{groupId}` | 🌐 | Группа |
 | POST | `/` | 🛡 | Создать группу → `201` |
 | PUT | `/{groupId}` | 🛡 | Переименовать группу → `200` |
-| DELETE | `/{groupId}` | ⭐ | Удалить (студенты остаются без группы) → `204` |
+| DELETE | `/{groupId}` | `catalog.delete` | Удалить (студенты остаются без группы) → `204` |
 | PUT | `/{groupId}/subjects/{subjectId}` | 🛡 | Дать группе доступ к предмету (идемпотентно) → `204` |
 | DELETE | `/{groupId}/subjects/{subjectId}` | 🛡 | Отозвать доступ (идемпотентно) → `204` |
 | GET | `/{groupId}/subject-ids` | 🛡 | Id предметов, доступных группе (для настройки доступа) |
@@ -175,21 +175,27 @@ Application, возвращают результат. Composition root и middle
 | Метод | Путь | Доступ | Описание |
 |-------|------|--------|----------|
 | GET | `/` | 🛡 | Список админов |
-| GET | `/details` | ⭐ | Список админов с почтой и признаком `IsSuperAdmin` (экран «Администраторы») |
-| POST | `/` | ⭐ | Создать админа → `201 {id}` |
-| PUT | `/{adminId}` | ⭐ | Обновить имя, цвет, букву; необязательные `Email`, `NewPassword`, `IsSuperAdmin` (`null` — не менять; смена почты/пароля/роли отзывает refresh-токены; снять роль с себя — `admin.cannot_demote_self`, с последнего суперадмина — `admin.last_superadmin`) → `204` |
-| DELETE | `/{adminId}` | ⭐ | Удалить админа (нельзя себя; нельзя с историей) → `204` |
-| GET | `/{adminId}/access` | ⭐ | Ограничения и скрытия админа |
-| PUT | `/{adminId}/subjects/{subjectId}/restriction` | ⭐ | Запретить/разрешить предмет админу → `204` |
-| PUT | `/{adminId}/groups/{groupId}/restriction` | ⭐ | Запретить/разрешить группу админу → `204` |
+| GET | `/details` | `admins.manage` | Список админов с почтой и признаком `IsSuperAdmin` (экран «Администраторы») |
+| POST | `/` | `admins.manage` | Создать админа → `201 {id}` |
+| PUT | `/{adminId}` | `admins.manage` | Обновить имя, цвет, букву; необязательные `Email`, `NewPassword`, `IsSuperAdmin` (`null` — не менять; смена почты/пароля/роли отзывает refresh-токены; снять роль с себя — `admin.cannot_demote_self`, с последнего суперадмина — `admin.last_superadmin`) → `204` |
+| DELETE | `/{adminId}` | `admins.manage` | Удалить админа (нельзя себя; нельзя с историей) → `204` |
+| GET | `/{adminId}/access` | `admins.manage` | Каталог, явные и эффективные права, ограничения и скрытия админа |
+| PUT | `/{adminId}/subjects/{subjectId}/restriction` | `admins.manage` | Запретить/разрешить предмет админу → `204` |
+| PUT | `/{adminId}/groups/{groupId}/restriction` | `admins.manage` | Запретить/разрешить группу админу → `204` |
 
-## Статистика — `/api/statistics` (⭐)
+| PUT | `/{adminId}/access/special-permissions` | `admins.manage` | Заменить явные особые права. Тело `{ keys, expectedKeys }`. Неизвестный ключ даёт `400`, устаревший набор — `409 admin.permissions_changed`. |
+
+`/api/me/access` и `/api/admins/{adminId}/access` возвращают каталог, явные и эффективные права, признак супер-админа и явно выданные предметы. Изменение учётки супер-админа и назначение этой роли доступны только супер-админу.
+
+## Статистика — `/api/statistics` (`statistics.read`)
 
 | Метод | Путь | Описание |
 |-------|------|----------|
 | GET | `/reviewers?subjectId=` | По каждому проверяющему: принятые и непринятые попытки (все, включая повторные; отменённые не считаются) и число разных студентов, завершённых им в очереди (`QueueEntry.FinishedByAdminId` — последний, кто вёл студента). Без `subjectId` — по всем предметам |
 
-## Бэкап БД — `/api/admin/backup` (⭐)
+## Бэкап БД — `/api/admin/backup`
+
+Работа с файлами требует `backups.manage`. Запуск восстановления и чтение его статуса требуют актуальной роли супер-админа. В техрежиме читать статус может инициатор операции с действительным JWT.
 
 | Метод | Путь | Описание |
 |-------|------|----------|

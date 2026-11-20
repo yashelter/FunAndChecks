@@ -148,10 +148,15 @@ builder.Services.AddMonitoringAuthentication(builder.Configuration);
 builder.Services.AddAuthentication()
     .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, MetricsScrapeHandler>(MetricsScrapeHandler.SchemeName, _ => { });
 
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminPermissionHandler>();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.SuperAdmin,
-        policy => policy.RequireRole(Roles.SuperAdmin));
+        policy => policy.RequireAuthenticatedUser().AddRequirements(new AdminPermissionRequirement(null)));
+    foreach (string key in AdminPermissions.All)
+    {
+        options.AddPolicy(key, policy => policy.RequireAuthenticatedUser().AddRequirements(new AdminPermissionRequirement(key)));
+    }
     options.AddPolicy(MetricsScrapeHandler.SchemeName, policy =>
         policy.AddAuthenticationSchemes(MetricsScrapeHandler.SchemeName).RequireAuthenticatedUser());
 });

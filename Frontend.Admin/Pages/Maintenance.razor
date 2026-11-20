@@ -1,6 +1,6 @@
 @page "/admin/maintenance"
 @layout AdminLayout
-@attribute [Authorize(Roles = Roles.SuperAdmin)]
+@attribute [Authorize(Roles = Roles.Admin)]
 @implements IDisposable
 
 <PageTitle>@Loc["Maintenance_PageTitle"]</PageTitle>
@@ -10,6 +10,10 @@
     @Loc["Maintenance_Intro"]
 </MudText>
 
+@if (_restoreStatusUnavailable)
+{
+    <MudAlert Severity="Severity.Warning">@Loc["Maintenance_RestoreStatusUnavailable"]</MudAlert>
+}
 <MudCard Elevation="0" Class="mt-4">
     <MudCardHeader><CardHeaderContent><MudText Typo="Typo.h6">@Loc["Maintenance_BackupTitle"]</MudText></CardHeaderContent></MudCardHeader>
     <MudCardContent>
@@ -21,7 +25,7 @@
     </MudCardContent>
     <MudCardActions>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Backup"
-                   OnClick="BackupAsync" Disabled="Busy">
+                   OnClick="BackupAsync" Disabled="@(Busy || !_canManageBackups)">
             @if (_backupRunning) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
             @Loc["Maintenance_BackupCreateButton"]
         </MudButton>
@@ -67,19 +71,19 @@
         <div class="fc-restore-upload">
             <label class="fc-restore-file">
                 <span>@Loc["Maintenance_RestoreDumpLabel"]</span>
-                <InputFile @key="_inputGeneration" OnChange="OnDumpSelected" accept=".dump" disabled="@Busy" />
+                <InputFile @key="_inputGeneration" OnChange="OnDumpSelected" accept=".dump" disabled="@(Busy || !_canManageBackups)" />
                 @if (_dumpFile is not null) { <span class="fc-muted">@_dumpFile.Name · @FormatSize(_dumpFile.Size)</span> }
             </label>
             <label class="fc-restore-file">
                 <span>@Loc["Maintenance_RestoreArchiveLabel"]</span>
-                <InputFile @key="_inputGeneration" OnChange="OnArchiveSelected" accept=".zip" disabled="@Busy" />
+                <InputFile @key="_inputGeneration" OnChange="OnArchiveSelected" accept=".zip" disabled="@(Busy || !_canManageBackups)" />
                 @if (_archiveFile is not null) { <span class="fc-muted">@_archiveFile.Name · @FormatSize(_archiveFile.Size)</span> }
             </label>
         </div>
     </MudCardContent>
     <MudCardActions>
         <MudButton Color="Color.Primary" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.UploadFile"
-                   OnClick="UploadAsync" Disabled="@(Busy || _dumpFile is null)">
+                   OnClick="UploadAsync" Disabled="@(Busy || !_canManageBackups || _dumpFile is null)">
             @if (_uploading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
             @Loc["Maintenance_RestoreUpload"]
         </MudButton>
@@ -89,7 +93,7 @@
 <section class="fc-panel fc-backup-list mt-4">
     <div class="fc-backup-heading">
         <div><MudText Typo="Typo.h6">@Loc["Maintenance_BackupListTitle"]</MudText><MudText Typo="Typo.caption" Class="fc-muted">@Loc["Maintenance_BackupCount", _backups.Count]</MudText></div>
-        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Refresh" Size="Size.Small" OnClick="LoadAsync" Disabled="Busy">@Loc["Maintenance_BackupRefresh"]</MudButton>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.Refresh" Size="Size.Small" OnClick="LoadAsync" Disabled="@(Busy || !_canManageBackups)">@Loc["Maintenance_BackupRefresh"]</MudButton>
     </div>
     @if (_loading)
     {
@@ -112,16 +116,16 @@
                     @if (context.FileName.EndsWith(".dump", StringComparison.OrdinalIgnoreCase))
                     {
                         <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.SettingsBackupRestore"
-                                   Disabled="Busy" OnClick="@(() => RestoreAsync(context.FileName))" aria-label="@Loc["Maintenance_RestoreLabel", context.FileName]">
+                                   Disabled="@(Busy || !_canRestore)" OnClick="@(() => RestoreAsync(context.FileName))" aria-label="@Loc["Maintenance_RestoreLabel", context.FileName]">
                             @Loc["Maintenance_Restore"]
                         </MudButton>
                     }
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="Busy" OnClick="@(() => DownloadAsync(context))" aria-label="@Loc["Maintenance_BackupDownloadLabel", context.FileName]">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="@(Busy || !_canManageBackups)" OnClick="@(() => DownloadAsync(context))" aria-label="@Loc["Maintenance_BackupDownloadLabel", context.FileName]">
                         @if (_busyFile == context.FileName && _downloading) { <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" /> }
                         @Loc["Maintenance_BackupDownload"]
                     </MudButton>
                     <MudTooltip Text="@Loc["Maintenance_BackupDelete"]">
-                        <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" Color="Color.Error" Disabled="Busy" OnClick="@(() => DeleteAsync(context))" aria-label="@Loc["Maintenance_BackupDeleteLabel", context.FileName]" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" Color="Color.Error" Disabled="@(Busy || !_canManageBackups)" OnClick="@(() => DeleteAsync(context))" aria-label="@Loc["Maintenance_BackupDeleteLabel", context.FileName]" />
                     </MudTooltip>
                 </div>
             </MudTd>

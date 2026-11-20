@@ -13,6 +13,7 @@ namespace Frontend.Admin.Pages;
 
 public partial class Maintenance
 {
+    [Inject] private AdminPermissionReader PermissionReader { get; set; } = null!;
     [Inject] private BackupApi Backup { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private IStringLocalizer<AppStrings> Loc { get; set; } = null!;
@@ -23,6 +24,7 @@ public partial class Maintenance
     [Inject] private NavigationManager Nav { get; set; } = null!;
 
     private bool _backupRunning;
+    private bool _canManageBackups, _canRestore, _restoreStatusUnavailable;
     private string? _lastBackupPath;
     private List<BackupFileDto> _backups = [];
     private bool _loading, _loadFailed, _downloading, _confirmingDelete;
@@ -39,16 +41,35 @@ public partial class Maintenance
 
     protected override async Task OnInitializedAsync()
     {
-        await Task.WhenAll(LoadAsync(), LoadRestoreStatusAsync());
+        await Task.WhenAll(LoadPermissionsAsync(_lifetime.Token), LoadRestoreStatusAsync());
+        if (_canManageBackups)
+        {
+            await LoadAsync();
+        }
         // Восстановление могло быть запущено раньше (другая вкладка, перезагрузка страницы).
         if (RestoreRunning) _ = PollRestoreAsync();
+    }
+
+    private async Task LoadPermissionsAsync(CancellationToken cancellationToken)
+    {
+        AdminAccessDto? permissions = await PermissionReader.ReadAsync(cancellationToken);
+        _canManageBackups = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.BACKUPS) == true;
+        _canRestore = permissions?.IsSuperAdmin == true;
     }
 
     private async Task LoadRestoreStatusAsync()
     {
         try { _restore = await Backup.GetRestoreStatusAsync(_lifetime.Token); }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (ApiException) { /* Статус — дополнительная информация, список бэкапов важнее. */ }
+        catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            _restoreStatusUnavailable = _canRestore;
+        }
+        catch (ApiException ex)
+        {
+            _restoreStatusUnavailable = true;
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
     }
 
     private void OnDumpSelected(InputFileChangeEventArgs args) => _dumpFile = args.File;
@@ -88,7 +109,7 @@ public partial class Maintenance
 
     private async Task RestoreAsync(string fileName)
     {
-        if (Busy || _lifetime.IsCancellationRequested) return;
+        if (Busy || !_canRestore || _lifetime.IsCancellationRequested) return;
         _confirmingRestore = true;
         bool confirmed;
         try
@@ -123,14 +144,18 @@ public partial class Maintenance
                 try { _restore = await Backup.GetRestoreStatusAsync(_lifetime.Token); }
                 catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
                 {
-                    // Сессия не пережила восстановление (пользователя нет в бэкапе) — дальше только вход заново.
-                    _restore = _restore! with { State = RestoreState.Succeeded };
+                    _restore = null;
+                    _restoreStatusUnavailable = true;
                     break;
                 }
                 catch (ApiException) { /* 503 и сбои сети во время восстановления ожидаемы — пробуем снова. */ }
                 await InvokeAsync(StateHasChanged);
             }
-            await LoadAsync();
+            await LoadPermissionsAsync(_lifetime.Token);
+            if (_canManageBackups)
+            {
+                await LoadAsync();
+            }
             if (_restore?.State == RestoreState.Succeeded) Snackbar.Add(Loc["Maintenance_RestoreDone"], Severity.Success);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }

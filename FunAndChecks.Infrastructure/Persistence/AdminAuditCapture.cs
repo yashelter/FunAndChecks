@@ -32,6 +32,7 @@ internal static class AdminAuditCapture
             [typeof(Variant)] = ("variant", ["Id", "VariantSetId", "Number", "Title", "Description"]),
             [typeof(VariantAssignment)] = ("variant_assignment", ["VariantSetId", "StudentId", "VariantId", "AssignedByAdminId", "SelfClaimed", "AssignedAt"]),
             [typeof(Student)] = ("student", ["Id", "FirstName", "LastName", "Color", "GroupId", "IsActive"]),
+            [typeof(AdminPermissionGrant)] = ("admin_permission", ["AdminId", "Key"]),
             [typeof(Admin)] = ("admin", ["Id", "FirstName", "LastName", "Color", "Letter"]),
             [typeof(AdminSubjectAccess)] = ("subject_permission", ["AdminId", "SubjectId", "IsRestricted", "IsHidden"]),
             [typeof(AdminGroupAccess)] = ("group_permission", ["AdminId", "GroupId", "IsRestricted", "IsHidden"]),

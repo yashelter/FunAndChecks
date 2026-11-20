@@ -1,4 +1,5 @@
 using FluentValidation;
+using FunAndChecks.Application.Admins.Interfaces;
 using FunAndChecks.Application.Common.Exceptions;
 using FunAndChecks.Application.Common.Interfaces;
 using FunAndChecks.Application.Profiles;
@@ -24,6 +25,7 @@ public class ForumModerationService(
     IApplicationDbContext db,
     IForumAccess access,
     IIdentityService identity,
+    IAdminPermissionService permissions,
     IValidator<ReportForumPostRequest> reportValidator,
     IValidator<BanForumUserRequest> banValidator,
     IForumNotifier? forumNotifier = null,
@@ -163,9 +165,12 @@ public class ForumModerationService(
 
     private async Task RequireCanRestrictAsync(ForumViewer viewer, Guid userId, CancellationToken ct)
     {
-        var roles = await identity.GetCurrentRolesAsync(userId, ct);
-        if ((roles.Contains(Roles.Admin) || roles.Contains(Roles.SuperAdmin)) && !viewer.IsSuperAdmin)
-            throw new ForbiddenException("Only a super administrator can restrict teachers.", "forum.ban_forbidden");
+        IReadOnlyCollection<string> roles = await identity.GetCurrentRolesAsync(userId, ct);
+        if ((roles.Contains(Roles.SuperAdmin) && !viewer.IsSuperAdmin) ||
+            (roles.Contains(Roles.Admin) && !await permissions.HasAsync(viewer.UserId, AdminPermissions.MODERATE_STAFF, ct)))
+        {
+            throw new ForbiddenException("You do not have permission to restrict this teacher.", "forum.ban_forbidden");
+        }
     }
 
     private async Task<ForumViewer> RequireAdminAsync(Guid adminId, CancellationToken ct)

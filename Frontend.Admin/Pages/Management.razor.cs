@@ -6,7 +6,6 @@ using Frontend.Shared.Models;
 using Frontend.Shared.Resources;
 using Frontend.Shared.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Localization;
 using Microsoft.JSInterop;
 using MudBlazor;
@@ -20,7 +19,7 @@ public partial class Management : IAsyncDisposable
     [Inject] private GradesApi Grades { get; set; } = null!;
     [Inject] private QueuesApi QueuesApi { get; set; } = null!;
     [Inject] private MeApi Me { get; set; } = null!;
-    [Inject] private AuthenticationStateProvider Authentication { get; set; } = null!;
+    [Inject] private AdminPermissionReader PermissionReader { get; set; } = null!;
     [Inject] private IDialogService DialogService { get; set; } = null!;
     [Inject] private ISnackbar Snackbar { get; set; } = null!;
     [Inject] private AttendanceApi Attendance { get; set; } = null!;
@@ -73,7 +72,9 @@ public partial class Management : IAsyncDisposable
     private List<ComponentRow> _components = [];
     private List<QueueRow> _queues = [];
     private bool _loading = true;
-    private bool _isSuperAdmin;
+    private bool _allSubjects;
+    private bool _canReadStatistics;
+    private bool _canDeleteCatalog;
     private string _section = "queues";
     private static readonly (string Id, string Label, string Icon)[] ManagementSections =
     [
@@ -89,7 +90,7 @@ public partial class Management : IAsyncDisposable
 
     /// <summary>Разделы, доступные текущему админу: статистика проверяющих — только суперадмину.</summary>
     private IEnumerable<(string Id, string Label, string Icon)> VisibleSections =>
-        ManagementSections.Where(section => section.Id != "statistics" || _isSuperAdmin);
+        ManagementSections.Where(section => section.Id != "statistics" || _canReadStatistics);
 
     // Видимость/архив: скрытые самим админом и запрещённые супер-админом.
     private HashSet<int> _hiddenSubjects = [];
@@ -119,7 +120,10 @@ public partial class Management : IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        _isSuperAdmin = (await Authentication.GetAuthenticationStateAsync()).User.IsInRole(Roles.SuperAdmin);
+        AdminAccessDto? permissions = await PermissionReader.ReadAsync();
+        _allSubjects = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.ALL_SUBJECTS) == true;
+        _canReadStatistics = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.STATISTICS) == true;
+        _canDeleteCatalog = permissions?.Has(FunAndChecks.Domain.Constants.AdminPermissions.DELETE_CATALOG) == true;
         await ReloadAsync();
         if (await CurrentSubject.PickAsync(AvailableSubjects.Select(s => s.Id)) is int current)
         {
@@ -249,11 +253,11 @@ public partial class Management : IAsyncDisposable
             async () =>
             {
                 var subject = await Subjects.CreateAsync(new CreateSubjectRequest(_newSubjectName.Trim()));
-                if (_isSuperAdmin)
+                if (_allSubjects)
                     foreach (var groupId in _newSubjectGroupIds)
                         await Groups.LinkSubjectAsync(groupId, subject.Id);
             },
-            Loc[_isSuperAdmin ? "Management_SubjectCreated" : "Management_SubjectCreatedPendingAccess"],
+            Loc[_allSubjects ? "Management_SubjectCreated" : "Management_SubjectCreatedPendingAccess"],
             async () => { _newSubjectName = ""; _newSubjectGroupIds = new HashSet<int>(); await ReloadAsync(); });
     }
 

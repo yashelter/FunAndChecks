@@ -1,4 +1,5 @@
 using System.Net;
+using FunAndChecks.Application.Admins;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
@@ -91,7 +92,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     [Fact]
-    public async Task AdminCanGrantAcrossRestrictionsAndToSelf_DirectoryDeduplicatesAndPaginates()
+    public async Task AdminCanGrantAcrossRestrictions_DirectoryDeduplicatesAndPaginates()
     {
         var seed = await SeedAsync();
         using var super = Client(seed.SuperToken);
@@ -116,7 +117,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
         (await admin.GetAsync("/api/admin/achievement-recipients?page=0")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
         var award = await GrantAsync(admin, definition.Id, seed.StudentId);
         award.IssuedByUserId.Should().Be(seed.AdminId);
-        await GrantAsync(admin, definition.Id, seed.AdminId);
+        await GrantAsync(super, definition.Id, seed.AdminId);
         var recipients = (await student.GetFromJsonAsync<AchievementRecipientPageDto>($"/api/achievements/{definition.Id}/recipients"))!;
         recipients.TotalCount.Should().Be(2);
         recipients.Items.Select(p => p.UserId).Should().BeEquivalentTo([seed.StudentId, seed.AdminId]);
@@ -167,7 +168,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
             .StatusCode.Should().Be(HttpStatusCode.OK);
         (await super.PutAsJsonAsync($"/api/admin/achievements/{definition.Id}/archive", new ArchiveAchievementRequest(true)))
             .StatusCode.Should().Be(HttpStatusCode.NoContent);
-        (await admin.PostAsJsonAsync($"/api/admin/achievements/{definition.Id}/awards", new GrantAchievementRequest(seed.AdminId)))
+        (await admin.PostAsJsonAsync($"/api/admin/achievements/{definition.Id}/awards", new GrantAchievementRequest(seed.StudentId)))
             .StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await student.GetFromJsonAsync<AchievementPageDto>("/api/achievements"))!.Items.Should().BeEmpty();
         (await student.GetFromJsonAsync<AchievementPageDto>("/api/achievements?includeArchived=true"))!.Items.Should().ContainSingle().Which.IsArchived.Should().BeTrue();
@@ -189,7 +190,7 @@ public class ProfilesAchievementsFlowTests : IDisposable
         byDefault.ActiveByDefault.Should().BeTrue();
         var plainAward = await GrantAsync(admin, plain.Id, seed.StudentId);
         await GrantAsync(admin, byDefault.Id, seed.StudentId);
-        var foreignAward = await GrantAsync(admin, plain.Id, seed.AdminId);
+        var foreignAward = await GrantAsync(super, plain.Id, seed.AdminId);
 
         async Task<int?> ActiveAsync() =>
             (await student.GetFromJsonAsync<UserProfileDto>("/api/me/profile"))!.ActiveAchievement?.AchievementId;
@@ -554,6 +555,40 @@ public class ProfilesAchievementsFlowTests : IDisposable
     }
 
     private static readonly MediaRenderRequest Crop = new(0, 0, 1, 1, 0, 0, 0, "Still");
+
+    [Fact]
+    public async Task SelfAwardRequiresIndependentPermissionAndUsesCurrentGrantAsync()
+    {
+        var seed = await SeedAsync();
+        using HttpClient super = Client(seed.SuperToken);
+        using HttpClient admin = Client(seed.AdminToken);
+        AchievementDto first = await CreateAsync(super, "First self award");
+        AchievementDto second = await CreateAsync(super, "Second self award");
+        string url = $"/api/admins/{seed.AdminId}/access/special-permissions";
+        string[] initial = [AdminPermissions.ACHIEVEMENT_CATALOG, AdminPermissions.REVOKE_OTHERS];
+
+        (await super.PutAsJsonAsync(url, new ReplaceSpecialPermissionsRequest(initial.ToList(), [])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        using HttpResponseMessage denied = await admin.PostAsJsonAsync($"/api/admin/achievements/{first.Id}/awards",
+            new GrantAchievementRequest(seed.AdminId));
+        denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await denied.Content.ReadAsStringAsync()).Should().Contain("access.permission_required").And.Contain(AdminPermissions.GRANT_SELF);
+        await GrantAsync(admin, first.Id, seed.StudentId);
+
+        (await super.PutAsJsonAsync(url, new ReplaceSpecialPermissionsRequest([.. initial, AdminPermissions.GRANT_SELF], initial.ToList())))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        AchievementAwardDto award = await GrantAsync(admin, first.Id, seed.AdminId);
+        award.IssuedByUserId.Should().Be(seed.AdminId);
+
+        (await super.PutAsJsonAsync(url, new ReplaceSpecialPermissionsRequest(initial.ToList(), [.. initial, AdminPermissions.GRANT_SELF])))
+            .StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await admin.PostAsJsonAsync($"/api/admin/achievements/{second.Id}/awards", new GrantAchievementRequest(seed.AdminId)))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        using IServiceScope scope = _factory.Services.CreateScope();
+        ApplicationDbContext db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await db.AchievementAwards.CountAsync(item => item.UserId == seed.AdminId)).Should().Be(1);
+    }
 
     private async Task<AchievementDto> CreateAsync(HttpClient client, string name = "Achievement")
     {
