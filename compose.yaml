@@ -36,29 +36,6 @@ services:
     expose:
       - "587"
 
-  caddy:
-    image: caddy:2.11.7
-    container_name: caddy-proxy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN}
-      API_INTERNAL_PORT: ${API_INTERNAL_PORT:-8080}
-      MONITORING_PROXY_KEY: ${MONITORING_PROXY_KEY:?Set MONITORING_PROXY_KEY}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - funandchecks-api
-      - grafana
-    networks:
-      - default
-      - caddy_net
-      - monitoring_net
-
   # Разовая подготовка прав существующих томов после перехода API с root на app.
   app-volume-init:
     image: funandchecks-api
@@ -153,6 +130,7 @@ services:
     networks:
       - default
       - monitoring_net
+      - caddy_net
 
   prometheus:
     image: prom/prometheus:v3.15.1
@@ -266,7 +244,9 @@ services:
       - ./monitoring/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
-    networks: [monitoring_net]
+    networks: 
+      - monitoring_net
+      - caddy_net
 
   # Manual one-off tools; never run as part of normal `compose up`.
   log-import:
@@ -298,8 +278,6 @@ services:
 volumes:
   pgdata:
   dataprotection-keys:
-  caddy_data:
-  caddy_config:
   maildkim:
   backups:
   media-temp:
