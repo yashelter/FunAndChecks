@@ -972,6 +972,27 @@
   <data name="Stats_StudentsFinished" xml:space="preserve"><value>Finished in queue</value></data>
   <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Different students this reviewer led last and finished in a queue</value></data>
   <data name="Stats_Note" xml:space="preserve"><value>Attempts are counted for all time, including repeated ones; undone marks are not counted. Students finished in a queue are counted since the update that added this section.</value></data>
+  <data name="Stats_TabReviewers" xml:space="preserve"><value>Reviewers</value></data>
+  <data name="Stats_TabActivity" xml:space="preserve"><value>Admin activity</value></data>
+  <data name="Stats_ActivityTitle" xml:space="preserve"><value>Admin activity summary</value></data>
+  <data name="Stats_ActivitySubtitle" xml:space="preserve"><value>Actions performed by administrators across tasks, queues, grades, attendance, variants, and achievements.</value></data>
+  <data name="Stats_Period" xml:space="preserve"><value>Period</value></data>
+  <data name="Stats_PeriodAll" xml:space="preserve"><value>All time</value></data>
+  <data name="Stats_PeriodToday" xml:space="preserve"><value>Today</value></data>
+  <data name="Stats_Period7Days" xml:space="preserve"><value>Last 7 days</value></data>
+  <data name="Stats_Period30Days" xml:space="preserve"><value>Last 30 days</value></data>
+  <data name="Stats_PeriodCustom" xml:space="preserve"><value>Custom range</value></data>
+  <data name="Stats_DateFrom" xml:space="preserve"><value>From</value></data>
+  <data name="Stats_DateTo" xml:space="preserve"><value>To</value></data>
+  <data name="Stats_ColChecks" xml:space="preserve"><value>Checks</value></data>
+  <data name="Stats_ColGrades" xml:space="preserve"><value>Grades</value></data>
+  <data name="Stats_ColSessions" xml:space="preserve"><value>Roll calls</value></data>
+  <data name="Stats_ColAttendance" xml:space="preserve"><value>Attendance</value></data>
+  <data name="Stats_ColVariants" xml:space="preserve"><value>Variants</value></data>
+  <data name="Stats_ColAchievements" xml:space="preserve"><value>Achievements</value></data>
+  <data name="Stats_ColTotal" xml:space="preserve"><value>Total</value></data>
+  <data name="Stats_ColLastActivity" xml:space="preserve"><value>Last activity</value></data>
+  <data name="Stats_AchievementsGlobalHint" xml:space="preserve"><value>Achievements are global and only counted when All subjects is selected.</value></data>
   <data name="Stats_Empty" xml:space="preserve"><value>No reviewers yet</value></data>
   <data name="Queue_LateBadge" xml:space="preserve"><value>Late by {0} min</value></data>
   <data name="QueueDetails_LateExcusedBadge" xml:space="preserve"><value>Late by {0} min, excused</value></data>

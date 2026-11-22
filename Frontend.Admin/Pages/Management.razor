@@ -341,7 +341,14 @@ else
 
         @if (_section == "statistics" && _canReadStatistics)
         {
-            <ReviewerStatsBoard />
+            <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pt-4">
+                <MudTabPanel Text="@Loc["Stats_TabReviewers"]">
+                    <ReviewerStatsBoard />
+                </MudTabPanel>
+                <MudTabPanel Text="@Loc["Stats_TabActivity"]">
+                    <AdminActivityStatsBoard />
+                </MudTabPanel>
+            </MudTabs>
         }
 
         @if (_section == "visibility")

@@ -21,4 +21,17 @@ public class StatisticsController(IReviewerStatisticsService statistics) : Contr
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<List<ReviewerStatsDto>>> GetReviewers([FromQuery] int? subjectId, CancellationToken ct) =>
         Ok(await statistics.GetAsync(subjectId, ct));
+
+    /// <summary>
+    /// Расширенная сводка активности администраторов (проверки, очереди, оценки, посещаемость, варианты, ачивки).
+    /// </summary>
+    [HttpGet("activity")]
+    [ProducesResponseType(typeof(List<AdminActivityStatsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<AdminActivityStatsDto>>> GetActivity(
+        [FromQuery] int? subjectId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken ct) =>
+        Ok(await statistics.GetActivityAsync(subjectId, from, to, ct));
 }

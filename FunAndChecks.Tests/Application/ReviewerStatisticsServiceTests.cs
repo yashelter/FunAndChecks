@@ -142,5 +142,105 @@ public class ReviewerStatisticsServiceTests : IDisposable
         (await act.Should().ThrowAsync<NotFoundException>()).Which.Code.Should().Be("subject.not_found");
     }
 
+    [Fact]
+    public async Task GetActivity_CountsAllActivityTypes_AndFiltersBySubjectAndPeriod()
+    {
+        var now = DateTime.UtcNow;
+        var f = await SeedAsync();
+        await using (var ctx = _db.NewContext())
+        {
+            var student = ctx.Students.First(s => s.Id == f.Student1);
+            var comp = new GradeComponent { SubjectId = f.Math, Name = "Exam", MaxPoints = 100 };
+            ctx.GradeComponents.Add(comp);
+            await ctx.SaveChangesAsync();
+
+            ctx.StudentGrades.Add(new StudentGrade
+            {
+                StudentId = student.Id,
+                GradeComponentId = comp.Id,
+                AdminId = f.Anna,
+                Points = 90,
+                UpdatedAt = now.AddDays(-2)
+            });
+
+            var session = new AttendanceSession
+            {
+                SubjectId = f.Math,
+                Name = "S1",
+                CreatedByAdminId = f.Anna,
+                CreatedAt = now.AddDays(-1)
+            };
+            ctx.AttendanceSessions.Add(session);
+            await ctx.SaveChangesAsync();
+
+            ctx.AttendanceRecords.Add(new AttendanceRecord
+            {
+                SessionId = session.Id,
+                StudentId = student.Id,
+                GroupName = "G1",
+                Status = AttendanceStatus.Present,
+                MarkedByAdminId = f.Anna,
+                UpdatedAt = now.AddHours(-12)
+            });
+
+            var vSet = new VariantSet { SubjectId = f.Math, Name = "Lab1" };
+            ctx.VariantSets.Add(vSet);
+            await ctx.SaveChangesAsync();
+            var variant = new Variant { VariantSetId = vSet.Id, Number = 1 };
+            ctx.Variants.Add(variant);
+            await ctx.SaveChangesAsync();
+
+            ctx.VariantAssignments.Add(new VariantAssignment
+            {
+                VariantSetId = vSet.Id,
+                VariantId = variant.Id,
+                StudentId = student.Id,
+                AssignedByAdminId = f.Anna,
+                AssignedAt = now.AddHours(-6)
+            });
+
+            var ach = new AchievementDefinition { Name = "A1", Description = "D1", CreatedByName = "Anna" };
+            ctx.AchievementDefinitions.Add(ach);
+            await ctx.SaveChangesAsync();
+            ctx.AchievementAwards.Add(new AchievementAward
+            {
+                AchievementId = ach.Id,
+                UserId = student.Id,
+                IssuedByUserId = f.Anna,
+                IssuedByName = "Anna",
+                GrantedAtUtc = now.AddHours(-1)
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using var read = _db.NewContext();
+        var sut = new ReviewerStatisticsService(read);
+
+        var all = (await sut.GetActivityAsync(null, null, null)).Single(s => s.AdminId == f.Anna);
+        all.GradesUpdated.Should().Be(1);
+        all.AttendanceSessionsCreated.Should().Be(1);
+        all.AttendanceMarksSet.Should().Be(1);
+        all.VariantsAssigned.Should().Be(1);
+        all.AchievementsGranted.Should().Be(1);
+        all.LastActivityAt.Should().NotBeNull();
+
+        var mathOnly = (await sut.GetActivityAsync(f.Math, null, null)).Single(s => s.AdminId == f.Anna);
+        mathOnly.GradesUpdated.Should().Be(1);
+        mathOnly.AchievementsGranted.Should().Be(0);
+
+        var recentOnly = (await sut.GetActivityAsync(null, now.AddHours(-10), null)).Single(s => s.AdminId == f.Anna);
+        recentOnly.GradesUpdated.Should().Be(0);
+        recentOnly.VariantsAssigned.Should().Be(1);
+        recentOnly.AchievementsGranted.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetActivity_UnknownSubject_Throws()
+    {
+        await using var read = _db.NewContext();
+        var act = () => new ReviewerStatisticsService(read).GetActivityAsync(404, null, null);
+        (await act.Should().ThrowAsync<NotFoundException>()).Which.Code.Should().Be("subject.not_found");
+    }
+
     public void Dispose() => _db.Dispose();
 }

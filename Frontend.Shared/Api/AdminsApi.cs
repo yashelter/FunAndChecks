@@ -20,6 +20,18 @@ public class AdminsApi(HttpClient http, IStringLocalizer<AppStrings> loc) : ApiC
     public Task<List<ReviewerStatsDto>> GetReviewerStatsAsync(int? subjectId, CancellationToken ct = default) =>
         GetAsync<List<ReviewerStatsDto>>(subjectId is int id ? $"api/statistics/reviewers?subjectId={id}" : "api/statistics/reviewers", ct);
 
+    /// <summary>Расширенная сводка активности админов (только суперадмин).</summary>
+    public Task<List<AdminActivityStatsDto>> GetAdminActivityStatsAsync(
+        int? subjectId, DateTime? fromUtc, DateTime? toUtc, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        if (subjectId is int id) query.Add($"subjectId={id}");
+        if (fromUtc is DateTime from) query.Add($"from={Uri.EscapeDataString(from.ToString("O"))}");
+        if (toUtc is DateTime to) query.Add($"to={Uri.EscapeDataString(to.ToString("O"))}");
+        var url = query.Count > 0 ? $"api/statistics/activity?{string.Join("&", query)}" : "api/statistics/activity";
+        return GetAsync<List<AdminActivityStatsDto>>(url, ct);
+    }
+
     public async Task<Guid> CreateAsync(CreateAdminRequest request, CancellationToken ct = default)
     {
         var result = await PostAsync<IdResponse>("api/admins", request, ct);

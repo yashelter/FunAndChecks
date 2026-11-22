@@ -974,6 +974,27 @@
   <data name="Stats_StudentsFinished" xml:space="preserve"><value>Завершил в очереди</value></data>
   <data name="Stats_StudentsFinishedHint" xml:space="preserve"><value>Разные студенты, которых проверяющий вёл последним и завершил в очереди</value></data>
   <data name="Stats_Note" xml:space="preserve"><value>Попытки считаются за всё время, включая повторные; отменённые отметки не считаются. Завершённые в очереди считаются с обновления, в котором появился этот раздел.</value></data>
+  <data name="Stats_TabReviewers" xml:space="preserve"><value>Проверяющие</value></data>
+  <data name="Stats_TabActivity" xml:space="preserve"><value>Активность админов</value></data>
+  <data name="Stats_ActivityTitle" xml:space="preserve"><value>Сводка активности админов</value></data>
+  <data name="Stats_ActivitySubtitle" xml:space="preserve"><value>Действия администраторов: проверки задач, очереди, оценки, переклички, посещаемость, варианты и ачивки.</value></data>
+  <data name="Stats_Period" xml:space="preserve"><value>Период</value></data>
+  <data name="Stats_PeriodAll" xml:space="preserve"><value>За всё время</value></data>
+  <data name="Stats_PeriodToday" xml:space="preserve"><value>Сегодня</value></data>
+  <data name="Stats_Period7Days" xml:space="preserve"><value>7 дней</value></data>
+  <data name="Stats_Period30Days" xml:space="preserve"><value>30 дней</value></data>
+  <data name="Stats_PeriodCustom" xml:space="preserve"><value>Произвольный</value></data>
+  <data name="Stats_DateFrom" xml:space="preserve"><value>От</value></data>
+  <data name="Stats_DateTo" xml:space="preserve"><value>До</value></data>
+  <data name="Stats_ColChecks" xml:space="preserve"><value>Проверки</value></data>
+  <data name="Stats_ColGrades" xml:space="preserve"><value>Оценки</value></data>
+  <data name="Stats_ColSessions" xml:space="preserve"><value>Переклички</value></data>
+  <data name="Stats_ColAttendance" xml:space="preserve"><value>Посещаемость</value></data>
+  <data name="Stats_ColVariants" xml:space="preserve"><value>Варианты</value></data>
+  <data name="Stats_ColAchievements" xml:space="preserve"><value>Ачивки</value></data>
+  <data name="Stats_ColTotal" xml:space="preserve"><value>Всего</value></data>
+  <data name="Stats_ColLastActivity" xml:space="preserve"><value>Последняя активность</value></data>
+  <data name="Stats_AchievementsGlobalHint" xml:space="preserve"><value>Ачивки не привязаны к предмету и учитываются только при выборе «Все предметы».</value></data>
   <data name="Stats_Empty" xml:space="preserve"><value>Проверяющих пока нет</value></data>
   <data name="Queue_LateBadge" xml:space="preserve"><value>Опоздание {0} мин</value></data>
   <data name="QueueDetails_LateExcusedBadge" xml:space="preserve"><value>Опоздание {0} мин снято</value></data>

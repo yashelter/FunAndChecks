@@ -1,0 +1,78 @@
+@* Расширенная статистика активности админов — раздел «Управления», только для суперадминов. *@
+<section class="fc-panel fc-management-section fc-reviewer-stats">
+    <div class="fc-reviewer-stats-head">
+        <div>
+            <MudText Typo="Typo.h6">@Loc["Stats_ActivityTitle"]</MudText>
+            <p class="fc-muted">@Loc["Stats_ActivitySubtitle"]</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-center">
+            <MudSelect T="int?" Value="_subjectId" ValueChanged="ChangeSubjectAsync" ToStringFunc="SubjectName"
+                       Label="@Loc["Common_Subject"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+                <MudSelectItem T="int?" Value="@((int?)null)">@Loc["Stats_AllSubjects"]</MudSelectItem>
+                @foreach (var subject in _subjects) { <MudSelectItem T="int?" Value="@subject.Id">@subject.Name</MudSelectItem> }
+            </MudSelect>
+
+            <MudSelect T="ActivityPeriod" Value="_period" ValueChanged="ChangePeriodAsync"
+                       Label="@Loc["Stats_Period"]" Variant="Variant.Outlined" Margin="Margin.Dense" Disabled="@_loading">
+                <MudSelectItem T="ActivityPeriod" Value="ActivityPeriod.All">@Loc["Stats_PeriodAll"]</MudSelectItem>
+                <MudSelectItem T="ActivityPeriod" Value="ActivityPeriod.Today">@Loc["Stats_PeriodToday"]</MudSelectItem>
+                <MudSelectItem T="ActivityPeriod" Value="ActivityPeriod.Last7Days">@Loc["Stats_Period7Days"]</MudSelectItem>
+                <MudSelectItem T="ActivityPeriod" Value="ActivityPeriod.Last30Days">@Loc["Stats_Period30Days"]</MudSelectItem>
+                <MudSelectItem T="ActivityPeriod" Value="ActivityPeriod.Custom">@Loc["Stats_PeriodCustom"]</MudSelectItem>
+            </MudSelect>
+
+            @if (_period == ActivityPeriod.Custom)
+            {
+                <MudDatePicker Date="_customFrom" DateChanged="ChangeFromDateAsync" Label="@Loc["Stats_DateFrom"]"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Disabled="@_loading" />
+                <MudDatePicker Date="_customTo" DateChanged="ChangeToDateAsync" Label="@Loc["Stats_DateTo"]"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Disabled="@_loading" />
+            }
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_rows.Count == 0)
+    {
+        <div class="fc-core-empty"><MudText Class="fc-muted">@Loc["Stats_Empty"]</MudText></div>
+    }
+    else
+    {
+        <MudTable T="AdminActivityStatsDto" Items="_rows" Class="fc-management-table" Breakpoint="Breakpoint.Sm" Dense="true" Hover="true" Elevation="0">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.FullName)">@Loc["Stats_Reviewer"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.TasksAccepted + r.TasksRejected)">@Loc["Stats_ColChecks"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.QueueStudentsFinished)">@Loc["Stats_StudentsFinished"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.GradesUpdated)">@Loc["Stats_ColGrades"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.AttendanceSessionsCreated)">@Loc["Stats_ColSessions"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.AttendanceMarksSet)">@Loc["Stats_ColAttendance"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.VariantsAssigned)">@Loc["Stats_ColVariants"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number" title="@Loc["Stats_AchievementsGlobalHint"]"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.AchievementsGranted)">@Loc["Stats_ColAchievements"]</MudTableSortLabel></MudTh>
+                <MudTh Class="fc-reviewer-stats-number"><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.TotalActions)" InitialDirection="SortDirection.Descending">@Loc["Stats_ColTotal"]</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="AdminActivityStatsDto" SortBy="@(r => r.LastActivityAt ?? DateTime.MinValue)">@Loc["Stats_ColLastActivity"]</MudTableSortLabel></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="@Loc["Stats_Reviewer"]">
+                    <span class="fc-reviewer-stats-name">
+                        <span class="fc-result-history-teacher" style="@LetterStyle(context.Color)">@context.Letter</span>
+                        <ProfileLink UserId="context.AdminId">@context.FullName</ProfileLink>
+                    </span>
+                </MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColChecks"]" Class="fc-reviewer-stats-number" title="@($"{context.TasksAccepted} / {context.TasksRejected}")">
+                    <span class="fc-semantic-success">@context.TasksAccepted</span> / <span class="fc-semantic-warning">@context.TasksRejected</span>
+                </MudTd>
+                <MudTd DataLabel="@Loc["Stats_StudentsFinished"]" Class="fc-reviewer-stats-number">@context.QueueStudentsFinished</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColGrades"]" Class="fc-reviewer-stats-number">@context.GradesUpdated</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColSessions"]" Class="fc-reviewer-stats-number">@context.AttendanceSessionsCreated</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColAttendance"]" Class="fc-reviewer-stats-number">@context.AttendanceMarksSet</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColVariants"]" Class="fc-reviewer-stats-number">@context.VariantsAssigned</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColAchievements"]" Class="fc-reviewer-stats-number">@(_subjectId is null ? context.AchievementsGranted.ToString() : "—")</MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColTotal"]" Class="fc-reviewer-stats-number"><strong>@context.TotalActions</strong></MudTd>
+                <MudTd DataLabel="@Loc["Stats_ColLastActivity"]">@FormatLastActivity(context.LastActivityAt)</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</section>

@@ -27,6 +27,27 @@ public record ReviewerStatsDto(Guid AdminId, string FullName, string? Color, str
     public double? AcceptedShare => Attempts == 0 ? null : 100.0 * Accepted / Attempts;
 }
 
+/// <summary>Расширенная сводка активности администратора за выбранный период и предмет.</summary>
+public record AdminActivityStatsDto(
+    Guid AdminId,
+    string FullName,
+    string? Color,
+    string? Letter,
+    int TasksAccepted,
+    int TasksRejected,
+    int QueueStudentsFinished,
+    int GradesUpdated,
+    int AttendanceSessionsCreated,
+    int AttendanceMarksSet,
+    int VariantsAssigned,
+    int AchievementsGranted,
+    DateTime? LastActivityAt)
+{
+    public int TotalActions =>
+        TasksAccepted + TasksRejected + QueueStudentsFinished + GradesUpdated +
+        AttendanceSessionsCreated + AttendanceMarksSet + VariantsAssigned + AchievementsGranted;
+}
+
 public record MeDto(
     Guid Id,
     string FirstName,
